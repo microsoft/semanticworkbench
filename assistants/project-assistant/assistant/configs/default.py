@@ -45,6 +45,68 @@ class RequestConfig(BaseModel):
     ] = "gpt-4o"
 
 
+class PromptConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Prompt Templates",
+        json_schema_extra={
+            "required": [
+                "instruction_prompt",
+                "coordinator_prompt",
+                "team_prompt",
+                "whiteboard_prompt",
+                "project_information_request_detection",
+            ],
+        },
+    )
+
+    instruction_prompt: Annotated[
+        str,
+        Field(
+            title="Instruction Prompt",
+            description="The prompt used to instruct the behavior of the AI assistant. This is prepended to every response prompt.",
+        ),
+        UISchema(widget="textarea"),
+    ] = (
+        "You are an AI project assistant that helps teams collaborate. You can facilitate file sharing between "
+        "different conversations, allowing users to collaborate without being in the same conversation. "
+        "Users can invite others with the /invite command, and you'll help synchronize files between conversations. "
+        "In addition to text, you can also produce markdown, code snippets, and other types of content."
+    )
+
+    coordinator_prompt: Annotated[
+        str,
+        Field(
+            title="Coordinator Prompt",
+            description="The prompt used to instruct the behavior of the coordinator assistant. This is added to the instruction prompt when in coordinator mode.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("coordinator_prompt.txt")
+
+    team_prompt: Annotated[
+        str,
+        Field(
+            title="Team Prompt",
+            description="The prompt used to instruct the behavior of the team member assistant. This is added to the instruction prompt when in team member mode.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("team_prompt.txt")
+
+    project_information_request_detection: Annotated[
+        str,
+        Field(
+            title="Information Request Detection Prompt",
+            description="The prompt used to detect information requests in project assistant mode.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("project_information_request_detection.txt")
+
+    whiteboard_prompt: Annotated[
+        str,
+        Field(title="Whiteboard Prompt", description="The prompt used to generate whiteboard content."),
+        UISchema(widget="textarea"),
+    ] = load_text_include("whiteboard_prompt.txt")
+
+
 class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
         title="Coordinator Configuration",
@@ -126,33 +188,13 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = False
 
-    instruction_prompt: Annotated[
-        str,
+    prompt_config: Annotated[
+        PromptConfig,
         Field(
-            title="Instruction Prompt",
-            description="The prompt used to instruct the behavior of the AI assistant.",
+            title="Prompt Configuration",
+            description="Configuration for prompt templates used throughout the assistant.",
         ),
-        UISchema(widget="textarea"),
-    ] = (
-        "You are an AI project assistant that helps teams collaborate. You can facilitate file sharing between "
-        "different conversations, allowing users to collaborate without being in the same conversation. "
-        "Users can invite others with the /invite command, and you'll help synchronize files between conversations. "
-        "In addition to text, you can also produce markdown, code snippets, and other types of content."
-    )
-
-    guardrails_prompt: Annotated[
-        str,
-        Field(
-            title="Guardrails Prompt",
-            description=(
-                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
-                " recommendations from: [Microsoft OpenAI Service: System message templates]"
-                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                "#define-additional-safety-and-behavioral-guardrails)"
-            ),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = load_text_include("guardrails_prompt.txt")
+    ] = PromptConfig()
 
     request_config: Annotated[
         RequestConfig,
