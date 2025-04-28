@@ -5,6 +5,7 @@
 # This assistant provides project coordination capabilities with Coordinator and Team member roles,
 # supporting whiteboard sharing, file synchronization, and team collaboration.
 
+import asyncio
 
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
@@ -371,8 +372,13 @@ async def on_message_created(
             attachments_extension=attachments_extension,
             metadata=metadata,
         )
+
+        # If the message is from a Coordinator, update the whiteboard in the background
+        if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
+            # Fire-and-forget: don't await, let it run in the background
+            asyncio.create_task(ProjectManager.auto_update_whiteboard(context, messages.messages))
+
     except Exception as e:
-        # Log the error and send a notice to the conversation
         logger.exception(f"Error handling message: {e}")
         await context.send_messages(
             NewConversationMessage(
