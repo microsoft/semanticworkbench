@@ -25,12 +25,10 @@ from .project_data import (
     SuccessCriterion,
 )
 from .project_manager import ProjectManager
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectNotifier,
-    ProjectStorage,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_notifications import ProjectNotifier
+from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +189,7 @@ command_registry = CommandRegistry()
 async def handle_help_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """Handle the help command."""
     # Get the conversation's role
-    from .project_storage import ConversationProjectManager
+    from .conversation_project_link import ConversationProjectManager
 
     # First check conversation metadata
     conversation = await context.get_conversation()
@@ -573,9 +571,6 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
                 message_type=MessageType.notice,
             )
         )
-
-
-# Whiteboard auto-update separator
 
 
 async def handle_request_info_command(
@@ -1092,8 +1087,6 @@ async def handle_sync_files_command(
             )
         )
 
-
-# Setup mode commands are no longer needed - they're handled automatically
 
 # General commands (available to all)
 command_registry.register_command(

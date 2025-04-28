@@ -7,11 +7,12 @@ This module provides the core business logic for working with project data
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
+    ConversationMessage,
     ConversationPermission,
     MessageType,
     NewConversation,
@@ -26,7 +27,6 @@ from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_data import (
     InformationRequest,
-    LogEntry,
     LogEntryType,
     Project,
     ProjectBrief,
@@ -39,13 +39,10 @@ from .project_data import (
     RequestStatus,
     SuccessCriterion,
 )
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectNotifier,
-    ProjectStorage,
-    ProjectStorageManager,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_notifications import ProjectNotifier
+from .project_storage import ProjectStorage, ProjectStorageManager
+from .project_storage_models import ConversationRole
 from .utils import get_current_user, require_current_user
 
 
@@ -511,85 +508,6 @@ class ProjectManager:
         return brief
 
     @staticmethod
-    async def update_project_brief(
-        context: ConversationContext,
-        updates: Dict[str, Any],
-        send_notification: bool = True,
-    ) -> None:
-        """
-        Updates an existing project brief.
-
-        Args:
-            context: Current conversation context
-            updates: Dictionary of fields to update
-            send_notification: Whether to send a notification about the brief update (default: True)
-
-        Returns:
-            True if update was successful, False otherwise
-        """
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
-        if not project_id:
-            logger.error("Cannot update brief: no project associated with this conversation")
-            return
-
-        # Get user information
-        current_user_id = await require_current_user(context, "update brief")
-        if not current_user_id:
-            logger.error("Cannot update brief: no user found")
-            return
-
-        # Load existing brief
-        brief = ProjectStorage.read_project_brief(project_id)
-        if not brief:
-            logger.error(f"Cannot update brief: no brief found for project {project_id}")
-            return
-
-        # Apply updates, skipping immutable fields
-        any_fields_updated = False
-        immutable_fields = [
-            "created_by",
-            "conversation_id",
-            "created_at",
-            "version",
-        ]
-
-        for field, value in updates.items():
-            if hasattr(brief, field) and field not in immutable_fields:
-                setattr(brief, field, value)
-                any_fields_updated = True
-
-        if not any_fields_updated:
-            logger.info("No updates applied to brief")
-            return
-
-        # Update metadata
-        brief.updated_at = datetime.utcnow()
-        brief.updated_by = current_user_id
-        brief.version += 1
-
-        # Save the updated brief
-        ProjectStorage.write_project_brief(project_id, brief)
-
-        # Log the update
-        await ProjectStorage.log_project_event(
-            context=context,
-            project_id=project_id,
-            entry_type=LogEntryType.BRIEFING_UPDATED.value,
-            message=f"Updated project brief: {brief.project_name}",
-        )
-
-        # Only notify if send_notification is True
-        if send_notification:
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Project brief updated: {brief.project_name}",
-            )
-
-    @staticmethod
     async def get_project_state(
         context: ConversationContext,
     ) -> Optional[ProjectState]:
@@ -895,101 +813,6 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def update_information_request(
-        context: ConversationContext,
-        request_id: str,
-        updates: Dict[str, Any],
-    ) -> Tuple[bool, Optional[InformationRequest]]:
-        """
-        Updates an existing information request.
-
-        Args:
-            context: Current conversation context
-            request_id: ID of the request to update
-            updates: Dictionary of fields to update
-
-        Returns:
-            Tuple of (success, information_request)
-        """
-        try:
-            # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot update information request: no project associated with this conversation")
-                return False, None
-
-            # Get user information
-            current_user_id = await require_current_user(context, "update information request")
-            if not current_user_id:
-                return False, None
-
-            # Get the information request
-            information_request = ProjectStorage.read_information_request(project_id, request_id)
-            if not information_request:
-                logger.error(f"Information request {request_id} not found")
-                return False, None
-
-            # Apply updates, skipping protected fields
-            updated = False
-            protected_fields = [
-                "request_id",
-                "created_by",
-                "created_at",
-                "conversation_id",
-                "version",
-            ]
-
-            for field, value in updates.items():
-                if hasattr(information_request, field) and field not in protected_fields:
-                    # Special handling for status changes
-                    if field == "status" and information_request.status != value:
-                        # Add an update to the history
-                        information_request.updates.append({
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "user_id": current_user_id,
-                            "message": f"Status changed from {information_request.status.value} to {value.value}",
-                            "status": value.value,
-                        })
-
-                    setattr(information_request, field, value)
-                    updated = True
-
-            if not updated:
-                logger.info(f"No updates applied to information request {request_id}")
-                return True, information_request
-
-            # Update metadata
-            information_request.updated_at = datetime.utcnow()
-            information_request.updated_by = current_user_id
-            information_request.version += 1
-
-            # Save the updated request
-            ProjectStorage.write_information_request(project_id, information_request)
-
-            # Log the update
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.REQUEST_UPDATED.value,
-                message=f"Updated information request: {information_request.title}",
-                related_entity_id=information_request.request_id,
-            )
-
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="information_request_updated",
-                message=f"Information request updated: {information_request.title}",
-            )
-
-            return True, information_request
-
-        except Exception as e:
-            logger.exception(f"Error updating information request: {e}")
-            return False, None
-
-    @staticmethod
     async def resolve_information_request(
         context: ConversationContext,
         request_id: str,
@@ -1121,82 +944,6 @@ class ProjectManager:
             return None
 
         return ProjectStorage.read_project_log(project_id)
-
-    @staticmethod
-    async def add_log_entry(
-        context: ConversationContext,
-        entry_type: LogEntryType,
-        message: str,
-        related_entity_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, Optional[ProjectLog]]:
-        """
-        Adds an entry to the project log.
-
-        Args:
-            context: Current conversation context
-            entry_type: Type of log entry
-            message: Log message
-            related_entity_id: Optional ID of a related entity
-            metadata: Optional additional metadata
-
-        Returns:
-            Tuple of (success, project_log)
-        """
-        try:
-            project_id = await ProjectManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot add log entry: no project associated with this conversation")
-                return False, None
-
-            current_user_id, user_name = await get_current_user(context)
-            if not current_user_id:
-                logger.error("Cannot add log entry: no user found in conversation")
-                return False, None
-
-            user_name = user_name or "Unknown User"
-
-            entry = LogEntry(
-                entry_type=entry_type,
-                message=message,
-                user_id=current_user_id,
-                user_name=user_name,
-                related_entity_id=related_entity_id,
-                metadata=metadata or {},
-            )
-
-            project_log = ProjectStorage.read_project_log(project_id)
-            if not project_log:
-                project_log = ProjectLog(
-                    entries=[],
-                )
-
-            project_log.entries.append(entry)
-
-            ProjectStorage.write_project_log(project_id, project_log)
-
-            # Notify linked conversations for significant events
-            significant_types = [
-                LogEntryType.PROJECT_STARTED,
-                LogEntryType.PROJECT_COMPLETED,
-                LogEntryType.PROJECT_ABORTED,
-                LogEntryType.GOAL_COMPLETED,
-                LogEntryType.MILESTONE_PASSED,
-            ]
-
-            if entry_type in significant_types:
-                await ProjectNotifier.notify_project_update(
-                    context=context,
-                    project_id=project_id,
-                    update_type="project_log",
-                    message=f"Project update: {message}",
-                )
-
-            return True, project_log
-
-        except Exception as e:
-            logger.exception(f"Error adding log entry: {e}")
-            return False, None
 
     @staticmethod
     async def get_project(context: ConversationContext) -> Optional[Project]:
@@ -1341,7 +1088,7 @@ class ProjectManager:
     @staticmethod
     async def auto_update_whiteboard(
         context: ConversationContext,
-        chat_history: List[Any],
+        chat_history: List[ConversationMessage],
     ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
         Automatically updates the whiteboard by analyzing chat history.
@@ -1358,11 +1105,9 @@ class ProjectManager:
         Returns:
             Tuple of (success, project_kb)
         """
-        logger.error("DEBUG: auto_update_whiteboard called with conversation ID: %s", context.id)
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
-            logger.error("DEBUG: auto_update_whiteboard found project ID: %s", project_id)
             if not project_id:
                 logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None

@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import openai_client
 import pytest
-from assistant.project_storage import ConversationRole
-from assistant.project_tools import ProjectTools
+from assistant.project_analysis import detect_information_request_needs
+from assistant.project_storage_models import ConversationRole
+from assistant.tools import ProjectTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
@@ -76,8 +77,8 @@ class TestProjectTools:
         assert "get_project_info" in team_tools.tool_functions.function_map
         assert "suggest_next_action" in team_tools.tool_functions.function_map
 
-        # Verify team-specific detection tool
-        assert "detect_information_request_needs" in team_tools.tool_functions.function_map
+        # detect_information_request_needs is not exposed as a tool function anymore
+        assert "detect_information_request_needs" not in team_tools.tool_functions.function_map
 
     @pytest.mark.asyncio
     async def test_project_tools_with_config(self, context, monkeypatch):
@@ -92,7 +93,7 @@ class TestProjectTools:
         # Patch the assistant_config.get method
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        monkeypatch.setattr("assistant.project_tools.assistant_config", mock_assistant_config)
+        monkeypatch.setattr("assistant.config.assistant_config", mock_assistant_config)
 
         # Test with track_progress set to True first
         # Create a ProjectTools instance directly
@@ -110,12 +111,12 @@ class TestProjectTools:
 
         # Test with get_project_tools which handles tool removal based on track_progress
         # Since the track_progress check is now done in get_project_tools, we need to test that function
-        
+
         # Create our own implementation to check for track_progress
         async def check_tools_with_config(context, role):
             """Simple wrapper to test if tools are filtered based on track_progress."""
             tools = ProjectTools(context, role)
-            
+
             # If progress tracking is disabled, remove progress-related tools
             if not mock_config.track_progress:
                 # List of progress-related functions to remove
@@ -125,21 +126,21 @@ class TestProjectTools:
                     "mark_project_ready_for_working",
                     "report_project_completion",
                 ]
-                
+
                 # Remove progress-related functions
                 for func_name in progress_functions:
                     if func_name in tools.tool_functions.function_map:
                         del tools.tool_functions.function_map[func_name]
-                
+
             return tools
-        
+
         # Get the tools using our function that checks track_progress
         project_tools = await check_tools_with_config(context, ConversationRole.COORDINATOR)
-        
+
         # Verify progress-tracking tools are removed when track_progress=False
         assert "add_project_goal" not in project_tools.tool_functions.function_map
         assert "mark_project_ready_for_working" not in project_tools.tool_functions.function_map
-        
+
         # For team tools
         team_tools = await check_tools_with_config(context, ConversationRole.TEAM)
         assert "mark_criterion_completed" not in team_tools.tool_functions.function_map
@@ -152,9 +153,6 @@ class TestProjectTools:
         context.assistant = MagicMock()
         context.assistant._template_id = "default"
         context.assistant.id = "test-assistant-id"
-
-        # Create the ProjectTools instance using the enum
-        team_tools = ProjectTools(context, ConversationRole.TEAM)
 
         # Test message
         test_message = "I need information about how to proceed with this task."
@@ -170,7 +168,7 @@ class TestProjectTools:
         # Patch assistant_config.get
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        monkeypatch.setattr("assistant.project_tools.assistant_config", mock_assistant_config)
+        monkeypatch.setattr("assistant.project_analysis.assistant_config", mock_assistant_config)
 
         # Create a mock message for the message history
         mock_msg = MagicMock()
@@ -184,7 +182,7 @@ class TestProjectTools:
         context.get_messages = AsyncMock(return_value=mock_messages_response)
 
         # Test with the message - should return early with missing service_config
-        result = await team_tools.detect_information_request_needs(test_message)
+        result = await detect_information_request_needs(context, test_message)
 
         # Verify we get the expected early-return response for missing service_config
         assert not result["is_information_request"]
@@ -216,7 +214,7 @@ class TestProjectTools:
         monkeypatch.setattr(openai_client, "create_client", mock_create_client)
 
         # Test with message that should return mocked success response
-        result = await team_tools.detect_information_request_needs(test_message)
+        result = await detect_information_request_needs(context, test_message)
 
         # Verify successful path results
         assert result["is_information_request"] is True

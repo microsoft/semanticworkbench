@@ -22,14 +22,16 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.project_tools import ProjectTools
+from assistant.tools import ProjectTools
 
 from .config import assistant_config
 from .logging import logger
+from .project_analysis import detect_information_request_needs
 from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .project_storage import ConversationRole, ProjectStorage
+from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
@@ -83,7 +85,9 @@ async def respond_to_conversation(
     ###
 
     # Instruction and assistant name
-    system_message_content = f'\n\n{config.prompt_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content = (
+        f'\n\n{config.prompt_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    )
 
     # Add role-specific instructions
     role_specific_prompt = ""
@@ -392,7 +396,7 @@ async def respond_to_conversation(
     # For team role, analyze message for possible information request needs.
     # Send a notification if we think it might be one.
     if role is ConversationRole.TEAM:
-        detection_result = await project_tools.detect_information_request_needs(message.content)
+        detection_result = await detect_information_request_needs(context, message.content)
 
         if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
             suggested_title = detection_result.get("potential_title", "")
@@ -473,20 +477,6 @@ async def respond_to_conversation(
 
             footer_items.append(get_response_duration_message(response_end_time - response_start_time))
             metadata["footer_items"] = footer_items
-
-            # Add intermediate messages to the conversation.
-            # for additional_message in additional_messages:
-            #     if additional_message.get("role") == "tool" and additional_message.get("content"):
-            #         content_str = str(additional_message.get("content", ""))
-            #         await context.send_messages(
-            #             NewConversationMessage(
-            #                 content=content_str,
-            #                 message_type=MessageType.notice,
-            #                 metadata={
-            #                     "debug": additional_message,
-            #                 },
-            #             )
-            #         )
 
             content = message_content_from_completion(completion_response)
             if not content:

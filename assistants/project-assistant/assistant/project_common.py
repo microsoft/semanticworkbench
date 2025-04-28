@@ -12,7 +12,9 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
 from .project_data import LogEntryType
-from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorage
+from .project_storage import ProjectStorage
+from .conversation_project_link import ConversationProjectManager
+from .project_storage_models import ConversationRole
 
 
 class ConfigurationTemplate(Enum):
@@ -96,7 +98,3 @@ async def log_project_action(
         related_entity_id=related_entity_id,
         metadata=additional_metadata,
     )
-
-
-# handle_project_update function has been removed as part of the refactoring
-# to simplify project organization

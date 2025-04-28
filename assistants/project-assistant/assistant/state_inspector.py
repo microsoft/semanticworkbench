@@ -16,7 +16,8 @@ from semantic_workbench_assistant.assistant_app import (
 from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .project_storage import ConversationProjectManager, ConversationRole
+from .conversation_project_link import ConversationProjectManager
+from .project_storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
