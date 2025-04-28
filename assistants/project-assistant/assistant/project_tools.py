@@ -35,13 +35,10 @@ from .project_data import (
     RequestStatus,
 )
 from .project_manager import ProjectManager
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectNotifier,
-    ProjectStorage,
-    ProjectStorageManager,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_notifications import ProjectNotifier
+from .project_storage import ProjectStorage, ProjectStorageManager
+from .project_storage_models import ConversationRole
 from .utils import is_context_transfer_assistant
 
 

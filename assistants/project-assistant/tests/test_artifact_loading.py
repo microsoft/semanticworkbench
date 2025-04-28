@@ -12,7 +12,9 @@ from typing import Any, TypeVar
 
 from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
 from assistant.project_manager import ProjectManager
-from assistant.project_storage import ConversationProjectManager, ConversationRole, ProjectStorageManager
+from assistant.conversation_project_link import ConversationProjectManager
+from assistant.project_storage import ProjectStorageManager
+from assistant.project_storage_models import ConversationRole
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import read_model, write_model
 

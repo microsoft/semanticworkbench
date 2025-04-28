@@ -20,14 +20,9 @@ from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_common import detect_assistant_role
 from .project_data import BaseEntity, LogEntryType
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectStorage,
-    ProjectStorageManager,
-    read_model,
-    write_model,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_storage import ProjectStorage, ProjectStorageManager, read_model, write_model
+from .project_storage_models import ConversationRole
 
 
 # Define helper function for safe logging without 'filename' conflict

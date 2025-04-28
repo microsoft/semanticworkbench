@@ -12,7 +12,9 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
 from .project_data import LogEntryType
-from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorage
+from .project_storage import ProjectStorage
+from .conversation_project_link import ConversationProjectManager
+from .project_storage_models import ConversationRole
 
 
 class ConfigurationTemplate(Enum):

@@ -30,7 +30,8 @@ from .project_analysis import detect_information_request_needs
 from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .project_storage import ConversationRole, ProjectStorage
+from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT

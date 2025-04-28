@@ -34,12 +34,10 @@ from .project_common import detect_assistant_role
 from .project_data import LogEntryType
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectNotifier,
-    ProjectStorage,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_notifications import ProjectNotifier
+from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 from .state_inspector import ProjectInspectorStateProvider
 
 service_id = "project-assistant.made-exploration"
