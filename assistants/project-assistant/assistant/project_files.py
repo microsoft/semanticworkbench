@@ -5,6 +5,7 @@ This module provides functionality for sharing files between Coordinator and Tea
 It enables automatic synchronization of files from Coordinator to Team conversations.
 """
 
+import asyncio
 import io
 import pathlib
 from datetime import datetime
@@ -15,6 +16,7 @@ from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_common import detect_assistant_role
 from .project_data import BaseEntity, LogEntryType
@@ -43,9 +45,6 @@ def safe_extra(log_data):
         safe_data["obj_name"] = safe_data.pop("name")
 
     return safe_data
-
-
-# logger is now imported from .logging
 
 
 class ProjectFile(BaseModel):
@@ -80,12 +79,6 @@ class ProjectFileManager:
     def get_project_files_dir(project_id: str) -> pathlib.Path:
         """
         Gets the directory for project files.
-
-        Args:
-            project_id: Project ID
-
-        Returns:
-            Path to the project files directory
         """
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         files_dir = project_dir / "files"
@@ -96,12 +89,6 @@ class ProjectFileManager:
     def get_file_metadata_path(project_id: str) -> pathlib.Path:
         """
         Gets the path to the file metadata JSON.
-
-        Args:
-            project_id: Project ID
-
-        Returns:
-            Path to the file metadata JSON
         """
         files_dir = ProjectFileManager.get_project_files_dir(project_id)
         return files_dir / "file_metadata.json"
@@ -110,13 +97,6 @@ class ProjectFileManager:
     def get_file_path(project_id: str, filename: str) -> pathlib.Path:
         """
         Gets the path to a specific file in the project.
-
-        Args:
-            project_id: Project ID
-            filename: Filename
-
-        Returns:
-            Path to the file
         """
         files_dir = ProjectFileManager.get_project_files_dir(project_id)
         return files_dir / filename
@@ -125,12 +105,6 @@ class ProjectFileManager:
     def read_file_metadata(project_id: str) -> Optional[ProjectFileCollection]:
         """
         Reads file metadata for a project.
-
-        Args:
-            project_id: Project ID
-
-        Returns:
-            ProjectFileCollection or None if not found
         """
         path = ProjectFileManager.get_file_metadata_path(project_id)
         return read_model(path, ProjectFileCollection)
@@ -139,13 +113,6 @@ class ProjectFileManager:
     def write_file_metadata(project_id: str, metadata: ProjectFileCollection) -> pathlib.Path:
         """
         Writes file metadata for a project.
-
-        Args:
-            project_id: Project ID
-            metadata: ProjectFileCollection to write
-
-        Returns:
-            Path to the written file
         """
         path = ProjectFileManager.get_file_metadata_path(project_id)
         write_model(path, metadata)
@@ -160,15 +127,6 @@ class ProjectFileManager:
     ) -> bool:
         """
         Copies a file from a conversation to project storage.
-
-        Args:
-            context: Conversation context
-            project_id: Project ID
-            file: File metadata
-            is_coordinator_file: Whether this file is from a Coordinator
-
-        Returns:
-            True if successful, False otherwise
         """
         # Create safe log data for debugging
         log_extra = {
@@ -212,13 +170,11 @@ class ProjectFileManager:
                     )
                     return False
 
-                # Log successful file read
                 logger.info(f"Successfully read {buffer_size} bytes from file", extra=safe_extra(log_extra))
             except Exception as read_error:
                 logger.error(f"Error reading file from conversation: {read_error}", extra=safe_extra(log_extra))
                 return False
 
-            # Reset buffer position
             buffer.seek(0)
 
             # Write the file to project storage
@@ -313,7 +269,6 @@ class ProjectFileManager:
                 logger.error(f"Error updating metadata: {metadata_error}", extra=safe_extra(log_extra))
                 return False
 
-            # Everything succeeded
             logger.info("File successfully copied to project storage", extra=safe_extra(log_extra))
             return True
 
@@ -325,14 +280,6 @@ class ProjectFileManager:
     async def delete_file_from_project_storage(context: ConversationContext, project_id: str, filename: str) -> bool:
         """
         Deletes a file from project storage.
-
-        Args:
-            context: Conversation context
-            project_id: Project ID
-            filename: Filename to delete
-
-        Returns:
-            True if successful, False otherwise
         """
         try:
             # Get the file path
@@ -384,20 +331,12 @@ class ProjectFileManager:
     ) -> None:
         """
         Notifies Team conversations to delete a file that was deleted by the Coordinator.
-
-        Args:
-            context: Source conversation context
-            project_id: Project ID
-            filename: Filename to delete
         """
         try:
             # Get Team conversations
             team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
             if not team_conversations:
                 return
-
-            # Create clients for Team conversations
-            from .conversation_clients import ConversationClientManager
 
             for conv_id in team_conversations:
                 try:
@@ -435,15 +374,6 @@ class ProjectFileManager:
     ) -> bool:
         """
         Copies a file from project storage to a target conversation.
-
-        Args:
-            context: Source conversation context
-            project_id: Project ID
-            filename: Filename to copy
-            target_conversation_id: Target conversation ID
-
-        Returns:
-            True if successful, False otherwise
         """
         try:
             logger.info(f"Copying file {filename} to conversation {target_conversation_id}")
@@ -465,9 +395,6 @@ class ProjectFileManager:
             if not file_meta:
                 logger.warning(f"No metadata found for file {filename}")
                 return False
-
-            # Simple approach - create client and upload file
-            from .conversation_clients import ConversationClientManager
 
             # Create client for target conversation
             target_client = ConversationClientManager.get_conversation_client(context, target_conversation_id)
@@ -505,8 +432,6 @@ class ProjectFileManager:
                     await target_client.delete_file(filename)
 
                     # Brief wait after deletion
-                    import asyncio
-
                     await asyncio.sleep(1.0)
             except Exception as e:
                 logger.info(f"Could not check/delete existing file: {e}")
@@ -530,13 +455,6 @@ class ProjectFileManager:
     async def get_team_conversations(context: ConversationContext, project_id: str) -> List[str]:
         """
         Gets all Team conversation IDs for a project.
-
-        Args:
-            context: Conversation context
-            project_id: Project ID
-
-        Returns:
-            List of Team conversation IDs
         """
         try:
             # Get linked conversations
@@ -564,18 +482,8 @@ class ProjectFileManager:
     ) -> Optional[ConversationContext]:
         """
         Creates a temporary context for a target conversation.
-
-        Args:
-            source_context: Source conversation context
-            target_conversation_id: Target conversation ID
-
-        Returns:
-            Temporary ConversationContext or None
         """
         try:
-            # Use the helper from ConversationClientManager
-            from .conversation_clients import ConversationClientManager
-
             return await ConversationClientManager.create_temporary_context_for_conversation(
                 source_context, target_conversation_id
             )
@@ -591,18 +499,11 @@ class ProjectFileManager:
     ) -> bool:
         """
         Synchronize all project files to a Team conversation.
-
-        Args:
-            context: Team conversation context
-            project_id: Project ID
-
-        Returns:
-            True if successful, False otherwise
         """
         try:
-            # Get file metadata for the project
             logger.info(f"Starting file synchronization for project {project_id}")
 
+            # Get file metadata for the project
             metadata = ProjectFileManager.read_file_metadata(project_id)
 
             if not metadata:
@@ -716,13 +617,6 @@ class ProjectFileManager:
     async def get_shared_files(context: ConversationContext, project_id: str) -> Dict[str, ProjectFile]:
         """
         Gets all shared files for a project with filename as key.
-
-        Args:
-            context: Conversation context
-            project_id: Project ID
-
-        Returns:
-            Dictionary of filename to ProjectFile
         """
         try:
             # Get file metadata for the project
@@ -744,15 +638,6 @@ class ProjectFileManager:
     ) -> bool:
         """
         Processes a file update notification in a Team conversation.
-
-        Args:
-            context: Conversation context (Team)
-            project_id: Project ID
-            update_type: Type of update ('file_created', 'file_updated', 'file_deleted')
-            filename: Filename that was updated
-
-        Returns:
-            True if successful, False otherwise
         """
         try:
             # First verify that this is a Team conversation

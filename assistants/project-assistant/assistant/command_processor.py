@@ -575,7 +575,6 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         )
 
 
-# Whiteboard auto-update separator
 
 
 async def handle_request_info_command(
@@ -1093,7 +1092,6 @@ async def handle_sync_files_command(
         )
 
 
-# Setup mode commands are no longer needed - they're handled automatically
 
 # General commands (available to all)
 command_registry.register_command(

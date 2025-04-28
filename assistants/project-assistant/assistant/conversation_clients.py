@@ -30,13 +30,6 @@ class ConversationClientManager:
     def get_conversation_client(context: ConversationContext, conversation_id: str) -> ConversationAPIClient:
         """
         Gets a client for accessing another conversation.
-
-        Args:
-            context: Source conversation context
-            conversation_id: ID of the target conversation
-
-        Returns:
-            A client for the target conversation
         """
         # Create a client for the target conversation
         builder = wsc.WorkbenchServiceClientBuilder(
@@ -56,13 +49,6 @@ class ConversationClientManager:
     ) -> Tuple[Optional[Any], Optional[str]]:
         """
         Gets a client for accessing the Coordinator conversation for a project.
-
-        Args:
-            context: Source conversation context
-            project_id: ID of the project
-
-        Returns:
-            Tuple of (client, coordinator_conversation_id) or (None, None) if not found
         """
         # Look for the Coordinator conversation directory
         coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR
@@ -98,13 +84,6 @@ class ConversationClientManager:
     ) -> Optional[ConversationContext]:
         """
         Creates a temporary context for the target conversation ID.
-
-        Args:
-            source_context: The current conversation context to derive settings from
-            target_conversation_id: The ID of the target conversation to create a context for
-
-        Returns:
-            A temporary conversation context for the target conversation, or None if creation failed
         """
         try:
             # We'll use the same assistant as in the source context
@@ -124,5 +103,3 @@ class ConversationClientManager:
         except Exception as e:
             logger.error(f"Error creating temporary context: {e}")
             return None
-
-    # detect_assistant_role moved to project_common.py

@@ -96,7 +96,3 @@ async def log_project_action(
         related_entity_id=related_entity_id,
         metadata=additional_metadata,
     )
-
-
-# handle_project_update function has been removed as part of the refactoring
-# to simplify project organization

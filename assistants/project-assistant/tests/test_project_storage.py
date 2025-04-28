@@ -30,9 +30,9 @@ from assistant.project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
+from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import write_model
-from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
 
 class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
@@ -90,6 +90,8 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create initial test data
         self.create_test_project_data()
+
+        return None
 
     async def asyncTearDown(self):
         """Clean up test environment."""
@@ -243,18 +245,18 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
                 is_assistant=True,
             ),
         ]
-        
+
         conv_storage = CoordinatorConversationStorage(
             project_id=self.project_id,
             messages=messages,
         )
-        
+
         # Write to storage
         ProjectStorage.write_coordinator_conversation(self.project_id, conv_storage)
-        
+
         # Read back
         read_storage = ProjectStorage.read_coordinator_conversation(self.project_id)
-        
+
         # Verify data was saved correctly
         self.assertIsNotNone(read_storage, "Should load the coordinator conversation")
         if read_storage:
@@ -274,7 +276,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             content="First message",
             sender_name="Test User",
         )
-        
+
         # Append another message
         ProjectStorage.append_coordinator_message(
             project_id=self.project_id,
@@ -283,10 +285,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             sender_name="Test Assistant",
             is_assistant=True,
         )
-        
+
         # Read back
         storage = ProjectStorage.read_coordinator_conversation(self.project_id)
-        
+
         # Verify messages were added
         self.assertIsNotNone(storage, "Should create and load the coordinator conversation")
         if storage:
@@ -303,13 +305,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             ProjectStorage.append_coordinator_message(
                 project_id=self.project_id,
                 message_id=str(uuid.uuid4()),
-                content=f"Message {i+1}",
+                content=f"Message {i + 1}",
                 sender_name="Test User",
             )
-        
+
         # Read back
         storage = ProjectStorage.read_coordinator_conversation(self.project_id)
-        
+
         # Verify only the most recent 50 messages are kept
         self.assertIsNotNone(storage, "Should load the coordinator conversation")
         if storage:
@@ -329,13 +331,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
         )
-        
+
         # Write whiteboard
         ProjectStorage.write_project_whiteboard(self.project_id, whiteboard)
-        
+
         # Read whiteboard
         read_whiteboard = ProjectStorage.read_project_whiteboard(self.project_id)
-        
+
         # Verify whiteboard was saved correctly
         self.assertIsNotNone(read_whiteboard, "Should load the whiteboard")
         if read_whiteboard:
@@ -346,7 +348,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
         await ProjectStorage.refresh_current_ui(self.context)
-        
+
         # Verify that send_conversation_state_event was called with correct parameters
         self.context.send_conversation_state_event.assert_called_once()
         called_event = self.context.send_conversation_state_event.call_args[0][0]
@@ -359,25 +361,25 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test reading and writing project info."""
         # Read existing project info
         project_info = ProjectStorage.read_project_info(self.project_id)
-        
+
         # Verify it was loaded correctly
         self.assertIsNotNone(project_info, "Should load project info")
         if project_info:
             self.assertEqual(project_info.project_id, self.project_id)
             self.assertEqual(project_info.coordinator_conversation_id, self.conversation_id)
-            
+
         # Update project info
         if project_info:
             project_info.status_message = "Test status message"
             project_info.progress_percentage = 50
             project_info.next_actions = ["Action 1", "Action 2"]
-            
+
             # Write updated project info
             ProjectStorage.write_project_info(self.project_id, project_info)
-            
+
             # Read updated project info
             updated_info = ProjectStorage.read_project_info(self.project_id)
-            
+
             # Verify updates were saved
             self.assertIsNotNone(updated_info, "Should load updated project info")
             if updated_info:
@@ -389,7 +391,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test getting linked conversations directory."""
         # Get linked conversations directory
         linked_dir = ProjectStorageManager.get_linked_conversations_dir(self.project_id)
-        
+
         # Verify directory exists
         self.assertTrue(linked_dir.exists(), "Linked conversations directory should exist")
         self.assertEqual(linked_dir.name, "linked_conversations")
@@ -400,26 +402,27 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         with unittest.mock.patch("assistant.project_storage.write_model") as mock_write_model:
             # Mock conversation project path
             conversation_project_file = ProjectStorageManager.get_conversation_project_file_path(self.context)
-            
+
             # Call associate_conversation_with_project
             await ConversationProjectManager.associate_conversation_with_project(self.context, self.project_id)
-            
+
             # Verify write_model was called
             mock_write_model.assert_called_once()
-            
+
             # Verify the file path in the call
             call_args = mock_write_model.call_args[0]
             self.assertEqual(call_args[0], conversation_project_file)
-            
+
             # Verify the ProjectAssociation object created
             self.assertEqual(call_args[1].project_id, self.project_id)
 
     async def test_log_project_event(self):
         """Test logging a project event."""
+
         # Create mock for get_current_user
         async def mock_get_current_user_impl(*args, **kwargs):
             return "test-user", "Test User"
-            
+
         # Patch get_current_user with our async mock implementation
         with unittest.mock.patch("assistant.project_storage.get_current_user", side_effect=mock_get_current_user_impl):
             # Call log_project_event
@@ -431,10 +434,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
                 related_entity_id="test-entity-id",
                 metadata={"test": "metadata"},
             )
-            
+
             # Verify success
             self.assertTrue(success, "Should log event successfully")
-            
+
             # Read log to verify entry was added
             log = ProjectStorage.read_project_log(self.project_id)
             self.assertIsNotNone(log, "Should create and load log")
