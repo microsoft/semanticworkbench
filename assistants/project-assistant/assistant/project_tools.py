@@ -753,12 +753,26 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 completed += sum(1 for c in g.success_criteria if c.completed)
 
             if completed == total and total > 0:
-                await self.context.send_messages(
-                    NewConversationMessage(
-                        content="🎉 All success criteria have been completed! Consider using the report_project_completion function to formally complete the project.",
-                        message_type=MessageType.notice,
-                    )
+                # Automatically complete the project
+                success, project_info = await ProjectManager.complete_project(
+                    context=self.context,
+                    summary=f"All {total} success criteria have been completed! Project has been automatically marked as complete.",
                 )
+
+                if success:
+                    await self.context.send_messages(
+                        NewConversationMessage(
+                            content="🎉 All success criteria have been completed! The project has been automatically marked as complete.",
+                            message_type=MessageType.notice,
+                        )
+                    )
+                else:
+                    await self.context.send_messages(
+                        NewConversationMessage(
+                            content="🎉 All success criteria have been completed! Would you like me to formally complete the project?",
+                            message_type=MessageType.notice,
+                        )
+                    )
 
         await self.context.send_messages(
             NewConversationMessage(
