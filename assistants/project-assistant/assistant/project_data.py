@@ -70,37 +70,37 @@ class LogEntryType(str, Enum):
     """
 
     # Brief-related events
-    BRIEFING_CREATED = "briefing_created"  # Initial creation of project brief
-    BRIEFING_UPDATED = "briefing_updated"  # Any update to project brief content
+    BRIEFING_CREATED = "briefing_created"
+    BRIEFING_UPDATED = "briefing_updated"
 
     # Information request deletion event
-    REQUEST_DELETED = "request_deleted"  # Information request was deleted by its creator
+    REQUEST_DELETED = "request_deleted"
 
     # Information request lifecycle events
-    REQUEST_CREATED = "request_created"  # New information request submitted
-    REQUEST_UPDATED = "request_updated"  # Status or content change in a request
-    REQUEST_RESOLVED = "request_resolved"  # Information request marked as resolved
+    REQUEST_CREATED = "request_created"
+    REQUEST_UPDATED = "request_updated"
+    REQUEST_RESOLVED = "request_resolved"
 
     # Project state and progress events
-    STATUS_CHANGED = "status_changed"  # Project status or progress percentage updated
-    GOAL_COMPLETED = "goal_completed"  # A project goal marked as completed
-    CRITERION_COMPLETED = "criterion_completed"  # Individual success criterion achieved
+    STATUS_CHANGED = "status_changed"
+    GOAL_COMPLETED = "goal_completed"
+    CRITERION_COMPLETED = "criterion_completed"
 
     # Participant events
-    PARTICIPANT_JOINED = "participant_joined"  # New team member joined the project
-    PARTICIPANT_LEFT = "participant_left"  # Participant left/disconnected from project
+    PARTICIPANT_JOINED = "participant_joined"
+    PARTICIPANT_LEFT = "participant_left"
 
     # Project lifecycle events
-    PROJECT_STARTED = "project_started"  # Project transitioned to IN_PROGRESS state
-    PROJECT_COMPLETED = "project_completed"  # Project successfully completed
-    PROJECT_ABORTED = "project_aborted"  # Project terminated before completion
+    PROJECT_STARTED = "project_started"
+    PROJECT_COMPLETED = "project_completed"
+    PROJECT_ABORTED = "project_aborted"
 
     # Miscellaneous events
-    MILESTONE_PASSED = "milestone_passed"  # A milestone or checkpoint was passed
-    INFORMATION_UPDATE = "information_update"  # General information or status update
-    FILE_SHARED = "file_shared"  # A file was shared between participants
-    KB_UPDATE = "kb_update"  # Whiteboard was updated
-    CUSTOM = "custom"  # Custom log entry for specialized events
+    MILESTONE_PASSED = "milestone_passed"
+    INFORMATION_UPDATE = "information_update"
+    FILE_SHARED = "file_shared"
+    KB_UPDATE = "kb_update"
+    CUSTOM = "custom"
 
 
 class BaseEntity(BaseModel):

@@ -10,11 +10,13 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
+# Import inside functions to avoid circular imports
 from .logging import logger
 from .project_data import (
     InformationRequest,
@@ -315,7 +317,6 @@ class ProjectStorage:
         Use this when a change only affects the local conversation's view
         and doesn't need to be synchronized with other conversations.
         """
-        from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
         # Create the state event
         state_event = AssistantStateEvent(
@@ -352,8 +353,7 @@ class ProjectStorage:
             context: Current conversation context
             project_id: The project ID
         """
-        from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-
+        # Import ConversationClientManager locally to avoid circular imports
         from .conversation_clients import ConversationClientManager
 
         try:
@@ -412,8 +412,6 @@ class ProjectStorage:
 
         except Exception as e:
             logger.warning(f"Error notifying all project UIs: {e}")
-
-    # The get_linked_conversations method is now in ConversationProjectManager
 
     @staticmethod
     async def log_project_event(
@@ -494,8 +492,7 @@ class ProjectNotifier:
             project_id: ID of the project
             message: Notification message to send
         """
-        from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
-
+        # Import ConversationClientManager locally to avoid circular imports
         from .conversation_clients import ConversationClientManager
 
         # Get conversation IDs in the same project
@@ -575,15 +572,6 @@ class ProjectNotifier:
 
         # Only send notifications if explicitly requested
         if send_notification:
-            # Notify the current conversation with a message
-            # await context.send_messages(
-            #     NewConversationMessage(
-            #         content=message,
-            #         message_type=MessageType.notice,
-            #         metadata={"debug": {"project_id": project_id, "update_type": update_type, "data": data}},
-            #     )
-            # )
-
             # Notify all linked conversations with the same message
             await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)
 
@@ -594,8 +582,6 @@ class ProjectNotifier:
 
 class ConversationProjectManager:
     """Manages the association between conversations and projects."""
-
-    from pydantic import BaseModel, Field
 
     class ConversationRoleInfo(BaseModel):
         """Stores a conversation's role in a project."""
@@ -613,12 +599,6 @@ class ConversationProjectManager:
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
         """
         Gets all conversations linked to this one through the same project.
-
-        Args:
-            context: Current conversation context
-
-        Returns:
-            List of conversation IDs that are part of the same project
         """
         try:
             # Get project ID
@@ -654,11 +634,6 @@ class ConversationProjectManager:
     async def set_conversation_role(context: ConversationContext, project_id: str, role: ConversationRole) -> None:
         """
         Sets the role of a conversation in a project.
-
-        Args:
-            context: Conversation context
-            project_id: ID of the project
-            role: Role of the conversation (COORDINATOR or TEAM)
         """
         role_data = ConversationProjectManager.ConversationRoleInfo(
             project_id=project_id, role=role, conversation_id=str(context.id)
@@ -670,12 +645,6 @@ class ConversationProjectManager:
     async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
         Gets the role of a conversation in a project.
-
-        Args:
-            context: Conversation context
-
-        Returns:
-            The role, or None if not associated with a project
         """
         role_path = ProjectStorageManager.get_conversation_role_file_path(context)
         role_data = read_model(role_path, ConversationProjectManager.ConversationRoleInfo)
@@ -689,10 +658,6 @@ class ConversationProjectManager:
     async def associate_conversation_with_project(context: ConversationContext, project_id: str) -> None:
         """
         Associates a conversation with a project.
-
-        Args:
-            context: Conversation context
-            project_id: ID of the project to associate with
         """
         logger.info(f"Associating conversation {context.id} with project {project_id}")
 
@@ -720,12 +685,6 @@ class ConversationProjectManager:
     async def get_associated_project_id(context: ConversationContext) -> Optional[str]:
         """
         Gets the project ID associated with a conversation.
-
-        Args:
-            context: Conversation context
-
-        Returns:
-            The project ID, or None if not associated with a project
         """
         project_path = ProjectStorageManager.get_conversation_project_file_path(context)
         project_data = read_model(project_path, ConversationProjectManager.ProjectAssociation)

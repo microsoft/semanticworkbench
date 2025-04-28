@@ -1,9 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 # Project Assistant implementation
-#
-# This assistant provides project coordination capabilities with Coordinator and Team member roles,
-# supporting whiteboard sharing, file synchronization, and team collaboration.
 
 import asyncio
 
@@ -50,7 +47,6 @@ service_name = "Project Assistant"
 service_description = "A mediator assistant that facilitates file sharing between conversations."
 
 
-# Content safety.
 async def content_evaluator_factory(
     context: ConversationContext,
 ) -> ContentSafetyEvaluator:
@@ -60,7 +56,6 @@ async def content_evaluator_factory(
 
 content_safety = ContentSafety(content_evaluator_factory)
 
-# Set up the app.
 assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
@@ -85,22 +80,13 @@ attachments_extension = AttachmentsExtension(assistant)
 app = assistant.fastapi_app()
 
 
-# Handle the event triggered when the assistant is added to a conversation.
 @assistant.events.conversation.on_created_including_mine
 async def on_conversation_created(context: ConversationContext) -> None:
     """
-    Handle the event triggered when the assistant is added to a conversation.
-
     The assistant manages three types of conversations:
     1. Coordinator Conversation: The main conversation used by the project coordinator
     2. Shareable Team Conversation: A template conversation that has a share URL and is never directly used
     3. Team Conversation(s): Individual conversations for team members created when they redeem the share URL
-
-    This handler automatically:
-    1. Identifies which type of conversation this is based on metadata
-    2. For new conversations, creates a project, sets up as coordinator, and creates a shareable team conversation
-    3. For team conversations created from the share URL, sets up as team member
-    4. For the shareable team conversation itself, initializes it properly
     """
     # Get conversation to access metadata
     conversation = await context.get_conversation()
@@ -196,8 +182,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
             try:
                 config = await assistant_config.get(context.assistant)
                 welcome_message = config.team_config.welcome_message
-
-                # Send welcome message
                 await context.send_messages(
                     NewConversationMessage(
                         content=welcome_message,
@@ -307,14 +291,6 @@ I'm having trouble setting up your project. Please try again or contact support 
 async def on_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
-    """
-    Handle user chat messages and provide appropriate project coordination responses.
-
-    This manages project setup/detection, role enforcement, and updating the whiteboard
-    for coordinator messages.
-    """
-
-    # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
 
     # If this is the first message, let's focus on the the project_status state inspector
@@ -395,9 +371,6 @@ async def on_message_created(
 async def on_command_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
-    """
-    Handle command messages using the centralized command processor.
-    """
     if message.message_type != MessageType.command:
         return
 
@@ -439,11 +412,6 @@ async def on_file_created(
     1. Use as-is without copying to project storage
     """
     try:
-        # Log file creation event details
-        logger.info(f"File created event: filename={file.filename}, size={file.file_size}, type={file.content_type}")
-        logger.info(f"Full file object: {file}")
-
-        # Get project ID
         project_id = await ProjectManager.get_project_id(context)
         if not project_id or not file.filename:
             logger.warning(
@@ -451,11 +419,7 @@ async def on_file_created(
             )
             return
 
-        # Get the conversation's role
         role = await detect_assistant_role(context)
-
-        # Log file processing
-        logger.info(f"Processing file {file.filename} with role: {role}, project: {project_id}")
 
         # Use ProjectFileManager for file operations
 
@@ -465,11 +429,6 @@ async def on_file_created(
             # 1. Store in project storage (marked as coordinator file)
             logger.info(f"Copying Coordinator file to project storage: {file.filename}")
 
-            # Check project files directory
-            files_dir = ProjectFileManager.get_project_files_dir(project_id)
-            logger.info(f"Project files directory: {files_dir} (exists: {files_dir.exists()})")
-
-            # Copy file to project storage
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
                 project_id=project_id,
@@ -481,39 +440,18 @@ async def on_file_created(
                 logger.error(f"Failed to copy file to project storage: {file.filename}")
                 return
 
-            # Verify file was stored correctly
-            file_path = ProjectFileManager.get_file_path(project_id, file.filename)
-            if file_path.exists():
-                logger.info(f"File successfully stored at: {file_path} (size: {file_path.stat().st_size} bytes)")
-            else:
-                logger.error(f"File not found at expected location: {file_path}")
-
-            # Check file metadata was updated
-            metadata = ProjectFileManager.read_file_metadata(project_id)
-            if metadata and any(f.filename == file.filename for f in metadata.files):
-                logger.info(f"File metadata updated successfully for {file.filename}")
-            else:
-                logger.error(f"File metadata not updated for {file.filename}")
-
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
             team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
 
             if team_conversations:
-                logger.info(f"Found {len(team_conversations)} team conversations to update")
-
-                # Copy to each Team conversation
                 for team_conv_id in team_conversations:
-                    logger.info(f"Copying file to Team conversation {team_conv_id}: {file.filename}")
-                    copy_success = await ProjectFileManager.copy_file_to_conversation(
+                    await ProjectFileManager.copy_file_to_conversation(
                         context=context,
                         project_id=project_id,
                         filename=file.filename,
                         target_conversation_id=team_conv_id,
                     )
-                    logger.info(f"Copy to Team conversation {team_conv_id}: {'Success' if copy_success else 'Failed'}")
-            else:
-                logger.info("No team conversations found to update files")
 
             # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
@@ -524,10 +462,7 @@ async def on_file_created(
                 data={"filename": file.filename},
                 send_notification=False,  # Don't send notification to reduce noise
             )
-        else:
-            # For Team files, no special handling needed
-            # They're already available in the conversation
-            logger.info(f"Team file created (not shared to project storage): {file.filename}")
+        # Team files don't need special handling as they're already in the conversation
 
         # Log file creation to project log for all files
         await ProjectStorage.log_project_event(
@@ -552,28 +487,13 @@ async def on_file_updated(
     event: workbench_model.ConversationEvent,
     file: workbench_model.File,
 ) -> None:
-    """
-    Handle when a file is updated in the conversation.
-
-    For Coordinator files:
-    1. Update the copy in project storage
-    2. Update copies in all Team conversations
-
-    For Team files:
-    1. Use as-is without updating in project storage
-    """
     try:
         # Get project ID
         project_id = await ProjectManager.get_project_id(context)
         if not project_id or not file.filename:
             return
 
-        # Get the conversation's role
         role = await detect_assistant_role(context)
-
-        # Use ProjectFileManager for file operations
-
-        # Process based on role
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in project storage
@@ -589,13 +509,8 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in project storage: {file.filename}")
                 return
 
-            # 2. Update in all Team conversations
-            # Get all Team conversations
             team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
-
-            # Update in each Team conversation
             for team_conv_id in team_conversations:
-                logger.info(f"Updating file in Team conversation {team_conv_id}: {file.filename}")
                 await ProjectFileManager.copy_file_to_conversation(
                     context=context,
                     project_id=project_id,
@@ -612,10 +527,7 @@ async def on_file_updated(
                 data={"filename": file.filename},
                 send_notification=False,  # Don't send notification to reduce noise
             )
-        else:
-            # For Team files, no special handling needed
-            # They're already available in the conversation
-            logger.info(f"Team file updated (not shared to project storage): {file.filename}")
+        # Team files don't need special handling
 
         # Log file update to project log for all files
         await ProjectStorage.log_project_event(
@@ -640,28 +552,13 @@ async def on_file_deleted(
     event: workbench_model.ConversationEvent,
     file: workbench_model.File,
 ) -> None:
-    """
-    Handle when a file is deleted from the conversation.
-
-    For Coordinator files:
-    1. Delete from project storage
-    2. Notify Team conversations to delete their copies
-
-    For Team files:
-    1. Just delete locally, no need to notify others
-    """
     try:
         # Get project ID
         project_id = await ProjectManager.get_project_id(context)
         if not project_id or not file.filename:
             return
 
-        # Get the conversation's role
         role = await detect_assistant_role(context)
-
-        # Use ProjectFileManager for file operations
-
-        # Process based on role
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from project storage
@@ -682,10 +579,7 @@ async def on_file_deleted(
                 data={"filename": file.filename},
                 send_notification=False,  # Don't send notification to reduce noise
             )
-        else:
-            # For Team files, no special handling needed
-            # Just delete locally
-            logger.info(f"Team file deleted (not shared with project): {file.filename}")
+        # Team files don't need special handling
 
         # Log file deletion to project log for all files
         await ProjectStorage.log_project_event(
@@ -704,23 +598,14 @@ async def on_file_deleted(
         logger.exception(f"Error handling file deletion: {e}")
 
 
-# Handle the event triggered when a participant joins a conversation
 @assistant.events.conversation.participant.on_created
 async def on_participant_joined(
     context: ConversationContext,
     event: ConversationEvent,
     participant: workbench_model.ConversationParticipant,
 ) -> None:
-    """
-    Handle the event triggered when a participant joins a conversation.
-
-    This handler is used to detect when a team member returns to a conversation
-    and automatically synchronize project files.
-    """
     try:
-        # Skip the assistant's own join event
         if participant.id == context.assistant.id:
-            logger.debug("Skipping assistant's own join event")
             return
 
         # Open the Brief tab (state inspector).
@@ -732,28 +617,15 @@ async def on_participant_joined(
             )
         )
 
-        # Check if this is a Team conversation
         role = await detect_assistant_role(context)
         if role != ConversationRole.TEAM:
-            logger.debug(f"Not a Team conversation (role={role}), skipping file sync for participant")
             return
 
-        # Get project ID
         project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
-            logger.debug("No project ID found, skipping file sync for participant")
             return
 
-        logger.info(f"Team member {participant.name} joined project {project_id}, synchronizing files")
-
-        # Automatically synchronize files from project storage to this conversation
-        success = await ProjectFileManager.synchronize_files_to_team_conversation(
-            context=context, project_id=project_id
-        )
-        if success:
-            logger.info(f"Successfully synchronized files for returning team member: {participant.name}")
-        else:
-            logger.warning(f"File synchronization failed for returning team member: {participant.name}")
+        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
 
         await ProjectStorage.log_project_event(
             context=context,

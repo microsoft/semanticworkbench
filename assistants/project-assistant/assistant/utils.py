@@ -5,13 +5,12 @@ This module provides common utility functions used across the project assistant
 codebase, helping to reduce code duplication and maintain consistency.
 """
 
-import logging
 import pathlib
 from typing import Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-logger = logging.getLogger(__name__)
+from .logging import logger
 
 CONTEXT_TRANSFER_TEMPLATE_ID = "context_transfer"
 
@@ -19,10 +18,10 @@ CONTEXT_TRANSFER_TEMPLATE_ID = "context_transfer"
 def is_context_transfer_assistant(context: ConversationContext) -> bool:
     """
     Determine if the assistant is using the context transfer template.
-    
+
     Args:
         context: The conversation context containing assistant information
-        
+
     Returns:
         True if this is a context transfer assistant, False otherwise
     """

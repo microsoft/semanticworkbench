@@ -5,9 +5,8 @@ This module provides type annotations for Workbench API classes to ensure
 proper type checking and attribute access.
 """
 
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
-from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationMessageList,
@@ -15,13 +14,7 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
     UpdateParticipant,
 )
-
-
-class Conversation(Protocol):
-    """Protocol defining the shape of a Conversation object."""
-
-    id: str
-    title: str
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 class ConversationAPIClient(Protocol):
@@ -46,41 +39,9 @@ class ConversationAPIClient(Protocol):
     async def update_participant_me(self, participant: UpdateParticipant) -> Any: ...
 
 
-# Extend ConversationContext with necessary attributes
-class ConversationContextExt(Protocol):
-    """Protocol defining the extended shape of ConversationContext."""
-
-    conversation: Conversation
-
-    async def send_messages(
-        self, messages: NewConversationMessage | list[NewConversationMessage]
-    ) -> ConversationMessageList: ...
-
-    async def get_participants(self, include_inactive=False) -> ConversationParticipantList: ...
-
-    async def get_messages(
-        self,
-        before=None,
-        after=None,
-        message_types=None,
-        participant_ids=None,
-        participant_role=None,
-        limit=None,
-    ) -> ConversationMessageList: ...
-
-
 # Helper functions for working with ConversationContext
 def get_conversation_id(context: ConversationContext) -> str:
     """
-    Safely get the conversation ID from a context.
-    This function casts the context to the extended version to access the 'conversation' attribute.
-
-    Args:
-        context: The conversation context
-
-    Returns:
-        The conversation ID as a string
+    Get the conversation ID from a context.
     """
-    # Cast to extended context type to satisfy type checker
-    ctx_ext = cast(ConversationContextExt, context)
-    return str(ctx_ext.conversation.id)
+    return str(context.id)

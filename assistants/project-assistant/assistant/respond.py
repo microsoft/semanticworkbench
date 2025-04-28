@@ -474,19 +474,6 @@ async def respond_to_conversation(
             footer_items.append(get_response_duration_message(response_end_time - response_start_time))
             metadata["footer_items"] = footer_items
 
-            # Add intermediate messages to the conversation.
-            # for additional_message in additional_messages:
-            #     if additional_message.get("role") == "tool" and additional_message.get("content"):
-            #         content_str = str(additional_message.get("content", ""))
-            #         await context.send_messages(
-            #             NewConversationMessage(
-            #                 content=content_str,
-            #                 message_type=MessageType.notice,
-            #                 metadata={
-            #                     "debug": additional_message,
-            #                 },
-            #             )
-            #         )
 
             content = message_content_from_completion(completion_response)
             if not content:
