@@ -25,12 +25,10 @@ from .project_data import (
     SuccessCriterion,
 )
 from .project_manager import ProjectManager
-from .project_storage import (
-    ConversationProjectManager,
-    ConversationRole,
-    ProjectNotifier,
-    ProjectStorage,
-)
+from .conversation_project_link import ConversationProjectManager
+from .project_notifications import ProjectNotifier
+from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +189,7 @@ command_registry = CommandRegistry()
 async def handle_help_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """Handle the help command."""
     # Get the conversation's role
-    from .project_storage import ConversationProjectManager
+    from .conversation_project_link import ConversationProjectManager
 
     # First check conversation metadata
     conversation = await context.get_conversation()

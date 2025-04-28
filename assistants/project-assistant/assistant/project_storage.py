@@ -6,11 +6,8 @@ Provides direct access to project data with a clean, simple storage approach.
 
 import pathlib
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
-from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
@@ -27,38 +24,8 @@ from .project_data import (
     ProjectLog,
     ProjectWhiteboard,
 )
+from .project_storage_models import CoordinatorConversationMessage, CoordinatorConversationStorage
 from .utils import get_current_user
-
-
-class ConversationRole(str, Enum):
-    """
-    Enumeration of conversation roles in a project.
-
-    This enum represents the role that a conversation plays in a project,
-    either as a Coordinator (managing the project) or as a Team member
-    (participating in the project).
-    """
-
-    COORDINATOR = "coordinator"
-    TEAM = "team"
-
-
-class CoordinatorConversationMessage(BaseModel):
-    """Model for storing a message from Coordinator conversation for Team access."""
-
-    message_id: str
-    content: str
-    sender_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    is_assistant: bool = False
-
-
-class CoordinatorConversationStorage(BaseModel):
-    """Model for storing a collection of Coordinator conversation messages."""
-
-    project_id: str
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
-    messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
 
 
 class ProjectStorageManager:
@@ -313,105 +280,21 @@ class ProjectStorage:
     async def refresh_current_ui(context: ConversationContext) -> None:
         """
         Refreshes only the current conversation's UI inspector panel.
-
-        Use this when a change only affects the local conversation's view
-        and doesn't need to be synchronized with other conversations.
+        
+        This function is now a wrapper that calls the implementation in project_notifications.py.
         """
-
-        # Create the state event
-        state_event = AssistantStateEvent(
-            state_id="project_status",  # Must match the inspector_state_providers key in chat.py
-            event="updated",
-            state=None,
-        )
-
-        # Send the event to the current context
-        await context.send_conversation_state_event(state_event)
+        from .project_notifications import refresh_current_ui
+        await refresh_current_ui(context)
 
     @staticmethod
     async def refresh_all_project_uis(context: ConversationContext, project_id: str) -> None:
         """
-        Refreshes the UI inspector panels of all conversations in a project except the
-        shareable team conversation template.
-
-        There are three types of conversations in the system:
-        1. Coordinator Conversation - The main conversation for the project owner
-        2. Shareable Team Conversation Template - Only used to generate the share URL, never directly used by any user
-        3. Team Conversation(s) - Individual conversations for each team member
-
-        This sends a state event to all relevant conversations (Coordinator and all active team members)
-        involved in the project to refresh their inspector panels, ensuring all
-        participants have the latest information without sending any text notifications.
-
-        The shareable team conversation template is excluded because no user will ever see it -
-        it only exists to create the share URL that team members can use to join.
-
-        Use this when project data has changed and all UIs need to be updated,
-        but you don't want to send notification messages to users.
-
-        Args:
-            context: Current conversation context
-            project_id: The project ID
+        Refreshes the UI inspector panels of all conversations in a project.
+        
+        This function is now a wrapper that calls the implementation in project_notifications.py.
         """
-        # Import ConversationClientManager locally to avoid circular imports
-        from .conversation_clients import ConversationClientManager
-
-        try:
-            # First update the current conversation's UI
-            await ProjectStorage.refresh_current_ui(context)
-
-            # Get the shareable team conversation ID from project info to exclude it
-            shareable_conversation_id = None
-            project_info = ProjectStorage.read_project_info(project_id)
-            if project_info and project_info.team_conversation_id:
-                shareable_conversation_id = project_info.team_conversation_id
-                logger.info(f"Excluding shareable team conversation from UI updates: {shareable_conversation_id}")
-
-            # Get Coordinator client and update Coordinator if not the current conversation
-            (
-                coordinator_client,
-                coordinator_conversation_id,
-            ) = await ConversationClientManager.get_coordinator_client_for_project(context, project_id)
-            if coordinator_client and coordinator_conversation_id:
-                try:
-                    state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
-                    # Get assistant ID from context
-                    assistant_id = context.assistant.id
-                    await coordinator_client.send_conversation_state_event(assistant_id, state_event)
-                    logger.info(
-                        f"Sent state event to Coordinator conversation {coordinator_conversation_id} to refresh inspector"
-                    )
-                except Exception as e:
-                    logger.warning(f"Error sending state event to Coordinator: {e}")
-
-            # Get all team conversation clients and update them
-            linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
-            current_id = str(context.id)
-
-            for conv_id in linked_conversations:
-                # Skip current conversation, coordinator conversation, and shareable conversation
-                if (
-                    conv_id != current_id
-                    and (not coordinator_conversation_id or conv_id != coordinator_conversation_id)
-                    and (not shareable_conversation_id or conv_id != shareable_conversation_id)
-                ):
-                    try:
-                        # Get client for the conversation
-                        client = ConversationClientManager.get_conversation_client(context, conv_id)
-
-                        # Send state event to refresh the inspector panel
-                        state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
-                        # Get assistant ID from context
-                        assistant_id = context.assistant.id
-                        await client.send_conversation_state_event(assistant_id, state_event)
-                    except Exception as e:
-                        logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
-                        continue
-                elif conv_id == shareable_conversation_id:
-                    logger.info(f"Skipping UI update for shareable conversation: {conv_id}")
-
-        except Exception as e:
-            logger.warning(f"Error notifying all project UIs: {e}")
+        from .project_notifications import refresh_all_project_uis
+        await refresh_all_project_uis(context, project_id)
 
     @staticmethod
     async def log_project_event(
@@ -470,226 +353,3 @@ class ProjectStorage:
         return True
 
 
-class ProjectNotifier:
-    """Handles notifications between conversations for project updates."""
-
-    @staticmethod
-    async def send_notice_to_linked_conversations(context: ConversationContext, project_id: str, message: str) -> None:
-        """
-        Sends a notice message to all linked conversations except:
-        1. The current conversation
-        2. The shareable team conversation template (used only for creating the share URL)
-
-        NOTE: The shareable team conversation is NEVER used directly by any user.
-        It's just a template that gets copied when team members redeem the share URL
-        to create their own individual team conversations. We exclude it from notifications
-        because no one will ever see those notifications.
-
-        This method does NOT refresh any UI inspector panels.
-
-        Args:
-            context: Current conversation context
-            project_id: ID of the project
-            message: Notification message to send
-        """
-        # Import ConversationClientManager locally to avoid circular imports
-        from .conversation_clients import ConversationClientManager
-
-        # Get conversation IDs in the same project
-        linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
-        current_conversation_id = str(context.id)
-
-        # Get the shareable team conversation ID from project info
-        # This is the conversation created by the coordinator for sharing,
-        # not an actual user conversation
-        shareable_conversation_id = None
-        project_info = ProjectStorage.read_project_info(project_id)
-        if project_info and project_info.team_conversation_id:
-            shareable_conversation_id = project_info.team_conversation_id
-            logger.info(f"Excluding shareable team conversation from notifications: {shareable_conversation_id}")
-
-        # Send notification to each linked conversation, excluding current and shareable conversation
-        for conv_id in linked_conversations:
-            # Skip current conversation and the shareable team conversation
-            if conv_id != current_conversation_id and (
-                not shareable_conversation_id or conv_id != shareable_conversation_id
-            ):
-                try:
-                    # Get client for the target conversation
-                    client = ConversationClientManager.get_conversation_client(context, conv_id)
-
-                    # Send the notification
-                    await client.send_messages(
-                        NewConversationMessage(
-                            content=message,
-                            message_type=MessageType.notice,
-                            metadata={
-                                "debug": {
-                                    "project_id": project_id,
-                                    "message": message,
-                                    "sender": str(context.id),
-                                }
-                            },
-                        )
-                    )
-                    logger.info(f"Sent notification to conversation {conv_id}")
-                except Exception as e:
-                    logger.error(f"Failed to notify conversation {conv_id}: {e}")
-            elif conv_id == shareable_conversation_id:
-                logger.info(f"Skipping notification to shareable conversation: {conv_id}")
-            elif conv_id == current_conversation_id:
-                logger.debug(f"Skipping notification to current conversation: {conv_id}")
-
-    @staticmethod
-    async def notify_project_update(
-        context: ConversationContext,
-        project_id: str,
-        update_type: str,
-        message: str,
-        data: Optional[Dict[str, Any]] = None,
-        send_notification: bool = True,  # Add parameter to control notifications
-    ) -> None:
-        """
-        Complete project update: sends notices to all conversations and refreshes all UI inspector panels.
-
-        This method:
-        1. Sends a notice message to the current conversation (if send_notification=True)
-        2. Sends the same notice message to all linked conversations (if send_notification=True)
-        3. Refreshes UI inspector panels for all conversations in the project
-
-        Use this for important project updates that need both user notification AND UI refresh.
-        Set send_notification=False for frequent updates (like file syncs, whiteboard updates) to
-        avoid notification spam.
-
-        Args:
-            context: Current conversation context
-            project_id: ID of the project
-            update_type: Type of update (e.g., 'brief', 'project_info', 'information_request', etc.)
-            message: Notification message to display to users
-            data: Optional additional data related to the update
-            send_notification: Whether to send notifications (default: True)
-        """
-
-        # Only send notifications if explicitly requested
-        if send_notification:
-            # Notify all linked conversations with the same message
-            await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)
-
-        # Always refresh all project UI inspector panels to keep UI in sync
-        # This will update the UI without sending notifications
-        await ProjectStorage.refresh_all_project_uis(context, project_id)
-
-
-class ConversationProjectManager:
-    """Manages the association between conversations and projects."""
-
-    class ConversationRoleInfo(BaseModel):
-        """Stores a conversation's role in a project."""
-
-        project_id: str
-        role: ConversationRole
-        conversation_id: str
-
-    class ProjectAssociation(BaseModel):
-        """Stores a conversation's project association."""
-
-        project_id: str
-
-    @staticmethod
-    async def get_linked_conversations(context: ConversationContext) -> List[str]:
-        """
-        Gets all conversations linked to this one through the same project.
-        """
-        try:
-            # Get project ID
-            project_id = await ConversationProjectManager.get_associated_project_id(context)
-            if not project_id:
-                return []
-
-            # Get the linked conversations directory
-            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
-            if not linked_dir.exists():
-                return []
-
-            # Get all conversation files in the directory
-            result = []
-            conversation_id = str(context.id)
-
-            # Each file in the directory represents a linked conversation
-            # The filename itself is the conversation ID
-            for file_path in linked_dir.glob("*"):
-                if file_path.is_file():
-                    # The filename is the conversation ID
-                    conv_id = file_path.name
-                    if conv_id != conversation_id:
-                        result.append(conv_id)
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error getting linked conversations: {e}")
-            return []
-
-    @staticmethod
-    async def set_conversation_role(context: ConversationContext, project_id: str, role: ConversationRole) -> None:
-        """
-        Sets the role of a conversation in a project.
-        """
-        role_data = ConversationProjectManager.ConversationRoleInfo(
-            project_id=project_id, role=role, conversation_id=str(context.id)
-        )
-        role_path = ProjectStorageManager.get_conversation_role_file_path(context)
-        write_model(role_path, role_data)
-
-    @staticmethod
-    async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
-        """
-        Gets the role of a conversation in a project.
-        """
-        role_path = ProjectStorageManager.get_conversation_role_file_path(context)
-        role_data = read_model(role_path, ConversationProjectManager.ConversationRoleInfo)
-
-        if role_data:
-            return role_data.role
-
-        return None
-
-    @staticmethod
-    async def associate_conversation_with_project(context: ConversationContext, project_id: str) -> None:
-        """
-        Associates a conversation with a project.
-        """
-        logger.info(f"Associating conversation {context.id} with project {project_id}")
-
-        try:
-            # 1. Store the project association in the conversation's storage directory
-            project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
-            project_path = ProjectStorageManager.get_conversation_project_file_path(context)
-            logger.info(f"Writing project association to {project_path}")
-            write_model(project_path, project_data)
-
-            # 2. Register this conversation in the project's linked_conversations directory
-            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
-            logger.info(f"Registering in linked_conversations directory: {linked_dir}")
-            conversation_file = linked_dir / str(context.id)
-
-            # Touch the file to create it if it doesn't exist
-            # We don't need to write any content to it, just its existence is sufficient
-            conversation_file.touch(exist_ok=True)
-            logger.info(f"Created conversation link file: {conversation_file}")
-        except Exception as e:
-            logger.error(f"Error associating conversation with project: {e}")
-            raise
-
-    @staticmethod
-    async def get_associated_project_id(context: ConversationContext) -> Optional[str]:
-        """
-        Gets the project ID associated with a conversation.
-        """
-        project_path = ProjectStorageManager.get_conversation_project_file_path(context)
-        project_data = read_model(project_path, ConversationProjectManager.ProjectAssociation)
-
-        if project_data:
-            return project_data.project_id
-
-        return None

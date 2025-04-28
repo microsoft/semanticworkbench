@@ -15,7 +15,9 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
 from .logging import logger
-from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorageManager
+from .conversation_project_link import ConversationProjectManager
+from .project_storage import ProjectStorageManager
+from .project_storage_models import ConversationRole
 
 
 class ConversationClientManager:
