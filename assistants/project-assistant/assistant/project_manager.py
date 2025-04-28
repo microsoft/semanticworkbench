@@ -21,8 +21,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.project_common import ConfigurationTemplate, get_template
-
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
 from .logging import logger
@@ -48,7 +46,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import get_current_user, load_text_include, require_current_user
+from .utils import get_current_user, require_current_user
 
 
 class ProjectManager:
@@ -1390,18 +1388,9 @@ class ProjectManager:
             # Get config for the LLM call
             config = await assistant_config.get(context.assistant)
 
-            # Load the whiteboard prompt from text includes
-            template = get_template(context)
-
-            # Use the appropriate prompt based on the template
-            if template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
-                whiteboard_prompt_template = load_text_include("context_transfer_whiteboard_prompt.txt")
-            else:
-                whiteboard_prompt_template = load_text_include("whiteboard_prompt.txt")
-
             # Construct the whiteboard prompt with the chat history
             whiteboard_prompt = f"""
-            {whiteboard_prompt_template}
+            {config.prompt_config.whiteboard_prompt}
 
             <CHAT_HISTORY>
             {chat_history_text}

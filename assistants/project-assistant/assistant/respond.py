@@ -23,7 +23,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.project_tools import ProjectTools
-from assistant.utils import load_text_include
 
 from .config import assistant_config
 from .logging import logger
@@ -84,17 +83,14 @@ async def respond_to_conversation(
     ###
 
     # Instruction and assistant name
-    system_message_content = f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content = f'\n\n{config.prompt_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
     # Add role-specific instructions
     role_specific_prompt = ""
     if role == ConversationRole.COORDINATOR:
-        if template == CONTEXT_TRANSFER_ASSISTANT:
-            role_specific_prompt = load_text_include("context_transfer_coordinator_prompt.txt")
-        else:
-            role_specific_prompt = load_text_include("coordinator_prompt.txt")
+        role_specific_prompt = config.prompt_config.coordinator_prompt
     else:
-        role_specific_prompt = load_text_include("team_prompt.txt")
+        role_specific_prompt = config.prompt_config.team_prompt
 
     if role_specific_prompt:
         system_message_content += f"\n\n{role_specific_prompt}"

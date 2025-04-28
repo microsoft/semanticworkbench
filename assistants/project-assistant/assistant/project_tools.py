@@ -46,7 +46,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import is_context_transfer_assistant, load_text_include
+from .utils import is_context_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -328,12 +328,8 @@ class ProjectTools:
                 "debug": debug,
             }
 
-        is_context_transfer = self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
-
-        if is_context_transfer:
-            system_prompt = load_text_include("context_transfer_information_request_detection.txt")
-        else:
-            system_prompt = load_text_include("project_information_request_detection.txt")
+        # Get config via assistant config
+        config = await assistant_config.get(self.context.assistant)
 
         # Check if we're in a test environment (Missing parts of context)
         if not hasattr(self.context, "assistant") or self.context.assistant is None:
@@ -384,7 +380,9 @@ class ProjectTools:
             # Create chat completion with history context
             async with openai_client.create_client(config.service_config) as client:
                 # Prepare messages array with system prompt and chat history
-                messages: List[ChatCompletionMessageParam] = [{"role": "system", "content": system_prompt}]
+                messages: List[ChatCompletionMessageParam] = [
+                    {"role": "system", "content": config.prompt_config.project_information_request_detection}
+                ]
 
                 # Add chat history if available
                 if chat_history:
