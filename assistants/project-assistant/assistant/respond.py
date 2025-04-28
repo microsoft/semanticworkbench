@@ -22,7 +22,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.project_tools import ProjectTools
+from assistant.tools import ProjectTools
 
 from .config import assistant_config
 from .logging import logger

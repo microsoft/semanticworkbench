@@ -9,7 +9,7 @@ import openai_client
 import pytest
 from assistant.project_analysis import detect_information_request_needs
 from assistant.project_storage_models import ConversationRole
-from assistant.project_tools import ProjectTools
+from assistant.tools import ProjectTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
