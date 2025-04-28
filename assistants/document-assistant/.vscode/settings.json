@@ -1,0 +1,90 @@
+{
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll": "explicit"
+  },
+  "editor.guides.bracketPairs": "active",
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.formatOnSave": true,
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.fixAll": ["source.unusedImports"],
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.typeCheckingMode": "standard",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.unusedImports": "explicit",
+      "source.organizeImports": "explicit",
+      "source.formatDocument": "explicit"
+    }
+  },
+  "ruff.nativeServer": "on",
+  "search.exclude": {
+    "**/.venv": true,
+    "**/.data": true,
+    "**/__pycache__": true
+  },
+
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
+  "cSpell.words": [
+    "Codespaces",
+    "contentsafety",
+    "debugpy",
+    "deepmerge",
+    "devcontainer",
+    "dotenv",
+    "endregion",
+    "Excalidraw",
+    "fastapi",
+    "GIPHY",
+    "jsonschema",
+    "Langchain",
+    "modelcontextprotocol",
+    "moderations",
+    "mzxrai",
+    "openai",
+    "pdfplumber",
+    "pydantic",
+    "pyproject",
+    "pyright",
+    "pytest",
+    "semanticworkbench",
+    "semanticworkbenchteam",
+    "tiktoken",
+    "updown",
+    "virtualenvs",
+    "webresearch"
+  ]
+}

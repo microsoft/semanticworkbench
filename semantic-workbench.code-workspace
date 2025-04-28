@@ -57,6 +57,10 @@
       "path": "assistants/codespace-assistant"
     },
     {
+      "name": "assistants:document-assistant",
+      "path": "assistants/document-assistant"
+    },
+    {
       "name": "assistants:explorer-assistant",
       "path": "assistants/explorer-assistant"
     },
