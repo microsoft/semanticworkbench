@@ -245,7 +245,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ProjectManager.create_project_brief(
                 context=context,
                 project_name="New Project",
-                project_description="The project brief is a place for you to craft some information to be shared with others. Ask your assistant to update the project brief with whatever project details you'd like.",
+                project_description="The project brief is a place for you to craft some information to be shared with others. Before you invite your team, ask your assistant to update the brief with whatever details you'd like here.",
             )
 
             # Create a team conversation and share URL
@@ -318,7 +318,7 @@ async def on_message_created(
 
     # If this is the first message, let's focus on the the project_status state inspector
     messages = await context.get_messages()
-    if len(messages.messages) == 1:
+    if len(messages.messages) <= 2:
         await context.send_conversation_state_event(
             AssistantStateEvent(
                 state_id="project_status",
