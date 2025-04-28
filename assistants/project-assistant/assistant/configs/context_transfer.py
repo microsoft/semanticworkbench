@@ -30,7 +30,7 @@ class ContextTransferPromptConfig(PromptConfig):
         str,
         Field(
             title="Context Transfer Coordinator Prompt",
-            description="The prompt used to instruct the behavior of the context transfer coordinator."
+            description="The prompt used to instruct the behavior of the context transfer coordinator.",
         ),
     ] = load_text_include("context_transfer_coordinator_prompt.txt")
 
@@ -38,7 +38,7 @@ class ContextTransferPromptConfig(PromptConfig):
         str,
         Field(
             title="Context Transfer Team Prompt",
-            description="The prompt used to instruct the behavior of the context transfer team member."
+            description="The prompt used to instruct the behavior of the context transfer team member.",
         ),
     ] = load_text_include("context_transfer_team_prompt.txt")
 
@@ -46,7 +46,7 @@ class ContextTransferPromptConfig(PromptConfig):
         str,
         Field(
             title="Context Transfer Whiteboard Prompt",
-            description="The prompt used to generate whiteboard content in context transfer mode."
+            description="The prompt used to generate whiteboard content in context transfer mode.",
         ),
     ] = load_text_include("context_transfer_whiteboard_prompt.txt")
 
@@ -54,7 +54,7 @@ class ContextTransferPromptConfig(PromptConfig):
         str,
         Field(
             title="Context Transfer Information Request Detection Prompt",
-            description="The prompt used to detect information requests in context transfer mode."
+            description="The prompt used to detect information requests in context transfer mode.",
         ),
     ] = load_text_include("context_transfer_information_request_detection.txt")
 
@@ -101,7 +101,6 @@ class ContextTransferTeamConfig(TeamConfig):
 
 
 class ContextTransferConfigModel(AssistantConfigModel):
-
     # Use the specialized context transfer prompt configs
     prompt_config: Annotated[
         PromptConfig,  # Use the base type for type compatibility

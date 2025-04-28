@@ -7,7 +7,7 @@ This module provides the core business logic for working with project data
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import (
@@ -27,7 +27,6 @@ from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_data import (
     InformationRequest,
-    LogEntry,
     LogEntryType,
     Project,
     ProjectBrief,
@@ -511,7 +510,6 @@ class ProjectManager:
 
         return brief
 
-
     @staticmethod
     async def get_project_state(
         context: ConversationContext,
@@ -817,7 +815,6 @@ class ProjectManager:
             logger.exception(f"Error creating information request: {e}")
             return False, None
 
-
     @staticmethod
     async def resolve_information_request(
         context: ConversationContext,
@@ -950,7 +947,6 @@ class ProjectManager:
             return None
 
         return ProjectStorage.read_project_log(project_id)
-
 
     @staticmethod
     async def get_project(context: ConversationContext) -> Optional[Project]:

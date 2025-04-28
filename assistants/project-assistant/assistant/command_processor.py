@@ -575,8 +575,6 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         )
 
 
-
-
 async def handle_request_info_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
 ) -> None:
@@ -1090,7 +1088,6 @@ async def handle_sync_files_command(
                 message_type=MessageType.notice,
             )
         )
-
 
 
 # General commands (available to all)

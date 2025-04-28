@@ -21,9 +21,10 @@ Your AUTHORIZED Team-specific tools are:
 - mark_criterion_completed: Use this to mark success criteria as completed
 - report_project_completion: Use this to report that the project is complete
 - get_project_info: Use this to get information about the current project
-- detect_information_request_needs: Use this to analyze user messages for potential information request needs
 - suggest_next_action: Use this to suggest the next action based on project state
 - view_coordinator_conversation: Use this to view the Coordinator conversation for context and information
+
+Note: The system automatically analyzes messages for potential information request needs.
 
 When team members need information or assistance from the Coordinator:
 1. Use the view_coordinator_conversation tool to check if the Coordinator has already provided the information
