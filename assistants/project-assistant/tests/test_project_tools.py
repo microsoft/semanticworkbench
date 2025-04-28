@@ -54,7 +54,7 @@ class TestProjectTools:
 
         # Verify Team-specific functions are registered
         assert "create_information_request" in team_tools.tool_functions.function_map
-        assert "update_project_info" in team_tools.tool_functions.function_map  # Updated from update_project_dashboard
+        assert "update_project_status" in team_tools.tool_functions.function_map  # Updated to match implementation
         assert "mark_criterion_completed" in team_tools.tool_functions.function_map
         assert "report_project_completion" in team_tools.tool_functions.function_map
         assert "delete_information_request" in team_tools.tool_functions.function_map  # Added new function

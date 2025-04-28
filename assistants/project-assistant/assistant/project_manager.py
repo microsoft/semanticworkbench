@@ -28,6 +28,7 @@ from .project_data import (
     InformationRequest,
     LogEntry,
     LogEntryType,
+    Project,
     ProjectBrief,
     ProjectGoal,
     ProjectInfo,
@@ -413,7 +414,7 @@ class ProjectManager:
         timeline: Optional[str] = None,
         additional_context: Optional[str] = None,
         send_notification: bool = True,
-    ) -> Tuple[bool, Optional[ProjectBrief]]:
+    ) -> Optional[ProjectBrief]:
         """
         Creates a new project brief for the current project.
 
@@ -446,81 +447,75 @@ class ProjectManager:
             - success: Boolean indicating if brief creation was successful
             - project_brief: The created ProjectBrief object if successful, None otherwise
         """
-        try:
-            # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot create brief: no project associated with this conversation")
-                return False, None
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot create brief: no project associated with this conversation")
+            return
+        # Get user information
+        current_user_id = await require_current_user(context, "create brief")
+        if not current_user_id:
+            return
 
-            # Get user information
-            current_user_id = await require_current_user(context, "create brief")
-            if not current_user_id:
-                return False, None
-
-            # Create project goals
-            project_goals = []
-            if goals:
-                for i, goal_data in enumerate(goals):
-                    goal = ProjectGoal(
-                        name=goal_data.get("name", f"Goal {i + 1}"),
-                        description=goal_data.get("description", ""),
-                        priority=goal_data.get("priority", i + 1),
-                        success_criteria=[],
-                    )
-
-                    # Add success criteria
-                    criteria = goal_data.get("success_criteria", [])
-                    for criterion in criteria:
-                        goal.success_criteria.append(SuccessCriterion(description=criterion))
-
-                    project_goals.append(goal)
-
-            # Create the project brief
-            brief = ProjectBrief(
-                project_name=project_name,
-                project_description=project_description,
-                goals=project_goals,
-                timeline=timeline,
-                additional_context=additional_context,
-                created_by=current_user_id,
-                updated_by=current_user_id,
-                conversation_id=str(context.id),
-            )
-
-            # Save the brief
-            ProjectStorage.write_project_brief(project_id, brief)
-
-            # Log the creation
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.BRIEFING_CREATED.value,
-                message=f"Created project brief: {project_name}",
-            )
-
-            # Only notify if send_notification is True
-            if send_notification:
-                # Notify linked conversations
-                await ProjectNotifier.notify_project_update(
-                    context=context,
-                    project_id=project_id,
-                    update_type="brief",
-                    message=f"Project brief created: {project_name}",
+        # Create project goals
+        project_goals = []
+        if goals:
+            for i, goal_data in enumerate(goals):
+                goal = ProjectGoal(
+                    name=goal_data.get("name", f"Goal {i + 1}"),
+                    description=goal_data.get("description", ""),
+                    priority=goal_data.get("priority", i + 1),
+                    success_criteria=[],
                 )
 
-            return True, brief
+                # Add success criteria
+                criteria = goal_data.get("success_criteria", [])
+                for criterion in criteria:
+                    goal.success_criteria.append(SuccessCriterion(description=criterion))
 
-        except Exception as e:
-            logger.exception(f"Error creating project brief: {e}")
-            return False, None
+                project_goals.append(goal)
+
+        # Create the project brief
+        brief = ProjectBrief(
+            project_name=project_name,
+            project_description=project_description,
+            goals=project_goals,
+            timeline=timeline,
+            additional_context=additional_context,
+            created_by=current_user_id,
+            updated_by=current_user_id,
+            conversation_id=str(context.id),
+        )
+
+        # Save the brief
+        ProjectStorage.write_project_brief(project_id, brief)
+
+        # Log the creation
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.BRIEFING_CREATED.value,
+            message=f"Created project brief: {project_name}",
+        )
+
+        # Only notify if send_notification is True
+        if send_notification:
+            # Notify linked conversations
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="brief",
+                message=f"Project brief created: {project_name}",
+            )
+
+        return brief
 
     @staticmethod
     async def update_project_brief(
         context: ConversationContext,
         updates: Dict[str, Any],
         send_notification: bool = True,
-    ) -> bool:
+    ) -> None:
         """
         Updates an existing project brief.
 
@@ -532,73 +527,67 @@ class ProjectManager:
         Returns:
             True if update was successful, False otherwise
         """
-        try:
-            # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot update brief: no project associated with this conversation")
-                return False
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot update brief: no project associated with this conversation")
+            return
 
-            # Get user information
-            current_user_id = await require_current_user(context, "update brief")
-            if not current_user_id:
-                return False
+        # Get user information
+        current_user_id = await require_current_user(context, "update brief")
+        if not current_user_id:
+            logger.error("Cannot update brief: no user found")
+            return
 
-            # Load existing brief
-            brief = ProjectStorage.read_project_brief(project_id)
-            if not brief:
-                logger.error(f"Cannot update brief: no brief found for project {project_id}")
-                return False
+        # Load existing brief
+        brief = ProjectStorage.read_project_brief(project_id)
+        if not brief:
+            logger.error(f"Cannot update brief: no brief found for project {project_id}")
+            return
 
-            # Apply updates, skipping immutable fields
-            any_fields_updated = False
-            immutable_fields = [
-                "created_by",
-                "conversation_id",
-                "created_at",
-                "version",
-            ]
+        # Apply updates, skipping immutable fields
+        any_fields_updated = False
+        immutable_fields = [
+            "created_by",
+            "conversation_id",
+            "created_at",
+            "version",
+        ]
 
-            for field, value in updates.items():
-                if hasattr(brief, field) and field not in immutable_fields:
-                    setattr(brief, field, value)
-                    any_fields_updated = True
+        for field, value in updates.items():
+            if hasattr(brief, field) and field not in immutable_fields:
+                setattr(brief, field, value)
+                any_fields_updated = True
 
-            if not any_fields_updated:
-                logger.info("No updates applied to brief")
-                return True
+        if not any_fields_updated:
+            logger.info("No updates applied to brief")
+            return
 
-            # Update metadata
-            brief.updated_at = datetime.utcnow()
-            brief.updated_by = current_user_id
-            brief.version += 1
+        # Update metadata
+        brief.updated_at = datetime.utcnow()
+        brief.updated_by = current_user_id
+        brief.version += 1
 
-            # Save the updated brief
-            ProjectStorage.write_project_brief(project_id, brief)
+        # Save the updated brief
+        ProjectStorage.write_project_brief(project_id, brief)
 
-            # Log the update
-            await ProjectStorage.log_project_event(
+        # Log the update
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.BRIEFING_UPDATED.value,
+            message=f"Updated project brief: {brief.project_name}",
+        )
+
+        # Only notify if send_notification is True
+        if send_notification:
+            # Notify linked conversations
+            await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
-                entry_type=LogEntryType.BRIEFING_UPDATED.value,
-                message=f"Updated project brief: {brief.project_name}",
+                update_type="brief",
+                message=f"Project brief updated: {brief.project_name}",
             )
-
-            # Only notify if send_notification is True
-            if send_notification:
-                # Notify linked conversations
-                await ProjectNotifier.notify_project_update(
-                    context=context,
-                    project_id=project_id,
-                    update_type="brief",
-                    message=f"Project brief updated: {brief.project_name}",
-                )
-
-            return True
-
-        except Exception as e:
-            logger.exception(f"Error updating project brief: {e}")
-            return False
 
     @staticmethod
     async def get_project_state(
@@ -652,7 +641,7 @@ class ProjectManager:
         progress: Optional[int] = None,
         status_message: Optional[str] = None,
         next_actions: Optional[List[str]] = None,
-    ) -> Tuple[bool, Optional[ProjectInfo]]:
+    ) -> Optional[ProjectInfo]:
         """
         Updates the project info with state, progress, status message, and next actions.
 
@@ -666,81 +655,76 @@ class ProjectManager:
         Returns:
             Tuple of (success, project_info)
         """
-        try:
-            # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot update project info: no project associated with this conversation")
-                return False, None
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot update project info: no project associated with this conversation")
+            return None
 
-            # Get user information
-            current_user_id = await require_current_user(context, "update project info")
-            if not current_user_id:
-                return False, None
+        # Get user information
+        current_user_id = await require_current_user(context, "update project info")
+        if not current_user_id:
+            return None
 
-            # Get existing project info
-            project_info = ProjectStorage.read_project_info(project_id)
-            if not project_info:
-                logger.error(f"Cannot update project info: no project info found for {project_id}")
-                return False, None
+        # Get existing project info
+        project_info = ProjectStorage.read_project_info(project_id)
+        if not project_info:
+            logger.error(f"Cannot update project info: no project info found for {project_id}")
+            return None
 
-            # Apply updates
-            if state:
-                project_info.state = ProjectState(state)
+        # Apply updates
+        if state:
+            project_info.state = ProjectState(state)
 
-            if status_message:
-                project_info.status_message = status_message
+        if status_message:
+            project_info.status_message = status_message
 
-            if progress is not None:
-                project_info.progress_percentage = progress
+        if progress is not None:
+            project_info.progress_percentage = progress
 
-            if next_actions:
-                if not hasattr(project_info, "next_actions"):
-                    project_info.next_actions = []
-                project_info.next_actions = next_actions
+        if next_actions:
+            if not hasattr(project_info, "next_actions"):
+                project_info.next_actions = []
+            project_info.next_actions = next_actions
 
-            # Update metadata
-            project_info.updated_at = datetime.utcnow()
-            project_info.updated_by = current_user_id
+        # Update metadata
+        project_info.updated_at = datetime.utcnow()
+        project_info.updated_by = current_user_id
 
-            # Increment version if it exists
-            if hasattr(project_info, "version"):
-                project_info.version += 1
+        # Increment version if it exists
+        if hasattr(project_info, "version"):
+            project_info.version += 1
 
-            # Save the project info
-            ProjectStorage.write_project_info(project_id, project_info)
+        # Save the project info
+        ProjectStorage.write_project_info(project_id, project_info)
 
-            # Log the update
-            event_type = LogEntryType.STATUS_CHANGED
-            message = f"Updated project status to {project_info.state.value}"
-            if progress is not None:
-                message += f" ({progress}% complete)"
+        # Log the update
+        event_type = LogEntryType.STATUS_CHANGED
+        message = f"Updated project status to {project_info.state.value}"
+        if progress is not None:
+            message += f" ({progress}% complete)"
 
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=event_type.value,
-                message=message,
-                metadata={
-                    "state": project_info.state.value,
-                    "status_message": status_message,
-                    "progress": progress,
-                },
-            )
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=event_type.value,
+            message=message,
+            metadata={
+                "state": project_info.state.value,
+                "status_message": status_message,
+                "progress": progress,
+            },
+        )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="project_info",
-                message=f"Project status updated: {project_info.state.value}",
-            )
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=context,
+            project_id=project_id,
+            update_type="project_info",
+            message=f"Project status updated: {project_info.state.value}",
+        )
 
-            return True, project_info
-
-        except Exception as e:
-            logger.exception(f"Error updating project info: {e}")
-            return False, None
+        return project_info
 
     @staticmethod
     async def update_project_state(
@@ -1160,22 +1144,18 @@ class ProjectManager:
             Tuple of (success, project_log)
         """
         try:
-            # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot add log entry: no project associated with this conversation")
                 return False, None
 
-            # Get user information
             current_user_id, user_name = await get_current_user(context)
             if not current_user_id:
                 logger.error("Cannot add log entry: no user found in conversation")
                 return False, None
 
-            # Default user name if none found
             user_name = user_name or "Unknown User"
 
-            # Create the log entry
             entry = LogEntry(
                 entry_type=entry_type,
                 message=message,
@@ -1185,25 +1165,14 @@ class ProjectManager:
                 metadata=metadata or {},
             )
 
-            # Get existing log or create new one
             project_log = ProjectStorage.read_project_log(project_id)
             if not project_log:
                 project_log = ProjectLog(
-                    created_by=current_user_id,
-                    updated_by=current_user_id,
-                    conversation_id=str(context.id),
                     entries=[],
                 )
 
-            # Add the entry
             project_log.entries.append(entry)
 
-            # Update metadata
-            project_log.updated_at = datetime.utcnow()
-            project_log.updated_by = current_user_id
-            project_log.version += 1
-
-            # Save the log
             ProjectStorage.write_project_log(project_id, project_log)
 
             # Notify linked conversations for significant events
@@ -1228,6 +1197,21 @@ class ProjectManager:
         except Exception as e:
             logger.exception(f"Error adding log entry: {e}")
             return False, None
+
+    @staticmethod
+    async def get_project(context: ConversationContext) -> Optional[Project]:
+        """Gets the project information for the current conversation's project."""
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            return None
+        project = Project(
+            info=ProjectStorage.read_project_info(project_id),
+            brief=ProjectStorage.read_project_brief(project_id),
+            whiteboard=ProjectStorage.read_project_whiteboard(project_id),
+            requests=ProjectStorage.get_all_information_requests(project_id),
+            log=ProjectStorage.read_project_log(project_id),
+        )
+        return project
 
     @staticmethod
     async def get_project_info(context: ConversationContext, project_id: Optional[str] = None) -> Optional[ProjectInfo]:

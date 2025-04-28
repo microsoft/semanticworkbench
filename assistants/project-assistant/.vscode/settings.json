@@ -31,7 +31,6 @@
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
