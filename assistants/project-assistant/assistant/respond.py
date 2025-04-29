@@ -143,6 +143,11 @@ async def respond_to_conversation(
             project_info_text = f"""
 ### PROJECT INFO
 **Current State:** {project_info.state.value}
+
+**Full project info**
+```json
+{project_info.model_dump_json(indent=2)}
+```
 """
             if project_info.status_message:
                 project_info_text += f"**Status Message:** {project_info.status_message}\n"
@@ -161,7 +166,7 @@ async def respond_to_conversation(
             # First get the project to access its goals
             project_id = await ProjectManager.get_project_id(context)
             project = ProjectStorage.read_project(project_id) if project_id else None
-            
+
             if is_project_assistant(context) and project and project.goals:
                 project_brief_text += """
 #### PROJECT GOALS:
