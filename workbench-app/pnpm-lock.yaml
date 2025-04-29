@@ -12,11 +12,11 @@ importers:
         specifier: ^2.7.0
         version: 2.7.0
       '@azure/msal-browser':
-        specifier: ^3.24.0
-        version: 3.24.0
+        specifier: ^3.28.1
+        version: 3.28.1
       '@azure/msal-react':
-        specifier: ^2.1.0
-        version: 2.1.0(@azure/msal-browser@3.24.0)(react@18.3.1)
+        specifier: ^2.2.0
+        version: 2.2.0(@azure/msal-browser@3.28.1)(react@18.3.1)
       '@fluentui-copilot/react-attachments':
         specifier: ^0.10.1
         version: 0.10.1(@fluentui/keyboard-keys@9.0.7)(@fluentui/react-components@9.54.17(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2))(@fluentui/react-context-selector@9.1.67(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2))(@fluentui/react-icons@2.0.259(react@18.3.1))(@fluentui/react-jsx-runtime@9.0.44(@types/react@18.3.10)(react@18.3.1))(@fluentui/react-shared-contexts@9.20.1(@types/react@18.3.10)(react@18.3.1))(@fluentui/react-utilities@9.18.15(@types/react@18.3.10)(react@18.3.1))(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -67,7 +67,7 @@ importers:
         version: 2.0.1
       '@microsoft/microsoft-graph-client':
         specifier: ^3.0.7
-        version: 3.0.7(@azure/msal-browser@3.24.0)
+        version: 3.0.7(@azure/msal-browser@3.28.1)
       '@milkdown/crepe':
         specifier: ^7.7.0
         version: 7.7.0(element-internals-polyfill@0.1.55)
@@ -421,19 +421,19 @@ packages:
   '@azure/ms-rest-js@2.7.0':
     resolution: {integrity: sha512-ngbzWbqF+NmztDOpLBVDxYM+XLcUj7nKhxGbSU9WtIsXfRB//cf2ZbAG5HkOrhU9/wd/ORRB6lM/d69RKVjiyA==}
 
-  '@azure/msal-browser@3.24.0':
-    resolution: {integrity: sha512-JGNV9hTYAa7lsum9IMIibn2kKczAojNihGo1hi7pG0kNrcKej530Fl6jxwM05A44/6I079CSn6WxYxbVhKUmWg==}
+  '@azure/msal-browser@3.28.1':
+    resolution: {integrity: sha512-OHHEWMB5+Zrix8yKvLVzU3rKDFvh7SOzAzXfICD7YgUXLxfHpTPX2pzOotrri1kskwhHqIj4a5LvhZlIqE7C7g==}
     engines: {node: '>=0.8.0'}
 
-  '@azure/msal-common@14.15.0':
-    resolution: {integrity: sha512-ImAQHxmpMneJ/4S8BRFhjt1MZ3bppmpRPYYNyzeQPeFN288YKbb8TmmISQEbtfkQ1BPASvYZU5doIZOPBAqENQ==}
+  '@azure/msal-common@14.16.0':
+    resolution: {integrity: sha512-1KOZj9IpcDSwpNiQNjt0jDYZpQvNZay7QAEi/5DLubay40iGYtLzya/jbjRPLyOTZhEKyL1MzPuw2HqBCjceYA==}
     engines: {node: '>=0.8.0'}
 
-  '@azure/msal-react@2.1.0':
-    resolution: {integrity: sha512-XsEAaOONTOi69ufzks0ycnf/MlqXMWRL2ITSmZYOM4RnuGPWP04f3QsuiKRRcwerDTZFwZBJQX+nr9ecODeP1A==}
+  '@azure/msal-react@2.2.0':
+    resolution: {integrity: sha512-2V+9JXeXyyjYNF92y5u0tU4el9px/V1+vkRuN+DtoxyiMHCtYQpJoaFdGWArh43zhz5aqQqiGW/iajPDSu3QsQ==}
     engines: {node: '>=10'}
     peerDependencies:
-      '@azure/msal-browser': ^3.24.0
+      '@azure/msal-browser': ^3.27.0
       react: ^16.8.0 || ^17 || ^18
 
   '@babel/code-frame@7.24.7':
@@ -6029,15 +6029,15 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@azure/msal-browser@3.24.0':
+  '@azure/msal-browser@3.28.1':
     dependencies:
-      '@azure/msal-common': 14.15.0
+      '@azure/msal-common': 14.16.0
 
-  '@azure/msal-common@14.15.0': {}
+  '@azure/msal-common@14.16.0': {}
 
-  '@azure/msal-react@2.1.0(@azure/msal-browser@3.24.0)(react@18.3.1)':
+  '@azure/msal-react@2.2.0(@azure/msal-browser@3.28.1)(react@18.3.1)':
     dependencies:
-      '@azure/msal-browser': 3.24.0
+      '@azure/msal-browser': 3.28.1
       react: 18.3.1
 
   '@babel/code-frame@7.24.7':
@@ -9408,12 +9408,12 @@ snapshots:
 
   '@microsoft/load-themed-styles@1.10.295': {}
 
-  '@microsoft/microsoft-graph-client@3.0.7(@azure/msal-browser@3.24.0)':
+  '@microsoft/microsoft-graph-client@3.0.7(@azure/msal-browser@3.28.1)':
     dependencies:
       '@babel/runtime': 7.25.6
       tslib: 2.7.0
     optionalDependencies:
-      '@azure/msal-browser': 3.24.0
+      '@azure/msal-browser': 3.28.1
 
   '@milkdown/components@7.7.0(shbv4wy5fh4tvjaeci4nskuw7q)':
     dependencies:
