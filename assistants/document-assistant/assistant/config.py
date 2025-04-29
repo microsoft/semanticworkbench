@@ -329,7 +329,7 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIClientConfigModel(
-        service_config=azure_openai_service_config_construct(),
+        service_config=azure_openai_service_config_construct(default_deployment="gpt-4.1"),
         request_config=OpenAIRequestConfig(
             max_tokens=128_000,
             response_tokens=16_384,
@@ -347,7 +347,7 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIClientConfigModel(
-        service_config=azure_openai_service_config_reasoning_construct(),
+        service_config=azure_openai_service_config_reasoning_construct(default_deployment="o3-mini"),
         request_config=OpenAIRequestConfig(
             max_tokens=200_000,
             response_tokens=65_536,
