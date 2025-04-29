@@ -277,9 +277,16 @@ class AssistantService(FastAPIAssistantService):
 
         assistant_context = require_found(self.get_assistant_context(assistant_id))
         if is_new:
-            await self.assistant_app.events.assistant._on_created_handlers(True, assistant_context)
+            task = asyncio.create_task(
+                self.assistant_app.events.assistant._on_created_handlers(True, assistant_context)
+            )
         else:
-            await self.assistant_app.events.assistant._on_updated_handlers(True, assistant_context)
+            task = asyncio.create_task(
+                self.assistant_app.events.assistant._on_updated_handlers(True, assistant_context)
+            )
+
+        self._conversation_event_tasks.add(task)
+        task.add_done_callback(self._conversation_event_tasks.discard)
 
         if from_export is not None:
             await self.assistant_app.data_exporter.import_(assistant_context, from_export)
@@ -370,9 +377,16 @@ class AssistantService(FastAPIAssistantService):
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
         if is_new:
-            await self.assistant_app.events.conversation._on_created_handlers(not from_export, conversation_context)
+            task = asyncio.create_task(
+                self.assistant_app.events.conversation._on_created_handlers(not from_export, conversation_context)
+            )
         else:
-            await self.assistant_app.events.conversation._on_updated_handlers(True, conversation_context)
+            task = asyncio.create_task(
+                self.assistant_app.events.conversation._on_updated_handlers(True, conversation_context)
+            )
+
+        self._conversation_event_tasks.add(task)
+        task.add_done_callback(self._conversation_event_tasks.discard)
 
         if from_export is not None:
             await self.assistant_app.conversation_data_exporter.import_(conversation_context, from_export)
