@@ -61,6 +61,7 @@ async def get_completion(
     request_config: OpenAIRequestConfig,
     chat_message_params: List[ChatCompletionMessageParam],
     tools: List[ChatCompletionToolParam] | None,
+    tool_choice: str | None = None,
 ) -> ParsedChatCompletion[BaseModel] | ChatCompletion:
     """
     Generate a completion from the OpenAI API.
@@ -82,7 +83,6 @@ async def get_completion(
 
     # list of models that do not support tools
     no_tools_support = ["o1-preview", "o1-mini"]
-    no_parallel_tool_calls = ["o3-mini"]
 
     # add tools to completion args if model supports tools
     if request_config.model not in no_tools_support:
@@ -90,8 +90,17 @@ async def get_completion(
         if tools is not None:
             completion_args["tool_choice"] = "auto"
 
-            if request_config.model not in no_parallel_tool_calls:
-                completion_args["parallel_tool_calls"] = False
+            # Formalize the behavior that only one tool should be called per LLM call to ensure strict mode is enabled
+            # For more details see https://platform.openai.com/docs/guides/function-calling?api-mode=responses#parallel-function-calling
+            completion_args["parallel_tool_calls"] = False
+
+            # Handle tool choice if provided
+            if tool_choice is not None:
+                if tool_choice not in ["none", "auto", "required"]:
+                    # Handle the case where tool_choice is the tool we want the model to use
+                    completion_args["tool_choice"] = {"type": "function", "function": {"name": tool_choice}}
+                else:
+                    completion_args["tool_choice"] = tool_choice
 
     logger.debug(
         dedent(f"""

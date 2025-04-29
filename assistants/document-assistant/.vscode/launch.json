@@ -13,11 +13,13 @@
   ],
   "compounds": [
     {
-      "name": "assistants: document-assistant (demo)",
+      "name": "assistants: document-assistant (default)",
       "configurations": [
         "assistants: document-assistant",
         "app: semantic-workbench-app",
-        "service: semantic-workbench-service"
+        "service: semantic-workbench-service",
+        "mcp-servers: mcp-server-bing-search",
+        "mcp-servers: mcp-server-filesystem-edit"
       ]
     }
   ]

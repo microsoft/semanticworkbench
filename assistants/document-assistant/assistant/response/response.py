@@ -144,10 +144,12 @@ async def respond_to_conversation(
                 request_config=request_config,
                 service_config=service_config,
                 prompts_config=config.prompts,
+                extensions_config=config.extensions_config,
                 tools_config=config.tools,
                 attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
+                is_first_step=step_count == 1,
             )
 
             if step_result.status == "error":

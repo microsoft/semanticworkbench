@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 import time
 from textwrap import dedent
@@ -5,19 +7,29 @@ from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
+from assistant_extensions.mcp import ExtendedCallToolRequestParams, MCPSession, OpenAISamplingHandler
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionToolParam,
     ParsedChatCompletion,
 )
-from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig, create_client
+from openai.types.shared_params.function_definition import FunctionDefinition
+from openai_client import (
+    AzureOpenAIServiceConfig,
+    OpenAIRequestConfig,
+    OpenAIServiceConfig,
+    create_client,
+)
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel, PromptsConfigModel
+from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
+from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL, DYNAMIC_UI_TOOL_NAME
+
+from ..config import ExtensionsConfigModel, MCPToolsConfigModel, PromptsConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
@@ -40,9 +52,11 @@ async def next_step(
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
     prompts_config: PromptsConfigModel,
     tools_config: MCPToolsConfigModel,
+    extensions_config: ExtensionsConfigModel,
     attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
+    is_first_step: bool,
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -79,6 +93,19 @@ async def next_step(
     tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
     sampling_handler.assistant_mcp_tools = tools
 
+    if extensions_config.guidance.enabled:
+        # Add the guidance tool by converting the "raw" tool definition to a OpenAI typed one
+        dynamic_ui_tool = ChatCompletionToolParam(
+            function=FunctionDefinition(
+                name=DYNAMIC_UI_TOOL_NAME,
+                description=DYNAMIC_UI_TOOL["function"]["description"],
+                parameters=DYNAMIC_UI_TOOL["function"]["parameters"],
+                strict=True,
+            ),
+            type="function",
+        )
+        tools = [dynamic_ui_tool, *tools] if tools else [dynamic_ui_tool]
+
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
         mcp_prompts=mcp_prompts,
@@ -89,6 +116,7 @@ async def next_step(
         tools_config=tools_config,
         tools=tools,
         attachments_config=attachments_config,
+        extensions_config=extensions_config,
         silence_token=silence_token,
     )
 
@@ -120,7 +148,21 @@ async def next_step(
         completion_status = "reasoning..." if request_config.is_reasoning_model else "thinking..."
         async with context.set_status(completion_status):
             try:
-                completion = await get_completion(client, request_config, chat_message_params, tools)
+                # If user guidance is enabled, we transparently run two LLM calls with very similar parameters.
+                # One is the mainline LLM call for the orchestration, the other is identically expect it forces the LLM to
+                # call the DYNAMIC_UI_TOOL_NAME function to generate UI elements right after a user message is sent (the first step).
+                # This is done to only interrupt the user letting them know when the LLM deems it to be necessary.
+                # Otherwise, UI elements are generated in the background.
+                # Finally, we use the same parameters for both calls so that LLM understands the capabilities of the assistant when generating UI elements.
+                completion_dynamic_ui = None
+                if extensions_config.guidance.enabled and is_first_step:
+                    dynamic_ui_task = get_completion(
+                        client, request_config, chat_message_params, tools, tool_choice=DYNAMIC_UI_TOOL_NAME
+                    )
+                    completion_task = get_completion(client, request_config, chat_message_params, tools)
+                    completion_dynamic_ui, completion = await asyncio.gather(dynamic_ui_task, completion_task)
+                else:
+                    completion = await get_completion(client, request_config, chat_message_params, tools)
 
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
@@ -148,6 +190,30 @@ async def next_step(
     if completion is None:
         return await handle_error("No response from OpenAI.")
 
+    if extensions_config.guidance.enabled and completion_dynamic_ui:
+        # Check if the regular request generated the DYNAMIC_UI_TOOL_NAME
+        called_dynamic_ui_tool = False
+        if completion.choices[0].message.tool_calls:
+            for tool_call in completion.choices[0].message.tool_calls:
+                if tool_call.function.name == DYNAMIC_UI_TOOL_NAME:
+                    called_dynamic_ui_tool = True
+
+        # If it did, completely ignore the special completion. Otherwise, use it to generate UI for this turn
+        if not called_dynamic_ui_tool:
+            tool_calls = completion_dynamic_ui.choices[0].message.tool_calls
+            # Otherwise, use it generate the UI for this return
+            if tool_calls:
+                tool_call = tool_calls[0]
+                tool_call = ExtendedCallToolRequestParams(
+                    id=tool_call.id,
+                    name=tool_call.function.name,
+                    arguments=json.loads(
+                        tool_call.function.arguments,
+                    ),
+                )  # Check if any ui_elements were generated and abort early if not
+                if tool_call.arguments and tool_call.arguments.get("ui_elements", []):
+                    await update_dynamic_ui_state(context, tool_call.arguments)
+
     step_result = await handle_completion(
         sampling_handler,
         step_result,
@@ -158,6 +224,7 @@ async def next_step(
         silence_token,
         metadata_key,
         response_start_time,
+        extensions_config,
     )
 
     if build_request_result.token_overage > 0:

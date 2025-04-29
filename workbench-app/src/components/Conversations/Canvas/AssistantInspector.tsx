@@ -65,6 +65,10 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
     const [formData, setFormData] = React.useState<object>(state.data);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    React.useEffect(() => {
+        setFormData(state.data);
+    }, [state.data]);
+
     const handleChange = React.useCallback(
         async (updatedState: object) => {
             if (!state || isSubmitting) return;

@@ -27,7 +27,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ContextTransferConfigModel, DocumentAssistantConfigModel
+from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
+
+from .config import AssistantConfigModel
 from .response import respond_to_conversation
 from .whiteboard import WhiteboardInspector
 
@@ -47,13 +49,7 @@ service_description = "An assistant for writing documents."
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(
-    AssistantConfigModel,
-    additional_templates={
-        "workspace": DocumentAssistantConfigModel,
-        "context_transfer": ContextTransferConfigModel,
-    },
-)
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # define the content safety evaluator factory
@@ -76,6 +72,10 @@ assistant = AssistantApp(
 
 async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
+    # Get either the hosted or personal config based on which one is enabled. Priority is given to the personal config.
+    personal_filesystem_edit = [x for x in config.tools.personal_mcp_servers if x.key == "filesystem-edit"]
+    if len(personal_filesystem_edit) > 0:
+        return personal_filesystem_edit[0]
     return config.tools.hosted_mcp_servers.filesystem_edit
 
 
@@ -92,7 +92,7 @@ async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfi
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
-
+_ = DynamicUIInspector(state_id="dynamic_ui", app=assistant)
 
 attachments_extension = AttachmentsExtension(assistant)
 
