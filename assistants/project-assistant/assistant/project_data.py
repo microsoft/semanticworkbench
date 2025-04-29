@@ -72,7 +72,11 @@ class LogEntryType(str, Enum):
     # Brief-related events
     BRIEFING_CREATED = "briefing_created"
     BRIEFING_UPDATED = "briefing_updated"
-
+    
+    # Goal-related events
+    GOAL_ADDED = "goal_added"
+    GOAL_DELETED = "goal_deleted"
+    
     # Information request deletion event
     REQUEST_DELETED = "request_deleted"
 
@@ -182,7 +186,6 @@ class ProjectBrief(BaseEntity):
 
     project_name: str  # Short, distinctive name for the project or context transfer
     project_description: str  # Comprehensive description of the project's purpose, scope, and context
-    goals: List[ProjectGoal] = Field(default_factory=list)  # List of project goals (not used in context transfer mode)
     timeline: Optional[str] = None  # Expected timeline or deadline information (not used in context transfer mode)
     additional_context: Optional[str] = (
         None  # Detailed supplementary information for project participants or context transfer
@@ -334,6 +337,7 @@ class Project(BaseModel):
 
     info: Optional[ProjectInfo]
     brief: Optional[ProjectBrief]
-    whiteboard: Optional[ProjectWhiteboard]
+    goals: List[ProjectGoal] = Field(default_factory=list)
     requests: List[InformationRequest] = Field(default_factory=list)
+    whiteboard: Optional[ProjectWhiteboard]
     log: Optional[ProjectLog] = Field(default_factory=lambda: ProjectLog())

@@ -22,6 +22,7 @@ from assistant.project_data import (
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
+    Project,
 )
 from assistant.project_storage import ProjectStorage, ProjectStorageManager
 from assistant.project_storage_models import (
@@ -125,8 +126,20 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
-            goals=[test_goal],
         )
+        
+        # Create a Project with the goal
+        project = Project(
+            info=None,
+            brief=brief,
+            goals=[test_goal],
+            whiteboard=None,
+        )
+        
+        # Write the project to storage
+        project_path = ProjectStorageManager.get_project_path(self.project_id)
+        project_path.parent.mkdir(parents=True, exist_ok=True)
+        write_model(project_path, project)
 
         # Write brief to the proper path using ProjectStorage
         brief_path = ProjectStorageManager.get_brief_path(self.project_id)
@@ -166,14 +179,19 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test reading a project brief."""
         # Read the brief using ProjectStorage
         brief = ProjectStorage.read_project_brief(self.project_id)
+        project = ProjectStorage.read_project(self.project_id)
 
         # Verify the brief was loaded correctly
         self.assertIsNotNone(brief, "Should load the brief")
         if brief:  # Type checking guard
             self.assertEqual(brief.project_name, "Test Project")
             self.assertEqual(brief.project_description, "Test project description")
-            self.assertEqual(len(brief.goals), 1)
-            self.assertEqual(brief.goals[0].name, "Test Goal")
+        
+        # Verify the project was loaded with goals correctly
+        self.assertIsNotNone(project, "Should load the project")
+        if project:  # Type checking guard
+            self.assertEqual(len(project.goals), 1)
+            self.assertEqual(project.goals[0].name, "Test Goal")
 
     async def test_read_information_request(self):
         """Test reading an information request."""

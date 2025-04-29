@@ -8,6 +8,7 @@ from assistant_extensions.attachments import AttachmentsExtension
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 from openai_client.completion import message_content_from_completion
@@ -143,6 +144,11 @@ async def respond_to_conversation(
             project_info_text = f"""
 ### PROJECT INFO
 **Current State:** {project_info.state.value}
+
+**Full project info**
+```json
+{project_info.model_dump_json(indent=2)}
+```
 """
             if project_info.status_message:
                 project_info_text += f"**Status Message:** {project_info.status_message}\n"
@@ -157,12 +163,16 @@ async def respond_to_conversation(
 **Name:** {briefing.project_name}
 **Description:** {briefing.project_description}
 """
-            # Only include briefing goals and progress tracking if the assistant is a project assistant
-            if is_project_assistant(context) and briefing.goals:
+            # Only include project goals and progress tracking if the assistant is a project assistant
+            # First get the project to access its goals
+            project_id = await ProjectManager.get_project_id(context)
+            project = ProjectStorage.read_project(project_id) if project_id else None
+
+            if is_project_assistant(context) and project and project.goals:
                 project_brief_text += """
 #### PROJECT GOALS:
 """
-                for i, goal in enumerate(briefing.goals):
+                for i, goal in enumerate(project.goals):
                     # Count completed criteria
                     completed = sum(1 for c in goal.success_criteria if c.completed)
                     total = len(goal.success_criteria)
@@ -177,10 +187,29 @@ async def respond_to_conversation(
                 project_data["briefing"] = project_brief_text
 
         # Include whiteboard content
-        whiteboard_text = ""
         if whiteboard and whiteboard.content:
-            whiteboard_text = "\n### ASSISTANT WHITEBOARD\n"
-            whiteboard_text += f"{whiteboard.content}\n\n"
+            whiteboard_text = f"""
+### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
+The whiteboard contains critical project information that has been automatically extracted from previous conversations.
+It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
+
+Key characteristics of this whiteboard:
+- It contains the most essential information about the project that should be readily available
+- It has been automatically curated to focus on high-value content relevant to the project
+- It is maintained and updated as the conversation progresses
+- It should be treated as a trusted source of contextual information for this project
+
+When using the whiteboard:
+- Prioritize this information when addressing questions or providing updates
+- Reference it to ensure consistency in your responses across the conversation
+- Use it to track important details that might otherwise be lost in the conversation history
+
+WHITEBOARD CONTENT:
+```markdown
+{whiteboard.content}
+```
+
+"""
             project_data["whiteboard"] = whiteboard_text
 
     except Exception as e:
@@ -189,31 +218,31 @@ async def respond_to_conversation(
     # Construct role-specific messages with comprehensive project data
     if role == ConversationRole.COORDINATOR:
         # Include information requests
-        coordinator_requests = ""
-        if all_requests:
-            active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
 
-            if active_requests:
-                coordinator_requests = "\n\n### ACTIVE INFORMATION REQUESTS\n"
-                coordinator_requests += (
-                    "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-                )
+        active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
+        if active_requests:
+            coordinator_requests = "\n\n### ACTIVE INFORMATION REQUESTS\n"
+            coordinator_requests += "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
 
-                for req in active_requests[:10]:  # Limit to 10 for brevity
-                    priority_marker = {
-                        "low": "🔹",
-                        "medium": "🔶",
-                        "high": "🔴",
-                        "critical": "⚠️",
-                    }.get(req.priority.value, "🔹")
+            for req in active_requests[:10]:  # Limit to 10 for brevity
+                priority_marker = {
+                    "low": "🔹",
+                    "medium": "🔶",
+                    "high": "🔴",
+                    "critical": "⚠️",
+                }.get(req.priority.value, "🔹")
 
-                    coordinator_requests += f"{priority_marker} **{req.title}** ({req.status.value})\n"
-                    coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
-                    coordinator_requests += f"   **Description:** {req.description}\n\n"
+                coordinator_requests += f"{priority_marker} **{req.title}** ({req.status.value})\n"
+                coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
+                coordinator_requests += f"   **Description:** {req.description}\n\n"
 
-                if len(active_requests) > 10:
-                    coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
-                project_data["information_requests"] = coordinator_requests
+            if len(active_requests) > 10:
+                coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
+            project_data["information_requests"] = coordinator_requests
+        else:
+            project_data["information_requests"] = (
+                "\n\n### ACTIVE INFORMATION REQUESTS\nNo active information requests."
+            )
 
     else:  # team role
         # Fetch current information requests for this conversation
@@ -340,13 +369,14 @@ async def respond_to_conversation(
             formatted_message = format_message(participants, msg)
 
             # Create the message parameter based on sender with proper typing
-            if msg.sender.participant_id == context.assistant.id:
-                current_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
+            is_assistant = msg.sender.participant_id == context.assistant.id
+            if is_assistant:
+                current_message = ChatCompletionAssistantMessageParam(
                     role="assistant",
                     content=formatted_message,
                 )
             else:
-                current_message: ChatCompletionMessageParam = ChatCompletionUserMessageParam(
+                current_message = ChatCompletionUserMessageParam(
                     role="user",
                     content=formatted_message,
                 )
@@ -360,7 +390,7 @@ async def respond_to_conversation(
             # Check if we can add this message without exceeding the token limit
             if token_overage == 0 and history_messages_tokens + user_message_tokens < available_tokens:
                 # Add message to the front of history_messages (to maintain chronological order)
-                history_messages.insert(0, current_message)
+                history_messages = [current_message] + history_messages
                 history_messages_tokens += user_message_tokens
             else:
                 # We've exceeded the token limit, track the overage
@@ -373,6 +403,19 @@ async def respond_to_conversation(
     # Add all chat messages.
     completion_messages.extend(history_messages)
     completion_messages.append(user_message)
+
+    if message.filenames and len(message.filenames) > 0:
+        # add a system message to indicate attachments are a part of the user message
+        attachment_message = ChatCompletionSystemMessageParam(
+            role="system",
+            content=f"Attachment(s): {', '.join(message.filenames)}",
+        )
+        completion_messages.append(attachment_message)
+        attachment_message_tokens = openai_client.num_tokens_from_messages(
+            model=config.request_config.openai_model,
+            messages=[attachment_message],
+        )
+        available_tokens -= attachment_message_tokens
 
     ##
     ## TOKEN COUNT HANDLING

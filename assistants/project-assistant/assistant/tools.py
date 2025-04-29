@@ -24,6 +24,7 @@ from .command_processor import (
     handle_add_goal_command,
 )
 from .conversation_clients import ConversationClientManager
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
 from .project_common import ConfigurationTemplate
 from .project_data import (
@@ -35,7 +36,6 @@ from .project_data import (
     RequestStatus,
 )
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
@@ -135,6 +135,11 @@ class ProjectTools:
                     self.add_project_goal,
                     "add_project_goal",
                     "Add a goal to the project brief with optional success criteria",
+                )
+                self.tool_functions.add_function(
+                    self.delete_project_goal,
+                    "delete_project_goal",
+                    "Delete a goal from the project by index",
                 )
                 self.tool_functions.add_function(
                     self.mark_project_ready_for_working,
@@ -273,7 +278,7 @@ class ProjectTools:
             return "No project associated with this conversation. Please create a project first."
 
         # Create a new project brief using ProjectManager
-        brief = await ProjectManager.create_project_brief(
+        brief = await ProjectManager.update_project_brief(
             context=self.context,
             project_name=project_name,
             project_description=project_description,
@@ -283,25 +288,35 @@ class ProjectTools:
         if brief:
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' created successfully.",
+                    content=f"Project brief '{project_name}' updated successfully.",
                     message_type=MessageType.notice,
                     metadata={"debug": brief.model_dump()},
                 )
             )
-            return f"Project brief '{project_name}' created successfully."
+            return f"Project brief '{project_name}' updated successfully."
         else:
-            return "Failed to create project brief. Please try again."
+            return "Failed to update project brief. Please try again."
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
-        Resolve an information request with information.
+        Resolve an information request when you have the needed information to address it. Only use for active information requests. If there are no active information requests, this should never be called.
 
-        [COORDINATOR ONLY] This tool is only available to Coordinator agents.
+        WHEN TO USE:
+        - When you have information that directly answers a team member's request
+        - When the user has supplied information that resolves a pending request
+        - When you've gathered enough details to unblock a team member
+        - When a request is no longer relevant and should be closed with explanation
+
+        IMPORTANT WORKFLOW:
+        1. ALWAYS call get_project_info(info_type="requests") first to see all pending requests
+        2. Identify the request you want to resolve and find its exact Request ID
+        3. Use the exact ID in your request_id parameter - not the title
+        4. Provide a clear resolution that addresses the team member's needs
 
         Args:
             request_id: IMPORTANT! Use the exact Request ID value from get_project_info output
                        (looks like "012345-abcd-67890"), NOT the title of the request
-            resolution: Resolution information to add to the request
+            resolution: Complete information that addresses the team member's question or blocker
 
         Returns:
             A message indicating success or failure
@@ -343,15 +358,29 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         self, title: str, description: str, priority: Literal["low", "medium", "high", "critical"]
     ) -> str:
         """
-        Create an information request to send to the Coordinator for information or to report a blocker.
+        Create an information request to send to the Coordinator for information that is unavailable to you or to report a blocker.
 
-        This is the MAIN TOOL FOR TEAM MEMBERS to request information, documents, or assistance from the Coordinator.
-        Team members should use this tool whenever they need something from the Coordinator.
+        WHEN TO USE:
+        - When you need specific information or clarification from the Coordinator
+        - When encountering a blocker that prevents progress on a goal
+        - When requesting additional resources or documentation
+        - When you need a decision from the project Coordinator
+        - When a user expressly asks for information or help with something unclear
+
+        Before creating a request, check if the information is already available by:
+        1. Using get_project_info() to check existing project data
+        2. Using view_coordinator_conversation() to see if the information was already shared
+
+        Set an appropriate priority based on how critical the information is:
+        - "low": Nice to have, not blocking progress
+        - "medium": Important but not immediate
+        - "high": Important and somewhat urgent
+        - "critical": Completely blocked, cannot proceed without this information
 
         Args:
-            title: The title of the request (be specific and clear)
-            description: A detailed description of what information or help you need from the Coordinator
-            priority: The priority of the request. Must be one of: low, medium, high, critical.
+            title: A concise, clear title that summarizes what information is needed
+            description: A detailed explanation of what information is needed and why it's important
+            priority: The priority level - must be one of: low, medium, high, critical
 
         Returns:
             A message indicating success or failure
@@ -415,15 +444,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No project associated with this conversation. Unable to delete information request."
 
         try:
-            # Clean the request_id to handle common formatting issues
-            cleaned_request_id = request_id.strip().lower()
-            # Remove any quotes that might have been added
+            cleaned_request_id = request_id.strip()
             cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
-
             logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
 
             # Read the information request
-
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
 
             if not information_request:
@@ -585,12 +610,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_project_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
         """
-        Add a goal to the project brief.
+        Add a goal to the project brief with measurable success criteria.
+
+        Project goals should be operational objectives that team members will need to complete.
+        Each goal must have clear, measurable success criteria that team members can mark as completed.
+
+        WHEN TO USE:
+        - When defining actionable goals that team members need to accomplish
+        - When breaking down project requirements into specific, achievable objectives
+        - After creating a project brief, before marking the project ready for working
+        - When users ask to add or define goals, objectives, or tasks for the project
 
         Args:
-            goal_name: The name of the goal
-            goal_description: A description of the goal
-            success_criteria: Optional list of success criteria. If not provided, an empty list will be used.
+            goal_name: A concise, clear name for the goal (e.g., "Implement User Authentication")
+            goal_description: A detailed description explaining what needs to be accomplished
+            success_criteria: List of specific, measurable criteria that indicate when the goal is complete
+                             (e.g., ["User login form created", "Password reset functionality implemented"])
 
         Returns:
             A message indicating success or failure
@@ -624,13 +659,73 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             error_prefix="Error adding goal",
         )
 
-    async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
+    async def delete_project_goal(self, goal_index: int) -> str:
         """
-        Mark a success criterion as completed.
+        Delete a goal from the project by index.
+
+        WHEN TO USE:
+        - When a user explicitly requests to remove or delete a specific project goal
+        - When goals need to be reorganized and redundant/obsolete goals removed
+        - When a goal was added by mistake or is no longer relevant to the project
+        - Only before marking the project as ready for working
+
+        NOTE: This action is irreversible and will remove all success criteria associated with the goal.
+        First use get_project_info() to see the list of goals and their indices before deletion.
 
         Args:
-            goal_index: The index of the goal (0-based)
-            criterion_index: The index of the criterion within the goal (0-based)
+            goal_index: The index of the goal to delete (0-based integer). Use get_project_info() first to see the
+                       correct indices of goals. For example, to delete the first goal, use goal_index=0.
+
+        Returns:
+            A message indicating success or failure
+        """
+
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can delete project goals."
+
+        # Get project ID - validate project exists
+        project_id = await ProjectManager.get_project_id(self.context)
+        if not project_id:
+            return "No project associated with this conversation."
+
+        # Call the ProjectManager method to delete the goal
+        success, result = await ProjectManager.delete_project_goal(
+            context=self.context,
+            goal_index=goal_index,
+        )
+
+        if success:
+            # Notify the user about the successful deletion
+            await self.context.send_messages(
+                NewConversationMessage(
+                    content=f"Goal '{result}' has been successfully deleted from the project.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return f"Goal '{result}' has been successfully deleted from the project."
+        else:
+            # Return the error message
+            return f"Error deleting goal: {result}"
+
+    async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
+        """
+        Mark a success criterion as completed for tracking project progress.
+
+        WHEN TO USE:
+        - When the user reports completing a specific task or deliverable
+        - When evidence has been provided that a success criterion has been met
+        - When a milestone for one of the project goals has been achieved
+        - When tracking progress and updating the project status
+
+        Each completed criterion moves the project closer to completion. When all criteria
+        are completed, the project can be marked as complete.
+
+        IMPORTANT: Always use get_project_info() first to see the current goals, criteria, and their indices
+        before marking anything as complete.
+
+        Args:
+            goal_index: The index of the goal (0-based integer) from get_project_info() output
+            criterion_index: The index of the criterion within the goal (0-based integer)
 
         Returns:
             A message indicating success or failure
@@ -651,11 +746,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Using 0-based indexing directly, no adjustment needed
 
-        # Validate indices
-        if goal_index < 0 or goal_index >= len(brief.goals):
-            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(brief.goals) - 1}. There are {len(brief.goals)} goals."
+        # Get the project to access goals
+        project = ProjectStorage.read_project(project_id)
+        if not project or not project.goals:
+            return "No project goals found."
 
-        goal = brief.goals[goal_index]
+        # Validate indices
+        if goal_index < 0 or goal_index >= len(project.goals):
+            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals."
+
+        goal = project.goals[goal_index]
 
         if criterion_index < 0 or criterion_index >= len(goal.success_criteria):
             return f"Invalid criterion index {criterion_index}. Valid indexes for goal '{goal.name}' are 0 to {len(goal.success_criteria) - 1}. Goal '{goal.name}' has {len(goal.success_criteria)} criteria."
@@ -683,13 +783,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         criterion.completed_at = datetime.utcnow()
         criterion.completed_by = current_user_id
 
-        # Update brief metadata
-        brief.updated_at = datetime.utcnow()
-        brief.updated_by = current_user_id
-        brief.version += 1
-
-        # Save the updated brief
-        ProjectStorage.write_project_brief(project_id, brief)
+        # Save the updated project with the completed criterion
+        ProjectStorage.write_project(project_id, project)
 
         # Log the criterion completion
         await ProjectStorage.log_project_event(
@@ -709,9 +804,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             completed_criteria = 0
             total_criteria = 0
 
-            for g in brief.goals:
-                total_criteria += len(g.success_criteria)
-                completed_criteria += sum(1 for c in g.success_criteria if c.completed)
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                for g in project.goals:
+                    total_criteria += len(g.success_criteria)
+                    completed_criteria += sum(1 for c in g.success_criteria if c.completed)
 
             # Update project info with criteria stats
             project_info.completed_criteria = completed_criteria
@@ -745,9 +843,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             completed = 0
             total = 0
 
-            for g in brief.goals:
-                total += len(g.success_criteria)
-                completed += sum(1 for c in g.success_criteria if c.completed)
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                for g in project.goals:
+                    total += len(g.success_criteria)
+                    completed += sum(1 for c in g.success_criteria if c.completed)
 
             if completed == total and total > 0:
                 # Automatically complete the project
@@ -797,19 +898,20 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not project_id:
             return "No project associated with this conversation. Unable to mark project as ready for working."
 
-        # Get existing project brief and whiteboard
+        # Get existing project brief, whiteboard, and project
         brief = ProjectStorage.read_project_brief(project_id)
         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+        project = ProjectStorage.read_project(project_id)
 
         if not brief:
             return "No project brief found. Please create one before marking as ready for working."
 
-        if not brief.goals:
-            return "Project brief has no goals. Please add at least one goal before marking as ready for working."
+        if not project or not project.goals:
+            return "Project has no goals. Please add at least one goal before marking as ready for working."
 
         # Check if at least one goal has success criteria
         has_criteria = False
-        for goal in brief.goals:
+        for goal in project.goals:
             if goal.success_criteria:
                 has_criteria = True
                 break
@@ -892,8 +994,17 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def report_project_completion(self) -> str:
         """
-        Report that the project is complete.
-        This is a milestone function that concludes the project lifecycle.
+        Report that the project is complete, concluding the project lifecycle.
+
+        WHEN TO USE:
+        - When all success criteria for all goals have been marked as completed
+        - When the user confirms the project deliverables are finished and ready
+        - When the project objectives have been fully achieved
+        - When it's time to formally conclude the project
+
+        This is a significant milestone that indicates the project has successfully
+        completed all its goals. Before using this tool, verify that all success criteria
+        have been marked as completed using get_project_info().
 
         Returns:
             A message indicating success or failure
@@ -1073,6 +1184,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
+        project = ProjectStorage.read_project(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 
         # Check if project brief exists
@@ -1095,11 +1207,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Check if goals exist
         if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
-            if not brief.goals:
+            if not project or not project.goals:
                 if self.role is ConversationRole.COORDINATOR:
                     return {
                         "suggestion": "add_project_goal",
-                        "reason": "Project brief has no goals. Add at least one goal with success criteria.",
+                        "reason": "Project has no goals. Add at least one goal with success criteria.",
                         "priority": "high",
                         "function": "add_project_goal",
                         "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
@@ -1107,7 +1219,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 else:
                     return {
                         "suggestion": "wait_for_goals",
-                        "reason": "Project brief has no goals. The Coordinator needs to add goals before you can proceed.",
+                        "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
                         "priority": "medium",
                         "function": None,
                     }
@@ -1121,8 +1233,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 has_goals = True
                 has_criteria = True
             else:
-                has_goals = bool(brief.goals)
-                has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
+                has_goals = bool(project and project.goals)
+                has_criteria = bool(
+                    project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
+                )
 
             if has_goals and has_criteria:
                 return {
@@ -1163,20 +1277,23 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # For team, suggest marking criteria as completed if any are pending
         if self.role is ConversationRole.TEAM and incomplete_criteria:
-            # Find the first uncompleted criterion
-            for goal_index, goal in enumerate(brief.goals):
-                for criterion_index, criterion in enumerate(goal.success_criteria):
-                    if not criterion.completed:
-                        return {
-                            "suggestion": "mark_criterion_completed",
-                            "reason": "Update progress by marking completed success criteria.",
-                            "priority": "low",
-                            "function": "mark_criterion_completed",
-                            "parameters": {
-                                "goal_index": goal_index,  # 0-based indexing
-                                "criterion_index": criterion_index,  # 0-based indexing
-                            },
-                        }
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                # Find the first uncompleted criterion
+                for goal_index, goal in enumerate(project.goals):
+                    for criterion_index, criterion in enumerate(goal.success_criteria):
+                        if not criterion.completed:
+                            return {
+                                "suggestion": "mark_criterion_completed",
+                                "reason": "Update progress by marking completed success criteria.",
+                                "priority": "low",
+                                "function": "mark_criterion_completed",
+                                "parameters": {
+                                    "goal_index": goal_index,  # 0-based indexing
+                                    "criterion_index": criterion_index,  # 0-based indexing
+                                },
+                            }
 
         # Default suggestions based on role
         if self.role is ConversationRole.COORDINATOR:

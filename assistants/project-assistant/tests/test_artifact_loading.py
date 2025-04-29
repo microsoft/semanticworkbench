@@ -10,10 +10,10 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
+from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion, Project
 from assistant.project_manager import ProjectManager
 from assistant.conversation_project_link import ConversationProjectManager
-from assistant.project_storage import ProjectStorageManager
+from assistant.project_storage import ProjectStorageManager, ProjectStorage
 from assistant.project_storage_models import ConversationRole
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import read_model, write_model
@@ -117,8 +117,20 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
-            goals=[test_goal],
         )
+        
+        # Create a project with the goal
+        project = Project(
+            info=None,
+            brief=brief,
+            goals=[test_goal],
+            whiteboard=None,
+        )
+        
+        # Write the project to storage
+        project_path = ProjectStorageManager.get_project_path(self.project_id)
+        project_path.parent.mkdir(parents=True, exist_ok=True)
+        write_model(project_path, project)
 
         # Write to the project's shared directory using the correct path
         brief_path = ProjectStorageManager.get_brief_path(self.project_id)
@@ -134,14 +146,19 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
             # Get the brief using the ProjectManager
             brief = await ProjectManager.get_project_brief(context)
+            project = ProjectStorage.read_project(self.project_id)
 
             # Verify the brief was loaded correctly
             self.assertIsNotNone(brief, "Should load the brief")
             if brief:  # Type checking guard
                 self.assertEqual(brief.project_name, self.project_name)
                 self.assertEqual(brief.conversation_id, self.conversation_id)
-                self.assertEqual(len(brief.goals), 1, "Should have one goal")
-                self.assertEqual(brief.goals[0].name, "Test Goal")
+            
+            # Verify the project goals were loaded correctly
+            self.assertIsNotNone(project, "Should load the project")
+            if project:  # Type checking guard
+                self.assertEqual(len(project.goals), 1, "Should have one goal")
+                self.assertEqual(project.goals[0].name, "Test Goal")
 
     async def test_direct_storage_access(self) -> None:
         """Test direct access to project storage"""

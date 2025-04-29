@@ -13,10 +13,11 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .conversation_project_link import ConversationProjectManager
 from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
+from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,9 @@ class ProjectInspectorStateProvider:
 
         lines: List[str] = []
 
+        # Get the project
+        project = ProjectStorage.read_project(project_id)
+
         lines.append("**Role:** Coordinator")
 
         if not is_context_transfer:
@@ -134,9 +138,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if not is_context_transfer and brief and brief.goals:
+        if not is_context_transfer and project and project.goals:
             lines.append("## Goals")
-            for goal in brief.goals:
+            for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
                 criteria_total = len(goal.success_criteria)
                 lines.append(f"### {goal.name}")
@@ -192,7 +196,7 @@ class ProjectInspectorStateProvider:
             lines.append("")
             # Display the share URL as a properly formatted link
             lines.append("**Share this link with your team members:**")
-            lines.append(f"[Join Team Conversation]({share_url})")
+            lines.append(f"[Context Transfer link]({share_url})")
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
             lines.append("")
@@ -211,6 +215,9 @@ class ProjectInspectorStateProvider:
         """Format project information as markdown for Team role"""
 
         lines: List[str] = []
+
+        # Get the project
+        project = ProjectStorage.read_project(project_id)
 
         lines.append("**Role:** Team")
 
@@ -254,9 +261,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if not is_context_transfer and brief and brief.goals:
+        if not is_context_transfer and project and project.goals:
             lines.append("## Objectives")
-            for goal in brief.goals:
+            for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
                 criteria_total = len(goal.success_criteria)
                 lines.append(f"### {goal.name}")
