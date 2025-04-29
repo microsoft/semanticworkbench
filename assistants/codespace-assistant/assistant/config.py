@@ -196,6 +196,7 @@ class HostedMCPServersConfigModel(BaseModel):
         # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
         roots=[MCPClientRoot(name="root", uri="file://workspace/")],
         prompts_to_auto_include=["instructions"],
+        enabled=False,
     )
 
     @property
@@ -507,182 +508,6 @@ class AssistantConfigModel(BaseModel):
 # endregion
 
 
-# region: Document Assistant Default Configuration
-
-
-class DocumentHostedMCPServersConfigModel(HostedMCPServersConfigModel):
-    pass
-
-
-class DocumentAdvancedToolConfigModel(AdvancedToolConfigModel):
-    max_steps: Annotated[
-        int,
-        Field(
-            title="Maximum Steps",
-            description="The maximum number of steps to take when using tools, to avoid infinite loops.",
-        ),
-    ] = 15
-
-    additional_instructions: Annotated[
-        str,
-        Field(
-            title="Tools Instructions",
-            description=dedent("""
-                General instructions for using tools.  No need to include a list of tools or instruction
-                on how to use them in general, that will be handled automatically.  Instead, use this
-                space to provide any additional instructions for using specific tools, such folders to
-                exclude in file searches, or instruction to always re-read a file before using it.
-            """).strip(),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = ""
-
-
-class DocumentMCPToolsConfigModel(MCPToolsConfigModel):
-    enabled: Annotated[
-        bool,
-        Field(title="Enable experimental use of tools"),
-    ] = True
-
-    hosted_mcp_servers: Annotated[
-        HostedMCPServersConfigModel,
-        Field(
-            title="Hosted MCP Servers",
-            description="Configuration for hosted MCP servers that provide tools to the assistant.",
-            default=DocumentHostedMCPServersConfigModel(),
-        ),
-        UISchema(collapsed=False, items=UISchema(title_fields=["key", "enabled"])),
-    ] = DocumentHostedMCPServersConfigModel()
-
-    personal_mcp_servers: Annotated[
-        list[MCPServerConfig],
-        Field(
-            title="Personal MCP Servers",
-            description="Configuration for personal MCP servers that provide tools to the assistant.",
-            default=[],
-        ),
-        UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
-    ] = []
-
-    advanced: Annotated[
-        AdvancedToolConfigModel,
-        Field(
-            title="Advanced Tool Settings",
-        ),
-    ] = DocumentAdvancedToolConfigModel()
-
-
-class DocumentExtensionsConfigModel(ExtensionsConfigModel):
-    attachments: Annotated[
-        AttachmentsConfigModel,
-        Field(
-            title="Attachments Extension",
-            description="Configuration for the attachments extension.",
-        ),
-    ] = AttachmentsConfigModel(
-        context_description=dedent("""
-            These attachments were provided for additional context to accompany the
-            conversation. Consider any rationale provided for why they were included.
-            Always reference them factually and accurately in your responses.
-            """).strip(),
-        preferred_message_role="system",
-    )
-
-
-class DocumentPromptsConfigModel(PromptsConfigModel):
-    instruction_prompt: Annotated[
-        str,
-        Field(
-            title="Instruction Prompt",
-            description=dedent("""
-                The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.
-            """).strip(),
-        ),
-        UISchema(widget="textarea"),
-    ] = helpers.load_text_include("instruction_prompt_workspace.txt")
-
-    guidance_prompt: Annotated[
-        str,
-        Field(
-            title="Guidance Prompt",
-            description=dedent("""
-                The prompt used to provide a structured set of instructions to carry out a specific workflow
-                from start to finish. It should outline a clear, step-by-step process for gathering necessary
-                context, breaking down the objective into manageable components, executing the defined steps,
-                and validating the results.
-            """).strip(),
-        ),
-        UISchema(widget="textarea"),
-    ] = helpers.load_text_include("guidance_prompt_workspace.txt")
-
-    guardrails_prompt: Annotated[
-        str,
-        Field(
-            title="Guardrails Prompt",
-            description=(
-                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
-                " recommendations from: [Microsoft OpenAI Service: System message templates]"
-                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                "#define-additional-safety-and-behavioral-guardrails)"
-            ),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
-
-
-class DocumentResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
-    welcome_message: Annotated[
-        str,
-        Field(
-            title="Welcome Message",
-            description="The message to display when the conversation starts.",
-        ),
-        UISchema(widget="textarea"),
-    ] = dedent("""
-               Welcome to your new document assistant! Here are ideas for how to get started:
-                - ⚙️ Tell me what you are working on, such as *I'm working on creating a new budget process*
-                - 🗃️ Upload files you are working with and I'll take it from there
-                - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
-                - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
-               """).strip()
-
-
-class DocumentAssistantConfigModel(AssistantConfigModel):
-    tools: Annotated[
-        MCPToolsConfigModel,
-        Field(
-            title="Tools",
-        ),
-        UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
-    ] = DocumentMCPToolsConfigModel()
-
-    extensions_config: Annotated[
-        ExtensionsConfigModel,
-        Field(
-            title="Assistant Extensions",
-        ),
-    ] = DocumentExtensionsConfigModel()
-
-    prompts: Annotated[
-        PromptsConfigModel,
-        Field(
-            title="Prompts",
-            description="Configuration for various prompts used by the assistant.",
-        ),
-    ] = DocumentPromptsConfigModel()
-
-    response_behavior: Annotated[
-        ResponseBehaviorConfigModel,
-        Field(
-            title="Response Behavior",
-            description="Configuration for the response behavior of the assistant.",
-        ),
-    ] = DocumentResponseBehaviorConfigModel()
-
-
-# endregion
-
-
 # region: Context Transfer Assistant Configuration
 
 
@@ -758,7 +583,7 @@ class ContextTransferPromptsConfigModel(PromptsConfigModel):
             description="The prompt used to inform the AI assistant about the guardrails to follow.",
         ),
         UISchema(widget="textarea"),
-    ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
+    ] = helpers.load_text_include("guardrails_prompt.txt")
 
 
 class ContextTransferResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
