@@ -7,7 +7,6 @@ controls based on user roles.
 """
 
 import logging
-from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from semantic_workbench_api_model.workbench_model import (
@@ -18,11 +17,8 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .project_data import (
-    LogEntryType,
-    ProjectGoal,
     RequestPriority,
     RequestStatus,
-    SuccessCriterion,
 )
 from .project_manager import ProjectManager
 from .conversation_project_link import ConversationProjectManager
@@ -410,29 +406,29 @@ async def handle_create_brief_command(
             raise ValueError("Failed to create project")
 
         # Create the project brief without sending a notification (we'll send our own)
-        briefing = await ProjectManager.create_project_brief(
+        briefing = await ProjectManager.update_project_brief(
             context, project_name, project_description, send_notification=False
         )
 
         if briefing:
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' created successfully.",
+                    content=f"Project brief '{project_name}' updated successfully.",
                     message_type=MessageType.chat,
                 )
             )
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to create project brief. Please try again.",
+                    content="Failed to update project brief. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
     except Exception as e:
-        logger.exception(f"Error creating project brief: {e}")
+        logger.exception(f"Error updating project brief: {e}")
         await context.send_messages(
             NewConversationMessage(
-                content=f"Error creating project brief: {str(e)}",
+                content=f"Error updating project brief: {str(e)}",
                 message_type=MessageType.notice,
             )
         )
@@ -482,60 +478,15 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             )
             return
 
-        # Get existing project brief
-        briefing = await ProjectManager.get_project_brief(context)
-        if not briefing:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="No project brief found. Please create one first with `/create-brief`.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # Create success criterion objects
-        criterion_objects = [SuccessCriterion(description=criterion) for criterion in success_criteria]
-
-        # Create the goal
-        goal = ProjectGoal(
-            name=goal_name,
-            description=goal_description,
-            priority=len(briefing.goals) + 1,  # Set priority based on order added
-            success_criteria=criterion_objects,
+        # Use the dedicated method to add a goal to the project
+        goal = await ProjectManager.add_project_goal(
+            context=context,
+            goal_name=goal_name,
+            goal_description=goal_description,
+            success_criteria=success_criteria,
         )
-
-        # Add to the briefing
-        briefing.goals.append(goal)
-
-        # Update briefing metadata
-        participants = await context.get_participants()
-        current_user_id = None
-        for participant in participants.participants:
-            if participant.role == "user":
-                current_user_id = participant.id
-                break
-
-        if not current_user_id:
-            raise ValueError("Could not identify current user")
-
-        briefing.updated_at = datetime.now()
-        briefing.updated_by = current_user_id
-        briefing.version += 1
-
-        # Save the updated briefing
-        ProjectStorage.write_project_brief(project_id, briefing)
-        success = True
-
-        if success:
-            # Log the update
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.BRIEFING_UPDATED.value,
-                message=f"Added goal: {goal_name}",
-                related_entity_id=goal.id,
-            )
-
+        
+        if goal:
             # Notify all linked conversations about the update
             await ProjectNotifier.notify_project_update(
                 context=context,
@@ -559,7 +510,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to update project brief with new goal. Please try again.",
+                    content="Failed to update project with new goal. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
@@ -851,25 +802,28 @@ async def handle_project_info_command(
                 output.append(f"## Project Brief: {briefing.project_name}")
                 output.append(f"\n{briefing.project_description}\n")
 
-                if briefing.goals:
-                    output.append("\n### Goals:\n")
+                # Get project to access goals
+                if project_id:
+                    project = ProjectStorage.read_project(project_id)
+                    if project and project.goals:
+                        output.append("\n### Goals:\n")
 
-                    for i, goal in enumerate(briefing.goals):
-                        # Count completed criteria
-                        completed = sum(1 for c in goal.success_criteria if c.completed)
-                        total = len(goal.success_criteria)
+                        for i, goal in enumerate(project.goals):
+                            # Count completed criteria
+                            completed = sum(1 for c in goal.success_criteria if c.completed)
+                            total = len(goal.success_criteria)
 
-                        output.append(f"{i + 1}. **{goal.name}** - {goal.description}")
+                            output.append(f"{i + 1}. **{goal.name}** - {goal.description}")
 
-                        if goal.success_criteria:
-                            output.append(f"   Progress: {completed}/{total} criteria complete")
-                            output.append("   Success Criteria:")
+                            if goal.success_criteria:
+                                output.append(f"   Progress: {completed}/{total} criteria complete")
+                                output.append("   Success Criteria:")
 
-                            for j, criterion in enumerate(goal.success_criteria):
-                                status = "✅" if criterion.completed else "⬜"
-                                output.append(f"   {status} {criterion.description}")
+                                for j, criterion in enumerate(goal.success_criteria):
+                                    status = "✅" if criterion.completed else "⬜"
+                                    output.append(f"   {status} {criterion.description}")
 
-                        output.append("")
+                            output.append("")
 
         # Get project whiteboard if requested
         if info_type in ["all", "whiteboard"]:

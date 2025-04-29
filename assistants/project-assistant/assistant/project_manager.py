@@ -403,7 +403,7 @@ class ProjectManager:
         return ProjectStorage.read_project_brief(project_id)
 
     @staticmethod
-    async def create_project_brief(
+    async def update_project_brief(
         context: ConversationContext,
         project_name: str,
         project_description: str,
@@ -413,44 +413,31 @@ class ProjectManager:
         send_notification: bool = True,
     ) -> Optional[ProjectBrief]:
         """
-        Creates a new project brief for the current project.
+        Creates or updates a project brief for the current project.
 
         The project brief is the primary document that defines the project for team members.
 
-        Goals are not required in Context Transfer configuration. But if we are in Project configuration and goals are provided, they should be a list of dictionaries with the format:
-        [
-            {
-                "name": "Goal name",
-                "description": "Detailed description of the goal",
-                "success_criteria": [
-                    "First criterion to meet for this goal",
-                    "Second criterion to meet for this goal"
-                ]
-            },
-            ...
-        ]
-
+        Goals should be managed separately through add_project_goal and are not handled by this method.
+       
         Args:
             context: Current conversation context
             project_name: Short, descriptive name for the project
             project_description: Comprehensive description of the project's purpose
-            goals: Optional list of goals with success criteria (see format above)
+            goals: DEPRECATED - Ignored parameter, use add_project_goal instead
             timeline: Optional information about project timeline/deadlines
             additional_context: Optional additional information relevant to the project
-            send_notification: Whether to send a notification about the brief creation (default: True)
+            send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
-            Tuple of (success, project_brief) where:
-            - success: Boolean indicating if brief creation was successful
-            - project_brief: The created ProjectBrief object if successful, None otherwise
+            The updated ProjectBrief object if successful, None otherwise
         """
         # Get project ID
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
-            logger.error("Cannot create brief: no project associated with this conversation")
+            logger.error("Cannot update brief: no project associated with this conversation")
             return
         # Get user information
-        current_user_id = await require_current_user(context, "create brief")
+        current_user_id = await require_current_user(context, "update brief")
         if not current_user_id:
             return
 
@@ -476,24 +463,37 @@ class ProjectManager:
         brief = ProjectBrief(
             project_name=project_name,
             project_description=project_description,
-            goals=project_goals,
             timeline=timeline,
             additional_context=additional_context,
             created_by=current_user_id,
             updated_by=current_user_id,
             conversation_id=str(context.id),
         )
+        
+        # We're only updating the brief here, not touching the goals
+        # Goals should be managed separately through dedicated methods
 
         # Save the brief
         ProjectStorage.write_project_brief(project_id, brief)
 
-        # Log the creation
-        await ProjectStorage.log_project_event(
-            context=context,
-            project_id=project_id,
-            entry_type=LogEntryType.BRIEFING_CREATED.value,
-            message=f"Created project brief: {project_name}",
-        )
+        # Check if this is a creation or an update
+        existing_brief = ProjectStorage.read_project_brief(project_id)
+        if existing_brief:
+            # This is an update
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=LogEntryType.BRIEFING_UPDATED.value,
+                message=f"Updated project brief: {project_name}",
+            )
+        else:
+            # This is a creation
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=LogEntryType.BRIEFING_CREATED.value,
+                message=f"Created project brief: {project_name}",
+            )
 
         # Only notify if send_notification is True
         if send_notification:
@@ -524,6 +524,186 @@ class ProjectManager:
         return project_info.state
 
     @staticmethod
+    async def add_project_goal(
+        context: ConversationContext,
+        goal_name: str,
+        goal_description: str,
+        success_criteria: Optional[List[str]] = None,
+        priority: int = 1,
+    ) -> Optional[ProjectGoal]:
+        """
+        Adds a goal to the project.
+
+        Args:
+            context: Current conversation context
+            goal_name: Name of the goal
+            goal_description: Description of the goal
+            success_criteria: List of success criteria strings (optional)
+            priority: Priority of the goal (default: 1)
+
+        Returns:
+            The created ProjectGoal if successful, None otherwise
+        """
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot add goal: no project associated with this conversation")
+            return None
+
+        # Get user information
+        current_user_id = await require_current_user(context, "add goal")
+        if not current_user_id:
+            return None
+
+        # Create success criteria objects if provided
+        criterion_objects = []
+        if success_criteria:
+            for criterion in success_criteria:
+                criterion_objects.append(SuccessCriterion(description=criterion))
+
+        # Create the new goal
+        new_goal = ProjectGoal(
+            name=goal_name,
+            description=goal_description,
+            priority=priority,
+            success_criteria=criterion_objects,
+        )
+
+        # Get the existing project 
+        project = ProjectStorage.read_project(project_id)
+        if not project:
+            # Create a new project if it doesn't exist
+            project = Project(
+                info=None,
+                brief=None,
+                goals=[new_goal],
+                whiteboard=None,
+                requests=[],
+            )
+        else:
+            # Add the goal to the existing project
+            project.goals.append(new_goal)
+
+        # Save the updated project
+        ProjectStorage.write_project(project_id, project)
+
+        # Log the goal addition
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.GOAL_ADDED.value,
+            message=f"Added goal: {goal_name}",
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=context,
+            project_id=project_id,
+            update_type="goal",
+            message=f"Goal added: {goal_name}",
+        )
+
+        return new_goal
+
+    @staticmethod
+    async def delete_project_goal(
+        context: ConversationContext,
+        goal_index: int,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Deletes a goal from the project.
+
+        Args:
+            context: Current conversation context
+            goal_index: The index of the goal to delete (0-based)
+
+        Returns:
+            Tuple of (success, goal_name_or_error_message)
+        """
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot delete goal: no project associated with this conversation")
+            return False, "No project associated with this conversation."
+
+        # Get user information
+        current_user_id = await require_current_user(context, "delete goal")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        # Get the existing project
+        project = ProjectStorage.read_project(project_id)
+        if not project or not project.goals:
+            return False, "No project goals found."
+
+        # Validate index
+        if goal_index < 0 or goal_index >= len(project.goals):
+            return False, f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals."
+
+        # Get the goal to delete
+        goal = project.goals[goal_index]
+        goal_name = goal.name
+
+        # Remove the goal from the list
+        project.goals.pop(goal_index)
+
+        # Save the updated project
+        ProjectStorage.write_project(project_id, project)
+
+        # Log the goal deletion
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.GOAL_DELETED.value,
+            message=f"Deleted goal: {goal_name}",
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=context,
+            project_id=project_id,
+            update_type="goal",
+            message=f"Goal deleted: {goal_name}",
+        )
+
+        # Update project info with new criteria counts
+        project_info = ProjectStorage.read_project_info(project_id)
+        if project_info:
+            # Count all completed criteria
+            completed_criteria = 0
+            total_criteria = 0
+            
+            # Get the updated project to access goals
+            updated_project = ProjectStorage.read_project(project_id)
+            if updated_project and updated_project.goals:
+                for g in updated_project.goals:
+                    total_criteria += len(g.success_criteria)
+                    completed_criteria += sum(1 for c in g.success_criteria if c.completed)
+
+            # Update project info with criteria stats
+            project_info.completed_criteria = completed_criteria
+            project_info.total_criteria = total_criteria
+
+            # Calculate progress percentage
+            if total_criteria > 0:
+                project_info.progress_percentage = int((completed_criteria / total_criteria) * 100)
+            else:
+                project_info.progress_percentage = 0
+
+            # Update metadata
+            project_info.updated_at = datetime.utcnow()
+            project_info.updated_by = current_user_id
+            project_info.version += 1
+
+            # Save the updated project info
+            ProjectStorage.write_project_info(project_id, project_info)
+
+        # Update all project UI inspectors
+        await ProjectStorage.refresh_all_project_uis(context, project_id)
+
+        return True, goal_name
+
+    @staticmethod
     async def get_project_criteria(context: ConversationContext) -> List[SuccessCriterion]:
         """
         Gets the success criteria for the current conversation's project.
@@ -539,12 +719,12 @@ class ProjectManager:
         if not project_id:
             return []
 
-        # Get the project brief which contains success criteria
-        brief = ProjectStorage.read_project_brief(project_id)
-        if not brief:
+        # Get the project which contains goals and success criteria
+        project = ProjectStorage.read_project(project_id)
+        if not project:
             return []
 
-        goals = brief.goals
+        goals = project.goals
         criteria = []
         for goal in goals:
             # Add success criteria from each goal

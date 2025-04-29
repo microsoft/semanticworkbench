@@ -225,7 +225,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
 
             # Create a default project brief with placeholder information
-            await ProjectManager.create_project_brief(
+            await ProjectManager.update_project_brief(
                 context=context,
                 project_name="New Project",
                 project_description="The project brief is a place for you to craft some information to be shared with others. Before you invite your team, ask your assistant to update the brief with whatever details you'd like here.",

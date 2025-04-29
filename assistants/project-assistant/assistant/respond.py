@@ -157,12 +157,16 @@ async def respond_to_conversation(
 **Name:** {briefing.project_name}
 **Description:** {briefing.project_description}
 """
-            # Only include briefing goals and progress tracking if the assistant is a project assistant
-            if is_project_assistant(context) and briefing.goals:
+            # Only include project goals and progress tracking if the assistant is a project assistant
+            # First get the project to access its goals
+            project_id = await ProjectManager.get_project_id(context)
+            project = ProjectStorage.read_project(project_id) if project_id else None
+            
+            if is_project_assistant(context) and project and project.goals:
                 project_brief_text += """
 #### PROJECT GOALS:
 """
-                for i, goal in enumerate(briefing.goals):
+                for i, goal in enumerate(project.goals):
                     # Count completed criteria
                     completed = sum(1 for c in goal.success_criteria if c.completed)
                     total = len(goal.success_criteria)

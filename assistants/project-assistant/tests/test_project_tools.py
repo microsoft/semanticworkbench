@@ -39,6 +39,7 @@ class TestProjectTools:
         # Verify Coordinator-specific functions are registered
         assert "create_project_brief" in coordinator_tools.tool_functions.function_map
         assert "add_project_goal" in coordinator_tools.tool_functions.function_map
+        assert "delete_project_goal" in coordinator_tools.tool_functions.function_map
         assert "resolve_information_request" in coordinator_tools.tool_functions.function_map
         assert "mark_project_ready_for_working" in coordinator_tools.tool_functions.function_map
 
@@ -122,6 +123,7 @@ class TestProjectTools:
                 # List of progress-related functions to remove
                 progress_functions = [
                     "add_project_goal",
+                    "delete_project_goal",
                     "mark_criterion_completed",
                     "mark_project_ready_for_working",
                     "report_project_completion",
@@ -221,3 +223,88 @@ class TestProjectTools:
         assert result["confidence"] == 0.9
         assert result["potential_title"] == "Test title"
         assert result["original_message"] == test_message
+        
+    @pytest.mark.asyncio
+    async def test_delete_project_goal(self, context, monkeypatch):
+        """Test the delete_project_goal functionality."""
+        # Create ProjectTools instance for Coordinator role
+        tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        
+        # Setup mocks
+        project_id = "test-project-id"
+        goal_index = 1
+        goal_name = "Test Goal"
+        
+        # Mock ProjectManager.get_project_id
+        async def mock_get_project_id(*args, **kwargs):
+            return project_id
+        monkeypatch.setattr("assistant.project_manager.ProjectManager.get_project_id", 
+                           AsyncMock(side_effect=mock_get_project_id))
+        
+        # Mock require_current_user to return a user ID
+        async def mock_require_current_user(*args, **kwargs):
+            return "test-user-id"
+        monkeypatch.setattr("assistant.project_manager.require_current_user", 
+                           AsyncMock(side_effect=mock_require_current_user))
+        
+        # Mock ProjectManager.delete_project_goal to return success
+        async def mock_delete_project_goal(*args, **kwargs):
+            return True, goal_name
+        monkeypatch.setattr("assistant.project_manager.ProjectManager.delete_project_goal", 
+                           AsyncMock(side_effect=mock_delete_project_goal))
+        
+        # Test the delete_project_goal function
+        result = await tools.delete_project_goal(goal_index)
+        
+        # Verify the result
+        assert f"Goal '{goal_name}' has been successfully deleted from the project." in result
+        
+        # Verify that context.send_messages was called with appropriate message
+        expected_message_content = f"Goal '{goal_name}' has been successfully deleted from the project."
+        context.send_messages.assert_called_once()
+        # Get the first positional argument passed to send_messages
+        call_args = context.send_messages.call_args[0][0]
+        assert call_args.content == expected_message_content
+        
+    @pytest.mark.asyncio
+    async def test_delete_project_goal_wrong_role(self, context):
+        """Test delete_project_goal with wrong role (Team instead of Coordinator)."""
+        # Create ProjectTools instance for Team role
+        tools = ProjectTools(context, ConversationRole.TEAM)
+        
+        # Test the delete_project_goal function with Team role
+        result = await tools.delete_project_goal(1)
+        
+        # Verify that the operation is rejected
+        assert "Only Coordinator can delete project goals." in result
+        # Verify context.send_messages was not called
+        context.send_messages.assert_not_called()
+        
+    @pytest.mark.asyncio
+    async def test_delete_project_goal_error(self, context, monkeypatch):
+        """Test delete_project_goal with error condition."""
+        # Create ProjectTools instance for Coordinator role
+        tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        
+        # Setup mocks
+        error_message = "Invalid goal index"
+        
+        # Mock ProjectManager.get_project_id
+        async def mock_get_project_id(*args, **kwargs):
+            return "test-project-id"
+        monkeypatch.setattr("assistant.project_manager.ProjectManager.get_project_id", 
+                           AsyncMock(side_effect=mock_get_project_id))
+        
+        # Mock ProjectManager.delete_project_goal to return failure
+        async def mock_delete_project_goal(*args, **kwargs):
+            return False, error_message
+        monkeypatch.setattr("assistant.project_manager.ProjectManager.delete_project_goal", 
+                           AsyncMock(side_effect=mock_delete_project_goal))
+        
+        # Test the delete_project_goal function
+        result = await tools.delete_project_goal(999)  # Using an invalid index
+        
+        # Verify the error result
+        assert f"Error deleting goal: {error_message}" in result
+        # Verify context.send_messages was not called
+        context.send_messages.assert_not_called()

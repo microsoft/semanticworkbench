@@ -18,6 +18,7 @@ from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .conversation_project_link import ConversationProjectManager
 from .project_storage_models import ConversationRole
+from .project_storage import ProjectStorage
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,9 @@ class ProjectInspectorStateProvider:
         """Format project information as markdown for Coordinator role"""
 
         lines: List[str] = []
+        
+        # Get the project
+        project = ProjectStorage.read_project(project_id)
 
         lines.append("**Role:** Coordinator")
 
@@ -134,9 +138,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if not is_context_transfer and brief and brief.goals:
+        if not is_context_transfer and project and project.goals:
             lines.append("## Goals")
-            for goal in brief.goals:
+            for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
                 criteria_total = len(goal.success_criteria)
                 lines.append(f"### {goal.name}")
@@ -211,6 +215,9 @@ class ProjectInspectorStateProvider:
         """Format project information as markdown for Team role"""
 
         lines: List[str] = []
+        
+        # Get the project
+        project = ProjectStorage.read_project(project_id)
 
         lines.append("**Role:** Team")
 
@@ -254,9 +261,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if not is_context_transfer and brief and brief.goals:
+        if not is_context_transfer and project and project.goals:
             lines.append("## Objectives")
-            for goal in brief.goals:
+            for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
                 criteria_total = len(goal.success_criteria)
                 lines.append(f"### {goal.name}")

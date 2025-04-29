@@ -24,6 +24,7 @@ from .command_processor import (
     handle_add_goal_command,
 )
 from .conversation_clients import ConversationClientManager
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
 from .project_common import ConfigurationTemplate
 from .project_data import (
@@ -35,7 +36,6 @@ from .project_data import (
     RequestStatus,
 )
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
@@ -135,6 +135,11 @@ class ProjectTools:
                     self.add_project_goal,
                     "add_project_goal",
                     "Add a goal to the project brief with optional success criteria",
+                )
+                self.tool_functions.add_function(
+                    self.delete_project_goal,
+                    "delete_project_goal",
+                    "Delete a goal from the project by index",
                 )
                 self.tool_functions.add_function(
                     self.mark_project_ready_for_working,
@@ -273,7 +278,7 @@ class ProjectTools:
             return "No project associated with this conversation. Please create a project first."
 
         # Create a new project brief using ProjectManager
-        brief = await ProjectManager.create_project_brief(
+        brief = await ProjectManager.update_project_brief(
             context=self.context,
             project_name=project_name,
             project_description=project_description,
@@ -283,14 +288,14 @@ class ProjectTools:
         if brief:
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' created successfully.",
+                    content=f"Project brief '{project_name}' updated successfully.",
                     message_type=MessageType.notice,
                     metadata={"debug": brief.model_dump()},
                 )
             )
-            return f"Project brief '{project_name}' created successfully."
+            return f"Project brief '{project_name}' updated successfully."
         else:
-            return "Failed to create project brief. Please try again."
+            return "Failed to update project brief. Please try again."
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
@@ -585,7 +590,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_project_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
         """
-        Add a goal to the project brief.
+        Add a goal to the project.
 
         Args:
             goal_name: The name of the goal
@@ -623,6 +628,44 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             success_message=f"Goal '{goal_name}' added to project brief successfully.",
             error_prefix="Error adding goal",
         )
+        
+    async def delete_project_goal(self, goal_index: int) -> str:
+        """
+        Delete a goal from the project by index.
+        
+        Args:
+            goal_index: The index of the goal to delete (0-based)
+            
+        Returns:
+            A message indicating success or failure
+        """
+        
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can delete project goals."
+            
+        # Get project ID - validate project exists
+        project_id = await ProjectManager.get_project_id(self.context)
+        if not project_id:
+            return "No project associated with this conversation."
+            
+        # Call the ProjectManager method to delete the goal
+        success, result = await ProjectManager.delete_project_goal(
+            context=self.context,
+            goal_index=goal_index,
+        )
+        
+        if success:
+            # Notify the user about the successful deletion
+            await self.context.send_messages(
+                NewConversationMessage(
+                    content=f"Goal '{result}' has been successfully deleted from the project.", 
+                    message_type=MessageType.notice,
+                )
+            )
+            return f"Goal '{result}' has been successfully deleted from the project."
+        else:
+            # Return the error message
+            return f"Error deleting goal: {result}"
 
     async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
         """
@@ -651,11 +694,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Using 0-based indexing directly, no adjustment needed
 
-        # Validate indices
-        if goal_index < 0 or goal_index >= len(brief.goals):
-            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(brief.goals) - 1}. There are {len(brief.goals)} goals."
+        # Get the project to access goals
+        project = ProjectStorage.read_project(project_id)
+        if not project or not project.goals:
+            return "No project goals found."
 
-        goal = brief.goals[goal_index]
+        # Validate indices
+        if goal_index < 0 or goal_index >= len(project.goals):
+            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals."
+
+        goal = project.goals[goal_index]
 
         if criterion_index < 0 or criterion_index >= len(goal.success_criteria):
             return f"Invalid criterion index {criterion_index}. Valid indexes for goal '{goal.name}' are 0 to {len(goal.success_criteria) - 1}. Goal '{goal.name}' has {len(goal.success_criteria)} criteria."
@@ -683,13 +731,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         criterion.completed_at = datetime.utcnow()
         criterion.completed_by = current_user_id
 
-        # Update brief metadata
-        brief.updated_at = datetime.utcnow()
-        brief.updated_by = current_user_id
-        brief.version += 1
-
-        # Save the updated brief
-        ProjectStorage.write_project_brief(project_id, brief)
+        # Save the updated project with the completed criterion
+        ProjectStorage.write_project(project_id, project)
 
         # Log the criterion completion
         await ProjectStorage.log_project_event(
@@ -709,9 +752,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             completed_criteria = 0
             total_criteria = 0
 
-            for g in brief.goals:
-                total_criteria += len(g.success_criteria)
-                completed_criteria += sum(1 for c in g.success_criteria if c.completed)
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                for g in project.goals:
+                    total_criteria += len(g.success_criteria)
+                    completed_criteria += sum(1 for c in g.success_criteria if c.completed)
 
             # Update project info with criteria stats
             project_info.completed_criteria = completed_criteria
@@ -745,9 +791,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             completed = 0
             total = 0
 
-            for g in brief.goals:
-                total += len(g.success_criteria)
-                completed += sum(1 for c in g.success_criteria if c.completed)
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                for g in project.goals:
+                    total += len(g.success_criteria)
+                    completed += sum(1 for c in g.success_criteria if c.completed)
 
             if completed == total and total > 0:
                 # Automatically complete the project
@@ -797,19 +846,20 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not project_id:
             return "No project associated with this conversation. Unable to mark project as ready for working."
 
-        # Get existing project brief and whiteboard
+        # Get existing project brief, whiteboard, and project
         brief = ProjectStorage.read_project_brief(project_id)
         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+        project = ProjectStorage.read_project(project_id)
 
         if not brief:
             return "No project brief found. Please create one before marking as ready for working."
 
-        if not brief.goals:
-            return "Project brief has no goals. Please add at least one goal before marking as ready for working."
+        if not project or not project.goals:
+            return "Project has no goals. Please add at least one goal before marking as ready for working."
 
         # Check if at least one goal has success criteria
         has_criteria = False
-        for goal in brief.goals:
+        for goal in project.goals:
             if goal.success_criteria:
                 has_criteria = True
                 break
@@ -1073,6 +1123,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
+        project = ProjectStorage.read_project(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 
         # Check if project brief exists
@@ -1095,11 +1146,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Check if goals exist
         if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
-            if not brief.goals:
+            if not project or not project.goals:
                 if self.role is ConversationRole.COORDINATOR:
                     return {
                         "suggestion": "add_project_goal",
-                        "reason": "Project brief has no goals. Add at least one goal with success criteria.",
+                        "reason": "Project has no goals. Add at least one goal with success criteria.",
                         "priority": "high",
                         "function": "add_project_goal",
                         "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
@@ -1107,7 +1158,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 else:
                     return {
                         "suggestion": "wait_for_goals",
-                        "reason": "Project brief has no goals. The Coordinator needs to add goals before you can proceed.",
+                        "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
                         "priority": "medium",
                         "function": None,
                     }
@@ -1121,8 +1172,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 has_goals = True
                 has_criteria = True
             else:
-                has_goals = bool(brief.goals)
-                has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
+                has_goals = bool(project and project.goals)
+                has_criteria = bool(
+                    project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
+                )
 
             if has_goals and has_criteria:
                 return {
@@ -1163,20 +1216,23 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # For team, suggest marking criteria as completed if any are pending
         if self.role is ConversationRole.TEAM and incomplete_criteria:
-            # Find the first uncompleted criterion
-            for goal_index, goal in enumerate(brief.goals):
-                for criterion_index, criterion in enumerate(goal.success_criteria):
-                    if not criterion.completed:
-                        return {
-                            "suggestion": "mark_criterion_completed",
-                            "reason": "Update progress by marking completed success criteria.",
-                            "priority": "low",
-                            "function": "mark_criterion_completed",
-                            "parameters": {
-                                "goal_index": goal_index,  # 0-based indexing
-                                "criterion_index": criterion_index,  # 0-based indexing
-                            },
-                        }
+            # Get the project to access goals
+            project = ProjectStorage.read_project(project_id)
+            if project and project.goals:
+                # Find the first uncompleted criterion
+                for goal_index, goal in enumerate(project.goals):
+                    for criterion_index, criterion in enumerate(goal.success_criteria):
+                        if not criterion.completed:
+                            return {
+                                "suggestion": "mark_criterion_completed",
+                                "reason": "Update progress by marking completed success criteria.",
+                                "priority": "low",
+                                "function": "mark_criterion_completed",
+                                "parameters": {
+                                    "goal_index": goal_index,  # 0-based indexing
+                                    "criterion_index": criterion_index,  # 0-based indexing
+                                },
+                            }
 
         # Default suggestions based on role
         if self.role is ConversationRole.COORDINATOR:

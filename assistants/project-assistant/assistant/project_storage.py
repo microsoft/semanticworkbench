@@ -23,6 +23,7 @@ from .project_data import (
     ProjectInfo,
     ProjectLog,
     ProjectWhiteboard,
+    Project,
 )
 from .project_storage_models import CoordinatorConversationMessage, CoordinatorConversationStorage
 from .utils import get_current_user
@@ -39,6 +40,7 @@ class ProjectStorageManager:
     PROJECT_LOG_FILE = "log.json"
     PROJECT_WHITEBOARD_FILE = "whiteboard.json"
     COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
+    PROJECT_FILE = "project_data.json"
 
     @staticmethod
     def get_projects_root() -> pathlib.Path:
@@ -90,6 +92,12 @@ class ProjectStorageManager:
         """Gets the path to the Coordinator conversation file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.COORDINATOR_CONVERSATION_FILE
+    
+    @staticmethod
+    def get_project_path(project_id: str) -> pathlib.Path:
+        """Gets the path to the complete Project data file."""
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_FILE
 
     @staticmethod
     def get_information_requests_dir(project_id: str) -> pathlib.Path:
@@ -256,6 +264,19 @@ class ProjectStorage:
 
         path = ProjectStorageManager.get_information_request_path(project_id, request.request_id)
         write_model(path, request)
+        return path
+        
+    @staticmethod
+    def read_project(project_id: str) -> Optional[Project]:
+        """Reads the complete Project data."""
+        path = ProjectStorageManager.get_project_path(project_id)
+        return read_model(path, Project)
+    
+    @staticmethod
+    def write_project(project_id: str, project: Project) -> pathlib.Path:
+        """Writes the complete Project data."""
+        path = ProjectStorageManager.get_project_path(project_id)
+        write_model(path, project)
         return path
 
     @staticmethod
