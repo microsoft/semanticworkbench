@@ -188,7 +188,24 @@ async def respond_to_conversation(
         # Include whiteboard content
         whiteboard_text = ""
         if whiteboard and whiteboard.content:
-            whiteboard_text = "\n### ASSISTANT WHITEBOARD\n"
+            whiteboard_text = """
+### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
+The whiteboard contains critical project information that has been automatically extracted from previous conversations.
+It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
+
+Key characteristics of this whiteboard:
+- It contains the most essential information about the project that should be readily available
+- It has been automatically curated to focus on high-value content relevant to the project
+- It is maintained and updated as the conversation progresses
+- It should be treated as a trusted source of contextual information for this project
+
+When using the whiteboard:
+- Prioritize this information when addressing questions or providing updates
+- Reference it to ensure consistency in your responses across the conversation
+- Use it to track important details that might otherwise be lost in the conversation history
+
+WHITEBOARD CONTENT:
+"""
             whiteboard_text += f"{whiteboard.content}\n\n"
             project_data["whiteboard"] = whiteboard_text
 
