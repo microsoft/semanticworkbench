@@ -150,6 +150,8 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                             db.Assistant.template_id == assistant.template_id,
                             db.Assistant.name == assistant.name,
                         )
+                        .order_by(col(db.Assistant.created_datetime).desc())
+                        .limit(1)
                     )
                 ).one_or_none()
                 if existing_assistant:
