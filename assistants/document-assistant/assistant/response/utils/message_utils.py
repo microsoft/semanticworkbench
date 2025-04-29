@@ -179,6 +179,11 @@ async def conversation_message_to_chat_message_params(
         else:
             logger.warning(f"Failed to convert tool message to completion message: {message}")
 
+    elif message.message_type == MessageType.log:
+        # Assume log messages are dynamic ui choice messages which are treated as user messages
+        user_message = conversation_message_to_user_message(message, participants)
+        chat_message_params.append(user_message)
+
     elif message.sender.participant_id == context.assistant.id:
         # add the assistant message to the completion messages
         assistant_message = conversation_message_to_assistant_message(message, participants)
@@ -223,7 +228,7 @@ async def get_history_messages(
     while True:
         # get the next batch of messages, including chat and tool result messages
         messages_response = await context.get_messages(
-            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note]
+            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note, MessageType.log]
         )
         messages_list = messages_response.messages
 
@@ -261,9 +266,44 @@ async def get_history_messages(
 
         # while loop will now check for next batch of messages
 
+    # We need to re-order the messages so that any messages that were made between when the assistant called the tool,
+    # and when the tool call returned are placed *after* the tool call message with the result of the tool call.
+    # This prevents an error where if the user sends a message while the assistant is waiting for a tool call to return,
+    # the OpenAI API would error with: "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'"
+    reordered_history = []
+    i = 0
+    while i < len(history):
+        current_message = history[i]
+        reordered_history.append(current_message)
+        # If this is an assistant message with tool calls
+        if current_message.get("role") == "assistant" and current_message.get("tool_calls"):
+            tool_call_ids = {tc["id"] for tc in current_message.get("tool_calls", [])}
+            intercepted_user_messages = []
+            j = i + 1
+            # Look ahead for corresponding tool messages or user messages
+            while j < len(history):
+                next_message = history[j]
+                if next_message.get("role") == "tool" and next_message.get("tool_call_id") in tool_call_ids:
+                    # Found the matching tool response
+                    reordered_history.append(next_message)
+                    tool_call_ids.remove(next_message.get("tool_call_id"))
+                    j += 1
+                    # Once we've found all tool responses, add the intercepted user messages
+                    if not tool_call_ids:
+                        reordered_history.extend(intercepted_user_messages)
+                        i = j - 1  # Set i to the last processed index
+                        break
+                elif next_message.get("role") == "user":
+                    # Store user messages that appear between tool call and response
+                    intercepted_user_messages.append(next_message)
+                    j += 1
+                else:
+                    break
+        i += 1
+
     # return the formatted messages
     return GetHistoryMessagesResult(
-        messages=history,
+        messages=reordered_history if reordered_history else history,
         token_count=token_count,
         token_overage=token_overage,
     )

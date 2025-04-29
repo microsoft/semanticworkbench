@@ -21,8 +21,14 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
-from semantic_workbench_assistant.assistant_app import ConversationContext
+from semantic_workbench_assistant.assistant_app import (
+    ConversationContext,
+)
 
+from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
+from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
+
+from ..config import ExtensionsConfigModel
 from .models import StepResult
 from .utils import (
     extract_content_from_mcp_tool_calls,
@@ -43,6 +49,7 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
+    extensions_config: ExtensionsConfigModel,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -163,6 +170,37 @@ async def handle_completion(
     if len(tool_calls) == 0:
         # No tool calls, exit the loop
         step_result.status = "final"
+    # Handle DYNAMIC_UI_TOOL_NAME in a special way
+    elif extensions_config.guidance.enabled and tool_calls[0].name == DYNAMIC_UI_TOOL_NAME:
+        await update_dynamic_ui_state(context, tool_calls[0].arguments)
+
+        # If this tool is called, we assume its the only tool
+        step_result.conversation_tokens += num_tokens_from_messages(
+            messages=[
+                ChatCompletionToolMessageParam(
+                    role="tool",
+                    content=DYNAMIC_UI_TOOL_RESULT,
+                    tool_call_id=tool_calls[0].id,
+                )
+            ],
+            model=request_config.model,
+        )
+        deepmerge.always_merger.merge(
+            step_result.metadata,
+            {
+                "tool_result": {
+                    "content": DYNAMIC_UI_TOOL_RESULT,
+                    "tool_call_id": tool_calls[0].id,
+                },
+            },
+        )
+        await context.send_messages(
+            NewConversationMessage(
+                content=DYNAMIC_UI_TOOL_RESULT,
+                message_type=MessageType.note,
+                metadata=step_result.metadata,
+            )
+        )
     else:
         # Handle tool calls
         tool_call_count = 0

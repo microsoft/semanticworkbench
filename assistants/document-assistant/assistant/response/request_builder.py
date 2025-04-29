@@ -24,7 +24,9 @@ from openai_client import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel, PromptsConfigModel
+from assistant.guidance.dynamic_ui_inspector import get_dynamic_ui_state
+
+from ..config import ExtensionsConfigModel, MCPToolsConfigModel, PromptsConfigModel
 from ..whiteboard import notify_whiteboard
 from .utils import (
     build_system_message_content,
@@ -51,6 +53,7 @@ async def build_request(
     tools: List[ChatCompletionToolParam] | None,
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
+    extensions_config: ExtensionsConfigModel,
     silence_token: str,
 ) -> BuildRequestResult:
     # Get the list of conversation participants
@@ -69,6 +72,18 @@ async def build_request(
     # Add MCP Server prompts to the system message content
     if len(mcp_prompts) > 0:
         additional_system_message_content.append(("Specific Tool Guidance", "\n\n".join(mcp_prompts)))
+
+    if extensions_config.guidance.enabled:
+        # Constructs the system prompt section for user guidance instructions.
+        current_dynamic_ui_elements = await get_dynamic_ui_state(context=context)
+        if not current_dynamic_ui_elements:
+            current_dynamic_ui_elements = "No dynamic UI elements have been generated yet. Consider generating some"
+        user_guidance_instructions = extensions_config.guidance.prompt
+        user_guidance_instructions += "\n" + str(current_dynamic_ui_elements)
+        additional_system_message_content.append((
+            "User Guidance",
+            user_guidance_instructions.strip(),
+        ))
 
     # Build system message content
     system_message_content = build_system_message_content(
