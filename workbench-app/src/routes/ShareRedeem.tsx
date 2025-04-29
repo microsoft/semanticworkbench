@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger } from '@fluentui/react-components';
+import { Button, DialogOpenChangeData, DialogOpenChangeEvent, DialogTrigger } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
@@ -107,9 +107,15 @@ export const ShareRedeem: React.FC = () => {
         }
     }, [conversationShare, redeemShare, workbenchService, conversationUtility, removeConversationParticipant]);
 
-    const handleDismiss = React.useCallback(() => {
-        navigate(`/`);
-    }, [navigate]);
+    const handleDismiss = React.useCallback(
+        (_: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
+            if (data.open) {
+                return;
+            }
+            navigate(`/`);
+        },
+        [navigate],
+    );
 
     const readyToCheckForMessageLink = conversationShare && !joinAttempted && !conversationsIsLoading;
 
@@ -144,11 +150,12 @@ export const ShareRedeem: React.FC = () => {
                         content={dialogContent}
                         closeLabel={dismissLabel ?? 'Close'}
                         additionalActions={dialogActions}
+                        dismissButtonDisabled={submitted}
                     />
                 </AppView>
             );
         },
-        [handleDismiss],
+        [handleDismiss, submitted],
     );
 
     const renderTrigger = React.useCallback(
@@ -158,7 +165,7 @@ export const ShareRedeem: React.FC = () => {
             onClick: () => void;
         }) => {
             return (
-                <DialogTrigger disableButtonEnhancement>
+                <DialogTrigger disableButtonEnhancement action="open">
                     <Button
                         style={{ width: 'max-content' }}
                         appearance={options?.appearance ?? 'primary'}
