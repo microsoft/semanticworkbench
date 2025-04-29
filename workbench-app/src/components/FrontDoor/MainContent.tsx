@@ -255,12 +255,12 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                 <div className={classes.body}>
                     <div className={classes.content}>
                         <Title3>Create a new conversation with an assistant</Title3>
-                        {getAssistants('codespace-assistant.made-exploration-team', 'workspace') && (
+                        {getAssistants('document-assistant.made-exploration-team', 'default') && (
                             <>
                                 <div className={classes.assistantHeader}>
                                     <Title3>Document Assistant</Title3>
                                     {quickAssistantCreateButton(
-                                        getAssistants('codespace-assistant.made-exploration-team', 'workspace'),
+                                        getAssistants('document-assistant.made-exploration-team', 'default'),
                                     )}
                                 </div>
                                 Document Assistant is focused on reliable document creation and editing, grounded in all
