@@ -299,14 +299,24 @@ class ProjectTools:
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
-        Resolve an information request with information.
+        Resolve an information request when you have the needed information to address it.
 
-        [COORDINATOR ONLY] This tool is only available to Coordinator agents.
+        WHEN TO USE:
+        - When you have information that directly answers a team member's request
+        - When the user has supplied information that resolves a pending request
+        - When you've gathered enough details to unblock a team member
+        - When a request is no longer relevant and should be closed with explanation
+
+        IMPORTANT WORKFLOW:
+        1. ALWAYS call get_project_info(info_type="requests") first to see all pending requests
+        2. Identify the request you want to resolve and find its exact Request ID
+        3. Use the exact ID in your request_id parameter - not the title
+        4. Provide a clear resolution that addresses the team member's needs
 
         Args:
             request_id: IMPORTANT! Use the exact Request ID value from get_project_info output
                        (looks like "012345-abcd-67890"), NOT the title of the request
-            resolution: Resolution information to add to the request
+            resolution: Complete information that addresses the team member's question or blocker
 
         Returns:
             A message indicating success or failure
@@ -348,15 +358,29 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         self, title: str, description: str, priority: Literal["low", "medium", "high", "critical"]
     ) -> str:
         """
-        Create an information request to send to the Coordinator for information or to report a blocker.
+        Create an information request to send to the Coordinator for information that is unavailable to you or to report a blocker.
 
-        This is the MAIN TOOL FOR TEAM MEMBERS to request information, documents, or assistance from the Coordinator.
-        Team members should use this tool whenever they need something from the Coordinator.
+        WHEN TO USE:
+        - When you need specific information or clarification from the Coordinator
+        - When encountering a blocker that prevents progress on a goal
+        - When requesting additional resources or documentation
+        - When you need a decision from the project Coordinator
+        - When a user expressly asks for information or help with something unclear
+
+        Before creating a request, check if the information is already available by:
+        1. Using get_project_info() to check existing project data
+        2. Using view_coordinator_conversation() to see if the information was already shared
+
+        Set an appropriate priority based on how critical the information is:
+        - "low": Nice to have, not blocking progress
+        - "medium": Important but not immediate
+        - "high": Important and somewhat urgent
+        - "critical": Completely blocked, cannot proceed without this information
 
         Args:
-            title: The title of the request (be specific and clear)
-            description: A detailed description of what information or help you need from the Coordinator
-            priority: The priority of the request. Must be one of: low, medium, high, critical.
+            title: A concise, clear title that summarizes what information is needed
+            description: A detailed explanation of what information is needed and why it's important
+            priority: The priority level - must be one of: low, medium, high, critical
 
         Returns:
             A message indicating success or failure
@@ -590,12 +614,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_project_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
         """
-        Add a goal to the project.
+        Add a goal to the project brief with measurable success criteria.
+
+        Project goals should be operational objectives that team members will need to complete.
+        Each goal must have clear, measurable success criteria that team members can mark as completed.
+
+        WHEN TO USE:
+        - When defining actionable goals that team members need to accomplish
+        - When breaking down project requirements into specific, achievable objectives
+        - After creating a project brief, before marking the project ready for working
+        - When users ask to add or define goals, objectives, or tasks for the project
 
         Args:
-            goal_name: The name of the goal
-            goal_description: A description of the goal
-            success_criteria: Optional list of success criteria. If not provided, an empty list will be used.
+            goal_name: A concise, clear name for the goal (e.g., "Implement User Authentication")
+            goal_description: A detailed description explaining what needs to be accomplished
+            success_criteria: List of specific, measurable criteria that indicate when the goal is complete
+                             (e.g., ["User login form created", "Password reset functionality implemented"])
 
         Returns:
             A message indicating success or failure
@@ -628,37 +662,47 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             success_message=f"Goal '{goal_name}' added to project brief successfully.",
             error_prefix="Error adding goal",
         )
-        
+
     async def delete_project_goal(self, goal_index: int) -> str:
         """
         Delete a goal from the project by index.
-        
+
+        WHEN TO USE:
+        - When a user explicitly requests to remove or delete a specific project goal
+        - When goals need to be reorganized and redundant/obsolete goals removed
+        - When a goal was added by mistake or is no longer relevant to the project
+        - Only before marking the project as ready for working
+
+        NOTE: This action is irreversible and will remove all success criteria associated with the goal.
+        First use get_project_info() to see the list of goals and their indices before deletion.
+
         Args:
-            goal_index: The index of the goal to delete (0-based)
-            
+            goal_index: The index of the goal to delete (0-based integer). Use get_project_info() first to see the
+                       correct indices of goals. For example, to delete the first goal, use goal_index=0.
+
         Returns:
             A message indicating success or failure
         """
-        
+
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can delete project goals."
-            
+
         # Get project ID - validate project exists
         project_id = await ProjectManager.get_project_id(self.context)
         if not project_id:
             return "No project associated with this conversation."
-            
+
         # Call the ProjectManager method to delete the goal
         success, result = await ProjectManager.delete_project_goal(
             context=self.context,
             goal_index=goal_index,
         )
-        
+
         if success:
             # Notify the user about the successful deletion
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Goal '{result}' has been successfully deleted from the project.", 
+                    content=f"Goal '{result}' has been successfully deleted from the project.",
                     message_type=MessageType.notice,
                 )
             )
@@ -669,11 +713,23 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
         """
-        Mark a success criterion as completed.
+        Mark a success criterion as completed for tracking project progress.
+
+        WHEN TO USE:
+        - When the user reports completing a specific task or deliverable
+        - When evidence has been provided that a success criterion has been met
+        - When a milestone for one of the project goals has been achieved
+        - When tracking progress and updating the project status
+
+        Each completed criterion moves the project closer to completion. When all criteria
+        are completed, the project can be marked as complete.
+
+        IMPORTANT: Always use get_project_info() first to see the current goals, criteria, and their indices
+        before marking anything as complete.
 
         Args:
-            goal_index: The index of the goal (0-based)
-            criterion_index: The index of the criterion within the goal (0-based)
+            goal_index: The index of the goal (0-based integer) from get_project_info() output
+            criterion_index: The index of the criterion within the goal (0-based integer)
 
         Returns:
             A message indicating success or failure
@@ -942,8 +998,17 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def report_project_completion(self) -> str:
         """
-        Report that the project is complete.
-        This is a milestone function that concludes the project lifecycle.
+        Report that the project is complete, concluding the project lifecycle.
+
+        WHEN TO USE:
+        - When all success criteria for all goals have been marked as completed
+        - When the user confirms the project deliverables are finished and ready
+        - When the project objectives have been fully achieved
+        - When it's time to formally conclude the project
+
+        This is a significant milestone that indicates the project has successfully
+        completed all its goals. Before using this tool, verify that all success criteria
+        have been marked as completed using get_project_info().
 
         Returns:
             A message indicating success or failure
