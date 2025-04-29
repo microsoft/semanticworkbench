@@ -299,7 +299,7 @@ class ProjectTools:
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
-        Resolve an information request when you have the needed information to address it.
+        Resolve an information request when you have the needed information to address it. Only use for active information requests. If there are no active information requests, this should never be called.
 
         WHEN TO USE:
         - When you have information that directly answers a team member's request
@@ -444,15 +444,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No project associated with this conversation. Unable to delete information request."
 
         try:
-            # Clean the request_id to handle common formatting issues
-            cleaned_request_id = request_id.strip().lower()
-            # Remove any quotes that might have been added
+            cleaned_request_id = request_id.strip()
             cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
-
             logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
 
             # Read the information request
-
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
 
             if not information_request:

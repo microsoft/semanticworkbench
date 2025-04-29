@@ -3,8 +3,8 @@ from typing import Annotated
 
 from pydantic import Field
 
-from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, TeamConfig
 from ..utils import load_text_include
+from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, TeamConfig
 
 
 class ContextTransferPromptConfig(PromptConfig):
@@ -75,8 +75,7 @@ Welcome! I'm here to help you capture and share complex information in a way tha
 - 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
 - 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
 - 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
-- 🔗 Create shareable experiences - share this link with others for a self-service way to explore your knowledge:
-[Explore Knowledge Space]({share_url})
+- 🔗 Create shareable experiences - I'll capture what context you give me so it can be shared with your team members for them to explore at their own pace using this [Context Transfer link]({share_url})
 
 Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what context you give me so it can be shared with your team members for them to explore at their own pace.
 

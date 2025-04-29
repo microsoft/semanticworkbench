@@ -13,12 +13,12 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .conversation_project_link import ConversationProjectManager
 from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
-from .project_storage_models import ConversationRole
 from .project_storage import ProjectStorage
+from .project_storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class ProjectInspectorStateProvider:
         """Format project information as markdown for Coordinator role"""
 
         lines: List[str] = []
-        
+
         # Get the project
         project = ProjectStorage.read_project(project_id)
 
@@ -196,7 +196,7 @@ class ProjectInspectorStateProvider:
             lines.append("")
             # Display the share URL as a properly formatted link
             lines.append("**Share this link with your team members:**")
-            lines.append(f"[Join Team Conversation]({share_url})")
+            lines.append(f"[Context Transfer link]({share_url})")
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
             lines.append("")
@@ -215,7 +215,7 @@ class ProjectInspectorStateProvider:
         """Format project information as markdown for Team role"""
 
         lines: List[str] = []
-        
+
         # Get the project
         project = ProjectStorage.read_project(project_id)
 
