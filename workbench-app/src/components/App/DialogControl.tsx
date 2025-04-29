@@ -35,6 +35,7 @@ export interface DialogControlContent {
     content?: React.ReactNode;
     closeLabel?: string;
     hideDismissButton?: boolean;
+    dismissButtonDisabled?: boolean;
     additionalActions?: React.ReactElement[];
     onOpenChange?: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
 }
@@ -48,6 +49,7 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
         title,
         content,
         closeLabel,
+        dismissButtonDisabled,
         hideDismissButton,
         additionalActions,
         onOpenChange,
@@ -68,8 +70,11 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
                     )}
                     <DialogActions fluid>
                         {!hideDismissButton && (
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance={additionalActions ? 'secondary' : 'primary'}>
+                            <DialogTrigger disableButtonEnhancement action="close">
+                                <Button
+                                    appearance={additionalActions ? 'secondary' : 'primary'}
+                                    disabled={dismissButtonDisabled}
+                                >
                                     {closeLabel ?? 'Close'}
                                 </Button>
                             </DialogTrigger>
