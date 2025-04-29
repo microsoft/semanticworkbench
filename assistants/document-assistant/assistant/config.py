@@ -136,7 +136,7 @@ class HostedMCPServersConfigModel(BaseModel):
             description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
         ),
         UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", False)
+    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", True)
 
     giphy: Annotated[
         HostedMCPServerConfig,
