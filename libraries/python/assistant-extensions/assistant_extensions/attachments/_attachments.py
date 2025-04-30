@@ -99,8 +99,8 @@ class AttachmentsExtension:
 
         # listen for file events for to pro-actively update and delete attachments
 
-        @assistant.events.conversation.file.on_created
-        @assistant.events.conversation.file.on_updated
+        @assistant.events.conversation.file.on_created_including_mine
+        @assistant.events.conversation.file.on_updated_including_mine
         async def on_file_created_or_updated(
             context: ConversationContext, event: ConversationEvent, file: File
         ) -> None:
@@ -110,7 +110,7 @@ class AttachmentsExtension:
 
             await _get_attachment_for_file(context, file, {}, error_handler=self._error_handler)
 
-        @assistant.events.conversation.file.on_deleted
+        @assistant.events.conversation.file.on_deleted_including_mine
         async def on_file_deleted(context: ConversationContext, event: ConversationEvent, file: File) -> None:
             """
             Delete an attachment when a file is deleted in the conversation.
