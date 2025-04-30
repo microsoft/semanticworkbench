@@ -28,7 +28,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ContextTransferConfigModel
+from .config import AssistantConfigModel, ContextTransferConfigModel, DocumentAssistantConfigModel
 from .response import respond_to_conversation
 from .whiteboard import WhiteboardInspector
 
@@ -50,7 +50,10 @@ service_description = "An assistant for developing in the Codespaces."
 #
 assistant_config = BaseModelAssistantConfig(
     AssistantConfigModel,
-    additional_templates={"context_transfer": ContextTransferConfigModel},
+    additional_templates={
+        "workspace": DocumentAssistantConfigModel,
+        "context_transfer": ContextTransferConfigModel,
+    },
 )
 
 
@@ -70,6 +73,11 @@ assistant = AssistantApp(
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
     additional_templates=[
+        AssistantTemplate(
+            id="workspace",
+            name="Document Assistant",
+            description="An assistant for creating and editing documents.",
+        ),
         AssistantTemplate(
             id="context_transfer",
             name="Context Transfer Assistant",
