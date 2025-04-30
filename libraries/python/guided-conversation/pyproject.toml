@@ -24,4 +24,4 @@ dev = [
 ]
 
 [tool.pyright]
-exclude = [".venv"]
+exclude = ["**/.venv", "**/.data", "**/__pycache__"]

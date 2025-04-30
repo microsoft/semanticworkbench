@@ -37,7 +37,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pyright]
-exclude = ["venv", ".venv"]
+exclude = ["**/.venv", "**/.data", "**/__pycache__"]
 
 [tool.pytest.ini_options]
 addopts = "-vv"

@@ -220,6 +220,11 @@
     "[python]": {
       "editor.defaultFormatter": "charliermarsh.ruff"
     },
+    "python.analysis.exclude": [
+      "**/.venv",
+      "**/.data",
+      "**/__pycache__"
+    ],
     "better-comments.highlightPlainText": true,
     "better-comments.multilineComments": true,
     "better-comments.tags": [
