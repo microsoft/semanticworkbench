@@ -1,21 +1,23 @@
 import base64
 import datetime
+import pathlib
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, AsyncIterator, Callable
+from tempfile import TemporaryDirectory
+from typing import Any, AsyncGenerator, AsyncIterator, Callable, Iterable
 from unittest import mock
 
 import pytest
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from llm_client.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,
 )
 from openai.types.chat import ChatCompletionMessageParam
-from semantic_workbench_api_model.workbench_model import File, FileList, ParticipantRole
+from semantic_workbench_api_model.workbench_model import Conversation, File, FileList, ParticipantRole
+from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
-
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 
 
 @pytest.mark.parametrize(
@@ -96,7 +98,9 @@ from assistant_extensions.attachments import AttachmentsConfigModel, Attachments
     ],
 )
 async def test_get_completion_messages_for_attachments(
-    filenames_with_bytes: dict[str, Callable[[], bytes]], expected_messages: list[ChatCompletionMessageParam]
+    filenames_with_bytes: dict[str, Callable[[], bytes]],
+    expected_messages: list[ChatCompletionMessageParam],
+    temporary_storage_directory: pathlib.Path,
 ) -> None:
     mock_assistant_app = mock.MagicMock(spec=AssistantAppProtocol)
 
@@ -133,6 +137,13 @@ async def test_get_completion_messages_for_attachments(
         ]
     )
 
+    async def mock_get_conversation() -> Conversation:
+        mock_conversation = mock.MagicMock(spec=Conversation)
+        mock_conversation.metadata = {}
+        return mock_conversation
+
+    mock_conversation_context.get_conversation.side_effect = mock_get_conversation
+
     class MockFileIterator:
         def __init__(self, file_bytes_func: Callable[[], bytes]) -> None:
             self.file_bytes_func = file_bytes_func
@@ -159,3 +170,10 @@ async def test_get_completion_messages_for_attachments(
     )
 
     assert actual_messages == expected_messages
+
+
+@pytest.fixture(scope="function")
+def temporary_storage_directory(monkeypatch: pytest.MonkeyPatch) -> Iterable[pathlib.Path]:
+    with TemporaryDirectory() as tempdir:
+        monkeypatch.setattr(settings.storage, "root", tempdir)
+        yield pathlib.Path(tempdir)
