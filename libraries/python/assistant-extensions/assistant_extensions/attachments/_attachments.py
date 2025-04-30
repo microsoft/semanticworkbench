@@ -353,6 +353,20 @@ async def _get_attachment_for_file(
         openai_completion_messages = openai_client.messages.convert_from_completion_messages([completion_message])
         token_count = openai_client.num_tokens_from_message(openai_completion_messages[0], model="gpt-4o")
 
+        # update the conversation token count based on the token count of the latest version of this file
+        prior_token_count = file.metadata.get("token_count", 0)
+        conversation = await context.get_conversation()
+        token_counts = conversation.metadata.get("token_counts", {})
+        if token_counts:
+            total = token_counts.get("total", 0)
+            total += token_count - prior_token_count
+            await context.update_conversation({
+                "token_counts": {
+                    **token_counts,
+                    "total": total,
+                },
+            })
+
         await context.update_file(
             file.filename,
             metadata={
@@ -370,6 +384,29 @@ async def _delete_attachment_for_file(context: ConversationContext, file: File) 
         drive.delete(file.filename)
 
     await _delete_lock_for_context_file(context, file.filename)
+
+    # update the conversation token count based on the token count of the latest version of this file
+    file_token_count = file.metadata.get("token_count", 0)
+    if not file_token_count:
+        return
+
+    conversation = await context.get_conversation()
+    token_counts = conversation.metadata.get("token_counts", {})
+    if not token_counts:
+        return
+
+    total = token_counts.get("total", 0)
+    if not total:
+        return
+
+    total -= file_token_count
+
+    await context.update_conversation({
+        "token_counts": {
+            **token_counts,
+            "total": total,
+        },
+    })
 
 
 def _attachment_drive_for_context(context: ConversationContext) -> Drive:
