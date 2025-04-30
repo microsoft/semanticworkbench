@@ -72,11 +72,11 @@ class LogEntryType(str, Enum):
     # Brief-related events
     BRIEFING_CREATED = "briefing_created"
     BRIEFING_UPDATED = "briefing_updated"
-    
+
     # Goal-related events
     GOAL_ADDED = "goal_added"
     GOAL_DELETED = "goal_deleted"
-    
+
     # Information request deletion event
     REQUEST_DELETED = "request_deleted"
 
@@ -103,6 +103,7 @@ class LogEntryType(str, Enum):
     MILESTONE_PASSED = "milestone_passed"
     INFORMATION_UPDATE = "information_update"
     FILE_SHARED = "file_shared"
+    FILE_DELETED = "file_deleted"
     KB_UPDATE = "kb_update"
     CUSTOM = "custom"
 
