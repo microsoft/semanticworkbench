@@ -93,23 +93,18 @@ class ContextTransferTeamConfig(TeamConfig):
             title="Context Transfer Team Welcome Message",
             description="The message to display when a user joins as a Team member in context transfer mode.",
         ),
-    ] = "# Welcome to the Knowledge Space\n\nYou now have access to the shared knowledge that has been prepared for you. Feel free to explore and ask questions to better understand the content. This is your personal conversation for interacting with the knowledge space."
-
-
-# ContextTransferProjectConfig has been removed - fields integrated directly into ContextTransferConfigModel
+    ] = "# Welcome to your Context Transfer space!\n\nYou now have access to the shared knowledge that has been prepared for you. This is your personal conversation for exploring your knowledge space."
 
 
 class ContextTransferConfigModel(AssistantConfigModel):
-    # Use the specialized context transfer prompt configs
     prompt_config: Annotated[
-        PromptConfig,  # Use the base type for type compatibility
+        PromptConfig,
         Field(
             title="Prompt Configuration",
             description="Configuration for prompt templates used throughout the assistant.",
         ),
     ] = ContextTransferPromptConfig()
 
-    # Project configuration attributes directly in config model
     proactive_guidance: Annotated[
         bool,
         Field(
@@ -118,7 +113,6 @@ class ContextTransferConfigModel(AssistantConfigModel):
         ),
     ] = True
 
-    # Disable progress tracking for context transfer mode
     track_progress: Annotated[
         bool,
         Field(
@@ -127,9 +121,8 @@ class ContextTransferConfigModel(AssistantConfigModel):
         ),
     ] = False
 
-    # Use the specialized context transfer configs
     coordinator_config: Annotated[
-        CoordinatorConfig,  # Use the base type for type compatibility
+        CoordinatorConfig,
         Field(
             title="Context Transfer Coordinator Configuration",
             description="Configuration for coordinators in context transfer mode.",
@@ -137,7 +130,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
     ] = ContextTransferCoordinatorConfig()
 
     team_config: Annotated[
-        TeamConfig,  # Use the base type for type compatibility
+        TeamConfig,
         Field(
             title="Context Transfer Team Configuration",
             description="Configuration for team members in context transfer mode.",

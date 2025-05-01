@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Tuple
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import (
-    AssistantStateEvent,
     ConversationMessage,
     ConversationPermission,
     MessageType,
@@ -24,6 +23,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
 from .project_data import (
     InformationRequest,
@@ -39,7 +39,6 @@ from .project_data import (
     RequestStatus,
     SuccessCriterion,
 )
-from .conversation_project_link import ConversationProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
@@ -63,9 +62,9 @@ class ProjectManager:
     """
 
     @staticmethod
-    async def create_team_conversation(
+    async def create_shareable_team_conversation(
         context: ConversationContext, project_id: str, project_name: str = "Project"
-    ) -> Tuple[bool, Optional[str], Optional[str]]:
+    ) -> str:
         """
         Creates a new shareable team conversation template.
 
@@ -84,159 +83,73 @@ class ProjectManager:
             project_name: Name of the project
 
         Returns:
-            Tuple of (success, conversation_id, share_url) where:
-            - success: Boolean indicating if the creation was successful
-            - conversation_id: ID of the created shareable team conversation
-            - share_url: URL for joining the project and creating a team conversation
+            share_url: URL for joining the project and creating a team conversation
         """
-        try:
-            # Get the current user ID to set as owner
-            user_id, _ = await get_current_user(context)
-            if not user_id:
-                logger.error("Cannot create team conversation: no user found")
-                return False, None, None
 
-            # Create a new conversation using the client
-            # Create the new conversation with appropriate metadata
-            new_conversation = NewConversation(
-                title=f"{project_name}",
-                metadata={
-                    "is_team_conversation": True,
-                    "project_id": project_id,
-                    "setup_complete": True,
-                    "project_role": "team",
-                    "assistant_mode": "team",
-                },
-            )
+        # Get the current user ID to set as owner
+        user_id, _ = await get_current_user(context)
+        if not user_id:
+            raise ValueError("Cannot create team conversation: no user found")
 
-            # Use the conversations client to create the conversation with owner
-            client = context._conversations_client
-            conversation = await client.create_conversation_with_owner(
-                new_conversation=new_conversation, owner_id=user_id
-            )
+        ##
+        ## Create a new shareable conversation
+        ##
 
-            if not conversation or not conversation.id:
-                logger.error("Failed to create team conversation")
-                return False, None, None
+        new_conversation = NewConversation(
+            title=f"{project_name}",
+            metadata={
+                "is_team_conversation": True,
+                "project_id": project_id,
+                "setup_complete": True,
+                "project_role": "team",
+                "assistant_mode": "team",
+            },
+        )
+        client = context._conversations_client
+        conversation = await client.create_conversation_with_owner(new_conversation=new_conversation, owner_id=user_id)
 
-            logger.info(f"Created team conversation: {conversation.id}")
+        if not conversation or not conversation.id:
+            raise ValueError("Failed to create team conversation")
 
-            # Create a share for the new conversation
-            success, share_url = await ProjectManager.create_share_for_conversation(
-                context=context,
-                conversation_id=conversation.id,
-                project_id=project_id,
-                project_name=project_name,
-                owner_id=user_id,
-            )
+        logger.info(f"Created team conversation: {conversation.id}")
 
-            if not success or not share_url:
-                logger.warning(f"Created team conversation but failed to create share: {conversation.id}")
-                return True, str(conversation.id), None
+        ##
+        ## Create a share for the new conversation
+        ##
 
-            # Store team conversation info in ProjectInfo
-            try:
-                # Read existing project info
-                project_info = ProjectStorage.read_project_info(project_id)
+        new_share = NewConversationShare(
+            conversation_id=conversation.id,
+            label=f"{project_name}",
+            conversation_permission=ConversationPermission.read,
+            metadata={
+                "project_id": project_id,
+                "is_team_conversation": True,
+                "showDuplicateAction": True,
+                "show_duplicate_action": True,
+            },
+        )
+        share = await context._conversations_client.create_conversation_share_with_owner(
+            new_conversation_share=new_share, owner_id=user_id
+        )
 
-                if project_info:
-                    # Update with team conversation data
-                    project_info.team_conversation_id = str(conversation.id)
-                    project_info.share_url = share_url
-                    project_info.updated_at = datetime.utcnow()
+        share_url = f"/conversation-share/{share.id}/redeem"
+        logger.info(f"Created share for conversation {conversation.id}: {share_url}")
 
-                    # Save updated project info
-                    ProjectStorage.write_project_info(project_id, project_info)
-                    logger.info(f"Updated project info with team conversation: {conversation.id}")
-                else:
-                    logger.warning(f"Project info not found for project {project_id}")
-            except Exception as e:
-                logger.warning(f"Failed to update project info with team conversation: {e}")
+        # Store team conversation info in ProjectInfo
+        project_info = ProjectStorage.read_project_info(project_id)
+        if project_info:
+            project_info.team_conversation_id = str(conversation.id)
+            project_info.share_url = share_url
+            project_info.updated_at = datetime.utcnow()
+            ProjectStorage.write_project_info(project_id, project_info)
+            logger.info(f"Updated project info with team conversation: {conversation.id}")
+        else:
+            raise ValueError(f"Project info not found for project ID: {project_id}")
 
-            # Store the share URL in the conversation's metadata
-            # Create a temporary context for the team conversation to update its metadata
-
-            team_context = await ConversationClientManager.create_temporary_context_for_conversation(
-                source_context=context, target_conversation_id=str(conversation.id)
-            )
-
-            if team_context:
-                # Update the team conversation's metadata with the share URL
-                await team_context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="share_url", event="updated", state=None)
-                )
-
-            return True, str(conversation.id), share_url
-
-        except Exception as e:
-            logger.exception(f"Error creating team conversation: {e}")
-            return False, None, None
+        return share_url
 
     @staticmethod
-    async def create_share_for_conversation(
-        context: ConversationContext,
-        conversation_id: uuid.UUID,
-        project_id: str,
-        project_name: str = "Project",
-        owner_id: Optional[str] = None,
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Creates a share for the specified conversation.
-
-        Args:
-            context: Current conversation context
-            conversation_id: ID of the conversation to share
-            project_id: ID of the project
-            project_name: Name of the project
-            owner_id: Optional ID of the owner (defaults to current user)
-
-        Returns:
-            Tuple of (success, share_url) where:
-            - success: Boolean indicating if the share creation was successful
-            - share_url: URL for the conversation share
-        """
-        try:
-            # Get the owner ID if not provided
-            if not owner_id:
-                owner_id, _ = await get_current_user(context)
-                if not owner_id:
-                    logger.error("Cannot create conversation share: no user found")
-                    return False, None
-
-            # Create the share using the client
-            new_share = NewConversationShare(
-                conversation_id=conversation_id,
-                label=f"{project_name}",
-                conversation_permission=ConversationPermission.read,
-                metadata={
-                    "project_id": project_id,
-                    "is_team_conversation": True,
-                    "showDuplicateAction": True,
-                    "show_duplicate_action": True,
-                },
-            )
-
-            # Use the conversations client to create the share with owner
-            client = context._conversations_client
-            share = await client.create_conversation_share_with_owner(
-                new_conversation_share=new_share, owner_id=owner_id
-            )
-
-            if not share:
-                logger.error(f"Failed to create share for conversation: {conversation_id}")
-                return False, None
-
-            # Return the share URL
-            url = f"/conversation-share/{share.id}/redeem"
-            logger.info(f"Created share for conversation {conversation_id}: {url}")
-            return True, url
-
-        except Exception as e:
-            logger.exception(f"Error creating conversation share: {e}")
-            return False, None
-
-    @staticmethod
-    async def create_project(context: ConversationContext) -> Tuple[bool, str]:
+    async def create_project(context: ConversationContext) -> str:
         """
         Creates a new project and associates the current conversation with it.
 
@@ -258,39 +171,36 @@ class ProjectManager:
             - success: Boolean indicating if the creation was successful
             - project_id: If successful, the UUID of the newly created project
         """
-        try:
-            # Generate a unique project ID
-            project_id = str(uuid.uuid4())
-            logger.info(f"Starting project creation with new ID: {project_id}")
 
-            # Create the project directory structure first
-            project_dir = ProjectStorageManager.get_project_dir(project_id)
-            logger.info(f"Created project directory: {project_dir}")
+        # Generate a unique project ID
+        project_id = str(uuid.uuid4())
+        logger.info(f"Starting project creation with new ID: {project_id}")
 
-            # Create and save the initial project info
-            project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
+        # Create the project directory structure first
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        logger.info(f"Created project directory: {project_dir}")
 
-            # Save the project info
-            ProjectStorage.write_project_info(project_id, project_info)
-            logger.info(f"Created and saved project info: {project_info}")
+        # Create and save the initial project info
+        project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
 
-            # Associate the conversation with the project
-            logger.info(f"Associating conversation {context.id} with project {project_id}")
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+        # Save the project info
+        ProjectStorage.write_project_info(project_id, project_info)
+        logger.info(f"Created and saved project info: {project_info}")
 
-            # No need to set conversation role in project storage, as we use metadata
-            logger.info(f"Conversation {context.id} is Coordinator for project {project_id}")
+        # Associate the conversation with the project
+        logger.info(f"Associating conversation {context.id} with project {project_id}")
+        await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Ensure linked_conversations directory exists
-            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
-            logger.info(f"Ensured linked_conversations directory exists: {linked_dir}")
+        # No need to set conversation role in project storage, as we use metadata
+        logger.info(f"Conversation {context.id} is Coordinator for project {project_id}")
 
-            logger.info(f"Successfully created new project {project_id} for conversation {context.id}")
-            return True, project_id
+        # Ensure linked_conversations directory exists
+        linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+        logger.info(f"Ensured linked_conversations directory exists: {linked_dir}")
 
-        except Exception as e:
-            logger.exception(f"Error creating project: {e}")
-            return False, ""
+        logger.info(f"Successfully created new project {project_id} for conversation {context.id}")
+
+        return project_id
 
     @staticmethod
     async def join_project(
@@ -418,7 +328,7 @@ class ProjectManager:
         The project brief is the primary document that defines the project for team members.
 
         Goals should be managed separately through add_project_goal and are not handled by this method.
-       
+
         Args:
             context: Current conversation context
             project_name: Short, descriptive name for the project
@@ -469,7 +379,7 @@ class ProjectManager:
             updated_by=current_user_id,
             conversation_id=str(context.id),
         )
-        
+
         # We're only updating the brief here, not touching the goals
         # Goals should be managed separately through dedicated methods
 
@@ -569,7 +479,7 @@ class ProjectManager:
             success_criteria=criterion_objects,
         )
 
-        # Get the existing project 
+        # Get the existing project
         project = ProjectStorage.read_project(project_id)
         if not project:
             # Create a new project if it doesn't exist
@@ -638,7 +548,10 @@ class ProjectManager:
 
         # Validate index
         if goal_index < 0 or goal_index >= len(project.goals):
-            return False, f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals."
+            return (
+                False,
+                f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals.",
+            )
 
         # Get the goal to delete
         goal = project.goals[goal_index]
@@ -672,7 +585,7 @@ class ProjectManager:
             # Count all completed criteria
             completed_criteria = 0
             total_criteria = 0
-            
+
             # Get the updated project to access goals
             updated_project = ProjectStorage.read_project(project_id)
             if updated_project and updated_project.goals:
