@@ -17,10 +17,10 @@ from semantic_workbench_api_model.workbench_model import MessageType, NewConvers
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .conversation_clients import ConversationClientManager
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
 from .project_common import detect_assistant_role
-from .project_data import BaseEntity, LogEntryType
-from .conversation_project_link import ConversationProjectManager
+from .project_data import LogEntryType
 from .project_storage import ProjectStorage, ProjectStorageManager, read_model, write_model
 from .project_storage_models import ConversationRole
 
@@ -56,7 +56,7 @@ class ProjectFile(BaseModel):
     is_coordinator_file: bool = True  # Whether this file was created by Coordinator
 
 
-class ProjectFileCollection(BaseEntity):
+class ProjectFileCollection(BaseModel):
     """Collection of file metadata for a project."""
 
     files: List[ProjectFile] = Field(default_factory=list)
@@ -97,12 +97,14 @@ class ProjectFileManager:
         return files_dir / filename
 
     @staticmethod
-    def read_file_metadata(project_id: str) -> Optional[ProjectFileCollection]:
+    def read_file_metadata(project_id: str) -> ProjectFileCollection:
         """
         Reads file metadata for a project.
         """
         path = ProjectFileManager.get_file_metadata_path(project_id)
-        return read_model(path, ProjectFileCollection)
+        return read_model(path, ProjectFileCollection) or ProjectFileCollection(
+            files=[],
+        )
 
     @staticmethod
     def write_file_metadata(project_id: str, metadata: ProjectFileCollection) -> pathlib.Path:
@@ -217,9 +219,6 @@ class ProjectFileManager:
                     # Create new collection
                     logger.info("Creating new metadata collection", extra=safe_extra(log_extra))
                     metadata = ProjectFileCollection(
-                        created_by=file.participant_id,
-                        updated_by=file.participant_id,
-                        conversation_id=str(context.id),
                         files=[],
                     )
 
@@ -231,11 +230,6 @@ class ProjectFileManager:
                 else:
                     logger.info("Adding new file metadata to collection", extra=safe_extra(log_extra))
                     metadata.files.append(file_metadata)
-
-                # Update metadata
-                metadata.updated_at = datetime.utcnow()
-                metadata.updated_by = file.participant_id
-                metadata.version += 1
 
                 # Save metadata
                 logger.debug(f"Writing metadata to {metadata_path}", extra=safe_extra(log_extra))
@@ -293,18 +287,6 @@ class ProjectFileManager:
 
             # Remove the file from metadata
             metadata.files = [f for f in metadata.files if f.filename != filename]
-
-            # Update metadata timestamp
-            metadata.updated_at = datetime.utcnow()
-
-            # Get user ID
-            participants = await context.get_participants()
-            for participant in participants.participants:
-                if participant.role == "user":
-                    metadata.updated_by = participant.id
-                    break
-
-            metadata.version += 1
 
             # Save metadata
             ProjectFileManager.write_file_metadata(project_id, metadata)
@@ -491,122 +473,110 @@ class ProjectFileManager:
     async def synchronize_files_to_team_conversation(
         context: ConversationContext,
         project_id: str,
-    ) -> bool:
+    ) -> None:
         """
         Synchronize all project files to a Team conversation.
         """
-        try:
-            logger.info(f"Starting file synchronization for project {project_id}")
+        logger.info(f"Starting file synchronization for project {project_id}")
 
-            # Get file metadata for the project
-            metadata = ProjectFileManager.read_file_metadata(project_id)
+        # Get file metadata for the project
+        metadata = ProjectFileManager.read_file_metadata(project_id)
 
-            if not metadata:
-                # No metadata found
-                await context.send_messages(
-                    NewConversationMessage(
-                        content="No shared files available. The coordinator hasn't shared any files yet.",
-                        message_type=MessageType.notice,
-                    )
+        if not metadata:
+            # No metadata found
+            await context.send_messages(
+                NewConversationMessage(
+                    content="No shared files available. The coordinator hasn't shared any files yet.",
+                    message_type=MessageType.notice,
                 )
-                return True  # Nothing to sync, no error
+            )
 
-            if not metadata.files:
-                # No files in metadata
-                await context.send_messages(
-                    NewConversationMessage(
-                        content="No shared files available. The coordinator hasn't shared any files yet.",
-                        message_type=MessageType.notice,
-                    )
+        if not metadata.files:
+            # No files in metadata
+            await context.send_messages(
+                NewConversationMessage(
+                    content="No shared files available. The coordinator hasn't shared any files yet.",
+                    message_type=MessageType.notice,
                 )
-                return True  # No files to sync
+            )
 
-            # Identify Coordinator files to sync
-            coordinator_files = [f for f in metadata.files if f.is_coordinator_file]
-            if not coordinator_files:
-                logger.info("No Coordinator files to sync")
-                return True  # No Coordinator files to sync
+        # Identify Coordinator files to sync
+        coordinator_files = [f for f in metadata.files if f.is_coordinator_file]
+        if not coordinator_files:
+            logger.info("No Coordinator files to sync")
 
-            # Check which files already exist in conversation
-            conversation = await context.get_conversation()
-            existing_files = getattr(conversation, "files", [])
-            existing_filenames = {f.filename for f in existing_files}
+        # Check which files already exist in conversation
+        conversation = await context.get_conversation()
+        existing_files = getattr(conversation, "files", [])
+        existing_filenames = {f.filename for f in existing_files}
 
-            # Track successful and failed files
-            successful_files = []
-            failed_files = []
-            skipped_files = []  # Files that already exist
+        # Track successful and failed files
+        successful_files = []
+        failed_files = []
+        skipped_files = []  # Files that already exist
 
-            # Process each file
-            for file_meta in coordinator_files:
-                # Skip files that already exist
-                if file_meta.filename in existing_filenames:
-                    skipped_files.append(file_meta.filename)
-                    continue
+        # Process each file
+        for file_meta in coordinator_files:
+            # Skip files that already exist
+            if file_meta.filename in existing_filenames:
+                skipped_files.append(file_meta.filename)
+                continue
 
-                # Try to copy the file
-                logger.info(f"Copying file {file_meta.filename} to conversation")
-                success = await ProjectFileManager.copy_file_to_conversation(
-                    context=context,
-                    project_id=project_id,
-                    filename=file_meta.filename,
-                    target_conversation_id=str(context.id),
+            # Try to copy the file
+            logger.info(f"Copying file {file_meta.filename} to conversation")
+            success = await ProjectFileManager.copy_file_to_conversation(
+                context=context,
+                project_id=project_id,
+                filename=file_meta.filename,
+                target_conversation_id=str(context.id),
+            )
+
+            if success:
+                successful_files.append(file_meta.filename)
+            else:
+                failed_files.append(file_meta.filename)
+
+        # Create notification message for the user
+        available_files = successful_files + skipped_files
+        if available_files:
+            # Create message about synchronized files
+            if successful_files:
+                file_list = ", ".join(successful_files)
+                message = f"Synchronized files from Coordinator: {file_list}"
+
+                # Add info about skipped files if any
+                if skipped_files:
+                    existing_list = ", ".join(skipped_files)
+                    message += f"\nAlready available: {existing_list}"
+            else:
+                # Only skipped files
+                file_list = ", ".join(skipped_files)
+                message = f"All shared files already available: {file_list}"
+
+            # Send notification
+            await context.send_messages(
+                NewConversationMessage(
+                    content=message,
+                    message_type=MessageType.notice,
                 )
+            )
 
-                if success:
-                    successful_files.append(file_meta.filename)
-                else:
-                    failed_files.append(file_meta.filename)
+            # Log the synchronization event
+            sync_message = (
+                f"Synchronized files to Team conversation: {len(successful_files)} new, {len(skipped_files)} existing"
+            )
 
-            # Create notification message for the user
-            available_files = successful_files + skipped_files
-            if available_files:
-                # Create message about synchronized files
-                if successful_files:
-                    file_list = ", ".join(successful_files)
-                    message = f"Synchronized files from Coordinator: {file_list}"
-
-                    # Add info about skipped files if any
-                    if skipped_files:
-                        existing_list = ", ".join(skipped_files)
-                        message += f"\nAlready available: {existing_list}"
-                else:
-                    # Only skipped files
-                    file_list = ", ".join(skipped_files)
-                    message = f"All shared files already available: {file_list}"
-
-                # Send notification
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=message,
-                        message_type=MessageType.notice,
-                    )
-                )
-
-                # Log the synchronization event
-                sync_message = (
-                    f"Synchronized files to Team conversation: "
-                    f"{len(successful_files)} new, {len(skipped_files)} existing"
-                )
-
-                await ProjectStorage.log_project_event(
-                    context=context,
-                    project_id=project_id,
-                    entry_type=LogEntryType.FILE_SHARED,
-                    message=sync_message,
-                    metadata={
-                        "successful_files": successful_files,
-                        "skipped_files": skipped_files,
-                        "failed_files": failed_files,
-                    },
-                )
-
-            # Consider success if any files are available (new or existing)
-            return len(available_files) > 0
-
-        except Exception as e:
-            logger.exception(f"Error synchronizing files to Team conversation: {e}")
-            return False
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=LogEntryType.FILE_SHARED,
+                message=sync_message,
+                metadata={
+                    "successful_files": successful_files,
+                    "skipped_files": skipped_files,
+                    "failed_files": failed_files,
+                },
+            )
 
     @staticmethod
     async def get_shared_files(context: ConversationContext, project_id: str) -> Dict[str, ProjectFile]:

@@ -3,6 +3,7 @@
 # Project Assistant implementation
 
 import asyncio
+from enum import Enum
 
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
@@ -29,12 +30,12 @@ from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 
 from .config import assistant_config
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
-from .project_common import detect_assistant_role
+from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import LogEntryType
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole
@@ -78,6 +79,12 @@ attachments_extension = AttachmentsExtension(assistant)
 app = assistant.fastapi_app()
 
 
+class ConversationType(Enum):
+    COORDINATOR = "coordinator"
+    TEAM = "team"
+    SHAREABLE_TEMPLATE = "shareable_template"
+
+
 @assistant.events.conversation.on_created_including_mine
 async def on_conversation_created(context: ConversationContext) -> None:
     """
@@ -88,201 +95,101 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     # Get conversation to access metadata
     conversation = await context.get_conversation()
-    metadata = conversation.metadata or {}
+    conversation_metadata = conversation.metadata or {}
 
-    # Define variables for each conversation type
-    is_shareable_template = False
-    is_team_from_redemption = False
-    is_coordinator = False
+    config = await assistant_config.get(context.assistant)
+    template = get_template(context)
+    is_context_transfer_assistant = template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
 
-    # Check if this conversation was imported from another (indicates it's from share redemption)
-    if conversation.imported_from_conversation_id:
-        # If it was imported AND has team metadata, it's a redeemed team conversation
-        if metadata.get("is_team_conversation", False) and metadata.get("project_id"):
-            is_team_from_redemption = True
+    ##
+    ## Figure out what type of conversation this is.
+    ##
 
-    # First check for an explicit share redemption
-    elif metadata.get("share_redemption", {}) and metadata.get("share_redemption", {}).get("conversation_share_id"):
-        share_redemption = metadata.get("share_redemption", {})
-        is_team_from_redemption = True
-        share_metadata = share_redemption.get("metadata", {})
+    conversation_type = ConversationType.COORDINATOR
 
-    # Check if this is a template conversation (original team conversation created by coordinator)
-    elif (
-        metadata.get("is_team_conversation", False)
-        and metadata.get("project_id")
-        and not conversation.imported_from_conversation_id
-    ):
-        # If it's a team conversation with project_id but NOT imported, it's the template
-        is_shareable_template = True
+    # Coordinator conversations will not have a project_id or
+    # is_team_conversation flag in the metadata. So, if they are there, we just
+    # need to decide if it's a shareable template or a team conversation.
+    project_id = conversation_metadata.get("project_id")
+    if conversation_metadata.get("is_team_conversation", False) and project_id:
+        # If this conversation was imported from another, it indicates it's from
+        # share redemption.
+        if conversation.imported_from_conversation_id:
+            conversation_type = ConversationType.TEAM
+            # TODO: This might work better for detecting a redeemed link, but
+            # hasn't been validated.
 
-    # Additional check for team conversations (from older versions without imported_from)
-    elif metadata.get("is_team_conversation", False) and metadata.get("project_id"):
-        is_team_from_redemption = True
+            # if conversation_metadata.get("share_redemption") and conversation_metadata.get("share_redemption").get(
+            #     "conversation_share_id"
+            # ):
+            #     conversation_type = ConversationType.TEAM
+        else:
+            conversation_type = ConversationType.SHAREABLE_TEMPLATE
 
-    # If none of the above match, it's a coordinator conversation
-    else:
-        is_coordinator = True
+    ##
+    ## Handle the conversation based on its type
+    ##
+    match conversation_type:
+        case ConversationType.SHAREABLE_TEMPLATE:
+            if not project_id:
+                logger.error("No project ID found for shareable team conversation.")
+                return
 
-    # Handle shareable template conversation - No welcome message
-    if is_shareable_template:
-        # This is a shareable template conversation, not an actual team conversation
-        metadata["setup_complete"] = True
-        metadata["assistant_mode"] = "team"
-        metadata["project_role"] = "team"
-
-        # Associate with the project ID if provided in metadata
-        project_id = metadata.get("project_id")
-        if project_id:
-            # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+            return
 
-        # Update conversation metadata
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-        )
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="project_role", event="updated", state=None)
-        )
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-        )
+        case ConversationType.TEAM:
+            if not project_id:
+                logger.error("No project ID found for team conversation.")
+                return
 
-        # No welcome message for the shareable template
-        return
-
-    # Handle team conversation from share redemption - Show team welcome message
-    if is_team_from_redemption:
-        # Get project ID from metadata or share metadata
-        project_id = metadata.get("project_id")
-
-        # If no project_id directly in metadata, try to get it from share_redemption
-        if not project_id and metadata.get("share_redemption"):
-            share_metadata = metadata.get("share_redemption", {}).get("metadata", {})
-            project_id = share_metadata.get("project_id")
-
-        if project_id:
-            # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-
-            # Update conversation metadata
-            metadata["assistant_mode"] = "team"
-            metadata["project_role"] = "team"
-
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
-            )
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-            )
 
             # Use team welcome message from config
-            try:
-                config = await assistant_config.get(context.assistant)
-                welcome_message = config.team_config.welcome_message
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=welcome_message,
-                        message_type=MessageType.chat,
-                        metadata={"generated_content": False},
-                    )
+            welcome_message = config.team_config.welcome_message
+            await context.send_messages(
+                NewConversationMessage(
+                    content=welcome_message,
+                    message_type=MessageType.chat,
+                    metadata={"generated_content": False},
                 )
-            except Exception as e:
-                logger.error(f"Error sending team welcome message: {e}", exc_info=True)
+            )
 
             # Automatically synchronize files from project storage to this conversation
-            success = await ProjectFileManager.synchronize_files_to_team_conversation(
-                context=context, project_id=project_id
-            )
-            if success:
-                logger.info("Successfully synchronized files for new team conversation.")
-            else:
-                logger.warning("File synchronization failed for new team conversation.")
-
+            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+            logger.info("Successfully synchronized files for new team conversation.")
             return
-        else:
-            logger.debug("Team conversation missing project_id in share metadata")
 
-    # Handle coordinator conversation - Show coordinator welcome message
-    if is_coordinator:
-        # Create a new project
-        success, project_id = await ProjectManager.create_project(context)
+        case ConversationType.COORDINATOR:
+            try:
+                project_id = await ProjectManager.create_project(context)
 
-        if success and project_id:
-            # Update conversation metadata
-            metadata["setup_complete"] = True
-            metadata["assistant_mode"] = "coordinator"
-            metadata["project_role"] = "coordinator"
-
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-            )
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
-            )
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-            )
-
-            # Create a default project brief with placeholder information
-            await ProjectManager.update_project_brief(
-                context=context,
-                project_name="New Project",
-                project_description="The project brief is a place for you to craft some information to be shared with others. Before you invite your team, ask your assistant to update the brief with whatever details you'd like here.",
-            )
-
-            # Create a team conversation and share URL
-            (
-                success,
-                team_conversation_id,
-                share_url,
-            ) = await ProjectManager.create_team_conversation(
-                context=context, project_id=project_id, project_name="Shared assistant"
-            )
-
-            if success and share_url:
-                # Store the team conversation information in the coordinator's metadata
-                # Using None for state as required by the type system
-                metadata["team_conversation_id"] = team_conversation_id
-                metadata["team_conversation_share_url"] = share_url
-
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="team_conversation_id", event="updated", state=None)
+                # A basic brief to start with.
+                await ProjectManager.update_project_brief(
+                    context=context,
+                    project_name=f"New {'Context' if is_context_transfer_assistant else 'Project'}",
+                    project_description="The brief is a place for you to craft some information to be shared with others. Before you invite your team, ask your assistant to update the brief with whatever details you'd like here.",
                 )
 
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(
-                        state_id="team_conversation_share_url",
-                        event="updated",
-                        state=None,
-                    )
+                # Create a team conversation with a share URL
+                share_url = await ProjectManager.create_shareable_team_conversation(
+                    context=context, project_id=project_id, project_name="Shared assistant"
                 )
 
-                # Use coordinator welcome message from config with the share URL
-                config = await assistant_config.get(context.assistant)
-                welcome_message = config.coordinator_config.welcome_message.format(share_url=share_url)
-            else:
-                # Even if share URL creation failed, still use the welcome message
-                # but it won't have a working share URL
-                config = await assistant_config.get(context.assistant)
                 welcome_message = config.coordinator_config.welcome_message.format(
-                    share_url="<Share URL generation failed>"
+                    share_url=share_url or "<Share URL generation failed>"
                 )
-        else:
-            # Failed to create project - use fallback mode
-            # Use a simple fallback welcome message
-            welcome_message = """# Welcome to the Project Assistant
 
-I'm having trouble setting up your project. Please try again or contact support if the issue persists."""
+            except Exception as e:
+                welcome_message = f"I'm having trouble setting up your project. Please try again or contact support if the issue persists. {str(e)}"
 
-        # Send the welcome message
-        await context.send_messages(
-            NewConversationMessage(
-                content=welcome_message,
-                message_type=MessageType.chat,
-                metadata={"generated_content": False},
+            # Send the welcome message
+            await context.send_messages(
+                NewConversationMessage(
+                    content=welcome_message,
+                    message_type=MessageType.chat,
+                )
             )
-        )
 
 
 @assistant.events.conversation.message.chat.on_created
