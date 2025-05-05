@@ -61,7 +61,7 @@ export const AppView: React.FC<AppViewProps> = (props) => {
 
     React.useEffect(() => {
         if (!completedFirstRun?.app && window.location.pathname !== '/terms') {
-            navigate('/terms');
+            navigate('/terms', { state: { redirectTo: window.location.pathname } });
         }
     }, [completedFirstRun, navigate]);
 
