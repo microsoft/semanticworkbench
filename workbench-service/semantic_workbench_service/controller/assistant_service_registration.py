@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 from typing import AsyncContextManager, Awaitable, Callable, Iterable
@@ -398,13 +399,24 @@ class AssistantServiceRegistrationController:
 
             assistant_services = await session.exec(query_registrations)
 
-        infos = []
-        for registration in assistant_services:
-            try:
-                info = await (await self._client_pool.service_client(registration=registration)).get_service_info()
-                infos.append(info)
+        infos_or_exceptions = await asyncio.gather(
+            *[
+                (await self._client_pool.service_client(registration=registration)).get_service_info()
+                for registration in assistant_services
+            ],
+            return_exceptions=True,
+        )
 
-            except AssistantError:
-                logger.exception("failed to get assistant service info for %s", registration.assistant_service_id)
+        infos: list[ServiceInfoModel] = []
+        for info_or_exception in infos_or_exceptions:
+            match info_or_exception:
+                case AssistantError():
+                    logger.error("failed to get assistant service info", exc_info=info_or_exception)
+
+                case BaseException():
+                    raise info_or_exception
+
+                case ServiceInfoModel():
+                    infos.append(info_or_exception)
 
         return AssistantServiceInfoList(assistant_service_infos=infos)
