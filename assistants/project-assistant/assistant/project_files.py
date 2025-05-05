@@ -482,17 +482,8 @@ class ProjectFileManager:
         # Get file metadata for the project
         metadata = ProjectFileManager.read_file_metadata(project_id)
 
-        if not metadata:
+        if not metadata or not metadata.files:
             # No metadata found
-            await context.send_messages(
-                NewConversationMessage(
-                    content="No shared files available. The coordinator hasn't shared any files yet.",
-                    message_type=MessageType.notice,
-                )
-            )
-
-        if not metadata.files:
-            # No files in metadata
             await context.send_messages(
                 NewConversationMessage(
                     content="No shared files available. The coordinator hasn't shared any files yet.",

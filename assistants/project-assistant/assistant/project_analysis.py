@@ -108,39 +108,35 @@ async def detect_information_request_needs(context: ConversationContext, message
 
             # Make the API call
             response = await client.chat.completions.create(
-                model="gpt-3.5-turbo",  # Using a smaller, faster model for this analysis
-                messages=messages,
-                response_format={"type": "json_object"},
-                max_tokens=500,
-                temperature=0.2,  # Low temperature for more consistent analysis
+                **completion_args,
             )
             debug["completion_response"] = response.model_dump()
 
-            # Extract and parse the response
-            if response.choices and response.choices[0].message.content:
-                try:
-                    result = json.loads(response.choices[0].message.content)
-                    # Add the original message for reference
-                    result["original_message"] = message
-                    return result
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
-                    return {
-                        "is_information_request": False,
-                        "reason": "Failed to parse LLM response",
-                        "confidence": 0.0,
-                    }
-            else:
-                logger.warning("Empty response from LLM for information request detection")
+        # Extract and parse the response
+        if response and response.choices and response.choices[0].message.content:
+            try:
+                result = json.loads(response.choices[0].message.content)
+                # Add the original message for reference
+                result["original_message"] = message
+                return result
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
                 return {
                     "is_information_request": False,
-                    "reason": "Empty response from LLM",
+                    "reason": "Failed to parse LLM response",
                     "confidence": 0.0,
-                    "debug": debug,
                 }
+        else:
+            logger.warning("Empty response from LLM for information request detection")
+            return {
+                "is_information_request": False,
+                "reason": "Empty response from LLM",
+                "confidence": 0.0,
+                "debug": debug,
+            }
     except Exception as e:
-        # Failed to use LLM
         logger.exception(f"Error in LLM-based information request detection: {e}")
+        debug["error"] = str(e)
         return {
             "is_information_request": False,
             "reason": f"LLM detection error: {str(e)}",

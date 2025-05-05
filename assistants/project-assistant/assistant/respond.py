@@ -85,12 +85,12 @@ async def respond_to_conversation(
     ### SYSTEM MESSAGE
     ###
 
-    # Instruction and assistant name
+    # Instruction and assistant name.
     system_message_content = (
         f'\n\n{config.prompt_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
     )
 
-    # Add role-specific instructions
+    # Add role-specific instructions.
     role_specific_prompt = ""
     if role == ConversationRole.COORDINATOR:
         role_specific_prompt = config.prompt_config.coordinator_prompt
@@ -100,7 +100,7 @@ async def respond_to_conversation(
     if role_specific_prompt:
         system_message_content += f"\n\n{role_specific_prompt}"
 
-    # If this is a multi-participant conversation, add a note about the participants
+    # If this is a multi-participant conversation, add a note about the participants.
     participants = await context.get_participants(include_inactive=True)
     if len(participants.participants) > 2:
         system_message_content += (
@@ -121,104 +121,92 @@ async def respond_to_conversation(
         )
 
     ###
-    ### SYSTEM MESSAGE: Project information
+    ### SYSTEM MESSAGE: Project data
     ###
 
     project_id = await ProjectManager.get_project_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
-    project_data = {}
+    project_data: dict[str, str] = {}
     all_requests = []
 
-    try:
-        # Get comprehensive project data for prompt
-        briefing = ProjectStorage.read_project_brief(project_id)
-        project_info = ProjectStorage.read_project_info(project_id)
-        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-        all_requests = ProjectStorage.get_all_information_requests(project_id)
+    # Project info
+    project_info = ProjectStorage.read_project_info(project_id)
+    project_info_text = ""
+    if project_info:
+        project_info_text = dedent(f"""
+            ### PROJECT INFO
+            **Current State:** {project_info.state.value}
 
-        # Include project info
-        project_info_text = ""
-        if project_info:
-            project_info_text = f"""
-### PROJECT INFO
-**Current State:** {project_info.state.value}
+            **Full project info**
+            ```json
+            {project_info.model_dump_json(indent=2)}
+            ```
+            """)
+        if project_info.status_message:
+            project_info_text += f"**Status Message:** {project_info.status_message}\n"
+        project_data["status"] = project_info_text
 
-**Full project info**
-```json
-{project_info.model_dump_json(indent=2)}
-```
-"""
-            if project_info.status_message:
-                project_info_text += f"**Status Message:** {project_info.status_message}\n"
-            project_data["status"] = project_info_text
+    # Project brief
+    briefing = ProjectStorage.read_project_brief(project_id)
+    project_brief_text = ""
+    if briefing:
+        project_brief_text = dedent(f"""
+            ### PROJECT BRIEF
+            **Name:** {briefing.project_name}
+            **Description:** {briefing.project_description}
+            """)
+        project_data["briefing"] = project_brief_text
 
-        # Include project brief
-        project_brief_text = ""
-        if briefing:
-            # Basic project brief without goals
-            project_brief_text = f"""
-### PROJECT BRIEF
-**Name:** {briefing.project_name}
-**Description:** {briefing.project_description}
-"""
-            # Only include project goals and progress tracking if the assistant is a project assistant
-            # First get the project to access its goals
-            project_id = await ProjectManager.get_project_id(context)
-            project = ProjectStorage.read_project(project_id) if project_id else None
+    # Project goals
+    project = ProjectStorage.read_project(project_id)
+    if is_project_assistant(context) and project and project.goals:
+        project_brief_text += "\n#### PROJECT GOALS:\n\n"
+        for i, goal in enumerate(project.goals):
+            # Count completed criteria
+            completed = sum(1 for c in goal.success_criteria if c.completed)
+            total = len(goal.success_criteria)
 
-            if is_project_assistant(context) and project and project.goals:
-                project_brief_text += """
-#### PROJECT GOALS:
-"""
-                for i, goal in enumerate(project.goals):
-                    # Count completed criteria
-                    completed = sum(1 for c in goal.success_criteria if c.completed)
-                    total = len(goal.success_criteria)
+            project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
+            if goal.success_criteria:
+                project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
+                for j, criterion in enumerate(goal.success_criteria):
+                    check = "✅" if criterion.completed else "⬜"
+                    project_brief_text += f"   {check} {criterion.description}\n"
+            project_brief_text += "\n"
+        project_data["goals"] = project_brief_text
 
-                    project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-                    if goal.success_criteria:
-                        project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                        for j, criterion in enumerate(goal.success_criteria):
-                            check = "✅" if criterion.completed else "⬜"
-                            project_brief_text += f"   {check} {criterion.description}\n"
-                    project_brief_text += "\n"
-                project_data["briefing"] = project_brief_text
+    # Whiteboard
+    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+    if whiteboard and whiteboard.content:
+        whiteboard_text = dedent(f"""
+            ### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
+            The whiteboard contains critical project information that has been automatically extracted from previous conversations.
+            It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
 
-        # Include whiteboard content
-        if whiteboard and whiteboard.content:
-            whiteboard_text = f"""
-### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
-The whiteboard contains critical project information that has been automatically extracted from previous conversations.
-It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
+            Key characteristics of this whiteboard:
+            - It contains the most essential information about the project that should be readily available
+            - It has been automatically curated to focus on high-value content relevant to the project
+            - It is maintained and updated as the conversation progresses
+            - It should be treated as a trusted source of contextual information for this project
 
-Key characteristics of this whiteboard:
-- It contains the most essential information about the project that should be readily available
-- It has been automatically curated to focus on high-value content relevant to the project
-- It is maintained and updated as the conversation progresses
-- It should be treated as a trusted source of contextual information for this project
+            When using the whiteboard:
+            - Prioritize this information when addressing questions or providing updates
+            - Reference it to ensure consistency in your responses across the conversation
+            - Use it to track important details that might otherwise be lost in the conversation history
 
-When using the whiteboard:
-- Prioritize this information when addressing questions or providing updates
-- Reference it to ensure consistency in your responses across the conversation
-- Use it to track important details that might otherwise be lost in the conversation history
+            WHITEBOARD CONTENT:
+            ```markdown
+            {whiteboard.content}
+            ```
 
-WHITEBOARD CONTENT:
-```markdown
-{whiteboard.content}
-```
+            """)
+        project_data["whiteboard"] = whiteboard_text
 
-"""
-            project_data["whiteboard"] = whiteboard_text
-
-    except Exception as e:
-        logger.warning(f"Failed to fetch project data for prompt: {e}")
-
-    # Construct role-specific messages with comprehensive project data
+    # Information requests
+    all_requests = ProjectStorage.get_all_information_requests(project_id)
     if role == ConversationRole.COORDINATOR:
-        # Include information requests
-
         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
         if active_requests:
             coordinator_requests = "\n\n### ACTIVE INFORMATION REQUESTS\n"
@@ -243,12 +231,9 @@ WHITEBOARD CONTENT:
             project_data["information_requests"] = (
                 "\n\n### ACTIVE INFORMATION REQUESTS\nNo active information requests."
             )
-
     else:  # team role
-        # Fetch current information requests for this conversation
         information_requests_info = ""
         my_requests = []
-
         if all_requests:
             # Filter for requests from this conversation that aren't resolved
             my_requests = [
@@ -266,7 +251,7 @@ WHITEBOARD CONTENT:
                 )
                 project_data["information_requests"] = information_requests_info
 
-    # Add project data to system message
+    # Add project data to system message.
     project_info = "\n\n## CURRENT PROJECT INFORMATION\n\n" + "\n".join(project_data.values())
     system_message_content += f"\n\n{project_info}"
     system_message: ChatCompletionMessageParam = {
@@ -274,14 +259,14 @@ WHITEBOARD CONTENT:
         "content": system_message_content,
     }
 
-    # Calculate token count for the system message
+    # Calculate token count for the system message.
     system_message_tokens = openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
         messages=[system_message],
     )
     available_tokens -= system_message_tokens
 
-    # Initialize message list with system message
+    # Initialize message list with system message.
     completion_messages: list[ChatCompletionMessageParam] = [
         system_message,
     ]
@@ -290,7 +275,7 @@ WHITEBOARD CONTENT:
     ### ATTACHMENTS
     ###
 
-    # Generate the attachment messages
+    # Generate the attachment messages.
     attachment_messages: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
         await attachments_extension.get_completion_messages_for_attachments(
             context,
@@ -298,22 +283,21 @@ WHITEBOARD CONTENT:
         )
     )
 
-    # Update token count to include attachment messages
+    # Update token count to include attachment messages.
     attachment_tokens = openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
         messages=attachment_messages,
     )
     available_tokens -= attachment_tokens
 
-    # Add attachment messages to completion messages
+    # Add attachment messages to completion messages.
     completion_messages.extend(attachment_messages)
 
     ###
     ### USER MESSAGE
     ###
 
-    # Format the current message
-    # Create the message parameter based on sender with proper typing
+    # Format the current message.
     if message.sender.participant_id == context.assistant.id:
         user_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
             role="assistant",
@@ -325,7 +309,7 @@ WHITEBOARD CONTENT:
             content=format_message(participants, message),
         )
 
-    # Calculate tokens for this message
+    # Calculate tokens for this message.
     user_message_tokens = openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
         messages=[user_message],
@@ -336,39 +320,26 @@ WHITEBOARD CONTENT:
     ### HISTORY MESSAGES
     ###
 
-    # Get the conversation history
-    # For pagination, we'll retrieve messages in batches as needed
     history_messages: list[ChatCompletionMessageParam] = []
     before_message_id = message.id
-
-    # Track token usage and overflow
     history_messages_tokens = 0
     token_overage = 0
 
-    # We'll fetch messages in batches until we hit the token limit or run out of messages
+    # We'll fetch messages in batches until we hit the token limit or run out of messages.
     while True:
         # Get a batch of messages
         messages_response = await context.get_messages(
             before=before_message_id,
-            limit=100,  # Get messages in batches of 100
-            message_types=[MessageType.chat],  # Include only chat messages
+            limit=100,
+            message_types=[MessageType.chat],
         )
-
         messages_list = messages_response.messages
-
-        # If no messages found, break the loop
         if not messages_list or len(messages_list) == 0:
             break
-
-        # Set before_message_id for the next batch
         before_message_id = messages_list[0].id
 
-        # Process messages in reverse order (oldest first for history)
         for msg in reversed(messages_list):
-            # Format this message for inclusion
             formatted_message = format_message(participants, msg)
-
-            # Create the message parameter based on sender with proper typing
             is_assistant = msg.sender.participant_id == context.assistant.id
             if is_assistant:
                 current_message = ChatCompletionAssistantMessageParam(
@@ -381,22 +352,20 @@ WHITEBOARD CONTENT:
                     content=formatted_message,
                 )
 
-            # Calculate tokens for this message
+            # Calculate tokens for this message.
             user_message_tokens = openai_client.num_tokens_from_messages(
                 model=config.request_config.openai_model,
                 messages=[current_message],
             )
 
-            # Check if we can add this message without exceeding the token limit
+            # Check if we can add this message without exceeding the token limit.
             if token_overage == 0 and history_messages_tokens + user_message_tokens < available_tokens:
-                # Add message to the front of history_messages (to maintain chronological order)
                 history_messages = [current_message] + history_messages
                 history_messages_tokens += user_message_tokens
             else:
-                # We've exceeded the token limit, track the overage
                 token_overage += user_message_tokens
 
-        # If we've already exceeded the token limit, no need to fetch more messages
+        # If we've already exceeded the token limit, no need to fetch more messages.
         if token_overage > 0:
             break
 
@@ -404,8 +373,8 @@ WHITEBOARD CONTENT:
     completion_messages.extend(history_messages)
     completion_messages.append(user_message)
 
+    # Add a system message to indicate attachments are a part of the user message.
     if message.filenames and len(message.filenames) > 0:
-        # add a system message to indicate attachments are a part of the user message
         attachment_message = ChatCompletionSystemMessageParam(
             role="system",
             content=f"Attachment(s): {', '.join(message.filenames)}",
@@ -426,15 +395,11 @@ WHITEBOARD CONTENT:
         "total": total_tokens,
         "max": config.request_config.max_tokens,
     }
-
     if available_tokens < 0:
         raise ValueError(
             f"You've exceeded the token limit of {config.request_config.max_tokens} in this conversation "
             f"({total_tokens}). Try removing some attachments."
         )
-
-    # These are the tools that are available to the assistant.
-    project_tools = ProjectTools(context, role)
 
     # For team role, analyze message for possible information request needs.
     # Send a notification if we think it might be one.
@@ -471,21 +436,13 @@ WHITEBOARD CONTENT:
 
     async with openai_client.create_client(config.service_config) as client:
         try:
-            # Create a completion dictionary for tool call handling
             completion_args = {
                 "messages": completion_messages,
                 "model": config.request_config.openai_model,
                 "max_tokens": config.request_config.response_tokens,
             }
 
-            # Call the completion API with tool functions
-            logger.info(f"Using tool functions for completions (role: {role})")
-
-            # Record the tool names available for this role for validation
-            available_tool_names = set(project_tools.tool_functions.function_map.keys())
-            logger.info(f"Available tools for {role}: {available_tool_names}")
-
-            # Make the API call
+            project_tools = ProjectTools(context, role)
             response_start_time = time.time()
             completion_response, additional_messages = await complete_with_tool_calls(
                 async_client=client,
@@ -530,7 +487,6 @@ WHITEBOARD CONTENT:
             content = "An error occurred while calling the OpenAI API. Is it configured correctly?"
             metadata["debug"]["error"] = str(e)
 
-    message_type = MessageType.chat
     if content:
         # strip out the username from the response
         if isinstance(content, str) and content.startswith("["):
@@ -543,10 +499,8 @@ WHITEBOARD CONTENT:
             # normal behavior is to not respond if the model chooses to remain silent
             # but we can override this behavior for debugging purposes via the assistant config
             if config.enable_debug_output:
-                # update the metadata to indicate the assistant chose to remain silent
                 metadata["debug"]["silence_token"] = True
                 metadata["debug"]["silence_token_response"] = (content,)
-                # send a notice to the user that the assistant chose to remain silent
                 await context.send_messages(
                     NewConversationMessage(
                         message_type=MessageType.notice,
@@ -559,7 +513,7 @@ WHITEBOARD CONTENT:
     await context.send_messages(
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",
-            message_type=message_type,
+            message_type=MessageType.chat,
             metadata=metadata,
         )
     )

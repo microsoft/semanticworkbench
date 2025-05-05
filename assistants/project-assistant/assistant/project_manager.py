@@ -62,9 +62,7 @@ class ProjectManager:
     """
 
     @staticmethod
-    async def create_shareable_team_conversation(
-        context: ConversationContext, project_id: str, project_name: str = "Project"
-    ) -> str:
+    async def create_shareable_team_conversation(context: ConversationContext, project_id: str) -> str:
         """
         Creates a new shareable team conversation template.
 
@@ -91,12 +89,7 @@ class ProjectManager:
         if not user_id:
             raise ValueError("Cannot create team conversation: no user found")
 
-        ##
-        ## Create a new shareable conversation
-        ##
-
         new_conversation = NewConversation(
-            title=f"{project_name}",
             metadata={
                 "is_team_conversation": True,
                 "project_id": project_id,
@@ -113,13 +106,9 @@ class ProjectManager:
 
         logger.info(f"Created team conversation: {conversation.id}")
 
-        ##
-        ## Create a share for the new conversation
-        ##
-
         new_share = NewConversationShare(
             conversation_id=conversation.id,
-            label=f"{project_name}",
+            label="Join Team Conversation",
             conversation_permission=ConversationPermission.read,
             metadata={
                 "project_id": project_id,
