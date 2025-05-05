@@ -145,9 +145,8 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                 }
 
                 return (
-                    conversation.ownerId === localUserId &&
-                    (!filterString ||
-                        (filterString && conversation.title.toLowerCase().includes(filterString.toLowerCase())))
+                    !filterString ||
+                    (filterString && conversation.title.toLowerCase().includes(filterString.toLowerCase()))
                 );
             }) || [];
 
