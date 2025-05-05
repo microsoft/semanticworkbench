@@ -369,8 +369,7 @@ class AssistantController:
                     )
                 ).all()
 
-                if assistants:
-                    return convert.assistant_list_from_db(models=assistants)
+                return convert.assistant_list_from_db(models=assistants)
 
             conversation = (
                 await session.exec(
@@ -426,14 +425,28 @@ class AssistantController:
                     )
                     continue
 
-                await self.create_assistant(
-                    user_principal=user_principal,
-                    new_assistant=NewAssistant(
-                        assistant_service_id=identifiers.assistant_service_id,
-                        template_id=identifiers.template_id,
-                        name=identifiers.name,
-                    ),
-                )
+                if not assistant_service.assistant_service_online:
+                    logger.error(
+                        "configured assistant service id for default assistants is not online; id: %s",
+                        identifiers.assistant_service_id,
+                    )
+                    continue
+
+                try:
+                    await self.create_assistant(
+                        user_principal=user_principal,
+                        new_assistant=NewAssistant(
+                            assistant_service_id=identifiers.assistant_service_id,
+                            template_id=identifiers.template_id,
+                            name=identifiers.name,
+                        ),
+                    )
+                except AssistantError:
+                    logger.exception(
+                        "error creating default assistant; assistant_service_id: %s, template_id: %s",
+                        identifiers.assistant_service_id,
+                        identifiers.template_id,
+                    )
 
     async def get_assistant(
         self,

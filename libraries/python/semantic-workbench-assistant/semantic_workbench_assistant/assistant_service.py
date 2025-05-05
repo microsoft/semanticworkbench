@@ -302,7 +302,8 @@ def _assistant_service_api(
         return await http_exception_handler(request, exc)
 
     @app.get("/", description="Get the description of the assistant service")
-    async def get_service_description() -> assistant_model.ServiceInfoModel:
+    async def get_service_description(response: Response) -> assistant_model.ServiceInfoModel:
+        response.headers["Cache-Control"] = "max-age=600"
         return await service.get_service_info()
 
     @app.put(
