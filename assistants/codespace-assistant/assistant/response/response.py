@@ -3,7 +3,6 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorExtension
 from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
@@ -33,7 +32,6 @@ logger = logging.getLogger(__name__)
 async def respond_to_conversation(
     message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
-    document_editor_extension: DocumentEditorExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
     metadata: dict[str, Any] = {},
@@ -71,8 +69,6 @@ async def respond_to_conversation(
             if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
                 await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
 
-        client_resource_handler = document_editor_extension.client_resource_handler_for(context)
-
         enabled_servers = []
         if config.tools.enabled:
             enabled_servers = get_enabled_mcp_server_configs(config.tools.mcp_servers)
@@ -85,11 +81,6 @@ async def respond_to_conversation(
                         sampling_callback=sampling_handler.handle_message,
                         message_handler=message_handler,
                         list_roots_callback=list_roots_callback_for(context=context, server_config=server_config),
-                        experimental_resource_callbacks=(
-                            client_resource_handler.handle_list_resources,
-                            client_resource_handler.handle_read_resource,
-                            client_resource_handler.handle_write_resource,
-                        ),
                     )
                     for server_config in enabled_servers
                 ],

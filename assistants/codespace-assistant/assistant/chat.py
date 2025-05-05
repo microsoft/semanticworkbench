@@ -10,7 +10,7 @@ from typing import Any
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
+from assistant_extensions.document_editor import DocumentEditorConfigModel
 from assistant_extensions.mcp import MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
@@ -84,13 +84,6 @@ async def document_editor_config_provider(ctx: ConversationContext) -> DocumentE
     return config.tools.hosted_mcp_servers.filesystem_edit
 
 
-document_editor_extension = DocumentEditorExtension(
-    app=assistant,
-    config_provider=document_editor_config_provider,
-    storage_directory="documents",
-)
-
-
 async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
     return config.tools.hosted_mcp_servers.memory_whiteboard
@@ -148,10 +141,7 @@ async def on_message_created(
         return
 
     # update the participant status to indicate the assistant is thinking
-    async with (
-        context.set_status("thinking..."),
-        document_editor_extension.lock_document_edits(context),
-    ):
+    async with context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
@@ -159,7 +149,6 @@ async def on_message_created(
             await respond_to_conversation(
                 message=message,
                 attachments_extension=attachments_extension,
-                document_editor_extension=document_editor_extension,
                 context=context,
                 config=config,
                 metadata=metadata,
