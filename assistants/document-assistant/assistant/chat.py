@@ -25,11 +25,11 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.config import AssistantConfigModel
 from assistant.filesystem import AttachmentsExtension, DocumentEditorConfigModel
 from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
-
-from .config import AssistantConfigModel
-from .whiteboard import WhiteboardInspector
+from assistant.response.responder import ConversationResponder
+from assistant.whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +71,15 @@ assistant = AssistantApp(
 async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
     # Get either the hosted or personal config based on which one is enabled. Priority is given to the personal config.
-    personal_filesystem_edit = [x for x in config.tools.personal_mcp_servers if x.key == "filesystem-edit"]
+    personal_filesystem_edit = [x for x in config.orchestration.personal_mcp_servers if x.key == "filesystem-edit"]
     if len(personal_filesystem_edit) > 0:
         return personal_filesystem_edit[0]
-    return config.tools.hosted_mcp_servers.filesystem_edit
+    return config.orchestration.hosted_mcp_servers.filesystem_edit
 
 
 async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    return config.tools.hosted_mcp_servers.memory_whiteboard
+    return config.orchestration.hosted_mcp_servers.memory_whiteboard
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
@@ -142,8 +142,6 @@ async def on_message_created(
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         try:
-            from assistant.response.responder import ConversationResponder
-
             responder = await ConversationResponder.create(
                 message=message,
                 context=context,
@@ -152,19 +150,6 @@ async def on_message_created(
                 attachments_extension=attachments_extension,
             )
             await responder.respond_to_conversation()
-
-            """
-            from assistant.response.response import respond_to_conversation
-
-            await respond_to_conversation(
-                message=message,
-                attachments_extension=attachments_extension,
-                context=context,
-                config=config,
-                metadata=metadata,
-            )
-            """
-
         except Exception as e:
             logger.exception(f"Exception occurred responding to conversation: {e}")
             deepmerge.always_merger.merge(metadata, {"debug": {"error": str(e)}})
@@ -198,7 +183,7 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
         return False
 
     # if configure to only respond to mentions, ignore messages where the content does not mention the assistant somewhere in the message
-    if config.response_behavior.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
+    if config.orchestration.options.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
         # check to see if there are any other assistants in the conversation
         participant_list = await context.get_participants()
         other_assistants = [
@@ -243,7 +228,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
     # send a welcome message to the conversation
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.response_behavior.welcome_message
+    welcome_message = config.orchestration.prompts.welcome_message
     await context.send_messages(
         NewConversationMessage(
             content=welcome_message,

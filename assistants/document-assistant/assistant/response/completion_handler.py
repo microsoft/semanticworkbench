@@ -29,7 +29,6 @@ from assistant.filesystem import AttachmentsExtension
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
 
-from ..config import ExtensionsConfigModel
 from .models import StepResult
 from .utils import (
     extract_content_from_mcp_tool_calls,
@@ -50,8 +49,8 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
-    extensions_config: ExtensionsConfigModel,
     attachments_extension: AttachmentsExtension,
+    guidance_enabled: bool,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -173,7 +172,7 @@ async def handle_completion(
         # No tool calls, exit the loop
         step_result.status = "final"
     # Handle DYNAMIC_UI_TOOL_NAME in a special way
-    elif extensions_config.guidance.enabled and tool_calls[0].name == DYNAMIC_UI_TOOL_NAME:
+    elif guidance_enabled and tool_calls[0].name == DYNAMIC_UI_TOOL_NAME:
         await update_dynamic_ui_state(context, tool_calls[0].arguments)
 
         # If this tool is called, we assume its the only tool

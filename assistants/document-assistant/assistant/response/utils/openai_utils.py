@@ -21,7 +21,7 @@ from openai.types.chat import (
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel
 
-from ...config import AssistantConfigModel, MCPToolsConfigModel
+from ...config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -166,13 +166,13 @@ def split_ai_content_from_mcp_tool_call(
 
 
 def get_openai_tools_from_mcp_sessions(
-    mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
+    mcp_sessions: List[MCPSession], tools_disabled: list[str]
 ) -> List[ChatCompletionToolParam] | None:
     """
     Retrieve the tools from the MCP sessions.
     """
 
-    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_config.advanced.tools_disabled)
+    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_disabled)
     extra_parameters = {
         "aiContext": {
             "type": "string",

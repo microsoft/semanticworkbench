@@ -12,10 +12,8 @@ from openai_client import (
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
-from assistant.filesystem import AttachmentsConfigModel
 from assistant.guidance.guidance_config import GuidanceConfigModel
-
-from . import helpers
+from assistant.response.prompts import GUARDRAILS_POSTFIX, ORCHESTRATION_SYSTEM_PROMPT
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -27,26 +25,8 @@ from . import helpers
 # configuration model.
 
 
-class ExtensionsConfigModel(BaseModel):
-    attachments: Annotated[
-        AttachmentsConfigModel,
-        Field(
-            title="Attachments Extension",
-            description="Configuration for the attachments extension.",
-        ),
-    ] = AttachmentsConfigModel()
-
-    guidance: Annotated[
-        GuidanceConfigModel,
-        Field(
-            title="User Guidance",
-            description="Enables user guidance including dynamic UI generation for user preferences",
-        ),
-    ] = GuidanceConfigModel()
-
-
 class PromptsConfigModel(BaseModel):
-    instruction_prompt: Annotated[
+    orchestration_prompt: Annotated[
         str,
         Field(
             title="Instruction Prompt",
@@ -55,21 +35,7 @@ class PromptsConfigModel(BaseModel):
             """).strip(),
         ),
         UISchema(widget="textarea"),
-    ] = helpers.load_text_include("instruction_prompt_document.txt")
-
-    guidance_prompt: Annotated[
-        str,
-        Field(
-            title="Guidance Prompt",
-            description=dedent("""
-                The prompt used to provide a structured set of instructions to carry out a specific workflow
-                from start to finish. It should outline a clear, step-by-step process for gathering necessary
-                context, breaking down the objective into manageable components, executing the defined steps,
-                and validating the results.
-            """).strip(),
-        ),
-        UISchema(widget="textarea"),
-    ] = helpers.load_text_include("guidance_prompt_document.txt")
+    ] = ORCHESTRATION_SYSTEM_PROMPT
 
     guardrails_prompt: Annotated[
         str,
@@ -83,10 +49,8 @@ class PromptsConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = helpers.load_text_include("guardrails_prompt_document.txt")
+    ] = GUARDRAILS_POSTFIX
 
-
-class ResponseBehaviorConfigModel(BaseModel):
     welcome_message: Annotated[
         str,
         Field(
@@ -102,6 +66,8 @@ class ResponseBehaviorConfigModel(BaseModel):
                 - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
                """).strip()
 
+
+class ResponseBehaviorConfigModel(BaseModel):
     only_respond_to_mentions: Annotated[
         bool,
         Field(
@@ -133,7 +99,13 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Web Research",
-            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
+            description=dedent(
+                """
+                Enable your assistant to perform web research on a given topic.
+                It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts.
+                Once it decides it has enough, it will summarize the information and return it as a report.
+                """.strip()
+            ),
         ),
         UISchema(collapsible=False),
     ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", True)
@@ -205,7 +177,7 @@ class HostedMCPServersConfigModel(BaseModel):
         return [config for config in configs if config.command]
 
 
-class AdvancedToolConfigModel(BaseModel):
+class OrchestrationOptionsConfigModel(BaseModel):
     max_steps: Annotated[
         int,
         Field(
@@ -222,38 +194,16 @@ class AdvancedToolConfigModel(BaseModel):
         ),
     ] = "[ Maximum steps reached for this turn, engage with assistant to continue ]"
 
-    additional_instructions: Annotated[
-        str,
-        Field(
-            title="Tools Instructions",
-            description=dedent("""
-                General instructions for using tools.  No need to include a list of tools or instruction
-                on how to use them in general, that will be handled automatically.  Instead, use this
-                space to provide any additional instructions for using specific tools, such folders to
-                exclude in file searches, or instruction to always re-read a file before using it.
-            """).strip(),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = ""
-
-    tools_disabled: Annotated[
-        list[str],
-        Field(
-            title="Disabled Tools",
-            description=dedent("""
-                List of individual tools to disable. Use this if there is a problem tool that you do not want
-                made visible to your assistant.
-            """).strip(),
-        ),
-    ] = ["directory_tree"]
-
-
-class MCPToolsConfigModel(BaseModel):
-    enabled: Annotated[
+    only_respond_to_mentions: Annotated[
         bool,
-        Field(title="Enable experimental use of tools"),
-    ] = True
+        Field(
+            title="Only Respond to @Mentions",
+            description="Only respond to messages that @mention the assistant.",
+        ),
+    ] = False
 
+
+class OrchestrationConfigModel(BaseModel):
     hosted_mcp_servers: Annotated[
         HostedMCPServersConfigModel,
         Field(
@@ -272,12 +222,40 @@ class MCPToolsConfigModel(BaseModel):
         UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
     ] = []
 
-    advanced: Annotated[
-        AdvancedToolConfigModel,
+    tools_disabled: Annotated[
+        list[str],
         Field(
-            title="Advanced Tool Settings",
+            title="Disabled Tools",
+            description=dedent("""
+                List of individual tools to disable. Use this if there is a problem tool that you do not want
+                made visible to your assistant.
+            """).strip(),
         ),
-    ] = AdvancedToolConfigModel()
+    ] = []
+
+    options: Annotated[
+        OrchestrationOptionsConfigModel,
+        Field(
+            title="Orchestration Options",
+        ),
+        UISchema(collapsed=True),
+    ] = OrchestrationOptionsConfigModel()
+
+    prompts: Annotated[
+        PromptsConfigModel,
+        Field(
+            title="Prompts",
+            description="Configuration for various prompts used by the assistant.",
+        ),
+    ] = PromptsConfigModel()
+
+    guidance: Annotated[
+        GuidanceConfigModel,
+        Field(
+            title="User Guidance",
+            description="Enables user guidance including dynamic UI generation for user preferences",
+        ),
+    ] = GuidanceConfigModel()
 
     @property
     def mcp_servers(self) -> list[MCPServerConfig]:
@@ -289,36 +267,13 @@ class MCPToolsConfigModel(BaseModel):
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
-    tools: Annotated[
-        MCPToolsConfigModel,
+    orchestration: Annotated[
+        OrchestrationConfigModel,
         Field(
-            title="Tools",
+            title="Orchestration",
         ),
         UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
-    ] = MCPToolsConfigModel()
-
-    extensions_config: Annotated[
-        ExtensionsConfigModel,
-        Field(
-            title="Assistant Extensions",
-        ),
-    ] = ExtensionsConfigModel()
-
-    prompts: Annotated[
-        PromptsConfigModel,
-        Field(
-            title="Prompts",
-            description="Configuration for various prompts used by the assistant.",
-        ),
-    ] = PromptsConfigModel()
-
-    response_behavior: Annotated[
-        ResponseBehaviorConfigModel,
-        Field(
-            title="Response Behavior",
-            description="Configuration for the response behavior of the assistant.",
-        ),
-    ] = ResponseBehaviorConfigModel()
+    ] = OrchestrationConfigModel()
 
     generative_ai_client_config: Annotated[
         AzureOpenAIClientConfigModel | OpenAIClientConfigModel,

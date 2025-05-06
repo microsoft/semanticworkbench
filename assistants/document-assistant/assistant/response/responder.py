@@ -88,8 +88,10 @@ class ConversationResponder:
         # Constants
         self.token_model = "gpt-4o"
         self.max_system_prompt_component_tokens = 2000
-        self.max_total_tokens = 13000  # Max number of tokens that should go into a request
-        self.token_buffer = 3000  # If max_token_tokens is exceeded, applying context management should get back under self.max_total_tokens - self.token_buffer
+        # Max number of tokens that should go into a request
+        self.max_total_tokens = int(self.config.generative_ai_client_config.request_config.max_tokens * 0.95)
+        # If max_token_tokens is exceeded, applying context management should get back under self.max_total_tokens - self.token_buffer
+        self.token_buffer = int(self.config.generative_ai_client_config.request_config.response_tokens * 1.1)
 
         self.tokenizer = TokenizerOpenAI(model=self.token_model)
 
@@ -118,7 +120,7 @@ class ConversationResponder:
         encountered_error = False
         completed_within_max_steps = False
         step_count = 0
-        while step_count < self.config.tools.advanced.max_steps:
+        while step_count < self.config.orchestration.options.max_steps:
             step_count += 1
             self.mcp_sessions = await refresh_mcp_sessions(self.mcp_sessions)
 
@@ -147,7 +149,7 @@ class ConversationResponder:
         if not completed_within_max_steps and not encountered_error and not interrupted:
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=self.config.tools.advanced.max_steps_truncation_message,
+                    content=self.config.orchestration.options.max_steps_truncation_message,
                     message_type=MessageType.notice,
                     metadata=self.metadata,
                 )
@@ -173,7 +175,7 @@ class ConversationResponder:
 
         await notify_whiteboard(
             context=self.context,
-            server_config=self.config.tools.hosted_mcp_servers.memory_whiteboard,
+            server_config=self.config.orchestration.hosted_mcp_servers.memory_whiteboard,
             attachment_messages=[],
             chat_messages=chat_message_params[1:],
         )
@@ -203,7 +205,7 @@ class ConversationResponder:
                         },
                     )
                     completion_dynamic_ui = None
-                    if self.config.extensions_config.guidance.enabled and step_count == 1:
+                    if self.config.orchestration.guidance.enabled and step_count == 1:
                         dynamic_ui_task = get_completion(
                             client,
                             self.config.generative_ai_client_config.request_config,
@@ -243,7 +245,7 @@ class ConversationResponder:
                     step_result.status = "error"
                     return step_result
 
-        if self.config.extensions_config.guidance.enabled and completion_dynamic_ui:
+        if self.config.orchestration.guidance.enabled and completion_dynamic_ui:
             # Check if the regular request generated the DYNAMIC_UI_TOOL_NAME
             called_dynamic_ui_tool = False
             if completion.choices[0].message.tool_calls:
@@ -277,8 +279,8 @@ class ConversationResponder:
             "SILENCE",  # TODO: This is not being used correctly.
             f"respond_to_conversation:step_{step_count}",
             response_start_time,
-            self.config.extensions_config,
             self.attachments_extension,
+            self.config.orchestration.guidance.enabled,
         )
         return step_result
 
@@ -289,9 +291,11 @@ class ConversationResponder:
     async def _construct_prompt(self) -> tuple[list, list[ChatCompletionMessageParam]]:
         # Set tools
         tools = []
-        if self.config.extensions_config.guidance.enabled:
+        if self.config.orchestration.guidance.enabled:
             tools.append(DYNAMIC_UI_TOOL_OBJ)
-        tools.extend(get_openai_tools_from_mcp_sessions(self.mcp_sessions, self.config.tools) or [])
+        tools.extend(
+            get_openai_tools_from_mcp_sessions(self.mcp_sessions, self.config.orchestration.tools_disabled) or []
+        )
         # Remove any view tool that was added by an MCP server and replace it with ours
         tools = [tool for tool in tools if tool["function"]["name"] != "view"]
         tools.append(VIEW_TOOL_OBJ)
@@ -303,7 +307,7 @@ class ConversationResponder:
         # Best practice is to have these start with a ## <heading content>
         # TODO: Truncate each of these these to 2000 tokens
         # User Guidance and & Dynamic UI Generation
-        if self.config.extensions_config.guidance.enabled:
+        if self.config.orchestration.guidance.enabled:
             dynamic_ui_system_prompt = self.tokenizer.truncate_str(
                 await self._construct_dynamic_ui_system_prompt(), self.max_system_prompt_component_tokens
             )
@@ -433,7 +437,7 @@ class ConversationResponder:
             current_dynamic_ui_elements = "No dynamic UI elements have been generated yet. Consider generating some."
 
         system_prompt = "## On Dynamic UI Elements"
-        system_prompt += "\n" + self.config.extensions_config.guidance.prompt
+        system_prompt += "\n" + self.config.orchestration.guidance.prompt
         system_prompt += "\n" + str(current_dynamic_ui_elements)
         return system_prompt
 
@@ -608,9 +612,7 @@ class ConversationResponder:
 
         client_resource_handler = self.attachments_extension.client_resource_handler_for(self.context)
 
-        enabled_servers = []
-        if self.config.tools.enabled:
-            enabled_servers = get_enabled_mcp_server_configs(self.config.tools.mcp_servers)
+        enabled_servers = get_enabled_mcp_server_configs(self.config.orchestration.mcp_servers)
 
         try:
             mcp_sessions = await establish_mcp_sessions(
