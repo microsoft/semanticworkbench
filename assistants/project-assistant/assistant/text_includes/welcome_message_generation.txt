@@ -6,4 +6,4 @@ Create a welcome message specific to this project. It should be something like:
 This is your personal conversation for gaining deeper understanding of the context shared to you! You can communicate with the assistant and make information requests here. See more information in the side panel. <and then include a brief overview of the project>
 ```
 
-Your output format should be a text string. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes. Use markdown for formatting if needed.
+Your output format should be markdown. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes.

@@ -49,13 +49,11 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Goals
     project = ProjectStorage.read_project(project_id)
-    if is_project_assistant(context) and project and project.goals:
+    if project and project.goals and is_project_assistant(context):
         project_brief_text += "\n#### PROJECT GOALS:\n\n"
         for i, goal in enumerate(project.goals):
-            # Count completed criteria
             completed = sum(1 for c in goal.success_criteria if c.completed)
             total = len(goal.success_criteria)
-
             project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
             if goal.success_criteria:
                 project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"

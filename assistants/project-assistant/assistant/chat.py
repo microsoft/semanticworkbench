@@ -145,28 +145,26 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 logger.error("No project ID found for team conversation.")
                 return
 
-            async with context.set_status("joining..."):
-                await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+            # I'd put status messages here, but the attachment's extension is causing race conditions.
 
-            # Synchronize files
-            async with context.set_status("synchonizing files..."):
-                await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+
+            # Synchronize files.
+            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
 
             # Generate a welcome message.
-            async with context.set_status("reviewing my notes..."):
-                welcome_message, debug = await generate_team_welcome_message(context)
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=welcome_message,
-                        message_type=MessageType.chat,
-                        metadata={
-                            "generated_content": True,
-                            "debug": debug,
-                        },
-                    )
+            welcome_message, debug = await generate_team_welcome_message(context)
+            await context.send_messages(
+                NewConversationMessage(
+                    content=welcome_message,
+                    message_type=MessageType.chat,
+                    metadata={
+                        "generated_content": True,
+                        "debug": debug,
+                    },
                 )
+            )
 
-            await context.update_participant_me(UpdateParticipant(status=None))
             return
 
         case ConversationType.COORDINATOR:
