@@ -2,8 +2,6 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any
 
-from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorExtension
 from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
@@ -23,6 +21,8 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.filesystem import AttachmentsExtension
+
 from ..config import AssistantConfigModel
 from .step_handler import next_step
 from .utils import get_ai_client_configs
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 async def respond_to_conversation(
     message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
-    document_editor_extension: DocumentEditorExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
     metadata: dict[str, Any] = {},
@@ -71,7 +70,7 @@ async def respond_to_conversation(
             if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
                 await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
 
-        client_resource_handler = document_editor_extension.client_resource_handler_for(context)
+        client_resource_handler = attachments_extension.client_resource_handler_for(context)
 
         enabled_servers = []
         if config.tools.enabled:

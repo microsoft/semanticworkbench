@@ -9,8 +9,6 @@ import logging
 from typing import Any
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
 from assistant_extensions.mcp import MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
@@ -27,10 +25,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.filesystem import AttachmentsExtension, DocumentEditorConfigModel
 from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
 
 from .config import AssistantConfigModel
-from .response import respond_to_conversation
 from .whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
@@ -79,13 +77,6 @@ async def document_editor_config_provider(ctx: ConversationContext) -> DocumentE
     return config.tools.hosted_mcp_servers.filesystem_edit
 
 
-document_editor_extension = DocumentEditorExtension(
-    app=assistant,
-    config_provider=document_editor_config_provider,
-    storage_directory="documents",
-)
-
-
 async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
     return config.tools.hosted_mcp_servers.memory_whiteboard
@@ -94,7 +85,7 @@ async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfi
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
 _ = DynamicUIInspector(state_id="dynamic_ui", app=assistant)
 
-attachments_extension = AttachmentsExtension(assistant)
+attachments_extension = AttachmentsExtension(assistant, config_provider=document_editor_config_provider)
 
 #
 # create the FastAPI app instance
@@ -145,20 +136,35 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     async with (
         context.set_status("thinking..."),
-        document_editor_extension.lock_document_edits(context),
+        attachments_extension.lock_document_edits(context),
     ):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         try:
+            from assistant.response.responder import ConversationResponder
+
+            responder = await ConversationResponder.create(
+                message=message,
+                context=context,
+                config=config,
+                metadata=metadata,
+                attachments_extension=attachments_extension,
+            )
+            await responder.respond_to_conversation()
+
+            """
+            from assistant.response.response import respond_to_conversation
+
             await respond_to_conversation(
                 message=message,
                 attachments_extension=attachments_extension,
-                document_editor_extension=document_editor_extension,
                 context=context,
                 config=config,
                 metadata=metadata,
             )
+            """
+
         except Exception as e:
             logger.exception(f"Exception occurred responding to conversation: {e}")
             deepmerge.always_merger.merge(metadata, {"debug": {"error": str(e)}})

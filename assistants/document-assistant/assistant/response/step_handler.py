@@ -6,7 +6,6 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import ExtendedCallToolRequestParams, MCPSession, OpenAISamplingHandler
 from openai.types.chat import (
     ChatCompletion,
@@ -26,6 +25,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.filesystem import VIEW_TOOL, AttachmentsConfigModel, AttachmentsExtension
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL, DYNAMIC_UI_TOOL_NAME
 
@@ -105,6 +105,22 @@ async def next_step(
             type="function",
         )
         tools = [dynamic_ui_tool, *tools] if tools else [dynamic_ui_tool]
+
+    # Replace any previously defined view tool with the imported one
+    view_tool = ChatCompletionToolParam(
+        function=FunctionDefinition(
+            name=VIEW_TOOL["function"]["name"],
+            description=VIEW_TOOL["function"]["description"],
+            parameters=VIEW_TOOL["function"]["parameters"],
+            strict=True,
+        ),
+        type="function",
+    )
+    if tools:
+        tools = [tool for tool in tools if tool["function"]["name"] != "view"]
+    else:
+        tools = []
+    tools = [view_tool, *tools]
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
@@ -225,6 +241,7 @@ async def next_step(
         metadata_key,
         response_start_time,
         extensions_config,
+        attachments_extension,
     )
 
     if build_request_result.token_overage > 0:

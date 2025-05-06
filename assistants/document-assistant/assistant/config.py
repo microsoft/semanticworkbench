@@ -2,7 +2,6 @@ from textwrap import dedent
 from typing import Annotated
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
-from assistant_extensions.attachments import AttachmentsConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
@@ -13,6 +12,7 @@ from openai_client import (
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
+from assistant.filesystem import AttachmentsConfigModel
 from assistant.guidance.guidance_config import GuidanceConfigModel
 
 from . import helpers

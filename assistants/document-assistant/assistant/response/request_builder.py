@@ -3,7 +3,6 @@ import logging
 from dataclasses import dataclass
 from typing import List
 
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
@@ -24,6 +23,7 @@ from openai_client import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.filesystem import FILES_PROMPT, AttachmentsConfigModel, AttachmentsExtension
 from assistant.guidance.dynamic_ui_inspector import get_dynamic_ui_state
 
 from ..config import ExtensionsConfigModel, MCPToolsConfigModel, PromptsConfigModel
@@ -84,6 +84,29 @@ async def build_request(
             "User Guidance",
             user_guidance_instructions.strip(),
         ))
+
+    # Generate files system prompt with the following structure:
+    # Files
+    # - path.pdf (r--) - [topics][summary]
+    # - path.md (rw-) - [topics][summary]
+    attachment_filenames = await attachments_extension.get_attachment_filenames(context)
+    doc_editor_filenames = await attachments_extension._inspectors.list_document_filenames(context)
+
+    def build_files_system_prompt(attachment_filenames: list[str], doc_editor_filenames: list[str]) -> str:
+        """Construct a system prompt section listing all available files with their permissions."""
+        all_files = [(filename, "-r--") for filename in attachment_filenames]
+        all_files.extend([(filename, "-rw-") for filename in doc_editor_filenames])
+        all_files.sort(key=lambda x: x[0])
+
+        if not all_files:
+            return FILES_PROMPT + "\n## Files: None availableyet "
+
+        files_prompt = FILES_PROMPT + "\n## Files:\n"
+        files_prompt += "\n".join([f"- {filename} ({permission})" for filename, permission in all_files])
+        return files_prompt
+
+    files_prompt = build_files_system_prompt(attachment_filenames, doc_editor_filenames)
+    additional_system_message_content.append(("On Reading and Creating, and Editing Files", files_prompt))
 
     # Build system message content
     system_message_content = build_system_message_content(

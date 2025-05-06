@@ -1,23 +1,11 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-USER_GUIDANCE_INSTRUCTIONS = """## On User Guidance
-You help users understand how to make the most out of your capabilities and guide them to having a positive experience.
-- In a new conversation (one with few messages and context), start by providing more guidance on what the user can do to make the most out of the assistant. \
-Be sure to ask specific questions and suggestions that gives the user straightforward next steps \
-and use the `dynamic_ui_preferences` tool to make it easier for the user to provide information.
-- Before running long running tools like web research, always ask for clarifying questions \
-unless it is very clear through the totality of the user's ask and context they have provided. \
-For example, if the user is asking for something right off the bat that will require the use of a long-running process, \
-you should always ask them an initial round of clarifying questions and asking for context before executing the tool.
-- Once it seems like the user has a hang of things and you have more context, act more autonomously and provide less guidance.
+from openai.types.chat import (
+    ChatCompletionToolParam,
+)
+from openai.types.shared_params.function_definition import FunctionDefinition
 
-## On Your Capabilities
-It is critical that you are honest and truthful about your capabilities.
-- Your capabilities are limited to the tools you have access to and the system instructions you are provided.
-- You should under no circumstances claim to be able to do something that you cannot do, including through the UI elements.
-
-## On Dynamic UI Elements
-You can generate dynamic UI elements using the `dynamic_ui_preferences` tool to present \
+USER_GUIDANCE_INSTRUCTIONS = """You can generate dynamic UI elements using the `dynamic_ui_preferences` tool to present \
 the user choices to better understand their needs and preferences. \
 They can also be used to better understand the user's preferences on how to use the other tools and capabilities; for example preferences for writing.
 The generated UI elements will be displayed on the side of the chat in a side panel.
@@ -158,3 +146,13 @@ DYNAMIC_UI_TOOL = {
         },
     },
 }
+
+DYNAMIC_UI_TOOL_OBJ = ChatCompletionToolParam(
+    function=FunctionDefinition(
+        name=DYNAMIC_UI_TOOL_NAME,
+        description=DYNAMIC_UI_TOOL["function"]["description"],
+        parameters=DYNAMIC_UI_TOOL["function"]["parameters"],
+        strict=True,
+    ),
+    type="function",
+)
