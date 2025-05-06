@@ -106,6 +106,15 @@ class PromptConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = load_text_include("whiteboard_prompt.txt")
 
+    welcome_message_generation: Annotated[
+        str,
+        Field(
+            title="Welcome Message generation prompt",
+            description="The prompt used to generate a welcome message for new team conversations.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("welcome_message_generation.txt")
+
 
 class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
@@ -157,7 +166,7 @@ class TeamConfig(BaseModel):
         },
     )
 
-    welcome_message: Annotated[
+    default_welcome_message: Annotated[
         str,
         Field(
             title="Team Welcome Message",

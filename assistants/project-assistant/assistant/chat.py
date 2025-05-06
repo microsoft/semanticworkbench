@@ -4,6 +4,7 @@
 
 import asyncio
 from enum import Enum
+from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
@@ -28,6 +29,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
+from assistant.team_welcome import generate_team_welcome_message
 
 from .config import assistant_config
 from .conversation_project_link import ConversationProjectManager
@@ -143,21 +145,26 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 logger.error("No project ID found for team conversation.")
                 return
 
+            # I'd put status messages here, but the attachment's extension is causing race conditions.
+
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Use team welcome message from config
-            welcome_message = config.team_config.welcome_message
+            # Synchronize files.
+            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+
+            # Generate a welcome message.
+            welcome_message, debug = await generate_team_welcome_message(context)
             await context.send_messages(
                 NewConversationMessage(
                     content=welcome_message,
                     message_type=MessageType.chat,
-                    metadata={"generated_content": False},
+                    metadata={
+                        "generated_content": True,
+                        "debug": debug,
+                    },
                 )
             )
 
-            # Automatically synchronize files from project storage to this conversation
-            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
-            logger.info("Successfully synchronized files for new team conversation.")
             return
 
         case ConversationType.COORDINATOR:
@@ -173,7 +180,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
                 # Create a team conversation with a share URL
                 share_url = await ProjectManager.create_shareable_team_conversation(
-                    context=context, project_id=project_id, project_name="Shared assistant"
+                    context=context, project_id=project_id
                 )
 
                 welcome_message = config.coordinator_config.welcome_message.format(
@@ -198,18 +205,19 @@ async def on_message_created(
 ) -> None:
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
 
-    # If this is the first message, let's focus on the the project_status state inspector
-    messages = await context.get_messages()
-    if len(messages.messages) <= 2:
-        await context.send_conversation_state_event(
-            AssistantStateEvent(
-                state_id="project_status",
-                event="focus",
-                state=None,
+    # If this is the first message, let's open the project_status state inspector
+    async with context.set_status("listenting..."):
+        messages = await context.get_messages()
+        if len(messages.messages) <= 2:
+            await context.send_conversation_state_event(
+                AssistantStateEvent(
+                    state_id="project_status",
+                    event="focus",
+                    state=None,
+                )
             )
-        )
 
-    metadata = {
+    metadata: dict[str, Any] = {
         "debug": {
             "content_safety": event.data.get(content_safety.metadata_key, {}),
         }
@@ -220,43 +228,44 @@ async def on_message_created(
         metadata["debug"]["project_id"] = project_id
 
         # If this is a Coordinator conversation, store the message for Team access
-        role = await detect_assistant_role(context)
-        if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            try:
-                if project_id:
-                    # Get the sender's name
-                    sender_name = "Coordinator"
-                    if message.sender:
-                        participants = await context.get_participants()
-                        for participant in participants.participants:
-                            if participant.id == message.sender.participant_id:
-                                sender_name = participant.name
-                                break
+        async with context.set_status("jotting..."):
+            role = await detect_assistant_role(context)
+            if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
+                try:
+                    if project_id:
+                        # Get the sender's name
+                        sender_name = "Coordinator"
+                        if message.sender:
+                            participants = await context.get_participants()
+                            for participant in participants.participants:
+                                if participant.id == message.sender.participant_id:
+                                    sender_name = participant.name
+                                    break
 
-                    # Store the message for Team access
-                    ProjectStorage.append_coordinator_message(
-                        project_id=project_id,
-                        message_id=str(message.id),
-                        content=message.content,
-                        sender_name=sender_name,
-                        is_assistant=message.sender.participant_role == ParticipantRole.assistant,
-                        timestamp=message.timestamp,
-                    )
-                    logger.info(f"Stored Coordinator message for Team access: {message.id}")
-            except Exception as e:
-                # Don't fail message handling if storage fails
-                logger.exception(f"Error storing Coordinator message for Team access: {e}")
+                        # Store the message for Team access
+                        ProjectStorage.append_coordinator_message(
+                            project_id=project_id,
+                            message_id=str(message.id),
+                            content=message.content,
+                            sender_name=sender_name,
+                            is_assistant=message.sender.participant_role == ParticipantRole.assistant,
+                            timestamp=message.timestamp,
+                        )
+                        logger.info(f"Stored Coordinator message for Team access: {message.id}")
+                except Exception as e:
+                    # Don't fail message handling if storage fails
+                    logger.exception(f"Error storing Coordinator message for Team access: {e}")
 
-        await respond_to_conversation(
-            context,
-            message=message,
-            attachments_extension=attachments_extension,
-            metadata=metadata,
-        )
+        async with context.set_status("pondering..."):
+            await respond_to_conversation(
+                context,
+                message=message,
+                attachments_extension=attachments_extension,
+                metadata=metadata,
+            )
 
         # If the message is from a Coordinator, update the whiteboard in the background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            # Fire-and-forget: don't await, let it run in the background
             asyncio.create_task(ProjectManager.auto_update_whiteboard(context, messages.messages))
 
     except Exception as e:

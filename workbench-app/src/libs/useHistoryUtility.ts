@@ -78,11 +78,14 @@ export const useHistoryUtility = (conversationId: string) => {
 
         const lastMessageId = allConversationMessages[allConversationMessages.length - 1]?.id;
         const newMessages = await dispatch(
-            conversationApi.endpoints.getAllConversationMessages.initiate({
-                conversationId,
-                limit: Constants.app.maxMessagesPerRequest,
-                after: lastMessageId,
-            }),
+            conversationApi.endpoints.getAllConversationMessages.initiate(
+                {
+                    conversationId,
+                    limit: Constants.app.maxMessagesPerRequest,
+                    after: lastMessageId,
+                },
+                { forceRefetch: true },
+            ),
         ).unwrap();
         const updatedMessages = [...allConversationMessages, ...newMessages];
 
