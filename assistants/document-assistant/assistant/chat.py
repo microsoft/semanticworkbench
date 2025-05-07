@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # the service id to be registered in the workbench to identify the assistant
 service_id = "document-assistant.made-exploration-team"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Document Assistant (new)"
+service_name = "Document Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
 service_description = "An assistant for writing documents."
 

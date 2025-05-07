@@ -25,58 +25,6 @@ from assistant.response.prompts import GUARDRAILS_POSTFIX, ORCHESTRATION_SYSTEM_
 # configuration model.
 
 
-class PromptsConfigModel(BaseModel):
-    orchestration_prompt: Annotated[
-        str,
-        Field(
-            title="Instruction Prompt",
-            description=dedent("""
-                The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.
-            """).strip(),
-        ),
-        UISchema(widget="textarea"),
-    ] = ORCHESTRATION_SYSTEM_PROMPT
-
-    guardrails_prompt: Annotated[
-        str,
-        Field(
-            title="Guardrails Prompt",
-            description=(
-                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
-                " recommendations from: [Microsoft OpenAI Service: System message templates]"
-                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                "#define-additional-safety-and-behavioral-guardrails)"
-            ),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = GUARDRAILS_POSTFIX
-
-    welcome_message: Annotated[
-        str,
-        Field(
-            title="Welcome Message",
-            description="The message to display when the conversation starts.",
-        ),
-        UISchema(widget="textarea"),
-    ] = dedent("""
-               Welcome to your new document assistant! Here are ideas for how to get started:
-                - ⚙️ Tell me what you are working on, such as *I'm working on creating a new budget process*
-                - 🗃️ Upload files you are working with and I'll take it from there
-                - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
-                - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
-               """).strip()
-
-
-class ResponseBehaviorConfigModel(BaseModel):
-    only_respond_to_mentions: Annotated[
-        bool,
-        Field(
-            title="Only Respond to @Mentions",
-            description="Only respond to messages that @mention the assistant.",
-        ),
-    ] = False
-
-
 class HostedMCPServersConfigModel(BaseModel):
     filesystem_edit: Annotated[
         HostedMCPServerConfig,
@@ -90,6 +38,7 @@ class HostedMCPServersConfigModel(BaseModel):
     ] = HostedMCPServerConfig.from_env(
         "filesystem-edit",
         "MCP_SERVER_FILESYSTEM_EDIT_URL",
+        enabled=True,
         # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
         roots=[MCPClientRoot(name="root", uri="file://workspace/")],
         prompts_to_auto_include=["instructions"],
@@ -108,7 +57,7 @@ class HostedMCPServersConfigModel(BaseModel):
             ),
         ),
         UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", True)
+    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", enabled=True)
 
     giphy: Annotated[
         HostedMCPServerConfig,
@@ -117,7 +66,7 @@ class HostedMCPServersConfigModel(BaseModel):
             description="Enable your assistant to search for and share GIFs from Giphy.",
         ),
         UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL")
+    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL", enabled=False)
 
     memory_user_bio: Annotated[
         HostedMCPServerConfig,
@@ -136,6 +85,7 @@ class HostedMCPServersConfigModel(BaseModel):
     ] = HostedMCPServerConfig.from_env(
         "memory-user-bio",
         "MCP_SERVER_MEMORY_USER_BIO_URL",
+        enabled=True,
         # scopes the memories to the assistant instance
         roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
         # auto-include the user-bio memory prompt
@@ -155,11 +105,11 @@ class HostedMCPServersConfigModel(BaseModel):
     ] = HostedMCPServerConfig.from_env(
         "memory-whiteboard",
         "MCP_SERVER_MEMORY_WHITEBOARD_URL",
+        enabled=False,
         # scopes the memories to this conversation for this assistant
         roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}.{conversation_id}")],
         # auto-include the whiteboard memory prompt
         prompts_to_auto_include=["memory:whiteboard"],
-        enabled=False,
     )
 
     @property
@@ -201,6 +151,48 @@ class OrchestrationOptionsConfigModel(BaseModel):
             description="Only respond to messages that @mention the assistant.",
         ),
     ] = False
+
+
+class PromptsConfigModel(BaseModel):
+    orchestration_prompt: Annotated[
+        str,
+        Field(
+            title="Instruction Prompt",
+            description=dedent("""
+                The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.
+            """).strip(),
+        ),
+        UISchema(widget="textarea"),
+    ] = ORCHESTRATION_SYSTEM_PROMPT
+
+    guardrails_prompt: Annotated[
+        str,
+        Field(
+            title="Guardrails Prompt",
+            description=(
+                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
+                " recommendations from: [Microsoft OpenAI Service: System message templates]"
+                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                "#define-additional-safety-and-behavioral-guardrails)"
+            ),
+        ),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
+    ] = GUARDRAILS_POSTFIX
+
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Welcome Message",
+            description="The message to display when the conversation starts.",
+        ),
+        UISchema(widget="textarea"),
+    ] = dedent("""
+               Welcome to your new document assistant! Here are ideas for how to get started:
+                - ⚙️ Tell me what you are working on, such as *I'm working on creating a new budget process*
+                - 🗃️ Upload files you are working with and I'll take it from there
+                - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
+                - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
+               """).strip()
 
 
 class OrchestrationConfigModel(BaseModel):

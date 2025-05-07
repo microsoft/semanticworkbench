@@ -305,7 +305,6 @@ class ConversationResponder:
 
         # Construct key parts of the system messages which are core capabilities.
         # Best practice is to have these start with a ## <heading content>
-        # TODO: Truncate each of these these to 2000 tokens
         # User Guidance and & Dynamic UI Generation
         if self.config.orchestration.guidance.enabled:
             dynamic_ui_system_prompt = self.tokenizer.truncate_str(
@@ -322,19 +321,19 @@ class ConversationResponder:
         # Add specific guidance from MCP servers
         mcp_prompts = await get_mcp_server_prompts(self.mcp_sessions)
         mcp_prompt_string = self.tokenizer.truncate_str(
-            "## MCP Servers" + "\n" + "\n\n".join(mcp_prompts), self.max_system_prompt_component_tokens
+            "## MCP Servers" + "\n\n" + "\n\n".join(mcp_prompts), self.max_system_prompt_component_tokens
         )
         main_system_prompt += "\n\n" + mcp_prompt_string
 
         # Always append the guardrails postfix at the end.
         main_system_prompt += "\n\n" + GUARDRAILS_POSTFIX
 
+        logging.info("The system prompt has been constructed.")
+
         main_system_prompt = ChatCompletionSystemMessageParam(
             role="system",
             content=main_system_prompt,
         )
-
-        logging.info("The system prompt has been constructed.")
 
         chat_history = await self._construct_oai_chat_history()
         chat_history = await self._check_token_budget([main_system_prompt, *chat_history], tools)
@@ -507,8 +506,7 @@ class ConversationResponder:
                 # If the message(s) would go over the limit, don't add them and terminate the loop.
                 if middle_messages[i]["role"] == "tool":
                     # Check to see if the previous message is an assistant message with the same tool call id.
-                    # Parallel tool calling if off, so assume the previous message is the assistant message and error otherwise.
-                    # Do checks
+                    # Parallel tool calling is off, so assume the previous message is the assistant message and error otherwise.
                     if (
                         i <= 0
                         or middle_messages[i - 1]["role"] != "assistant"
@@ -523,15 +521,12 @@ class ConversationResponder:
 
                     # Get the assistant message and check the tokens together.
                     msgs = [middle_messages[i], middle_messages[i - 1]]
-
-                    # Skip the assistant message on next iteration since we've already processed it
                     i -= 1
                 else:
                     msgs = [middle_messages[i]]
 
                 msgs_tokens = num_tokens_from_messages(msgs, self.token_model)
                 if current_tokens + msgs_tokens <= target_token_count:
-                    # Add the messages to the preserved messages
                     filtered_middle_messages.extend(msgs)
                     current_tokens += msgs_tokens
                 else:
