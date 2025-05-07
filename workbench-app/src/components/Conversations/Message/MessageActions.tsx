@@ -43,7 +43,10 @@ export const MessageActions: React.FC<MessageActionsProps> = (props) => {
         <div className={classes.root}>
             {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
             <DebugInspector
-                debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                debug={{
+                    debug: message.hasDebugData ? debugData?.debugData || { loading: true } : null,
+                    message: message,
+                }}
                 loading={isLoadingDebugData || isUninitializedDebugData}
                 onOpen={() => {
                     setSkipDebugLoad(false);

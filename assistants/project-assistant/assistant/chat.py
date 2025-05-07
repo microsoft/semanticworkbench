@@ -7,7 +7,7 @@ import pathlib
 from enum import Enum
 from typing import Any
 
-from assistant_extensions import attachments, dashboard_card
+from assistant_extensions import attachments, dashboard_card, navigator
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
@@ -103,6 +103,10 @@ assistant = AssistantApp(
                 ),
             ),
         ),
+        **navigator.metadata_for_assistant_navigator({
+            "default": load_text_include("project_assistant_info.md"),
+            "context_transfer": load_text_include("context_transfer_assistant_info.md"),
+        }),
     },
 )
 

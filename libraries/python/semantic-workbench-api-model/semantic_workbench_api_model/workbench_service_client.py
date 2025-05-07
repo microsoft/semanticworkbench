@@ -527,6 +527,14 @@ class AssistantServiceAPIClient:
         )
         http_response.raise_for_status()
 
+    async def get_assistant_services(self, user_ids: list[str]) -> workbench_model.AssistantServiceInfoList:
+        http_response = await self._client.get(
+            "/assistant-services",
+            params={"user_id": user_ids},
+        )
+        http_response.raise_for_status()
+        return workbench_model.AssistantServiceInfoList.model_validate(http_response.json())
+
 
 class WorkbenchServiceClientBuilder:
     """Builder for assistant-services to create clients to interact with the Workbench service."""

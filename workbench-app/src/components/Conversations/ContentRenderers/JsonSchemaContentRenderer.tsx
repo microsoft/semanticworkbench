@@ -9,7 +9,6 @@ import React from 'react';
 import { CustomizedArrayFieldTemplate } from '../../App/FormWidgets/CustomizedArrayFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../../App/FormWidgets/CustomizedObjectFieldTemplate';
 import { InspectableWidget } from '../../App/FormWidgets/InspectableWidget';
-import { DebugInspector } from '../DebugInspector';
 
 const useClasses = makeStyles({
     root: {
@@ -42,13 +41,16 @@ export const JsonSchemaContentRenderer: React.FC<InspectorProps> = (props) => {
     const [formData, setFormData] = React.useState<object>(currentData);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    const handleSubmit = async (updatedData: object) => {
-        if (isSubmitting) return;
-        setIsSubmitting(true);
-        setFormData(updatedData);
-        await onSubmit?.(JSON.stringify(updatedData));
-        setIsSubmitting(false);
-    };
+    const handleSubmit = React.useCallback(
+        async (updatedData: object) => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
+            setFormData(updatedData);
+            await onSubmit?.(JSON.stringify(updatedData));
+            setIsSubmitting(false);
+        },
+        [isSubmitting, onSubmit],
+    );
 
     const widgets: RegistryWidgetsType = {
         inspectable: InspectableWidget,
@@ -59,16 +61,12 @@ export const JsonSchemaContentRenderer: React.FC<InspectorProps> = (props) => {
         ObjectFieldTemplate: CustomizedObjectFieldTemplate,
     };
 
-    // metadata minus the debug key, as that is handled separately
-    const debug: Record<string, unknown> = { ...metadata };
-    delete debug.debug;
-
     return (
         <>
-            <DebugInspector debug={debug} />
             <Form
                 aria-autocomplete="none"
                 autoComplete="off"
+                disabled={isSubmitting}
                 className={classes.form}
                 widgets={widgets}
                 templates={templates}

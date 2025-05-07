@@ -69,16 +69,20 @@
       "path": "assistants/guided-conversation-assistant"
     },
     {
+      "name": "assistants:navigator-assistant",
+      "path": "assistants/navigator-assistant"
+    },
+    {
+      "name": "assistants:project-assistant",
+      "path": "assistants/project-assistant"
+    },
+    {
       "name": "assistants:prospector-assistant",
       "path": "assistants/prospector-assistant"
     },
     {
       "name": "assistants:skill-assistant",
       "path": "assistants/skill-assistant"
-    },
-    {
-      "name": "assistants:project-assistant",
-      "path": "assistants/project-assistant"
     },
     {
       "name": "libraries:assistant-drive",
@@ -171,10 +175,6 @@
     {
       "name": "mcp-servers:mcp-server-office",
       "path": "mcp-servers/mcp-server-office"
-    },
-    {
-      "name": "mcp-servers:mcp-server-open-deep-research",
-      "path": "mcp-servers/mcp-server-open-deep-research"
     },
     {
       "name": "mcp-servers:mcp-server-open-deep-research-clone",

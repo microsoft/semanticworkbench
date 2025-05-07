@@ -285,7 +285,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
             setIsSubmitting(true);
             const content = data.value.trim();
-            let metadata: Record<string, any> | undefined = directedAtId ? undefined : { directed_at: directedAtId };
+            const metadata: Record<string, any> = directedAtId ? { directed_at: directedAtId } : {};
 
             const messageType = messageTypeValue.toLowerCase() as 'chat' | 'command';
 
@@ -306,9 +306,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             }
 
             if (mentions.length > 0) {
-                if (!metadata) {
-                    metadata = {};
-                }
                 metadata.mentions = mentions;
             }
 
