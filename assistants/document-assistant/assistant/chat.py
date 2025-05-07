@@ -7,12 +7,11 @@
 
 import logging
 import pathlib
+from textwrap import dedent
 from typing import Any
 
 import deepmerge
 from assistant_extensions import dashboard_card
-from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
 from assistant_extensions.mcp import MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
@@ -29,12 +28,11 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.config import AssistantConfigModel
+from assistant.filesystem import AttachmentsExtension, DocumentEditorConfigModel
 from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
-
-from . import helpers
-from .config import AssistantConfigModel
-from .response import respond_to_conversation
-from .whiteboard import WhiteboardInspector
+from assistant.response.responder import ConversationResponder
+from assistant.whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +43,7 @@ logger = logging.getLogger(__name__)
 # the service id to be registered in the workbench to identify the assistant
 service_id = "document-assistant.made-exploration-team"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Document Assistant (new)"
+service_name = "Document Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
 service_description = "An assistant for writing documents."
 
@@ -81,7 +79,14 @@ assistant = AssistantApp(
                 background_color="rgb(155,217,219)",
                 card_content=dashboard_card.CardContent(
                     content_type="text/markdown",
-                    content=helpers.load_text_include("card_content.md"),
+                    content=dedent(
+                        """
+                        General assistant focused on document creation and editing.\n
+                        - Side by side doc editing
+                        - Provides guidance through generated UI elements
+                        - Autonomously executes tools to complete tasks.
+                        - Local-only options for Office integration via MCP"""
+                    ),
                 ),
             )
         ),
@@ -92,28 +97,21 @@ assistant = AssistantApp(
 async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
     # Get either the hosted or personal config based on which one is enabled. Priority is given to the personal config.
-    personal_filesystem_edit = [x for x in config.tools.personal_mcp_servers if x.key == "filesystem-edit"]
+    personal_filesystem_edit = [x for x in config.orchestration.personal_mcp_servers if x.key == "filesystem-edit"]
     if len(personal_filesystem_edit) > 0:
         return personal_filesystem_edit[0]
-    return config.tools.hosted_mcp_servers.filesystem_edit
-
-
-document_editor_extension = DocumentEditorExtension(
-    app=assistant,
-    config_provider=document_editor_config_provider,
-    storage_directory="documents",
-)
+    return config.orchestration.hosted_mcp_servers.filesystem_edit
 
 
 async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    return config.tools.hosted_mcp_servers.memory_whiteboard
+    return config.orchestration.hosted_mcp_servers.memory_whiteboard
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
 _ = DynamicUIInspector(state_id="dynamic_ui", app=assistant)
 
-attachments_extension = AttachmentsExtension(assistant)
+attachments_extension = AttachmentsExtension(assistant, config_provider=document_editor_config_provider)
 
 #
 # create the FastAPI app instance
@@ -164,20 +162,20 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     async with (
         context.set_status("thinking..."),
-        document_editor_extension.lock_document_edits(context),
+        attachments_extension.lock_document_edits(context),
     ):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         try:
-            await respond_to_conversation(
+            responder = await ConversationResponder.create(
                 message=message,
-                attachments_extension=attachments_extension,
-                document_editor_extension=document_editor_extension,
                 context=context,
                 config=config,
                 metadata=metadata,
+                attachments_extension=attachments_extension,
             )
+            await responder.respond_to_conversation()
         except Exception as e:
             logger.exception(f"Exception occurred responding to conversation: {e}")
             deepmerge.always_merger.merge(metadata, {"debug": {"error": str(e)}})
@@ -211,7 +209,7 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
         return False
 
     # if configure to only respond to mentions, ignore messages where the content does not mention the assistant somewhere in the message
-    if config.response_behavior.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
+    if config.orchestration.options.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
         # check to see if there are any other assistants in the conversation
         participant_list = await context.get_participants()
         other_assistants = [
@@ -256,7 +254,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
     # send a welcome message to the conversation
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.response_behavior.welcome_message
+    welcome_message = config.orchestration.prompts.welcome_message
     await context.send_messages(
         NewConversationMessage(
             content=welcome_message,

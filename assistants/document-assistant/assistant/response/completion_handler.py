@@ -25,10 +25,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.filesystem import AttachmentsExtension
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
 
-from ..config import ExtensionsConfigModel
 from .models import StepResult
 from .utils import (
     extract_content_from_mcp_tool_calls,
@@ -49,7 +49,8 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
-    extensions_config: ExtensionsConfigModel,
+    attachments_extension: AttachmentsExtension,
+    guidance_enabled: bool,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -171,7 +172,7 @@ async def handle_completion(
         # No tool calls, exit the loop
         step_result.status = "final"
     # Handle DYNAMIC_UI_TOOL_NAME in a special way
-    elif extensions_config.guidance.enabled and tool_calls[0].name == DYNAMIC_UI_TOOL_NAME:
+    elif guidance_enabled and tool_calls[0].name == DYNAMIC_UI_TOOL_NAME:
         await update_dynamic_ui_state(context, tool_calls[0].arguments)
 
         # If this tool is called, we assume its the only tool
@@ -197,6 +198,47 @@ async def handle_completion(
         await context.send_messages(
             NewConversationMessage(
                 content=DYNAMIC_UI_TOOL_RESULT,
+                message_type=MessageType.note,
+                metadata=step_result.metadata,
+            )
+        )
+    # Handle the view tool call
+    elif tool_calls[0].name == "view":
+        path = (tool_calls[0].arguments or {}).get("path", "")
+        # First try to find the path as an editable file
+        file_content = await attachments_extension._inspectors.get_file_content(context, path)
+
+        # Then try to find the path as an attachment file
+        if file_content is None:
+            file_content = await attachments_extension.get_attachment(context, path)
+
+        if file_content is None:
+            file_content = f"File at path {path} not found. Please pay attention to the available files and try again."
+        else:
+            file_content = f"<file path={path}>{file_content}</file>"
+
+        step_result.conversation_tokens += num_tokens_from_messages(
+            messages=[
+                ChatCompletionToolMessageParam(
+                    role="tool",
+                    content=file_content,
+                    tool_call_id=tool_calls[0].id,
+                )
+            ],
+            model=request_config.model,
+        )
+        deepmerge.always_merger.merge(
+            step_result.metadata,
+            {
+                "tool_result": {
+                    "content": file_content,
+                    "tool_call_id": tool_calls[0].id,
+                },
+            },
+        )
+        await context.send_messages(
+            NewConversationMessage(
+                content=file_content,
                 message_type=MessageType.note,
                 metadata=step_result.metadata,
             )
