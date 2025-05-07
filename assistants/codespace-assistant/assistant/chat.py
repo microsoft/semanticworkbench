@@ -6,12 +6,11 @@
 #
 
 import logging
+import pathlib
 from typing import Any
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.document_editor import DocumentEditorConfigModel
-from assistant_extensions.mcp import MCPServerConfig
+from assistant_extensions import attachments, dashboard_card, document_editor, mcp
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -28,6 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from . import helpers
 from .config import AssistantConfigModel, ContextTransferConfigModel
 from .response import respond_to_conversation
 from .whiteboard import WhiteboardInspector
@@ -76,15 +76,43 @@ assistant = AssistantApp(
             description="An assistant for transferring context.",
         ),
     ],
+    assistant_service_metadata={
+        **dashboard_card.metadata(
+            dashboard_card.TemplateConfig(
+                enabled=True,
+                template_id="default",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
+                ),
+                background_color="rgb(244,191,171)",
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=helpers.load_text_include("card_content.md"),
+                ),
+            ),
+            dashboard_card.TemplateConfig(
+                enabled=True,
+                template_id="context_transfer",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
+                ),
+                background_color="rgb(198,177,222)",
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=helpers.load_text_include("card_content_context_transfer.md"),
+                ),
+            ),
+        ),
+    },
 )
 
 
-async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
+async def document_editor_config_provider(ctx: ConversationContext) -> document_editor.DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
     return config.tools.hosted_mcp_servers.filesystem_edit
 
 
-async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
+async def whiteboard_config_provider(ctx: ConversationContext) -> mcp.MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
     return config.tools.hosted_mcp_servers.memory_whiteboard
 
@@ -92,7 +120,7 @@ async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfi
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
 
 
-attachments_extension = AttachmentsExtension(assistant)
+attachments_extension = attachments.AttachmentsExtension(assistant)
 
 #
 # create the FastAPI app instance

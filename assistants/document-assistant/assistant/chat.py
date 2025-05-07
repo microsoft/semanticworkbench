@@ -6,9 +6,11 @@
 #
 
 import logging
+import pathlib
 from typing import Any
 
 import deepmerge
+from assistant_extensions import dashboard_card, navigator
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
 from assistant_extensions.mcp import MCPServerConfig
@@ -29,6 +31,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
 
+from . import helpers
 from .config import AssistantConfigModel
 from .response import respond_to_conversation
 from .whiteboard import WhiteboardInspector
@@ -67,6 +70,25 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    assistant_service_metadata={
+        **navigator.metadata_for_assistant_navigator({
+            "default": helpers.load_text_include("navigator_description.md"),
+        }),
+        **dashboard_card.metadata(
+            dashboard_card.TemplateConfig(
+                enabled=True,
+                template_id="default",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
+                ),
+                background_color="rgb(155,217,219)",
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=helpers.load_text_include("card_content.md"),
+                ),
+            )
+        ),
+    },
 )
 
 

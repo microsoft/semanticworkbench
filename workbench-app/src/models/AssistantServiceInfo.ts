@@ -12,7 +12,7 @@ export interface AssistantTemplate {
 export interface AssistantServiceInfo {
     assistantServiceId: string;
     templates: AssistantTemplate[];
-    metadata?: {
+    metadata: {
         [key: string]: any;
     };
 }

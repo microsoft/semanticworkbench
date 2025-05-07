@@ -1,7 +1,6 @@
 import { Checkbox, Field, Input, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { AssistantServiceTemplate, useCreateConversation } from '../../../libs/useCreateConversation';
-import { AssistantImport } from '../../Assistants/AssistantImport';
 import { AssistantSelector } from './AssistantSelector';
 import { AssistantServiceSelector } from './AssistantServiceSelector';
 
@@ -36,10 +35,11 @@ interface NewConversationFormProps {
     onSubmit?: () => void;
     onChange?: (isValid: boolean, data: NewConversationData) => void;
     disabled?: boolean;
+    assistantFieldLabel?: string;
 }
 
 export const NewConversationForm: React.FC<NewConversationFormProps> = (props) => {
-    const { onSubmit, onChange, disabled } = props;
+    const { onSubmit, onChange, disabled, assistantFieldLabel = 'Assistant' } = props;
     const classes = useClasses();
     const {
         isFetching: createConversationIsFetching,
@@ -95,7 +95,7 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
             }}
         >
             <div className={classes.content}>
-                <Field label="Assistant">
+                <Field label={assistantFieldLabel}>
                     {createConversationIsFetching ? (
                         <Input disabled={true} value="Loading..." />
                     ) : (
@@ -160,7 +160,6 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                                     setManualEntry(data.checked === true);
                                 }}
                             />
-                            <AssistantImport label="Import Assistant" disabled={disabled} />
                         </div>
                     </>
                 )}
