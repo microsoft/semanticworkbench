@@ -3,10 +3,11 @@
 # Project Assistant implementation
 
 import asyncio
+import pathlib
 from enum import Enum
 from typing import Any
 
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions import attachments, dashboard_card
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
@@ -30,6 +31,7 @@ from semantic_workbench_assistant.assistant_app import (
 from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
+from assistant.utils import load_text_include
 
 from .config import assistant_config
 from .conversation_project_link import ConversationProjectManager
@@ -74,9 +76,37 @@ assistant = AssistantApp(
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
     ],
+    assistant_service_metadata={
+        **dashboard_card.metadata(
+            dashboard_card.TemplateConfig(
+                enabled=False,
+                template_id="default",
+                background_color="rgb(159, 216, 159)",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
+                ),
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=load_text_include("card_content.md"),
+                ),
+            ),
+            dashboard_card.TemplateConfig(
+                enabled=False,
+                template_id="context_transfer",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
+                ),
+                background_color="rgb(198,177,222)",
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=load_text_include("context_transfer_card_content.md"),
+                ),
+            ),
+        ),
+    },
 )
 
-attachments_extension = AttachmentsExtension(assistant)
+attachments_extension = attachments.AttachmentsExtension(assistant)
 
 app = assistant.fastapi_app()
 
