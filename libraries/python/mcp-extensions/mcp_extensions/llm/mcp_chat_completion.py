@@ -73,11 +73,30 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
     extra_args["response_format"] = response_format
 
     model = request.model
-    # Default to gpt-4o
-    model_preferences = ModelPreferences(intelligencePriority=0, speedPriority=1)
-    if model.startswith("o3"):
+    if model in [
+        "gpt-4o",
+        "gpt-4o-2024-11-20",
+        "gpt-4o-2024-08-06",
+        "gpt-4o-2024-05-13",
+        "gpt-4.1",
+        "gpt-4.1-2025-04-14",
+    ]:
+        model_preferences = ModelPreferences(intelligencePriority=0, speedPriority=1)
+    elif model in [
+        "o3",
+        "o3-2025-04-16",
+        "o3-mini",
+        "o3-mini-2025-01-31",
+        "o4-mini",
+        "o4-mini-2025-04-16",
+        "o1-mini",
+        "o1-mini-2024-09-12",
+    ]:
         model_preferences = ModelPreferences(intelligencePriority=1)
+    else:
+        model_preferences = ModelPreferences(intelligencePriority=0, speedPriority=1)
 
+    # Remove the keys that are not needed for the request
     extra_args.pop("messages", None)
     extra_args.pop("max_completion_tokens", None)
     extra_args.pop("model", None)

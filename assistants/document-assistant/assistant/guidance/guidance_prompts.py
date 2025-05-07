@@ -34,6 +34,7 @@ Keep choices short (1-2 words) and easy to understand for the user, given what y
 since there might be a lot of UI elements generated over time and we want to make sure the user can understand what it is referring to.
 
 ### Current Dynamic UI State
+
 - The current UI schema is after the "ui_elements" key in the JSON object.
 - The current selections (if any) are in the "form_data" key in the JSON object. \
 Note that textboxes are indexed by their order in the list of UI elements, so the first textbox if it has data will be "textbox_0", the second "textbox_1", etc.

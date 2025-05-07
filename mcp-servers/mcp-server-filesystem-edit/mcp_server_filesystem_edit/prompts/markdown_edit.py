@@ -3,14 +3,14 @@
 from mcp_extensions.llm.llm_types import DeveloperMessage, SystemMessage, UserMessage
 
 MARKDOWN_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use standard Markdown syntax for the content. You should use it sparingly.
-- Use headings (levels 1-4) to structure the content.
-- Include relevant dates in the content.
+- Use headings (levels 1-4) to structure the content. Do not add additional numbers or letters to the headings; leave it at something like ## Technical Implementation.
 - Do not insert extra newlines, such as after list items, unless it is already the existing style of the document."""
 
 WORD_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use a subset of Markdown syntax for the content. You should use it sparingly.
 - The following are rules specific to environment where the content will be rendered.
     - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
-    - You can only use heading levels 1-6.
+    - You can only use heading levels 1-6. \
+Do not add additional numbers or letters to the headings; leave it at something like ## Technical Implementation.
     - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
     - Do NOT nest lists. For example, do not create a bulleted list "inside" of a numbered list.
     - You must use headings to create a hierarchy of information instead of using any form of nested lists.

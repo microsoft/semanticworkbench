@@ -6,6 +6,7 @@ from contextlib import AsyncExitStack
 from typing import Any, Callable
 
 import deepmerge
+import pendulum
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPClientSettings,
@@ -18,6 +19,7 @@ from assistant_extensions.mcp import (
     refresh_mcp_sessions,
     sampling_message_to_chat_completion_message,
 )
+from liquid import render
 from mcp import SamplingMessage, ServerNotification
 from mcp.types import (
     TextContent,
@@ -47,12 +49,17 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.config import AssistantConfigModel
-from assistant.filesystem import VIEW_TOOL_OBJ, AttachmentsExtension
+from assistant.filesystem import (
+    EDIT_TOOL_DESCRIPTION_HOSTED,
+    EDIT_TOOL_DESCRIPTION_LOCAL,
+    VIEW_TOOL_OBJ,
+    AttachmentsExtension,
+)
+from assistant.filesystem._prompts import FILES_PROMPT
 from assistant.guidance.dynamic_ui_inspector import get_dynamic_ui_state, update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_OBJ
 from assistant.response.completion_handler import handle_completion
 from assistant.response.models import StepResult
-from assistant.response.prompts import GUARDRAILS_POSTFIX, ORCHESTRATION_SYSTEM_PROMPT
 from assistant.response.utils import get_ai_client_configs, get_completion, get_openai_tools_from_mcp_sessions
 from assistant.response.utils.formatting_utils import format_message
 from assistant.response.utils.message_utils import (
@@ -299,9 +306,19 @@ class ConversationResponder:
         # Remove any view tool that was added by an MCP server and replace it with ours
         tools = [tool for tool in tools if tool["function"]["name"] != "view"]
         tools.append(VIEW_TOOL_OBJ)
+        # Override the description of the edit_file depending on the environment
+        tools = self._override_edit_file_description(tools)
 
         # Start constructing main system prompt
-        main_system_prompt = ORCHESTRATION_SYSTEM_PROMPT
+        main_system_prompt = self.config.orchestration.prompts.orchestration_prompt
+        # Inject the {{knowledge_cutoff}} and {{current_date}} placeholders
+        main_system_prompt = render(
+            main_system_prompt,
+            **{
+                "knowledge_cutoff": self.config.orchestration.prompts.knowledge_cutoff,
+                "current_date": pendulum.now(tz="America/Los_Angeles").format("YYYY-MM-DD"),
+            },
+        )
 
         # Construct key parts of the system messages which are core capabilities.
         # Best practice is to have these start with a ## <heading content>
@@ -310,23 +327,23 @@ class ConversationResponder:
             dynamic_ui_system_prompt = self.tokenizer.truncate_str(
                 await self._construct_dynamic_ui_system_prompt(), self.max_system_prompt_component_tokens
             )
-            main_system_prompt += "\n\n" + dynamic_ui_system_prompt
+            main_system_prompt += "\n\n" + dynamic_ui_system_prompt.strip()
 
         # Filesystem System Prompt
         filesystem_system_prompt = self.tokenizer.truncate_str(
             await self._construct_filesystem_system_prompt(), self.max_system_prompt_component_tokens
         )
-        main_system_prompt += "\n\n" + filesystem_system_prompt
+        main_system_prompt += "\n\n" + filesystem_system_prompt.strip()
 
         # Add specific guidance from MCP servers
         mcp_prompts = await get_mcp_server_prompts(self.mcp_sessions)
         mcp_prompt_string = self.tokenizer.truncate_str(
             "## MCP Servers" + "\n\n" + "\n\n".join(mcp_prompts), self.max_system_prompt_component_tokens
         )
-        main_system_prompt += "\n\n" + mcp_prompt_string
+        main_system_prompt += "\n\n" + mcp_prompt_string.strip()
 
         # Always append the guardrails postfix at the end.
-        main_system_prompt += "\n\n" + GUARDRAILS_POSTFIX
+        main_system_prompt += "\n\n" + self.config.orchestration.prompts.guardrails_prompt.strip()
 
         logging.info("The system prompt has been constructed.")
 
@@ -435,7 +452,7 @@ class ConversationResponder:
         if not current_dynamic_ui_elements:
             current_dynamic_ui_elements = "No dynamic UI elements have been generated yet. Consider generating some."
 
-        system_prompt = "## On Dynamic UI Elements"
+        system_prompt = "## On Dynamic UI Elements\n"
         system_prompt += "\n" + self.config.orchestration.guidance.prompt
         system_prompt += "\n" + str(current_dynamic_ui_elements)
         return system_prompt
@@ -454,7 +471,7 @@ class ConversationResponder:
         all_files.extend([(filename, "-rw-") for filename in doc_editor_filenames])
         all_files.sort(key=lambda x: x[0])
 
-        system_prompt = "## Files\n"
+        system_prompt = f"{FILES_PROMPT}" + "\n\n### Files\n"
         if not all_files:
             system_prompt += "\nNo files have been added or created yet."
         else:
@@ -536,6 +553,39 @@ class ConversationResponder:
         initial_messages.extend(reversed(filtered_middle_messages))
         preserved_messages = initial_messages + recent_messages
         return preserved_messages
+
+    def _override_edit_file_description(self, tools: list[ChatCompletionToolParam]) -> list[ChatCompletionToolParam]:
+        """
+        Override the edit_file description based on the root (the one that indicates the hosted env, otherwise assume the local env).
+        """
+        try:
+            # Get the root of the filesystem-edit tool
+            # Find the filesystem MCP by name
+            filesystem_mcp = next(
+                (mcp for mcp in self.mcp_sessions if mcp.config.server_config.key == "filesystem-edit"),
+                None,
+            )
+            filesystem_root = None
+            if filesystem_mcp:
+                # Get the root of the filesystem-edit tool
+                filesystem_root = next(
+                    (root for root in filesystem_mcp.config.server_config.roots if root.name == "root"),
+                    None,
+                )
+
+            edit_tool = next(
+                (tool for tool in tools if tool["function"]["name"] == "edit_file"),
+                None,
+            )
+            if filesystem_root and filesystem_root.uri == "file://workspace" and edit_tool:
+                edit_tool["function"]["description"] = EDIT_TOOL_DESCRIPTION_HOSTED
+            elif filesystem_root and edit_tool:
+                edit_tool["function"]["description"] = EDIT_TOOL_DESCRIPTION_LOCAL
+        except Exception as e:
+            logger.error(f"Failed to override edit_file description: {e}")
+            return tools
+
+        return tools
 
     # endregion
 

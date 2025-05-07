@@ -4,7 +4,6 @@ import json
 import logging
 from typing import Any
 
-import pendulum
 from mcp.server.fastmcp import Context
 from mcp_extensions.llm.chat_completion import chat_completion
 from mcp_extensions.llm.helpers import compile_messages
@@ -61,8 +60,8 @@ class CommonComments:
         comments_messages = compile_messages(
             messages=ADD_COMMENTS_MESSAGES,
             variables={
-                "knowledge_cutoff": "2023-10",
-                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "knowledge_cutoff": settings.knowledge_cutoff,
+                "current_date": settings.current_date_func(),
                 "context": context,
                 "document": doc_for_llm,
                 "chat_history": chat_history,
@@ -75,14 +74,13 @@ class CommonComments:
         mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
-            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
 
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=mcp_messages,
-                model="o3-mini",
+                model=settings.comment_model,
                 max_completion_tokens=15000,
                 reasoning_effort="medium",
             ),
@@ -104,7 +102,7 @@ class CommonComments:
     async def get_convert_response(self, request: FileOpRequest, messages: list[MessageT]) -> tuple[Any, list[dict]]:
         chat_completion_request = ChatCompletionRequest(
             messages=messages,
-            model="gpt-4o",
+            model=settings.convert_tool_calls_model,
             temperature=0,
             max_completion_tokens=8000,
             tools=[ADD_COMMENTS_TOOL_DEF],
@@ -177,8 +175,8 @@ class CommonComments:
         comments_messages = compile_messages(
             messages=COMMENT_ANALYSIS_MESSAGES,
             variables={
-                "knowledge_cutoff": "2023-10",
-                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "knowledge_cutoff": settings.knowledge_cutoff,
+                "current_date": settings.current_date_func(),
                 "context": context,
                 "document": document_with_new_comments,
                 "chat_history": chat_history,
@@ -190,14 +188,13 @@ class CommonComments:
         mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
-            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
 
         analysis_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=mcp_messages,
-                model="gpt-4o",
+                model=settings.comment_analysis_model,
                 max_completion_tokens=8000,
                 temperature=0.5,
                 structured_outputs=COMMENT_ANALYSIS_SCHEMA,

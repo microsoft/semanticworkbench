@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Annotated
 
+import pendulum
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -30,3 +31,16 @@ class Settings(BaseSettings):
     feedback_tool_prefix: str = "[Feedback Tool]: "
     file_tool_prefix: str = "[File Tool]: "
     rewrite_threshold: int = 250  # Tokens above this will trigger document edits instead of a rewrite
+
+    # Model choices. NOTE: When using MCP sampling, the value here != what might actually be used.
+    draft_path_model: str = "gpt-4.1"
+    edit_model: str = "o4-mini"
+    convert_tool_calls_model: str = "gpt-4.1"
+    summarization_model: str = "gpt-4.1"
+    comment_model: str = "o4-mini"
+    comment_analysis_model: str = "gpt-4.1"
+    knowledge_cutoff: str = "2024-05"
+
+    def current_date_func(self) -> str:
+        """Return the current date in Eastern US timezone formatted as YYYY-MM-DD."""
+        return pendulum.now(tz="America/Los_Angeles").format("YYYY-MM-DD")
