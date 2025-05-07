@@ -4,7 +4,6 @@ import json
 import logging
 import re
 
-import pendulum
 from mcp.server.fastmcp import Context
 from mcp_extensions.llm.chat_completion import chat_completion
 from mcp_extensions.llm.helpers import compile_messages
@@ -34,6 +33,8 @@ from mcp_server_filesystem_edit.tools.helpers import TokenizerOpenAI, format_cha
 from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, FileOpRequest, FileOpTelemetry
 
 logger = logging.getLogger(__name__)
+
+# region CommonEdit
 
 
 class CommonEdit:
@@ -84,8 +85,8 @@ class CommonEdit:
         messages = compile_messages(
             messages=MD_DRAFT_REASONING_MESSAGES,
             variables={
-                "knowledge_cutoff": "2023-10",
-                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "knowledge_cutoff": settings.knowledge_cutoff,
+                "current_date": settings.current_date_func(),
                 "task": request.task,
                 "context": context,
                 "document": request.file_content,
@@ -98,16 +99,15 @@ class CommonEdit:
         mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
-            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
 
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=mcp_messages,
-                model="o3-mini",
+                model=settings.draft_path_model,
                 max_completion_tokens=20000,
-                reasoning_effort="high",
+                temperature=1,
             ),
             provider=request.request_type,
             client=request.context if request.request_type == "mcp" else request.chat_completion_client,  # type: ignore
@@ -135,8 +135,8 @@ class CommonEdit:
         reasoning_messages = compile_messages(
             messages=LATEX_EDIT_REASONING_MESSAGES if request.file_type == "latex" else MD_EDIT_REASONING_MESSAGES,
             variables={
-                "knowledge_cutoff": "2023-10",
-                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "knowledge_cutoff": settings.knowledge_cutoff,
+                "current_date": settings.current_date_func(),
                 "task": request.task,
                 "context": context,
                 "document": doc_for_llm,
@@ -152,13 +152,12 @@ class CommonEdit:
         mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
-            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=mcp_messages,
-                model="o3-mini",
+                model=settings.edit_model,
                 max_completion_tokens=20000,
                 reasoning_effort="high",
             ),
@@ -179,7 +178,7 @@ class CommonEdit:
     async def get_convert_response(self, request: FileOpRequest, messages: list[MessageT]) -> ChatCompletionResponse:
         chat_completion_request = ChatCompletionRequest(
             messages=messages,
-            model="gpt-4o",
+            model=settings.convert_tool_calls_model,
             temperature=0,
             max_completion_tokens=8000,
             tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
@@ -227,7 +226,7 @@ class CommonEdit:
         change_summary_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=change_summary_messages,
-                model="gpt-4o",
+                model=settings.summarization_model,
                 max_completion_tokens=1000,
             ),
             provider=edit_request.request_type,
@@ -279,6 +278,11 @@ class CommonEdit:
         return output
 
 
+# endregion
+
+# region PowerpointEdit
+
+
 class PowerpointEdit:
     def __init__(self) -> None:
         self.telemetry = FileOpTelemetry()
@@ -323,8 +327,8 @@ class PowerpointEdit:
         reasoning_messages = compile_messages(
             messages=PPT_EDIT_REASONING_MESSAGES,
             variables={
-                "knowledge_cutoff": "2023-10",
-                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "knowledge_cutoff": settings.knowledge_cutoff,
+                "current_date": settings.current_date_func(),
                 "task": request.task,
                 "context": context,
                 "document": doc_for_llm,
@@ -337,13 +341,12 @@ class PowerpointEdit:
         mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
-            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=mcp_messages,
-                model="o3-mini",
+                model=settings.edit_model,
                 max_completion_tokens=20000,
                 reasoning_effort="high",
             ),
@@ -364,7 +367,7 @@ class PowerpointEdit:
     async def get_convert_response(self, request: FileOpRequest, messages: list[MessageT]) -> ChatCompletionResponse:
         chat_completion_request = ChatCompletionRequest(
             messages=messages,
-            model="gpt-4o",
+            model=settings.convert_tool_calls_model,
             temperature=0,
             max_completion_tokens=8000,
             tools=[PPT_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
@@ -412,7 +415,7 @@ class PowerpointEdit:
         change_summary_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=change_summary_messages,
-                model="gpt-4o",
+                model=settings.summarization_model,
                 max_completion_tokens=1000,
             ),
             provider=edit_request.request_type,
@@ -449,3 +452,6 @@ class PowerpointEdit:
             + self.telemetry.change_summary_latency,
         )
         return output
+
+
+# endregion

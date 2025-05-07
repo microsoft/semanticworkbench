@@ -42,3 +42,28 @@ VIEW_TOOL_OBJ = ChatCompletionToolParam(
     ),
     type="function",
 )
+
+EDIT_TOOL_DESCRIPTION_HOSTED = """Edits the Markdown file at the provided path, focused on the given task.
+The user has Markdown editor available that is side by side with this chat.
+Remember that the editable files are the ones that have the `-rw-` permission bits. \
+If you provide a new file path, it will be created for you and then the editor will start to edit it (from scratch). \
+Name the file with capital letters and spacing like "Weekly AI Report.md" or "Email to Boss.md" since it will be directly shown to the user in that way.
+Provide a task that you want it to do in the document. For example, if you want to have it expand on one section, \
+you can say "expand on the section about <topic x>". The task should be at most a few sentences. \
+Do not provide it any additional context outside of the task parameter. It will automatically be fetched as needed by this tool.
+
+Args:
+    path: The relative path to the file.
+    task: The specific task that you want the document editor to do."""
+
+EDIT_TOOL_DESCRIPTION_LOCAL = """The user has a file editor corresponding to the file type, open like VSCode, Word, PowerPoint, TeXworks (+ MiKTeX), open side by side with this chat.
+Use this tool to create new files or edit existing ones.
+If you provide a new file path, it will be created for you and then the editor will start to edit it (from scratch).
+Name the file with capital letters and spacing like "Weekly AI Report.md" or "Email to Boss.md" since it will be directly shown to the user in that way.
+Provide a task that you want it to do in the document. For example, if you want to have it expand on one section,
+you can say "expand on the section about <topic x>". The task should be at most a few sentences.
+Do not provide it any additional context outside of the task parameter. It will automatically be fetched as needed by this tool.
+
+Args:
+    path: The relative path to the file.
+    task: The specific task that you want the document editor to do."""

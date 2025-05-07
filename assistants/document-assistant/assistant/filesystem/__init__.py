@@ -1,6 +1,6 @@
 from ._filesystem import AttachmentProcessingErrorHandler, AttachmentsExtension
 from ._model import Attachment, AttachmentsConfigModel, DocumentEditorConfigModel
-from ._prompts import FILES_PROMPT, VIEW_TOOL, VIEW_TOOL_OBJ
+from ._prompts import EDIT_TOOL_DESCRIPTION_HOSTED, EDIT_TOOL_DESCRIPTION_LOCAL, FILES_PROMPT, VIEW_TOOL, VIEW_TOOL_OBJ
 
 __all__ = [
     "AttachmentsExtension",
@@ -11,4 +11,6 @@ __all__ = [
     "FILES_PROMPT",
     "VIEW_TOOL",
     "VIEW_TOOL_OBJ",
+    "EDIT_TOOL_DESCRIPTION_HOSTED",
+    "EDIT_TOOL_DESCRIPTION_LOCAL",
 ]

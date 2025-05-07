@@ -1,6 +1,7 @@
 import logging
 from textwrap import dedent
 
+import pendulum
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
@@ -18,7 +19,8 @@ def format_message(message: ConversationMessage, participants: list[Conversation
         None,
     )
     participant_name = conversation_participant.name if conversation_participant else "unknown"
-    message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    message_datetime = pendulum.instance(message.timestamp, tz="America/Los_Angeles")
+    message_datetime = message_datetime.format("Y-MM-DD HH:mm:ss")
     return f"[{participant_name} - {message_datetime}]: {message.content}"
 
 

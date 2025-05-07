@@ -194,6 +194,14 @@ class PromptsConfigModel(BaseModel):
                 - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
                """).strip()
 
+    knowledge_cutoff: Annotated[
+        str,
+        Field(
+            title="Knowledge Cutoff",
+            description="Knowledge cutoff date for the models being used.",
+        ),
+    ] = "2024-05"
+
 
 class OrchestrationConfigModel(BaseModel):
     hosted_mcp_servers: Annotated[
@@ -278,7 +286,7 @@ class AssistantConfigModel(BaseModel):
     ] = AzureOpenAIClientConfigModel(
         service_config=azure_openai_service_config_construct(default_deployment="gpt-4.1"),
         request_config=OpenAIRequestConfig(
-            max_tokens=128_000,
+            max_tokens=180000,
             response_tokens=16_384,
             model="gpt-4.1",
             is_reasoning_model=False,
@@ -294,11 +302,11 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIClientConfigModel(
-        service_config=azure_openai_service_config_reasoning_construct(default_deployment="o3-mini"),
+        service_config=azure_openai_service_config_reasoning_construct(default_deployment="o4-mini"),
         request_config=OpenAIRequestConfig(
             max_tokens=200_000,
             response_tokens=65_536,
-            model="o3-mini",
+            model="o4-mini",
             is_reasoning_model=True,
             reasoning_effort="high",
         ),

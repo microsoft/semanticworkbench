@@ -484,33 +484,4 @@ def create_mcp_server() -> FastMCP:
             tool_output = f"{settings.file_tool_prefix}File type not supported for commenting: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
         return tool_output
 
-    @mcp.resource(
-        uri="resource://filesystem_edit/open_files",
-        name="Open Files",
-        description="The file(s) the user is currently working on with the assistant and should be placed in its context",
-        mime_type="text/plain",
-    )
-    async def file_context() -> str:
-        """
-        # TODO: BROKEN DONT USE
-        Looks at the context files, and formats then into a string for the assistant to place in its context window.
-        # TODO: Eventually this should take a similar path as the view tool to read files.
-        """
-        try:
-            ctx = mcp.get_context()
-            context_files = await get_context_files(ctx)  # type: ignore
-            file_context_string = ""
-            for file_path in context_files:
-                file_content = await read_file(ctx, str(file_path))  # type: ignore
-                if file_content:
-                    file_context_string += f'<document path="{file_path}">{file_content}\n</document>\n'
-            if file_context_string:
-                file_context_string = (
-                    "The user is working on the following files and this is their current content:\n"
-                    + file_context_string
-                )
-            return file_context_string.strip()
-        except Exception:
-            return ""
-
     return mcp

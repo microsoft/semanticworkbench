@@ -498,6 +498,7 @@ dependencies = [
     { name = "openai-client" },
     { name = "pdfplumber" },
     { name = "pendulum" },
+    { name = "python-liquid" },
     { name = "tiktoken" },
 ]
 
@@ -518,6 +519,7 @@ requires-dist = [
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pdfplumber", specifier = ">=0.11.2" },
     { name = "pendulum", specifier = ">=3.1,<4.0" },
+    { name = "python-liquid", specifier = ">=2.0,<3.0" },
     { name = "tiktoken", specifier = ">=0.9.0" },
 ]
 
