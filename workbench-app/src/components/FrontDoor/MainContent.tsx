@@ -2,6 +2,9 @@
 
 import {
     Button,
+    Card,
+    CardHeader,
+    CardPreview,
     makeStyles,
     Menu,
     MenuButtonProps,
@@ -23,11 +26,27 @@ import { useCreateConversation } from '../../libs/useCreateConversation';
 import { useSiteUtility } from '../../libs/useSiteUtility';
 import { Assistant } from '../../models/Assistant';
 import { useAppSelector } from '../../redux/app/hooks';
+import { useGetAssistantServiceInfosQuery } from '../../services/workbench';
 import { ExperimentalNotice } from '../App/ExperimentalNotice';
 import { Loading } from '../App/Loading';
+import { MarkdownContentRenderer } from '../Conversations/ContentRenderers/MarkdownContentRenderer';
 import { ConversationsImport } from '../Conversations/ConversationsImport';
 import { Chat } from './Chat/Chat';
 import { NewConversationForm } from './Controls/NewConversationForm';
+
+interface CardContent {
+    contentType: string;
+    content: string;
+}
+
+interface DashboardCardConfig {
+    assistantServiceId: string;
+    templateId: string;
+    name: string;
+    backgroundColor: string;
+    cardContent: CardContent;
+    icon: string;
+}
 
 const useClasses = makeStyles({
     root: {
@@ -56,15 +75,16 @@ const useClasses = makeStyles({
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,
         width: '100%',
-        maxWidth: '550px',
+        maxWidth: '900px',
         ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
         height: '100%',
     },
     assistantHeader: {
         display: 'flex',
-        flexDirection: 'row',
+        flexDirection: 'column',
         justifyContent: 'space-between',
         alignItems: 'center',
+        width: '100%',
         gap: tokens.spacingHorizontalM,
         marginTop: tokens.spacingVerticalL,
     },
@@ -80,6 +100,57 @@ const useClasses = makeStyles({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: tokens.spacingHorizontalM,
+    },
+    cards: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: tokens.spacingVerticalL,
+        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
+    },
+    card: {
+        padding: 0,
+        width: '420px',
+    },
+    cardHeader: {
+        padding: tokens.spacingHorizontalM,
+        borderRadius: tokens.borderRadiusMedium,
+        borderBottomRightRadius: 0,
+        borderBottomLeftRadius: 0,
+    },
+    cardHeaderBody: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxSizing: 'border-box',
+        width: '100%',
+    },
+    cardHeaderCodespace: {
+        backgroundColor: tokens.colorPaletteDarkOrangeBackground2,
+    },
+    cardHeaderDocument: {
+        backgroundColor: tokens.colorPaletteTealBackground2,
+    },
+    cardHeaderNavigator: {
+        backgroundColor: tokens.colorPaletteCranberryBackground2,
+    },
+    cardHeaderContextTransfer: {
+        backgroundColor: tokens.colorPalettePurpleBackground2,
+    },
+    cardHeaderProject: {
+        backgroundColor: tokens.colorPaletteGreenBackground2,
+    },
+    cardPreview: {
+        padding: tokens.spacingHorizontalM,
+        margin: '0 !important',
+        width: '100%',
+        boxSizing: 'border-box',
+        wordWrap: 'break-word',
+        overflowWrap: 'break-word',
+        '& ul': {
+            boxSizing: 'border-box',
+        },
     },
 });
 
@@ -101,6 +172,11 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     const { navigateToConversation } = useConversationUtility();
     const siteUtility = useSiteUtility();
     const { isFetching: createConversationIsFetching, assistants } = useCreateConversation();
+    const {
+        data: assistantServices,
+        isLoading: assistantServicesIsLoading,
+        isError: assistantServicesIsError,
+    } = useGetAssistantServiceInfosQuery({ userIds: ['me'] });
 
     const classes = useClasses();
 
@@ -112,7 +188,9 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
 
     const createConversationWithAssistant = React.useCallback(
         async (
-            assistantInfo: { assistantId: string } | { name: string; assistantServiceId: string; templateId: string },
+            assistantInfo:
+                | { assistantId: string }
+                | { name: string; assistantServiceId: string; templateId: string; image?: string },
         ) => {
             setSubmitted(true);
             try {
@@ -176,13 +254,10 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
             if (assistants.length === 1) {
                 return (
                     <Button
-                        appearance="primary"
                         onClick={handleQuickCreate(assistants[0])}
                         disabled={submitted}
                         icon={<ChatAdd24Regular />}
-                    >
-                        New conversation
-                    </Button>
+                    ></Button>
                 );
             }
             return (
@@ -190,16 +265,13 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                     <MenuTrigger disableButtonEnhancement>
                         {(triggerProps: MenuButtonProps) => (
                             <SplitButton
-                                appearance="primary"
                                 menuButton={triggerProps}
                                 primaryActionButton={{
                                     onClick: handleQuickCreate(assistants[0]),
                                 }}
                                 disabled={submitted}
                                 icon={<ChatAdd24Regular />}
-                            >
-                                New conversation
-                            </SplitButton>
+                            ></SplitButton>
                         )}
                     </MenuTrigger>
 
@@ -236,6 +308,37 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         [assistants],
     );
 
+    const dashboardCards: DashboardCardConfig[] = React.useMemo(() => {
+        if (assistantServicesIsLoading || assistantServicesIsError || !assistantServices) {
+            return [];
+        }
+        return assistantServices
+            .filter((service) => service.metadata._dashboard_card)
+            .flatMap((service) => {
+                const templateConfigs = service.metadata._dashboard_card;
+                const results = Object.keys(templateConfigs)
+                    .filter((templateId) => templateConfigs[templateId].enabled)
+                    .map((templateId) => {
+                        const cardConfig = {
+                            templateId: templateId,
+                            assistantServiceId: service.assistantServiceId,
+                            name:
+                                service.templates.find((template) => template.id === templateId)?.name ||
+                                service.assistantServiceId,
+                            icon: templateConfigs[templateId].icon,
+                            backgroundColor: templateConfigs[templateId].background_color,
+                            cardContent: {
+                                contentType: templateConfigs[templateId].card_content.content_type,
+                                content: templateConfigs[templateId].card_content.content,
+                            },
+                        };
+                        return cardConfig;
+                    });
+                return results;
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [assistantServices, assistantServicesIsLoading, assistantServicesIsError]);
+
     if (activeConversationId) {
         return <Chat conversationId={activeConversationId} headerBefore={headerBefore} headerAfter={headerAfter} />;
     }
@@ -254,182 +357,47 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                 </div>
                 <div className={classes.body}>
                     <div className={classes.content}>
-                        <Title3>Create a new conversation with an assistant</Title3>
-                        {getAssistants('document-assistant.made-exploration-team', 'default') && (
-                            <>
-                                <div className={classes.assistantHeader}>
-                                    <Title3>Document Assistant</Title3>
-                                    {quickAssistantCreateButton(
-                                        getAssistants('document-assistant.made-exploration-team', 'default'),
-                                    )}
-                                </div>
-                                Document Assistant is focused on reliable document creation and editing, grounded in all
-                                of your context across files and the conversation.
-                                <ul>
-                                    <li>
-                                        <b>Guidance:</b> Helps users provide the right context and get started.
-                                    </li>
-                                    <li>
-                                        <b>Document creation and editing:</b> Creates and edits documents in a
-                                        side-by-side experience all through chat, with the option of manual editing.
-                                    </li>
-                                    <li>
-                                        <b>Rightsized autonomy:</b> Depending on your task, searches and integrates
-                                        results of other actions into your documents without your intervention.
-                                    </li>
-                                </ul>
-                            </>
-                        )}
-                        {/* {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
-                            <>
-                                <div className={classes.assistantHeader}>
-                                    <Title3>Context Transfer Assistant (experimental)</Title3>
-                                    {quickAssistantCreateButton(
-                                        getAssistants('project-assistant.made-exploration', 'context_transfer'),
-                                    )}
-                                </div>
-                                Context Transfer Assistant bridges knowledge gaps between experts and learners through
-                                dedicated roles that optimize information exchange.
-                                <ul>
-                                    <li>
-                                        <b>Knowledge Owner Space:</b> Where experts organize and share complex
-                                        information
-                                    </li>
-                                    <li>
-                                        <b>Recipient Workspaces:</b> Where learners explore content and ask questions
-                                    </li>
-                                    <li>
-                                        <b>Auto-Organized Knowledge:</b> Extracts and structures information from expert
-                                        conversations
-                                    </li>
-                                    <li>
-                                        <b>Question Framework:</b> System for recipients to request clarification on
-                                        complex topics
-                                    </li>
-                                    <li>
-                                        <b>Resource Sharing:</b> Documents from experts instantly appear for all
-                                        recipients
-                                    </li>
-                                    <li>
-                                        <b>Conversation Access:</b> Recipients can view expert-assistant discussions for
-                                        context
-                                    </li>
-                                    <li>
-                                        <b>Learning-Optimized Design:</b> Removes management overhead to focus on
-                                        understanding
-                                    </li>
-                                </ul>
-                            </>
-                        )} */}
-                        {getAssistants('codespace-assistant.made-exploration-team', 'context_transfer') && (
-                            <>
-                                <div className={classes.assistantHeader}>
-                                    <Title3>Context Transfer Assistant</Title3>
-                                    {quickAssistantCreateButton(
-                                        getAssistants('codespace-assistant.made-exploration-team', 'context_transfer'),
-                                    )}
-                                </div>
-                                Context Transfer Assistant bridges knowledge gaps between experts and learners through
-                                dedicated roles that optimize information exchange.
-                                <ul>
-                                    <li>
-                                        <b>Knowledge Owner Space:</b> Where experts organize and share complex
-                                        information
-                                    </li>
-                                    <li>
-                                        <b>Recipient Workspaces:</b> Where learners explore content and ask questions
-                                    </li>
-                                    <li>
-                                        <b>Auto-Organized Knowledge:</b> Extracts and structures information from expert
-                                        conversations
-                                    </li>
-                                    <li>
-                                        <b>Resource Sharing:</b> Documents from experts instantly appear for all
-                                        recipients
-                                    </li>
-                                    <li>
-                                        <b>Learning-Optimized Design:</b> Removes management overhead to focus on
-                                        understanding
-                                    </li>
-                                </ul>
-                            </>
-                        )}
-                        {/* {getAssistants('project-assistant.made-exploration', 'default') && (
-                            <>
-                                <div className={classes.assistantHeader}>
-                                    <Title3>Project Assistant</Title3>
-                                    {quickAssistantCreateButton(
-                                        getAssistants('project-assistant.made-exploration', 'default'),
-                                    )}
-                                </div>
-                                Project Assistant connects project leaders and team members through specialized roles
-                                that streamline collaboration and information sharing.
-                                <ul>
-                                    <li>
-                                        <b>Coordinator Hub:</b> Central workspace for leaders to define goals, set
-                                        direction, and resolve team blockers.
-                                    </li>
-                                    <li>
-                                        <b>Team Workspaces:</b> Connected environments where members track progress and
-                                        request clarification.
-                                    </li>
-                                    <li>
-                                        <b>Automatic Updates:</b> Changes by coordinators instantly reach all team
-                                        members.
-                                    </li>
-                                    <li>
-                                        <b>Structured Requests:</b> Clear channel for team members to ask questions and
-                                        seek guidance.
-                                    </li>
-                                    <li>
-                                        <b>Role-Based Tools:</b> Different commands and permissions based on project
-                                        responsibilities.
-                                    </li>
-                                    <li>
-                                        <b>File Synchronization:</b> Documents shared by coordinators appear in all team
-                                        workspaces.
-                                    </li>
-                                    <li>
-                                        <b>Cross-Role Visibility:</b> See team progress (coordinator) and coordinator
-                                        insights (team).
-                                    </li>
-                                    <li>
-                                        <b>Unified Progress View:</b> Aggregates completion status from all team
-                                        members.
-                                    </li>
-                                </ul>
-                            </>
-                        )} */}
-                        {getAssistants('codespace-assistant.made-exploration-team', 'default') && (
-                            <>
-                                <div className={classes.assistantHeader}>
-                                    <Title3>Codespace Assistant</Title3>
-                                    {quickAssistantCreateButton(
-                                        getAssistants('codespace-assistant.made-exploration-team', 'default'),
-                                    )}
-                                </div>
-                                Codespace Assistant supports you with your coding and development projects.
-                                <ul>
-                                    <li>
-                                        <b>Explore your code:</b> share files, snippets, or describe what you are
-                                        working on and explore together.
-                                    </li>
-                                    <li>
-                                        <b>Debug and refine:</b> can help troubleshoot issues and suggest improvements.
-                                    </li>
-                                    <li>
-                                        <b>Generate solutions:</b> ask for code snippets, algorithms, or implementation
-                                        ideas.
-                                    </li>
-                                    <li>
-                                        <b>Learn and understand:</b> can explain concepts, patterns, and approaches.
-                                    </li>
-                                </ul>
-                            </>
-                        )}
+                        <div className={classes.assistantHeader}>
+                            <Title3>Choose an assistant</Title3>
+                        </div>
+                        <div className={classes.cards}>
+                            {dashboardCards.map((card) => {
+                                if (!getAssistants(card.assistantServiceId, card.templateId)) return null;
+                                return (
+                                    <Card
+                                        key={card.assistantServiceId + '/' + card.templateId}
+                                        className={classes.card}
+                                        appearance="filled"
+                                    >
+                                        <CardHeader
+                                            image={<img src={card.icon} alt="Assistant Icon" />}
+                                            header={
+                                                <div className={classes.cardHeaderBody}>
+                                                    <Title3>{card.name}</Title3>
+
+                                                    {quickAssistantCreateButton(
+                                                        getAssistants(card.assistantServiceId, card.templateId),
+                                                    )}
+                                                </div>
+                                            }
+                                            className={classes.cardHeader}
+                                            style={{ backgroundColor: card.backgroundColor }}
+                                        ></CardHeader>
+                                        <CardPreview className={classes.cardPreview}>
+                                            {card.cardContent.contentType === 'text/markdown' ? (
+                                                <MarkdownContentRenderer content={card.cardContent.content} />
+                                            ) : (
+                                                card.cardContent.content
+                                            )}
+                                        </CardPreview>
+                                    </Card>
+                                );
+                            })}
+                        </div>
                         <div className={classes.form}>
                             <Subtitle2>Or pick from your list of assistants:</Subtitle2>
                             <NewConversationForm
+                                assistantFieldLabel=""
                                 onSubmit={handleCreate}
                                 onChange={(isValid, data) => {
                                     setIsValid(isValid);

@@ -6,9 +6,12 @@
 #
 
 import logging
+import pathlib
+from textwrap import dedent
 from typing import Any
 
 import deepmerge
+from assistant_extensions import dashboard_card
 from assistant_extensions.mcp import MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
@@ -65,6 +68,29 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    assistant_service_metadata={
+        **dashboard_card.metadata(
+            dashboard_card.TemplateConfig(
+                enabled=True,
+                template_id="default",
+                icon=dashboard_card.image_to_url(
+                    pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
+                ),
+                background_color="rgb(155,217,219)",
+                card_content=dashboard_card.CardContent(
+                    content_type="text/markdown",
+                    content=dedent(
+                        """
+                        General assistant focused on document creation and editing.\n
+                        - Side by side doc editing
+                        - Provides guidance through generated UI elements
+                        - Autonomously executes tools to complete tasks.
+                        - Local-only options for Office integration via MCP"""
+                    ),
+                ),
+            )
+        ),
+    },
 )
 
 
