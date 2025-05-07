@@ -65,6 +65,13 @@ def test_create_assistant(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -246,8 +253,14 @@ def test_create_assistant_add_to_conversation(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
-    test_user_2: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -305,6 +318,13 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -415,6 +435,13 @@ def test_create_get_assistant(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -458,6 +485,13 @@ def test_create_update_assistant(
     test_user: MockUser,
     test_user_2: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -514,6 +548,13 @@ def test_create_delete_assistant(
     test_user: MockUser,
     test_user_2: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -587,8 +628,14 @@ def test_create_assistant_update_participant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
-    test_user_2: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -848,6 +895,13 @@ def test_create_assistant_send_assistant_message(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -1028,6 +1082,13 @@ def test_create_assistant_export_import_data(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -1121,6 +1182,13 @@ def test_create_assistant_conversations_export_import_conversations(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ) -> None:
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -1344,6 +1412,13 @@ def test_create_conversations_get_participants(
     httpx_mock: HTTPXMock,
     test_user: MockUser,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -1447,6 +1522,13 @@ def test_conversation_not_visible_to_non_participants(
     httpx_mock: HTTPXMock,
     url_template: str,
 ):
+    httpx_mock.add_response(
+        url="http://testassistantservice/",
+        method="GET",
+        json=api_model.ServiceInfoModel(assistant_service_id="", name="", templates=[], metadata={}).model_dump(
+            mode="json"
+        ),
+    )
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
