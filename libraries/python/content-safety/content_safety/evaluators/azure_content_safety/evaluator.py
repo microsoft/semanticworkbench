@@ -100,6 +100,13 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
         Evaluate a batch of content for safety using the Azure Content Safety service.
         """
 
+        if not text.strip():
+            # if the text is empty, return a pass result
+            return ContentSafetyEvaluation(
+                result=ContentSafetyEvaluationResult.Pass,
+                note="Empty content.",
+            )
+
         # send the text to the Azure Content Safety service for evaluation
         try:
             response = ContentSafetyClient(
@@ -107,6 +114,7 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
                 credential=self.config._get_azure_credentials(),
             ).analyze_text(AnalyzeTextOptions(text=text))
         except Exception as e:
+            logger.exception("azure content safety check failed")
             # if there is an error, return a fail result with the error message
             return ContentSafetyEvaluation(
                 result=ContentSafetyEvaluationResult.Fail,
