@@ -7,7 +7,7 @@ import pathlib
 from enum import Enum
 from typing import Any
 
-from assistant_extensions import attachments, dashboard_card, navigator
+from assistant_extensions import attachments, dashboard_card
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
@@ -77,13 +77,9 @@ assistant = AssistantApp(
         ),
     ],
     assistant_service_metadata={
-        **navigator.metadata_for_assistant_navigator({
-            "default": load_text_include("navigator_description.md"),
-            "context_transfer": load_text_include("context_transfer_navigator_description.md"),
-        }),
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
-                enabled=True,
+                enabled=False,
                 template_id="default",
                 background_color="rgb(159, 216, 159)",
                 icon=dashboard_card.image_to_url(
@@ -95,7 +91,7 @@ assistant = AssistantApp(
                 ),
             ),
             dashboard_card.TemplateConfig(
-                enabled=True,
+                enabled=False,
                 template_id="context_transfer",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"

@@ -10,7 +10,7 @@ import pathlib
 from typing import Any
 
 import deepmerge
-from assistant_extensions import dashboard_card, navigator
+from assistant_extensions import dashboard_card
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
 from assistant_extensions.mcp import MCPServerConfig
@@ -71,9 +71,6 @@ assistant = AssistantApp(
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
     assistant_service_metadata={
-        **navigator.metadata_for_assistant_navigator({
-            "default": helpers.load_text_include("navigator_description.md"),
-        }),
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
                 enabled=True,
