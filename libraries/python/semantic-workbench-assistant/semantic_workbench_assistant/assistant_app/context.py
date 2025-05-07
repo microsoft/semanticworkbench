@@ -36,7 +36,7 @@ class ConversationContext:
     _prior_status: str | None = field(default=None)
 
     @property
-    def _workbench_client(
+    def _conversation_client(
         self,
     ) -> semantic_workbench_api_model.workbench_service_client.ConversationAPIClient:
         return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
@@ -55,18 +55,28 @@ class ConversationContext:
             api_key=settings.workbench_service_api_key,
         ).for_conversations(self.assistant.id)
 
+    @property
+    def _assistant_service_client(
+        self,
+    ) -> semantic_workbench_api_model.workbench_service_client.AssistantServiceAPIClient:
+        return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
+            base_url=str(settings.workbench_service_url),
+            assistant_service_id=self.assistant._assistant_service_id,
+            api_key=settings.workbench_service_api_key,
+        ).for_service()
+
     async def send_messages(
         self,
         messages: workbench_model.NewConversationMessage | list[workbench_model.NewConversationMessage],
     ) -> workbench_model.ConversationMessageList:
         if not isinstance(messages, list):
             messages = [messages]
-        return await self._workbench_client.send_messages(*messages)
+        return await self._conversation_client.send_messages(*messages)
 
     async def update_participant_me(
         self, participant: workbench_model.UpdateParticipant
     ) -> workbench_model.ConversationParticipant:
-        return await self._workbench_client.update_participant_me(participant)
+        return await self._conversation_client.update_participant_me(participant)
 
     @asynccontextmanager
     async def set_status(self, status: str | None) -> AsyncGenerator[None, None]:
@@ -82,24 +92,24 @@ class ConversationContext:
         async with self._status_lock:
             self._status_stack.append(self._prior_status)
             self._prior_status = status
-        await self._workbench_client.update_participant_me(workbench_model.UpdateParticipant(status=status))
+        await self._conversation_client.update_participant_me(workbench_model.UpdateParticipant(status=status))
         try:
             yield
         finally:
             async with self._status_lock:
                 revert_to_status = self._status_stack.pop()
-            await self._workbench_client.update_participant_me(
+            await self._conversation_client.update_participant_me(
                 workbench_model.UpdateParticipant(status=revert_to_status)
             )
 
     async def get_conversation(self) -> workbench_model.Conversation:
-        return await self._workbench_client.get_conversation()
+        return await self._conversation_client.get_conversation()
 
     async def update_conversation(self, metadata: dict[str, Any]) -> workbench_model.Conversation:
-        return await self._workbench_client.update_conversation(metadata)
+        return await self._conversation_client.update_conversation(metadata)
 
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
-        return await self._workbench_client.get_participants(include_inactive=include_inactive)
+        return await self._conversation_client.get_participants(include_inactive=include_inactive)
 
     async def get_messages(
         self,
@@ -110,7 +120,7 @@ class ConversationContext:
         participant_role: workbench_model.ParticipantRole | None = None,
         limit: int | None = None,
     ) -> workbench_model.ConversationMessageList:
-        return await self._workbench_client.get_messages(
+        return await self._conversation_client.get_messages(
             before=before,
             after=after,
             message_types=message_types,
@@ -120,7 +130,7 @@ class ConversationContext:
         )
 
     async def send_conversation_state_event(self, state_event: workbench_model.AssistantStateEvent) -> None:
-        return await self._workbench_client.send_conversation_state_event(self.assistant.id, state_event)
+        return await self._conversation_client.send_conversation_state_event(self.assistant.id, state_event)
 
     async def write_file(
         self,
@@ -128,29 +138,32 @@ class ConversationContext:
         file_content: io.BytesIO,
         content_type: str = "application/octet-stream",
     ) -> workbench_model.File:
-        return await self._workbench_client.write_file(filename, file_content, content_type)
+        return await self._conversation_client.write_file(filename, file_content, content_type)
 
     @asynccontextmanager
     async def read_file(
         self, filename: str, chunk_size: int | None = None
     ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
-        async with self._workbench_client.read_file(filename, chunk_size=chunk_size) as stream:
+        async with self._conversation_client.read_file(filename, chunk_size=chunk_size) as stream:
             yield stream
 
     async def get_file(self, filename: str) -> workbench_model.File | None:
-        return await self._workbench_client.get_file(filename=filename)
+        return await self._conversation_client.get_file(filename=filename)
 
     async def list_files(self, prefix: str | None = None) -> workbench_model.FileList:
-        return await self._workbench_client.get_files(prefix=prefix)
+        return await self._conversation_client.get_files(prefix=prefix)
 
     async def file_exists(self, filename: str) -> bool:
-        return await self._workbench_client.file_exists(filename)
+        return await self._conversation_client.file_exists(filename)
 
     async def delete_file(self, filename: str) -> None:
-        return await self._workbench_client.delete_file(filename)
+        return await self._conversation_client.delete_file(filename)
 
     async def update_file(self, filename: str, metadata: dict[str, Any]) -> workbench_model.FileVersions:
-        return await self._workbench_client.update_file(filename, metadata)
+        return await self._conversation_client.update_file(filename, metadata)
+
+    async def get_assistant_services(self, user_ids: list[str] = []) -> workbench_model.AssistantServiceInfoList:
+        return await self._assistant_service_client.get_assistant_services(user_ids=user_ids)
 
     @asynccontextmanager
     async def state_updated_event_after(self, state_id: str, focus_event: bool = False) -> AsyncIterator[None]:

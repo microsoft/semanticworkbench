@@ -7,18 +7,18 @@
 
 import logging
 import pathlib
-from textwrap import dedent
 from typing import Any
 
 import deepmerge
-from assistant_extensions import dashboard_card, navigator
-from assistant_extensions.mcp import MCPServerConfig
+from assistant_extensions import attachments, dashboard_card, mcp, navigator
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
     MessageType,
     NewConversationMessage,
+    ParticipantRole,
+    UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
@@ -28,11 +28,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.config import AssistantConfigModel
-from assistant.filesystem import AttachmentsExtension, DocumentEditorConfigModel
-from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
-from assistant.response.responder import ConversationResponder
-from assistant.whiteboard import WhiteboardInspector
+from .config import AssistantConfigModel
+from .response import respond_to_conversation
+from .whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +39,11 @@ logger = logging.getLogger(__name__)
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "document-assistant.made-exploration-team"
+service_id = "navigator-assistant.made-exploration-team"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Document Assistant"
+service_name = "Navigator Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
-service_description = "An assistant for writing documents."
+service_description = "An assistant for navigating the Semantic Workbench."
 
 #
 # create the configuration provider, using the extended configuration model
@@ -61,7 +59,7 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
 
 content_safety = ContentSafety(content_evaluator_factory)
 
-# create the AssistantApp instance
+
 assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
@@ -73,25 +71,18 @@ assistant = AssistantApp(
             dashboard_card.TemplateConfig(
                 enabled=True,
                 template_id="default",
+                background_color="rgb(238, 172, 178)",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
                 ),
-                background_color="rgb(155,217,219)",
                 card_content=dashboard_card.CardContent(
                     content_type="text/markdown",
-                    content=dedent(
-                        """
-                        General assistant focused on document creation and editing.\n
-                        - Side by side doc editing
-                        - Provides guidance through generated UI elements
-                        - Autonomously executes tools to complete tasks.
-                        - Local-only options for Office integration via MCP"""
-                    ),
+                    content=(pathlib.Path(__file__).parent / "assets" / "card_content.md").read_text("utf-8"),
                 ),
             )
         ),
         **navigator.metadata_for_assistant_navigator({
-            "default": (pathlib.Path(__file__).parent / "text_includes" / "document_assistant_info.md").read_text(
+            "default": (pathlib.Path(__file__).parent / "text_includes" / "navigator_assistant_info.md").read_text(
                 "utf-8"
             ),
         }),
@@ -99,24 +90,15 @@ assistant = AssistantApp(
 )
 
 
-async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
+async def whiteboard_config_provider(ctx: ConversationContext) -> mcp.MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    # Get either the hosted or personal config based on which one is enabled. Priority is given to the personal config.
-    personal_filesystem_edit = [x for x in config.orchestration.personal_mcp_servers if x.key == "filesystem-edit"]
-    if len(personal_filesystem_edit) > 0:
-        return personal_filesystem_edit[0]
-    return config.orchestration.hosted_mcp_servers.filesystem_edit
-
-
-async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
-    config = await assistant_config.get(ctx.assistant)
-    return config.orchestration.hosted_mcp_servers.memory_whiteboard
+    return config.tools.hosted_mcp_servers.memory_whiteboard
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
-_ = DynamicUIInspector(state_id="dynamic_ui", app=assistant)
 
-attachments_extension = AttachmentsExtension(assistant, config_provider=document_editor_config_provider)
+
+attachments_extension = attachments.AttachmentsExtension(assistant)
 
 #
 # create the FastAPI app instance
@@ -165,22 +147,18 @@ async def on_message_created(
         return
 
     # update the participant status to indicate the assistant is thinking
-    async with (
-        context.set_status("thinking..."),
-        attachments_extension.lock_document_edits(context),
-    ):
+    async with context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         try:
-            responder = await ConversationResponder.create(
+            await respond_to_conversation(
                 message=message,
+                attachments_extension=attachments_extension,
                 context=context,
                 config=config,
                 metadata=metadata,
-                attachments_extension=attachments_extension,
             )
-            await responder.respond_to_conversation()
         except Exception as e:
             logger.exception(f"Exception occurred responding to conversation: {e}")
             deepmerge.always_merger.merge(metadata, {"debug": {"error": str(e)}})
@@ -207,14 +185,17 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
     Returns:
         bool: True if the assistant should respond to the message; otherwise, False.
     """
-    config = await assistant_config.get(context.assistant)
+
+    if message.sender.participant_role != ParticipantRole.user:
+        # ignore messages that are not from the user
+        return False
 
     # ignore messages that are directed at a participant other than this assistant
     if message.metadata.get("directed_at") and message.metadata["directed_at"] != context.assistant.id:
         return False
 
     # if configure to only respond to mentions, ignore messages where the content does not mention the assistant somewhere in the message
-    if config.orchestration.options.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
+    if context.assistant.id not in message.metadata.get("mentions", []):
         # check to see if there are any other assistants in the conversation
         participant_list = await context.get_participants()
         other_assistants = [
@@ -222,26 +203,8 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
             for participant in participant_list.participants
             if participant.role == "assistant" and participant.id != context.assistant.id
         ]
-        if len(other_assistants) == 0:
-            # no other assistants in the conversation, check the last 10 notices to see if the assistant has warned the user
-            assistant_messages = await context.get_messages(
-                participant_ids=[context.assistant.id], message_types=[MessageType.notice], limit=10
-            )
-            at_mention_warning_key = "at_mention_warning"
-            if len(assistant_messages.messages) == 0 or all(
-                at_mention_warning_key not in message.metadata for message in assistant_messages.messages
-            ):
-                # assistant has not been mentioned in the last 10 messages, send a warning message in case the user is not aware
-                # that the assistant needs to be mentioned to receive a response
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=f"{context.assistant.name} is configured to only respond to messages that @mention it. Please @mention the assistant in your message to receive a response.",
-                        message_type=MessageType.notice,
-                        metadata={at_mention_warning_key: True},
-                    )
-                )
-
-        return False
+        if len(other_assistants) > 0:
+            return False
 
     return True
 
@@ -259,7 +222,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
     # send a welcome message to the conversation
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.orchestration.prompts.welcome_message
+    welcome_message = config.response_behavior.welcome_message
     await context.send_messages(
         NewConversationMessage(
             content=welcome_message,
@@ -267,6 +230,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
             metadata={"generated_content": False},
         )
     )
+
+    await context.update_participant_me(UpdateParticipant())
 
 
 # endregion

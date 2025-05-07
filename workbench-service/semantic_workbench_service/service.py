@@ -439,10 +439,16 @@ def init(
 
     @app.get("/assistant-services")
     async def list_assistant_service_infos(
-        user_principal: auth.DependsUserPrincipal,
+        principal: auth.DependsPrincipal,
         user_ids: Annotated[list[str], Query(alias="user_id")] = [],
     ) -> AssistantServiceInfoList:
-        user_id_set = set([user_principal.user_id if user_id == "me" else user_id for user_id in user_ids])
+        match principal:
+            case auth.UserPrincipal():
+                user_id_set = set([principal.user_id if user_id == "me" else user_id for user_id in user_ids])
+
+            case auth.AssistantServicePrincipal():
+                user_id_set = set(user_ids)
+
         return await assistant_service_registration_controller.get_service_infos(user_ids=user_id_set)
 
     @app.get("/assistants")

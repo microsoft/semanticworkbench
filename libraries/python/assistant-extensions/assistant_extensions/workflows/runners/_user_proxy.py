@@ -140,11 +140,11 @@ class UserProxyRunner:
         """
 
         # set up the event source for the workflow
-        events_base_url = context._workbench_client._client._base_url
+        events_base_url = context._conversation_client._client._base_url
         events_path = f"conversations/{workflow_state.context.id}/events"
         event_source_url = f"{events_base_url}{events_path}"
 
-        async for sse_event in context._workbench_client.get_sse_session(event_source_url):
+        async for sse_event in context._conversation_client.get_sse_session(event_source_url):
             if (
                 sse_event["event"] == "message.created"
                 and sse_event["data"] is not None
@@ -167,7 +167,7 @@ class UserProxyRunner:
         title = f"Workflow: {workflow_definition.name} [{context.title}]"
 
         # duplicate the current conversation
-        response = await context._workbench_client.duplicate_conversation(
+        response = await context._conversation_client.duplicate_conversation(
             new_conversation=NewConversation(
                 title=title,
                 metadata={"parent_conversation_id": context.id},
@@ -292,5 +292,5 @@ class UserProxyRunner:
         await context.update_participant_me(UpdateParticipant(status=None))
 
         # disconnect the workflow conversation
-        await context._workbench_client.delete_conversation()
+        await context._conversation_client.delete_conversation()
         self.current_workflow_state = None

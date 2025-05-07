@@ -128,6 +128,7 @@ const useClasses = makeStyles({
     },
     cardPreview: {
         padding: tokens.spacingHorizontalM,
+        paddingBottom: tokens.spacingVerticalL,
         margin: '0 !important',
         width: '100%',
         boxSizing: 'border-box',

@@ -10,7 +10,7 @@ import pathlib
 from typing import Any
 
 import deepmerge
-from assistant_extensions import attachments, dashboard_card, document_editor, mcp
+from assistant_extensions import attachments, dashboard_card, document_editor, mcp, navigator
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -103,6 +103,10 @@ assistant = AssistantApp(
                 ),
             ),
         ),
+        **navigator.metadata_for_assistant_navigator({
+            "default": helpers.load_text_include("codespace_assistant_info.md"),
+            "context_transfer": helpers.load_text_include("context_transfer_assistant_info.md"),
+        }),
     },
 )
 
