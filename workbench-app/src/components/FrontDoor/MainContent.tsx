@@ -126,21 +126,6 @@ const useClasses = makeStyles({
         boxSizing: 'border-box',
         width: '100%',
     },
-    cardHeaderCodespace: {
-        backgroundColor: tokens.colorPaletteDarkOrangeBackground2,
-    },
-    cardHeaderDocument: {
-        backgroundColor: tokens.colorPaletteTealBackground2,
-    },
-    cardHeaderNavigator: {
-        backgroundColor: tokens.colorPaletteCranberryBackground2,
-    },
-    cardHeaderContextTransfer: {
-        backgroundColor: tokens.colorPalettePurpleBackground2,
-    },
-    cardHeaderProject: {
-        backgroundColor: tokens.colorPaletteGreenBackground2,
-    },
     cardPreview: {
         padding: tokens.spacingHorizontalM,
         margin: '0 !important',
