@@ -106,6 +106,7 @@ def test_create_assistant_request_failure(
         new_assistant = workbench_model.NewAssistant(
             name="test-assistant",
             assistant_service_id=registration.assistant_service_id,
+            image="pass an image to circumvent the request to the assistant service to get one",
             metadata={"test": "value"},
         )
         http_response = client.post("/assistants", json=new_assistant.model_dump(mode="json"))

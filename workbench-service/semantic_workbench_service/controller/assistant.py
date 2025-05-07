@@ -231,30 +231,33 @@ class AssistantController:
                 )
 
             if not new_assistant.image:
-                # fallback to the participant icon if the assistant service has one in metadata
-                service_info = await (
-                    await self._client_pool.service_client(
-                        registration=assistant_service,
-                    )
-                ).get_service_info()
+                try:
+                    # fallback to the participant icon if the assistant service has one in metadata
+                    service_info = await (
+                        await self._client_pool.service_client(
+                            registration=assistant_service,
+                        )
+                    ).get_service_info()
+                except AssistantError:
+                    logger.exception("error getting assistant service info")
+                else:
+                    dashboard_card_config = service_info.metadata.get("_dashboard_card", {})
+                    if isinstance(dashboard_card_config, dict):
 
-                dashboard_card_config = service_info.metadata.get("_dashboard_card", {})
-                if isinstance(dashboard_card_config, dict):
+                        class DashboardCardConfig(BaseModel):
+                            model_config = ConfigDict(extra="allow")
+                            icon: str
 
-                    class DashboardCardConfig(BaseModel):
-                        model_config = ConfigDict(extra="allow")
-                        icon: str
-
-                    template_config = dashboard_card_config.get(new_assistant.template_id)
-                    if template_config:
-                        try:
-                            template_config = DashboardCardConfig.model_validate(template_config)
-                            new_assistant.image = template_config.icon
-                        except ValidationError:
-                            logger.error(
-                                "error validating dashboard card config for assistant service %s",
-                                assistant_service.name,
-                            )
+                        template_config = dashboard_card_config.get(new_assistant.template_id)
+                        if template_config:
+                            try:
+                                template_config = DashboardCardConfig.model_validate(template_config)
+                                new_assistant.image = template_config.icon
+                            except ValidationError:
+                                logger.error(
+                                    "error validating dashboard card config for assistant service %s",
+                                    assistant_service.name,
+                                )
 
             assistant = db.Assistant(
                 owner_id=user_principal.user_id,
