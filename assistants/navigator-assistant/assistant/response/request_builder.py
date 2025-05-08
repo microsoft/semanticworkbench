@@ -24,12 +24,9 @@ from openai_client import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel, PromptsConfigModel
+from ..config import MCPToolsConfigModel
 from ..whiteboard import notify_whiteboard
-from .utils import (
-    build_system_message_content,
-    get_history_messages,
-)
+from .utils import get_history_messages
 
 logger = logging.getLogger(__name__)
 
@@ -43,38 +40,14 @@ class BuildRequestResult:
 
 async def build_request(
     sampling_handler: OpenAISamplingHandler,
-    mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
-    prompts_config: PromptsConfigModel,
     request_config: OpenAIRequestConfig,
     tools: List[ChatCompletionToolParam],
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
-    silence_token: str,
+    system_message_content: str,
 ) -> BuildRequestResult:
-    # Get the list of conversation participants
-    participants_response = await context.get_participants(include_inactive=True)
-    participants = participants_response.participants
-
-    additional_system_message_content: list[tuple[str, str]] = []
-
-    # Add any additional tools instructions to the system message content
-    if tools_config.enabled:
-        additional_system_message_content.append((
-            "Tool Instructions",
-            tools_config.advanced.additional_instructions,
-        ))
-
-    # Add MCP Server prompts to the system message content
-    if len(mcp_prompts) > 0:
-        additional_system_message_content.append(("Specific Tool Guidance", "\n\n".join(mcp_prompts)))
-
-    # Build system message content
-    system_message_content = build_system_message_content(
-        prompts_config, context, participants, silence_token, additional_system_message_content
-    )
-
     chat_message_params: List[ChatCompletionMessageParam] = []
 
     if request_config.is_reasoning_model:
@@ -108,12 +81,6 @@ async def build_request(
     # - response_format
     # - seed (if set, minor impact)
 
-    # Calculate the token count for the messages so far
-    token_count = num_tokens_from_messages(
-        model=request_config.model,
-        messages=chat_message_params,
-    )
-
     # Get the token count for the tools
     tool_token_count = num_tokens_from_tools(
         model=request_config.model,
@@ -131,9 +98,9 @@ async def build_request(
     # Add attachment messages
     chat_message_params.extend(attachment_messages)
 
-    token_count += num_tokens_from_messages(
+    token_count = num_tokens_from_messages(
         model=request_config.model,
-        messages=attachment_messages,
+        messages=chat_message_params,
     )
 
     # Calculate available tokens
@@ -144,6 +111,7 @@ async def build_request(
         available_tokens -= request_config.reasoning_token_allocation
 
     # Get history messages
+    participants_response = await context.get_participants()
     history_messages_result = await get_history_messages(
         context=context,
         participants=participants_response.participants,

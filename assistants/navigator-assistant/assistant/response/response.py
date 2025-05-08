@@ -1,6 +1,7 @@
 import logging
 from contextlib import AsyncExitStack
-from typing import Any
+from textwrap import dedent
+from typing import Any, Callable
 
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
@@ -16,6 +17,7 @@ from assistant_extensions.mcp import (
 from mcp import ServerNotification
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
+    ConversationParticipant,
     MessageType,
     NewConversationMessage,
     UpdateParticipant,
@@ -23,7 +25,7 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ..config import AssistantConfigModel
-from .local_tool import list_assistant_services_tool
+from .local_tool.list_assistant_services import get_assistant_services
 from .step_handler import next_step
 from .utils import get_ai_client_configs
 
@@ -108,6 +110,9 @@ async def respond_to_conversation(
         completed_within_max_steps = False
         step_count = 0
 
+        participants_response = await context.get_participants()
+        assistant_list = await get_assistant_services(context)
+
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
@@ -130,17 +135,44 @@ async def respond_to_conversation(
             step_result = await next_step(
                 sampling_handler=sampling_handler,
                 mcp_sessions=mcp_sessions,
-                mcp_prompts=mcp_prompts,
                 attachments_extension=attachments_extension,
                 context=context,
                 request_config=request_config,
                 service_config=service_config,
-                prompts_config=config.prompts,
                 tools_config=config.tools,
                 attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
-                local_tools=[list_assistant_services_tool],  # , add_assistant_to_conversation_tool],
+                local_tools=[],
+                system_message_content=combined_prompt(
+                    config.prompts.instruction_prompt,
+                    'Your name is "{context.assistant.name}".',
+                    conditional_prompt(
+                        len(participants_response.participants) > 2,
+                        lambda: participants_system_prompt(
+                            context, participants_response.participants, silence_token="{{SILENCE}}"
+                        ),
+                    ),
+                    "# Workflow Guidance:",
+                    config.prompts.guidance_prompt,
+                    "# Safety Guardrails:",
+                    config.prompts.guardrails_prompt,
+                    conditional_prompt(
+                        config.tools.enabled,
+                        lambda: combined_prompt(
+                            "# Tool Instructions",
+                            config.tools.advanced.additional_instructions,
+                        ),
+                    ),
+                    conditional_prompt(
+                        len(mcp_prompts) > 0,
+                        lambda: combined_prompt("# Specific Tool Guidance", "\n\n".join(mcp_prompts)),
+                    ),
+                    "# Semantic Workbench Guide:",
+                    config.prompts.semantic_workbench_guide_prompt,
+                    "# Assistant Service List",
+                    assistant_list,
+                ),
             )
 
             if step_result.status == "error":
@@ -164,3 +196,42 @@ async def respond_to_conversation(
 
     # Log the completion of the response
     logger.info("Response completed.")
+
+
+def conditional_prompt(condition: bool, content: Callable[[], str]) -> str:
+    """
+    Generate a system message prompt based on a condition.
+    """
+
+    if condition:
+        return content()
+
+    return ""
+
+
+def participants_system_prompt(
+    context: ConversationContext, participants: list[ConversationParticipant], silence_token: str
+) -> str:
+    """
+    Generate a system message prompt based on the participants in the conversation.
+    """
+
+    participant_names = ", ".join([
+        f'"{participant.name}"' for participant in participants if participant.id != context.assistant.id
+    ])
+    system_message_content = dedent(f"""
+        There are {len(participants)} participants in the conversation,
+        including you as the assistant and the following users: {participant_names}.
+        \n\n
+        You do not need to respond to every message. Do not respond if the last thing said was a closing
+        statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not
+        respond as another user in the conversation, only as "{context.assistant.name}".
+        \n\n
+        Say "{silence_token}" to skip your turn.
+    """).strip()
+
+    return system_message_content
+
+
+def combined_prompt(*parts: str) -> str:
+    return "\n\n".join((part for part in parts if part)).strip()
