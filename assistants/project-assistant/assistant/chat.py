@@ -180,6 +180,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 return
 
             # I'd put status messages here, but the attachment's extension is causing race conditions.
+            await context.send_messages(
+                NewConversationMessage(
+                    content="Hold on a second while I set up your space...",
+                    message_type=MessageType.chat,
+                )
+            )
 
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
@@ -196,6 +202,15 @@ async def on_conversation_created(context: ConversationContext) -> None:
                         "generated_content": True,
                         "debug": debug,
                     },
+                )
+            )
+
+            # Pop open the inspector panel.
+            await context.send_conversation_state_event(
+                AssistantStateEvent(
+                    state_id="project_status",
+                    event="focus",
+                    state=None,
                 )
             )
 
@@ -238,18 +253,6 @@ async def on_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
-
-    # If this is the first message, let's open the project_status state inspector
-    async with context.set_status("listenting..."):
-        messages = await context.get_messages()
-        if len(messages.messages) <= 2:
-            await context.send_conversation_state_event(
-                AssistantStateEvent(
-                    state_id="project_status",
-                    event="focus",
-                    state=None,
-                )
-            )
 
     metadata: dict[str, Any] = {
         "debug": {
@@ -300,7 +303,7 @@ async def on_message_created(
 
         # If the message is from a Coordinator, update the whiteboard in the background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            asyncio.create_task(ProjectManager.auto_update_whiteboard(context, messages.messages))
+            asyncio.create_task(ProjectManager.auto_update_whiteboard(context))
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")
