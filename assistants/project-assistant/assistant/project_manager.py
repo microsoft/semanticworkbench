@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Tuple
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
     ConversationPermission,
     MessageType,
     NewConversation,
@@ -1170,7 +1169,6 @@ class ProjectManager:
     @staticmethod
     async def auto_update_whiteboard(
         context: ConversationContext,
-        chat_history: List[ConversationMessage],
     ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
         Automatically updates the whiteboard by analyzing chat history.
@@ -1188,6 +1186,9 @@ class ProjectManager:
             Tuple of (success, project_kb)
         """
         try:
+            messages = await context.get_messages()
+            chat_history = messages.messages
+
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
