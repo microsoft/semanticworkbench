@@ -144,7 +144,7 @@ async def respond_to_conversation(
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
                 local_tools=[],
-                system_message_contents=(
+                system_message_content=combined_prompt(
                     config.prompts.instruction_prompt,
                     'Your name is "{context.assistant.name}".',
                     conditional_prompt(
@@ -153,8 +153,10 @@ async def respond_to_conversation(
                             context, participants_response.participants, silence_token="{{SILENCE}}"
                         ),
                     ),
-                    combined_prompt("# Workflow Guidance:", config.prompts.guidance_prompt),
-                    combined_prompt("# Safety Guardrails:", config.prompts.guardrails_prompt),
+                    "# Workflow Guidance:",
+                    config.prompts.guidance_prompt,
+                    "# Safety Guardrails:",
+                    config.prompts.guardrails_prompt,
                     conditional_prompt(
                         config.tools.enabled,
                         lambda: combined_prompt(
@@ -166,8 +168,10 @@ async def respond_to_conversation(
                         len(mcp_prompts) > 0,
                         lambda: combined_prompt("# Specific Tool Guidance", "\n\n".join(mcp_prompts)),
                     ),
-                    combined_prompt("# Semantic Workbench Guide:", config.prompts.semantic_workbench_guide_prompt),
-                    combined_prompt("# Assistant Service List", assistant_list),
+                    "# Semantic Workbench Guide:",
+                    config.prompts.semantic_workbench_guide_prompt,
+                    "# Assistant Service List",
+                    assistant_list,
                 ),
             )
 
@@ -230,4 +234,4 @@ def participants_system_prompt(
 
 
 def combined_prompt(*parts: str) -> str:
-    return "\n\n".join(parts).strip()
+    return "\n\n".join((part for part in parts if part)).strip()

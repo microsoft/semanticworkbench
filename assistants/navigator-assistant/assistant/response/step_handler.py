@@ -1,7 +1,7 @@
 import logging
 import time
 from textwrap import dedent
-from typing import Any, Iterable, List
+from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
@@ -43,7 +43,7 @@ async def next_step(
     metadata: dict[str, Any],
     metadata_key: str,
     local_tools: list[LocalTool],
-    system_message_contents: Iterable[str] = [],
+    system_message_content: str,
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -89,7 +89,7 @@ async def next_step(
         tools_config=tools_config,
         tools=tools,
         attachments_config=attachments_config,
-        system_message_contents=system_message_contents,
+        system_message_content=system_message_content,
     )
 
     chat_message_params = build_request_result.chat_message_params

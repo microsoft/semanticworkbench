@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
@@ -46,11 +46,8 @@ async def build_request(
     tools: List[ChatCompletionToolParam],
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
-    system_message_contents: Iterable[str] = [],
+    system_message_content: str,
 ) -> BuildRequestResult:
-    # Build system message content
-    system_message_content = "\n\n".join((content for content in system_message_contents if content))
-
     chat_message_params: List[ChatCompletionMessageParam] = []
 
     if request_config.is_reasoning_model:
@@ -84,12 +81,6 @@ async def build_request(
     # - response_format
     # - seed (if set, minor impact)
 
-    # Calculate the token count for the messages so far
-    token_count = num_tokens_from_messages(
-        model=request_config.model,
-        messages=chat_message_params,
-    )
-
     # Get the token count for the tools
     tool_token_count = num_tokens_from_tools(
         model=request_config.model,
@@ -107,9 +98,9 @@ async def build_request(
     # Add attachment messages
     chat_message_params.extend(attachment_messages)
 
-    token_count += num_tokens_from_messages(
+    token_count = num_tokens_from_messages(
         model=request_config.model,
-        messages=attachment_messages,
+        messages=chat_message_params,
     )
 
     # Calculate available tokens
