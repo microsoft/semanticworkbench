@@ -84,7 +84,7 @@ export const useHistoryUtility = (conversationId: string) => {
                     limit: Constants.app.maxMessagesPerRequest,
                     after: lastMessageId,
                 },
-                { forceRefetch: true },
+                { forceRefetch: lastMessageId === undefined },
             ),
         ).unwrap();
         const updatedMessages = [...allConversationMessages, ...newMessages];
