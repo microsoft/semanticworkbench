@@ -9,7 +9,11 @@ class ArgumentModel(BaseModel):
     pass
 
 
-async def get_assistant_services(_: ArgumentModel, context: ConversationContext) -> str:
+async def _get_assistant_services(_: ArgumentModel, context: ConversationContext) -> str:
+    return await get_assistant_services(context)
+
+
+async def get_assistant_services(context: ConversationContext) -> str:
     """
     Get the list of assistants available to the user.
     """
@@ -36,4 +40,4 @@ async def get_assistant_services(_: ArgumentModel, context: ConversationContext)
     ])
 
 
-tool = LocalTool(name="list_assistant_services", argument_model=ArgumentModel, func=get_assistant_services)
+tool = LocalTool(name="list_assistant_services", argument_model=ArgumentModel, func=_get_assistant_services)

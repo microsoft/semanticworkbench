@@ -1,7 +1,7 @@
 import logging
 import time
 from textwrap import dedent
-from typing import Any, List
+from typing import Any, Iterable, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
@@ -17,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel, PromptsConfigModel
+from ..config import MCPToolsConfigModel
 from .completion_handler import handle_completion
 from .local_tool import LocalTool
 from .models import StepResult
@@ -34,17 +34,16 @@ logger = logging.getLogger(__name__)
 async def next_step(
     sampling_handler: OpenAISamplingHandler,
     mcp_sessions: List[MCPSession],
-    mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     request_config: OpenAIRequestConfig,
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
-    prompts_config: PromptsConfigModel,
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
     local_tools: list[LocalTool],
+    system_message_contents: Iterable[str] = [],
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -84,15 +83,13 @@ async def next_step(
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
-        mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
-        prompts_config=prompts_config,
         request_config=request_config,
         tools_config=tools_config,
         tools=tools,
         attachments_config=attachments_config,
-        silence_token=silence_token,
+        system_message_contents=system_message_contents,
     )
 
     chat_message_params = build_request_result.chat_message_params

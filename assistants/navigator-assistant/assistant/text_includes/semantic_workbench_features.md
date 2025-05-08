@@ -9,13 +9,7 @@ The Semantic Workbench is a powerful platform that lets you interact with AI ass
 ### Choosing an Assistant
 
 1. When you first open the Semantic Workbench or click the "+" (new conversation) button, you'll see the "Choose an assistant" screen.
-2. This dashboard presents the different assistant options available to you:
-   - **Codespace Assistant**: For coding and development help
-   - **Context Transfer Assistant**: For sharing complex information
-   - **Document Assistant**: For creating and editing documents
-   - **Navigator Assistant**: For finding the right assistant and learning about the Workbench
-   - **Project Assistant**: For managing projects with teams
-   - And others based on your installation
+2. This dashboard presents the different assistant options available to you.
 3. Each assistant card shows its name, icon, and key features to help you choose.
 4. You can also select a previously configured assistant from the dropdown list at the bottom.
 5. Click the new conversation button (+) on an assistant card.
