@@ -41,9 +41,9 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
     project_brief_text = ""
     if briefing:
         project_brief_text = dedent(f"""
-            ### PROJECT BRIEF
-            **Name:** {briefing.project_name}
-            **Description:** {briefing.project_description}
+            ### BRIEF
+            **Title:** {briefing.title}
+            **Description:** {briefing.description}
             """)
         project_data["briefing"] = project_brief_text
 
@@ -94,6 +94,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         # Chat completion
         async with openai_client.create_client(config.service_config) as client:
             project_info = "\n\n## CURRENT PROJECT INFORMATION\n\n" + "\n".join(project_data.values())
+
             instructions = f"{config.prompt_config.welcome_message_generation}\n\n{project_info}"
             messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": instructions},

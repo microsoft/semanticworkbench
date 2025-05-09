@@ -123,12 +123,12 @@ class ProjectInspectorStateProvider:
 
         lines.append("## Brief")
 
-        project_name = brief.project_name if brief else "Unnamed Project"
-        lines.append(f"### {project_name}")
+        title = brief.title if brief else "Untitled"
+        lines.append(f"### {title}")
         lines.append("")
 
-        if brief and brief.project_description:
-            lines.append(brief.project_description)
+        if brief and brief.description:
+            lines.append(brief.description)
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
@@ -246,12 +246,12 @@ class ProjectInspectorStateProvider:
         # Add project description and additional context if available
         lines.append("## Brief")
 
-        project_name = brief.project_name if brief else "Unnamed Project"
-        lines.append(f"### {project_name}")
+        title = brief.title if brief else "Untitled"
+        lines.append(f"### {title}")
         lines.append("")
 
-        if brief and brief.project_description:
-            lines.append(brief.project_description)
+        if brief and brief.description:
+            lines.append(brief.description)
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section

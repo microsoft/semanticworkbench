@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Context Transfer Assistant helps teams share knowledge efficiently between a coordinator and team members. It provides a structured way to capture, organize, and transfer complex information across conversations while maintaining a central knowledge repository accessible to all participants.
+The Context Transfer Assistant helps teams share knowledge (bundles of context) efficiently between a coordinator and team members. It provides a structured way to capture, organize, and transfer complex information across conversations while maintaining a central knowledge repository accessible to all participants.
 
 ## Key Features
 
@@ -12,13 +12,12 @@ The Context Transfer Assistant helps teams share knowledge efficiently between a
 - **Information requests**: Team members can request specific information from coordinators.
 - **File sharing**: Automatic synchronization of uploaded files across team conversations.
 - **Coordinator conversation access**: Team members can view recent coordinator conversations for context.
-- **Simplified knowledge transfer**: No formal project stages or progress tracking.
 
 ## How to Use the Context Transfer Assistant
 
 ### For Knowledge Coordinators
 
-1. **Create the knowledge space**: Start by creating a space with a name and description.
+1. **Create the knowledge space**: Start by creating a space with a title and description.
 2. **Build the knowledge base**: Share information, upload relevant files, and answer questions.
 3. **Share with team**: Generate an invitation link to share with team members who need access.
 4. **Respond to requests**: Address information requests from team members as they arise.

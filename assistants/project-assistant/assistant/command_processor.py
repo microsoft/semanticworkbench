@@ -16,12 +16,12 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .conversation_project_link import ConversationProjectManager
 from .project_data import (
     RequestPriority,
     RequestStatus,
 )
 from .project_manager import ProjectManager
-from .conversation_project_link import ConversationProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole
@@ -385,50 +385,43 @@ async def handle_create_brief_command(
     if not content or "|" not in content:
         await context.send_messages(
             NewConversationMessage(
-                content="Please provide a project name and description in the format: `/create-brief Project Name|Project description here`",
+                content="Please provide a brief title and description in the format: `/create-brief Title|Description here`",
                 message_type=MessageType.notice,
             )
         )
         return
 
-    # Extract project name and description
+    # Extract title and description
     try:
-        project_name, project_description = content.split("|", 1)
-        project_name = project_name.strip()
-        project_description = project_description.strip()
+        title, description = content.split("|", 1)
+        title = title.strip()
+        description = description.strip()
 
-        if not project_name or not project_description:
-            raise ValueError("Both project name and description are required")
+        if not title or not description:
+            raise ValueError("Both name and description are required")
 
-        # Create a new project
-        success, project_id = await ProjectManager.create_project(context)
-        if not success:
-            raise ValueError("Failed to create project")
-
-        # Create the project brief without sending a notification (we'll send our own)
-        briefing = await ProjectManager.update_project_brief(
-            context, project_name, project_description, send_notification=False
-        )
+        # Create the brief without sending a notification (we'll send our own)
+        briefing = await ProjectManager.update_project_brief(context, title, description, send_notification=False)
 
         if briefing:
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' updated successfully.",
+                    content=f"Brief '{title}' updated successfully.",
                     message_type=MessageType.chat,
                 )
             )
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to update project brief. Please try again.",
+                    content="Failed to update brief. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
     except Exception as e:
-        logger.exception(f"Error updating project brief: {e}")
+        logger.exception(f"Error updating brief: {e}")
         await context.send_messages(
             NewConversationMessage(
-                content=f"Error updating project brief: {str(e)}",
+                content=f"Error updating brief: {str(e)}",
                 message_type=MessageType.notice,
             )
         )
@@ -485,7 +478,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             goal_description=goal_description,
             success_criteria=success_criteria,
         )
-        
+
         if goal:
             # Notify all linked conversations about the update
             await ProjectNotifier.notify_project_update(
@@ -503,14 +496,14 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
 
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Goal '{goal_name}' added to project brief successfully.{criteria_msg}",
+                    content=f"Goal '{goal_name}' added successfully.{criteria_msg}",
                     message_type=MessageType.chat,
                 )
             )
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to update project with new goal. Please try again.",
+                    content="Failed to add new goal. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
@@ -793,14 +786,14 @@ async def handle_project_info_command(
                 # For Team, just show the ID
                 output.append(f"## Project ID: `{project_id}`\n")
 
-        # Get project brief if requested
+        # Get brief if requested
         if info_type in ["all", "brief"]:
             briefing = await ProjectManager.get_project_brief(context)
 
             if briefing:
                 # Format briefing information
-                output.append(f"## Project Brief: {briefing.project_name}")
-                output.append(f"\n{briefing.project_description}\n")
+                output.append(f"## Brief: {briefing.title}")
+                output.append(f"\n{briefing.description}\n")
 
                 # Get project to access goals
                 if project_id:
@@ -912,7 +905,7 @@ async def handle_project_info_command(
 
         # If no data was found for any category
         if not output:
-            output.append("No project information found. Start by creating a project brief with `/create-brief`.")
+            output.append("No project information found. Start by creating a brief with `/create-brief`.")
 
         # Send the formatted information
         await context.send_messages(
@@ -1078,8 +1071,8 @@ command_registry.register_command(
 command_registry.register_command(
     "create-brief",
     handle_create_brief_command,
-    "Create a project brief",
-    "/create-brief Project Name|Project description",
+    "Create a brief",
+    "/create-brief Title|Description",
     "/create-brief Website Redesign|We need to modernize our company website to improve user experience and conversions.",
     ["coordinator"],  # Only Coordinator can create briefs
 )
@@ -1087,7 +1080,7 @@ command_registry.register_command(
 command_registry.register_command(
     "add-goal",
     handle_add_goal_command,
-    "Add a goal to the project brief",
+    "Add a goal",
     "/add-goal Goal Name|Goal description|Success criterion 1;Success criterion 2",
     "/add-goal Redesign Homepage|Create a new responsive homepage|Design approved by stakeholders;Mobile compatibility verified",
     ["coordinator"],  # Only Coordinator can add goals

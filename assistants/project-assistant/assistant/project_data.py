@@ -170,14 +170,14 @@ class ProjectBrief(BaseEntity):
     A thorough, comprehensive documentation of the project or context to be transferred,
     containing all relevant information necessary for understanding and execution.
 
-    The project brief is the primary document that defines the project or context.
+    The brief is the primary document that defines the project or context.
     It serves as the central reference for both the Coordinator and team members
     to understand what needs to be accomplished and why, or in the case of context transfer,
     what information needs to be preserved and communicated.
 
     In the standard project configuration, it includes project goals, success criteria,
     and complete context. In context transfer configuration, it focuses on capturing
-    comprehensive context through detailed project_description and additional_context fields.
+    comprehensive context through detailed description and additional_context fields.
 
     Created by the Coordinator during the PLANNING phase, the brief must be
     completed before the project can move to the READY_FOR_WORKING state.
@@ -185,8 +185,8 @@ class ProjectBrief(BaseEntity):
     but major changes should be communicated to all participants.
     """
 
-    project_name: str  # Short, distinctive name for the project or context transfer
-    project_description: str  # Comprehensive description of the project's purpose, scope, and context
+    title: str  # Short, distinctive title for the project or context bundle to transfer
+    description: str  # Comprehensive description of the project's or context's purpose, scope, and context
     timeline: Optional[str] = None  # Expected timeline or deadline information (not used in context transfer mode)
     additional_context: Optional[str] = (
         None  # Detailed supplementary information for project participants or context transfer
@@ -302,7 +302,7 @@ class ProjectLog(BaseModel):
 
 class ProjectInfo(BaseModel):
     """
-    Core information about a project including its ID, name, state, and sharing details.
+    Core information about a project.
 
     This model stores essential project metadata that doesn't fit into other
     specific models like brief or whiteboard. It's the central reference point

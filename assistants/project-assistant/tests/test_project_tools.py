@@ -37,7 +37,7 @@ class TestProjectTools:
         assert coordinator_tools.tool_functions is not None
 
         # Verify Coordinator-specific functions are registered
-        assert "create_project_brief" in coordinator_tools.tool_functions.function_map
+        assert "update_brief" in coordinator_tools.tool_functions.function_map
         assert "add_project_goal" in coordinator_tools.tool_functions.function_map
         assert "delete_project_goal" in coordinator_tools.tool_functions.function_map
         assert "resolve_information_request" in coordinator_tools.tool_functions.function_map

@@ -107,22 +107,28 @@ class ProjectTools:
 
         # Register common tools for both roles in both configs
         self.tool_functions.add_function(
-            self.get_project_info, "get_project_info", "Get information about the current project state"
-        )
-
-        self.tool_functions.add_function(
             self.suggest_next_action,
             "suggest_next_action",
             "Suggest the next action the user should take based on project state",
         )
 
+        # Register template-specific tools
+        if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
+            self.tool_functions.add_function(
+                self.get_project_info, "get_project_info", "Get information about the current project"
+            )
+        else:
+            self.tool_functions.add_function(
+                self.get_context_info, "get_context_info", "Get information about the bundle of context"
+            )
+
         # Register role-specific tools
         if role == "coordinator":
             # Coordinator-specific tools
             self.tool_functions.add_function(
-                self.create_project_brief,
-                "create_project_brief",
-                "Create a project brief with a name and description",
+                self.update_brief,
+                "update_brief",
+                "Update a brief with a title and description",
             )
             self.tool_functions.add_function(
                 self.resolve_information_request,
@@ -148,13 +154,7 @@ class ProjectTools:
                 )
         else:
             # Team-specific tools
-            self.tool_functions.add_function(
-                self.update_project_status,
-                "update_project_status",
-                "Update the status and progress of the project",
-            )
-            # detect_information_request_needs is used automatically by the system
-            # and should not be exposed directly as an LLM tool
+
             self.tool_functions.add_function(
                 self.create_information_request,
                 "create_information_request",
@@ -170,23 +170,40 @@ class ProjectTools:
                 "view_coordinator_conversation",
                 "View the Coordinator conversation messages to understand the project context and planning discussions",
             )
-            self.tool_functions.add_function(
-                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-            )
 
             if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
+                    self.update_project_status,
+                    "update_project_status",
+                    "Update the status and progress of the project",
+                )
+                self.tool_functions.add_function(
                     self.report_project_completion, "report_project_completion", "Report that the project is complete"
                 )
+                self.tool_functions.add_function(
+                    self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
+                )
 
-    def get_available_tools(self) -> List[str]:
+    async def get_context_info(self) -> Project | None:
         """
-        Get a list of available tools for the current role.
+        Get information about the current project.
+
+        Args:
+            none
 
         Returns:
-            List of tool names
+            Information about the project in a formatted string
         """
-        return [name for name in self.tool_functions.function_map.keys()]
+
+        project_id = await ProjectManager.get_project_id(self.context)
+        if not project_id:
+            return None
+
+        project = await ProjectManager.get_project(self.context)
+        if not project:
+            return None
+
+        return project
 
     async def get_project_info(self) -> Project | None:
         """
@@ -258,13 +275,13 @@ class ProjectTools:
         else:
             return "Failed to update project status. Please try again."
 
-    async def create_project_brief(self, project_name: str, project_description: str) -> str:
+    async def update_brief(self, title: str, description: str) -> str:
         """
-        Create a project brief with a name and description.
+        Update a brief with a title and description.
 
         Args:
-            project_name: The name of the project
-            project_description: A description of the project
+            title: The title of the brief
+            description: A description of the context bundle or project
 
         Returns:
             A message indicating success or failure
@@ -280,22 +297,22 @@ class ProjectTools:
         # Create a new project brief using ProjectManager
         brief = await ProjectManager.update_project_brief(
             context=self.context,
-            project_name=project_name,
-            project_description=project_description,
+            title=title,
+            description=description,
             send_notification=True,
         )
 
         if brief:
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' updated successfully.",
+                    content=f"Brief '{title}' updated successfully.",
                     message_type=MessageType.notice,
                     metadata={"debug": brief.model_dump()},
                 )
             )
-            return f"Project brief '{project_name}' updated successfully."
+            return f"Brief '{title}' updated successfully."
         else:
-            return "Failed to update project brief. Please try again."
+            return "Failed to update the brief. Please try again."
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
@@ -1190,7 +1207,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     "reason": "No project brief found. Start by creating one.",
                     "priority": "high",
                     "function": "create_project_brief",
-                    "parameters": {"project_name": "", "project_description": ""},
+                    "parameters": {"name": "", "description": ""},
                 }
             else:
                 return {

@@ -43,7 +43,7 @@ class RequestConfig(BaseModel):
         int,
         Field(
             title="Coordinator Conversation Token Limit",
-            description="The maximum number of tokens to use for the coordinator conversation history."
+            description="The maximum number of tokens to use for the coordinator conversation history.",
         ),
     ] = 4000
 
@@ -192,11 +192,10 @@ class TeamConfig(BaseModel):
     ] = "project-status"
 
 
-# ProjectConfig class has been removed - fields are now directly in AssistantConfigModel
-
-
 # Base Assistant Configuration - shared by all templates
 class AssistantConfigModel(BaseModel):
+    project_or_context: Annotated[str, UISchema(widget="hidden")] = "project"
+    Project_or_Context: Annotated[str, UISchema(widget="hidden")] = "Project"
     enable_debug_output: Annotated[
         bool,
         Field(
