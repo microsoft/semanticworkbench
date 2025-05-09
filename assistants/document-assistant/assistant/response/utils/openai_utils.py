@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import logging
+import time
 from textwrap import dedent
 from typing import List, Literal, Tuple, Union
 
@@ -109,7 +110,14 @@ async def get_completion(
             with {len(chat_message_params)} messages
         """).strip()
     )
+    start_time = time.time()
     completion = await client.chat.completions.create(**completion_args)
+    end_time = time.time()
+    response_duration = round(end_time - start_time, 2)
+    tokens_per_second = round(completion.usage.completion_tokens / response_duration, 2)
+    logger.info(
+        f"Completion for model `{completion.model}` finished generating `{completion.usage.completion_tokens}` tokens at {tokens_per_second} tok/sec. Input tokens count was `{completion.usage.prompt_tokens}`."
+    )
     return completion
 
 

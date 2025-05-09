@@ -140,10 +140,7 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     const handleSave = React.useCallback(() => {
         if (!onSave || !editorInstance || !hasUnsavedChanges) return;
         const currentContent = editorInstance.getMarkdown();
-        // Replace <br> tags with unicode line separator to prevent parser issues.
-        const parsedContent = currentContent.replace(/<br\s*\/?>|<br>/gi, '\u2028');
-
-        onSave(parsedContent);
+        onSave(currentContent);
         // Note: We don't reset hasUnsavedChanges here because the parent component
         // should update the content prop which will trigger the useEffect above
     }, [onSave, editorInstance, hasUnsavedChanges]);
