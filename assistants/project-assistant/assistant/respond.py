@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
+from openai import BaseModel
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
@@ -13,6 +14,7 @@ from openai.types.chat import (
 )
 from openai_client.completion import message_content_from_completion
 from openai_client.tools import complete_with_tool_calls
+from pydantic import Field
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipantList,
@@ -32,7 +34,7 @@ from .project_common import ConfigurationTemplate, detect_assistant_role, get_te
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ProjectStorage
-from .project_storage_models import ConversationRole
+from .project_storage_models import ConversationRole, CoordinatorConversationMessage
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
@@ -146,7 +148,7 @@ async def respond_to_conversation(
             """)
         if project_info.status_message:
             project_info_text += f"**Status Message:** {project_info.status_message}\n"
-        project_data["status"] = project_info_text
+        project_data["info"] = project_info_text
 
     # Project brief
     briefing = ProjectStorage.read_project_brief(project_id)
@@ -254,6 +256,8 @@ async def respond_to_conversation(
     # Add project data to system message.
     project_info = "\n\n## CURRENT PROJECT INFORMATION\n\n" + "\n".join(project_data.values())
     system_message_content += f"\n\n{project_info}"
+
+    # Finally, create the full system message.
     system_message: ChatCompletionMessageParam = {
         "role": "system",
         "content": system_message_content,
@@ -270,6 +274,51 @@ async def respond_to_conversation(
     completion_messages: list[ChatCompletionMessageParam] = [
         system_message,
     ]
+
+    ###
+    ### SYSTEM_MESSAGE: Coordinator conversation as an attachment.
+    ###
+
+    # Get the coordinator conversation and add it as an attachment.
+    coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
+    if coordinator_conversation:
+        # Limit messages to a max token count.
+        COORDINATOR_CONVERSATION_TOKEN_LIMIT = 4000
+        total_coordinator_conversation_tokens = 0
+        selected_coordinator_conversation_messages: List[CoordinatorConversationMessage] = []
+        for msg in reversed(coordinator_conversation.messages):
+            tokens = openai_client.num_tokens_from_string(
+                message.model_dump_json(), model=config.request_config.openai_model
+            )
+            if total_coordinator_conversation_tokens + tokens > COORDINATOR_CONVERSATION_TOKEN_LIMIT:
+                break
+            selected_coordinator_conversation_messages.append(msg)
+            total_coordinator_conversation_tokens += tokens
+
+            total_coordinator_conversation_tokens += tokens
+            if total_coordinator_conversation_tokens > COORDINATOR_CONVERSATION_TOKEN_LIMIT:
+                break
+            selected_coordinator_conversation_messages.append(msg)
+
+        # Create a new coordinator conversation system message with the selected messages.
+        class CoordinatorMessageList(BaseModel):
+            messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
+
+        selected_coordinator_conversation_messages.reverse()
+        coordinator_message_list = CoordinatorMessageList(messages=selected_coordinator_conversation_messages)
+        coordinator_conversation_message = ChatCompletionSystemMessageParam(
+            role="system",
+            content=(
+                f"<ATTACHMENT><FILENAME>CoordinatorConversation.json</FILENAME><CONTENT>{coordinator_message_list.model_dump_json()}</CONTENT>"
+            ),
+        )
+        completion_messages.append(coordinator_conversation_message)
+
+        coordinator_conversation_tokens = openai_client.num_tokens_from_messages(
+            model=config.request_config.openai_model,
+            messages=[coordinator_conversation_message],
+        )
+        available_tokens -= coordinator_conversation_tokens
 
     ###
     ### ATTACHMENTS

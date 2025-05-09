@@ -1112,11 +1112,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Limit message count to reasonable value
         message_count = min(max(1, message_count), 50)  # Between 1 and 50
-
-        # Get project brief for context
-        brief = await ProjectManager.get_project_brief(self.context)
-        project_name = brief.project_name if brief else "Project"
-
         try:
             # Read from shared storage instead of trying cross-conversation API access
 
@@ -1125,11 +1120,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
             if not coordinator_conversation or not coordinator_conversation.messages:
                 logger.warning(f"No Coordinator conversation data found for project {project_id}")
-                return f"No Coordinator conversation messages available for {project_name}. Check back later when Coordinator has sent messages."
+                return "No Coordinator conversation messages available. Check back later when Coordinator has sent messages."
 
             # Format the messages for display
             output = []
-            output.append(f"# Coordinator Conversation for {project_name}\n")
+            output.append("# Coordinator Conversation\n")
             output.append(
                 "Here are the recent messages from the Coordinator to help you understand the project context:\n"
             )
@@ -1147,7 +1142,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 output.append(f"{msg.content}\n")
 
             if len(output) <= 3:  # Just the header and note, no actual messages
-                return f"No chat messages found in the Coordinator conversation for {project_name}."
+                return "No chat messages found in the Coordinator conversation."
 
             return "\n".join(output)
 
