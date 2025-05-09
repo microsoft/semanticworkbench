@@ -37,6 +37,7 @@ from openai_client import (
     create_client,
 )
 from openai_client.tokens import num_tokens_from_messages, num_tokens_from_tools_and_messages
+from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
@@ -259,6 +260,14 @@ class ConversationResponder:
                 for tool_call in completion.choices[0].message.tool_calls:
                     if tool_call.function.name == DYNAMIC_UI_TOOL_NAME:
                         called_dynamic_ui_tool = True
+                        # Open the dynamic UI inspector tab
+                        await self.context.send_conversation_state_event(
+                            workbench_model.AssistantStateEvent(
+                                state_id="dynamic_ui",
+                                event="focus",
+                                state=None,
+                            )
+                        )
 
             # If it did, completely ignore the special completion. Otherwise, use it to generate UI for this turn
             if not called_dynamic_ui_tool:

@@ -4,8 +4,8 @@ import io
 import logging
 import pathlib
 
-import docx2txt
 import pdfplumber
+from markitdown import MarkItDown
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +17,11 @@ async def bytes_to_str(file_bytes: bytes, filename: str) -> str:
     filename_extension = pathlib.Path(filename).suffix.lower().strip(".")
 
     match filename_extension:
-        # if the file has .docx extension, convert it to text
-        case "docx":
-            return await _docx_bytes_to_str(file_bytes)
+        # handle most common file types using MarkItDown.
+        # Note .eml will include the raw html which is very token heavy
+        case _ if filename_extension in ["docx", "pptx", "csv", "xlsx", "html", "eml"]:
+            return await _markitdown_bytes_to_str(file_bytes)
 
-        # if the file has .pdf extension, convert it to text
         case "pdf":
             return await _pdf_bytes_to_str(file_bytes)
 
@@ -29,21 +29,25 @@ async def bytes_to_str(file_bytes: bytes, filename: str) -> str:
         case _ if filename_extension in ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif"]:
             return _image_bytes_to_str(file_bytes, filename_extension)
 
-        # otherwise, try to convert the file to text
+        # otherwise assume it's a regular text-based file
         case _:
-            return file_bytes.decode("utf-8")
+            try:
+                return file_bytes.decode("utf-8")
+            except Exception as e:
+                return f"The filetype `{filename_extension}` is not supported or the file itself is malformed: {e}"
 
 
-async def _docx_bytes_to_str(file_bytes: bytes) -> str:
+async def _markitdown_bytes_to_str(file_bytes: bytes) -> str:
     """
-    Convert a DOCX file to text.
+    Convert a file using MarkItDown defaults.
     """
     with io.BytesIO(file_bytes) as temp:
-        text = await asyncio.to_thread(docx2txt.process, docx=temp)
+        result = await asyncio.to_thread(MarkItDown(enable_plugins=False).convert, source=temp)
+        text = result.text_content
     return text
 
 
-async def _pdf_bytes_to_str(file_bytes: bytes, max_pages: int = 10) -> str:
+async def _pdf_bytes_to_str(file_bytes: bytes, max_pages: int = 25) -> str:
     """
     Convert a PDF file to text.
 
