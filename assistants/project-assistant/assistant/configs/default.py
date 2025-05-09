@@ -162,7 +162,7 @@ class TeamConfig(BaseModel):
     model_config = ConfigDict(
         title="Team Member Configuration",
         json_schema_extra={
-            "required": ["welcome_message", "status_command"],
+            "required": ["default_welcome_message", "status_command"],
         },
     )
 
