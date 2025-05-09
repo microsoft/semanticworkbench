@@ -68,6 +68,14 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
     return num_tokens_from_messages([message], model)
 
 
+def num_tokens_from_string(string: str, model: str) -> int:
+    """
+    Return the number of tokens used by a string.
+    """
+    encoding = get_encoding_for_model(model)
+    return len(encoding.encode(string))
+
+
 def num_tokens_from_messages(messages: Iterable[ChatCompletionMessageParam], model: str) -> int:
     """
     Return the number of tokens used by a list of messages.
@@ -89,11 +97,8 @@ def num_tokens_from_messages(messages: Iterable[ChatCompletionMessageParam], mod
     tokens_per_message = 3
     tokens_per_name = 1
 
-    try:
-        encoding = tiktoken.encoding_for_model(specific_model)
-    except KeyError:
-        logger.warning("model %s not found. Using cl100k_base encoding.", specific_model)
-        encoding = tiktoken.get_encoding("cl100k_base")
+    # Get the encoding for the specific model
+    encoding = get_encoding_for_model(model)
 
     # Calculate the total tokens for all messages
     for message in messages:

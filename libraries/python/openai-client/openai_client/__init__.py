@@ -38,6 +38,7 @@ from .tokens import (
     get_encoding_for_model,
     num_tokens_from_message,
     num_tokens_from_messages,
+    num_tokens_from_string,
     num_tokens_from_tools,
     num_tokens_from_tools_and_messages,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "message_from_completion",
     "num_tokens_from_message",
     "num_tokens_from_messages",
+    "num_tokens_from_string",
     "num_tokens_from_tools",
     "num_tokens_from_tools_and_messages",
     "OpenAIServiceConfig",
