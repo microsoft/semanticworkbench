@@ -86,5 +86,9 @@
     "updown",
     "virtualenvs",
     "webresearch"
-  ]
+  ],
+  // Python testing configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests", "-s"]
 }

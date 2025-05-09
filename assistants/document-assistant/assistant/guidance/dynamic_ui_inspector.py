@@ -79,14 +79,7 @@ async def update_dynamic_ui_state(
         content_type="application/json",
     )
 
-    # Send events to open the dynamic UI inspector or update if it's already open
-    await context.send_conversation_state_event(
-        workbench_model.AssistantStateEvent(
-            state_id="dynamic_ui",
-            event="focus",
-            state=None,
-        )
-    )
+    # Update the dynamic UI panel if it's already open
     await context.send_conversation_state_event(
         workbench_model.AssistantStateEvent(
             state_id="dynamic_ui",

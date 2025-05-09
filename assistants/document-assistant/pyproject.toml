@@ -8,10 +8,10 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "assistant-drive>=0.1.0",
     "assistant-extensions[attachments, mcp]>=0.1.0",
-    "docx2txt>=0.8",
     "mcp-extensions[openai]>=0.1.0",
     "content-safety>=0.1.0",
     "deepmerge>=2.0",
+    "markitdown[docx,outlook,pptx,xlsx]==0.1.1",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "pdfplumber>=0.11.2",
@@ -39,4 +39,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["pyright>=1.1.389"]
+dev = ["pyright>=1.1.389", "pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
