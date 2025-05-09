@@ -77,6 +77,14 @@ def _get_document_list_ui_schema(model: type[BaseModel], filenames: list[str]) -
     }
 
 
+def markdown_content_postprocessor(content: str) -> str:
+    """
+    Post-process the markdown content
+    This is a workaround for the issue where <br /> tags are not rendered correctly in the UI.
+    """
+    return content.replace("<br />", "&#x20;")
+
+
 class InspectorController(Protocol):
     async def is_enabled(self, context: ConversationContext) -> bool: ...
     async def is_read_only(self, context: ConversationContext) -> bool: ...
@@ -128,9 +136,10 @@ class EditableDocumentFileStateInspector:
 
         is_readonly = await self._controller.is_read_only(context)
 
+        markdown_content = markdown_content_postprocessor(document.content)
         return AssistantConversationInspectorStateDataModel(
             data={
-                "markdown_content": document.content,
+                "markdown_content": markdown_content,
                 "filename": document.filename,
                 "readonly": is_readonly,
             }
@@ -197,9 +206,10 @@ class ReadonlyDocumentFileStateInspector:
         if not document:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
+        markdown_content = markdown_content_postprocessor(document.content)
         return AssistantConversationInspectorStateDataModel(
             data={
-                "markdown_content": document.content,
+                "markdown_content": markdown_content,
                 "filename": document.filename,
                 "readonly": True,  # Always read-only for this inspector
             },

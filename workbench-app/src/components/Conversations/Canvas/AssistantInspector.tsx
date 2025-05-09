@@ -139,8 +139,6 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
     const markdownEditorRenderer = React.useCallback(() => {
         // Check if the data contains markdown_content, if not assume its empty.
         var markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
-        // Replace <br> tags with unicode line separator to prevent parser issues.
-        markdownContent = markdownContent.replace(/<br\s*\/?>|<br>/gi, '\u2028');
         const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
         // Check if the document is in read-only mode
         const isReadOnly = 'readonly' in state.data ? Boolean(state.data.readonly) : false;
@@ -155,10 +153,9 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
                     setIsSubmitting(true);
                     try {
                         // Convert back the unicode line separators to <br> tags
-                        const processedContent = updatedContent.replace(/\u2028/g, '<br>');
                         const updatedState = {
                             ...state.data,
-                            markdown_content: processedContent,
+                            markdown_content: updatedContent,
                         };
                         setFormData(updatedState);
                         await updateConversationState({
