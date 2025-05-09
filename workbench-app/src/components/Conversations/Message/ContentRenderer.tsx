@@ -8,6 +8,7 @@ import {
 import React from 'react';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
+import { AssistantCard } from '../../FrontDoor/Controls/AssistantCard';
 import { MessageContent } from './MessageContent';
 
 interface ContentRendererProps {
@@ -17,6 +18,22 @@ interface ContentRendererProps {
 
 export const ContentRenderer: React.FC<ContentRendererProps> = (props) => {
     const { conversation, message } = props;
+
+    const appComponent = message.metadata?._appComponent;
+    if (appComponent) {
+        switch (appComponent.type) {
+            case 'AssistantCard':
+                return (
+                    <AssistantCard
+                        assistantServiceId={appComponent.props.assistantServiceId}
+                        templateId={appComponent.props.templateId}
+                        hideContent
+                    />
+                );
+            default:
+                return null;
+        }
+    }
 
     const messageContent = <MessageContent message={message} conversation={conversation} />;
 

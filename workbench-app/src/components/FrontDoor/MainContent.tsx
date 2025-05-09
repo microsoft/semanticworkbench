@@ -1,52 +1,19 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    Card,
-    CardHeader,
-    CardPreview,
-    makeStyles,
-    Menu,
-    MenuButtonProps,
-    MenuItem,
-    MenuList,
-    MenuPopover,
-    MenuTrigger,
-    shorthands,
-    SplitButton,
-    Subtitle2,
-    Title3,
-    tokens,
-} from '@fluentui/react-components';
-import { ChatAdd24Regular } from '@fluentui/react-icons';
+import { Button, makeStyles, shorthands, Subtitle2, Title3, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useCreateConversation } from '../../libs/useCreateConversation';
 import { useSiteUtility } from '../../libs/useSiteUtility';
-import { Assistant } from '../../models/Assistant';
 import { useAppSelector } from '../../redux/app/hooks';
 import { useGetAssistantServiceInfosQuery } from '../../services/workbench';
 import { ExperimentalNotice } from '../App/ExperimentalNotice';
 import { Loading } from '../App/Loading';
-import { MarkdownContentRenderer } from '../Conversations/ContentRenderers/MarkdownContentRenderer';
 import { ConversationsImport } from '../Conversations/ConversationsImport';
 import { Chat } from './Chat/Chat';
+import { AssistantCard } from './Controls/AssistantCard';
 import { NewConversationForm } from './Controls/NewConversationForm';
-
-interface CardContent {
-    contentType: string;
-    content: string;
-}
-
-interface DashboardCardConfig {
-    assistantServiceId: string;
-    templateId: string;
-    name: string;
-    backgroundColor: string;
-    cardContent: CardContent;
-    icon: string;
-}
 
 const useClasses = makeStyles({
     root: {
@@ -157,12 +124,8 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
     const siteUtility = useSiteUtility();
-    const { isFetching: createConversationIsFetching, assistants } = useCreateConversation();
-    const {
-        data: assistantServices,
-        isLoading: assistantServicesIsLoading,
-        isError: assistantServicesIsError,
-    } = useGetAssistantServiceInfosQuery({ userIds: ['me'] });
+    const { isFetching: createConversationIsFetching } = useCreateConversation();
+    const { data: assistantServices } = useGetAssistantServiceInfosQuery({ userIds: ['me'] });
 
     const classes = useClasses();
 
@@ -221,109 +184,19 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         [navigateToConversation],
     );
 
-    const handleQuickCreate = React.useCallback(
-        (assistant: Assistant) => {
-            return async () => {
-                await createConversationWithAssistant({
-                    assistantId: assistant.id,
-                });
-            };
-        },
-        [createConversationWithAssistant],
+    const uniqueAssistantTemplates = React.useMemo(
+        () =>
+            assistantServices
+                ?.flatMap((assistantService) => {
+                    return assistantService.templates.map((template) => ({
+                        assistantServiceId: assistantService.assistantServiceId,
+                        templateId: template.id,
+                        name: template.name,
+                    }));
+                })
+                .toSorted((a, b) => a.name.localeCompare(b.name)) ?? [],
+        [assistantServices],
     );
-
-    const quickAssistantCreateButton = React.useCallback(
-        (assistants: Assistant[] | undefined) => {
-            if (!assistants || assistants.length === 0) {
-                return <></>;
-            }
-            if (assistants.length === 1) {
-                return (
-                    <Button
-                        onClick={handleQuickCreate(assistants[0])}
-                        disabled={submitted}
-                        icon={<ChatAdd24Regular />}
-                    ></Button>
-                );
-            }
-            return (
-                <Menu positioning="below-end">
-                    <MenuTrigger disableButtonEnhancement>
-                        {(triggerProps: MenuButtonProps) => (
-                            <SplitButton
-                                menuButton={triggerProps}
-                                primaryActionButton={{
-                                    onClick: handleQuickCreate(assistants[0]),
-                                }}
-                                disabled={submitted}
-                                icon={<ChatAdd24Regular />}
-                            ></SplitButton>
-                        )}
-                    </MenuTrigger>
-
-                    <MenuPopover>
-                        <MenuList>
-                            {assistants.map((assistant) => (
-                                <MenuItem
-                                    key={assistant.id}
-                                    onClick={handleQuickCreate(assistant)}
-                                    disabled={submitted}
-                                >
-                                    {assistant.name}
-                                </MenuItem>
-                            ))}
-                        </MenuList>
-                    </MenuPopover>
-                </Menu>
-            );
-        },
-        [handleQuickCreate, submitted],
-    );
-
-    const getAssistants = React.useCallback(
-        (serviceId: string, templateId: string) => {
-            const matches = assistants?.filter(
-                (assistant) => assistant.assistantServiceId === serviceId && assistant.templateId === templateId,
-            );
-
-            if (matches && matches.length > 0) {
-                return matches;
-            }
-            return undefined;
-        },
-        [assistants],
-    );
-
-    const dashboardCards: DashboardCardConfig[] = React.useMemo(() => {
-        if (assistantServicesIsLoading || assistantServicesIsError || !assistantServices) {
-            return [];
-        }
-        return assistantServices
-            .filter((service) => service.metadata._dashboard_card)
-            .flatMap((service) => {
-                const templateConfigs = service.metadata._dashboard_card;
-                const results = Object.keys(templateConfigs)
-                    .filter((templateId) => templateConfigs[templateId].enabled)
-                    .map((templateId) => {
-                        const cardConfig = {
-                            templateId: templateId,
-                            assistantServiceId: service.assistantServiceId,
-                            name:
-                                service.templates.find((template) => template.id === templateId)?.name ||
-                                service.assistantServiceId,
-                            icon: templateConfigs[templateId].icon,
-                            backgroundColor: templateConfigs[templateId].background_color,
-                            cardContent: {
-                                contentType: templateConfigs[templateId].card_content.content_type,
-                                content: templateConfigs[templateId].card_content.content,
-                            },
-                        };
-                        return cardConfig;
-                    });
-                return results;
-            })
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [assistantServices, assistantServicesIsLoading, assistantServicesIsError]);
 
     if (activeConversationId) {
         return <Chat conversationId={activeConversationId} headerBefore={headerBefore} headerAfter={headerAfter} />;
@@ -347,38 +220,13 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                             <Title3>Choose an assistant</Title3>
                         </div>
                         <div className={classes.cards}>
-                            {dashboardCards.map((card) => {
-                                if (!getAssistants(card.assistantServiceId, card.templateId)) return null;
-                                return (
-                                    <Card
-                                        key={card.assistantServiceId + '/' + card.templateId}
-                                        className={classes.card}
-                                        appearance="filled"
-                                    >
-                                        <CardHeader
-                                            image={<img src={card.icon} alt="Assistant Icon" />}
-                                            header={
-                                                <div className={classes.cardHeaderBody}>
-                                                    <Title3>{card.name}</Title3>
-
-                                                    {quickAssistantCreateButton(
-                                                        getAssistants(card.assistantServiceId, card.templateId),
-                                                    )}
-                                                </div>
-                                            }
-                                            className={classes.cardHeader}
-                                            style={{ backgroundColor: card.backgroundColor }}
-                                        ></CardHeader>
-                                        <CardPreview className={classes.cardPreview}>
-                                            {card.cardContent.contentType === 'text/markdown' ? (
-                                                <MarkdownContentRenderer content={card.cardContent.content} />
-                                            ) : (
-                                                card.cardContent.content
-                                            )}
-                                        </CardPreview>
-                                    </Card>
-                                );
-                            })}
+                            {uniqueAssistantTemplates?.map((ids) => (
+                                <AssistantCard
+                                    key={ids.assistantServiceId + '/' + ids.templateId}
+                                    assistantServiceId={ids.assistantServiceId}
+                                    templateId={ids.templateId}
+                                />
+                            ))}
                         </div>
                         <div className={classes.form}>
                             <Subtitle2>Or pick from your list of assistants:</Subtitle2>

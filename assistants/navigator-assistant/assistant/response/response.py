@@ -25,6 +25,7 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ..config import AssistantConfigModel
+from .local_tool import add_assistant_to_conversation_tool
 from .local_tool.list_assistant_services import get_assistant_services
 from .step_handler import next_step
 from .utils import get_ai_client_configs
@@ -143,7 +144,7 @@ async def respond_to_conversation(
                 attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
-                local_tools=[],
+                local_tools=[add_assistant_to_conversation_tool],
                 system_message_content=combined_prompt(
                     config.prompts.instruction_prompt,
                     'Your name is "{context.assistant.name}".',

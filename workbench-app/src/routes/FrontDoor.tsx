@@ -1,4 +1,13 @@
-import { Button, Drawer, DrawerBody, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import {
+    Button,
+    Drawer,
+    DrawerBody,
+    Link,
+    makeStyles,
+    mergeClasses,
+    shorthands,
+    tokens,
+} from '@fluentui/react-components';
 import { ChatAddRegular, PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useDispatch } from 'react-redux';
@@ -123,7 +132,11 @@ export const FrontDoor: React.FC = () => {
     }, [navigate]);
 
     const newConversationButton = React.useMemo(
-        () => <Button title="New Conversation" icon={<ChatAddRegular />} onClick={handleNewConversation} />,
+        () => (
+            <Link href="/" onClick={(event) => event.preventDefault()}>
+                <Button title="New Conversation" icon={<ChatAddRegular />} onClick={handleNewConversation} />
+            </Link>
+        ),
         [handleNewConversation],
     );
 
