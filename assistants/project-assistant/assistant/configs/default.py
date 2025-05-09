@@ -39,6 +39,14 @@ class RequestConfig(BaseModel):
         ),
     ] = 8_000
 
+    coordinator_conversation_token_limit: Annotated[
+        int,
+        Field(
+            title="Coordinator Conversation Token Limit",
+            description="The maximum number of tokens to use for the coordinator conversation history."
+        ),
+    ] = 4000
+
     openai_model: Annotated[
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),

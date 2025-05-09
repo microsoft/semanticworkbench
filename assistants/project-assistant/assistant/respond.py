@@ -282,23 +282,20 @@ async def respond_to_conversation(
     # Get the coordinator conversation and add it as an attachment.
     coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
     if coordinator_conversation:
-        # Limit messages to a max token count.
-        COORDINATOR_CONVERSATION_TOKEN_LIMIT = 4000
+        # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
         selected_coordinator_conversation_messages: List[CoordinatorConversationMessage] = []
         for msg in reversed(coordinator_conversation.messages):
             tokens = openai_client.num_tokens_from_string(
                 message.model_dump_json(), model=config.request_config.openai_model
             )
-            if total_coordinator_conversation_tokens + tokens > COORDINATOR_CONVERSATION_TOKEN_LIMIT:
+            if (
+                total_coordinator_conversation_tokens + tokens
+                > config.request_config.coordinator_conversation_token_limit
+            ):
                 break
             selected_coordinator_conversation_messages.append(msg)
             total_coordinator_conversation_tokens += tokens
-
-            total_coordinator_conversation_tokens += tokens
-            if total_coordinator_conversation_tokens > COORDINATOR_CONVERSATION_TOKEN_LIMIT:
-                break
-            selected_coordinator_conversation_messages.append(msg)
 
         # Create a new coordinator conversation system message with the selected messages.
         class CoordinatorMessageList(BaseModel):
