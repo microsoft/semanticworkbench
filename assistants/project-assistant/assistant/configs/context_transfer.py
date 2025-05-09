@@ -2,6 +2,7 @@ from textwrap import dedent
 from typing import Annotated
 
 from pydantic import Field
+from semantic_workbench_assistant.config import UISchema
 
 from ..utils import load_text_include
 from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, TeamConfig
@@ -58,6 +59,15 @@ class ContextTransferPromptConfig(PromptConfig):
         ),
     ] = load_text_include("context_transfer_information_request_detection.txt")
 
+    welcome_message_generation: Annotated[
+        str,
+        Field(
+            title="Welcome Message generation prompt",
+            description="The prompt used to generate a welcome message for new team conversations.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("context_transfer_welcome_message_generation.txt")
+
 
 class ContextTransferCoordinatorConfig(CoordinatorConfig):
     """Coordinator configuration specific to context transfer template."""
@@ -87,7 +97,7 @@ What knowledge would you like to transfer today?"""
 class ContextTransferTeamConfig(TeamConfig):
     """Team configuration specific to context transfer template."""
 
-    welcome_message: Annotated[
+    default_welcome_message: Annotated[
         str,
         Field(
             title="Context Transfer Team Welcome Message",
@@ -97,6 +107,9 @@ class ContextTransferTeamConfig(TeamConfig):
 
 
 class ContextTransferConfigModel(AssistantConfigModel):
+    project_or_context: Annotated[str, UISchema(widget="hidden")] = "context"
+    Project_or_Context: Annotated[str, UISchema(widget="hidden")] = "Context"
+
     prompt_config: Annotated[
         PromptConfig,
         Field(

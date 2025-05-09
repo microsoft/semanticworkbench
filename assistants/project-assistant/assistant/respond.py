@@ -138,10 +138,10 @@ async def respond_to_conversation(
     project_info_text = ""
     if project_info:
         project_info_text = dedent(f"""
-            ### PROJECT INFO
+            ### {config.project_or_context.upper()} INFO
             **Current State:** {project_info.state.value}
 
-            **Full project info**
+            **Full {config.project_or_context} info**
             ```json
             {project_info.model_dump_json(indent=2)}
             ```
@@ -150,14 +150,14 @@ async def respond_to_conversation(
             project_info_text += f"**Status Message:** {project_info.status_message}\n"
         project_data["info"] = project_info_text
 
-    # Project brief
+    # Brief
     briefing = ProjectStorage.read_project_brief(project_id)
     project_brief_text = ""
     if briefing:
         project_brief_text = dedent(f"""
-            ### PROJECT BRIEF
-            **Name:** {briefing.project_name}
-            **Description:** {briefing.project_description}
+            ### {config.project_or_context.upper()} BRIEF
+            **Title:** {briefing.title}
+            **Description:** {briefing.description}
             """)
         project_data["briefing"] = project_brief_text
 
@@ -183,15 +183,15 @@ async def respond_to_conversation(
     whiteboard = ProjectStorage.read_project_whiteboard(project_id)
     if whiteboard and whiteboard.content:
         whiteboard_text = dedent(f"""
-            ### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
-            The whiteboard contains critical project information that has been automatically extracted from previous conversations.
+            ### ASSISTANT WHITEBOARD - KEY {config.project_or_context.upper()} INFORMATION
+            The whiteboard contains critical {config.project_or_context} information that has been automatically extracted from previous conversations.
             It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
 
             Key characteristics of this whiteboard:
-            - It contains the most essential information about the project that should be readily available
-            - It has been automatically curated to focus on high-value content relevant to the project
+            - It contains the most essential information about the {config.project_or_context} that should be readily available
+            - It has been automatically curated to focus on high-value content relevant to the {config.project_or_context}
             - It is maintained and updated as the conversation progresses
-            - It should be treated as a trusted source of contextual information for this project
+            - It should be treated as a trusted source of contextual information for this {config.project_or_context}
 
             When using the whiteboard:
             - Prioritize this information when addressing questions or providing updates
@@ -254,7 +254,9 @@ async def respond_to_conversation(
                 project_data["information_requests"] = information_requests_info
 
     # Add project data to system message.
-    project_info = "\n\n## CURRENT PROJECT INFORMATION\n\n" + "\n".join(project_data.values())
+    project_info = f"\n\n## CURRENT {config.project_or_context.upper()} INFORMATION\n\n" + "\n".join(
+        project_data.values()
+    )
     system_message_content += f"\n\n{project_info}"
 
     # Finally, create the full system message.
@@ -460,7 +462,7 @@ async def respond_to_conversation(
 
             suggestion = (
                 f"**Information Request Detected**\n\n"
-                f"It appears that you might need information from the Coordinator. {reason}\n\n"
+                f"It appears that you might need information from the {config.project_or_context} coordinator. {reason}\n\n"
                 f"Would you like me to create an information request?\n"
                 f"**Title:** {suggested_title}\n"
                 f"**Description:** {potential_description}\n"

@@ -7,7 +7,7 @@ This module provides the core business logic for working with project data
 import re
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import (
@@ -77,10 +77,9 @@ class ProjectManager:
         Args:
             context: Current conversation context
             project_id: ID of the project
-            project_name: Name of the project
 
         Returns:
-            share_url: URL for joining the project and creating a team conversation
+            share_url: URL for joining a team conversation
         """
 
         # Get the current user ID to set as owner
@@ -303,9 +302,8 @@ class ProjectManager:
     @staticmethod
     async def update_project_brief(
         context: ConversationContext,
-        project_name: str,
-        project_description: str,
-        goals: Optional[List[Dict]] = None,
+        title: str,
+        description: str,
         timeline: Optional[str] = None,
         additional_context: Optional[str] = None,
         send_notification: bool = True,
@@ -318,10 +316,9 @@ class ProjectManager:
         Goals should be managed separately through add_project_goal and are not handled by this method.
 
         Args:
-            context: Current conversation context
-            project_name: Short, descriptive name for the project
-            project_description: Comprehensive description of the project's purpose
-            goals: DEPRECATED - Ignored parameter, use add_project_goal instead
+            context: A reference to the conversation context object
+            title: Short, descriptive name for the project
+            description: Comprehensive description of the project's purpose
             timeline: Optional information about project timeline/deadlines
             additional_context: Optional additional information relevant to the project
             send_notification: Whether to send a notification about the brief update (default: True)
@@ -339,37 +336,16 @@ class ProjectManager:
         if not current_user_id:
             return
 
-        # Create project goals
-        project_goals = []
-        if goals:
-            for i, goal_data in enumerate(goals):
-                goal = ProjectGoal(
-                    name=goal_data.get("name", f"Goal {i + 1}"),
-                    description=goal_data.get("description", ""),
-                    priority=goal_data.get("priority", i + 1),
-                    success_criteria=[],
-                )
-
-                # Add success criteria
-                criteria = goal_data.get("success_criteria", [])
-                for criterion in criteria:
-                    goal.success_criteria.append(SuccessCriterion(description=criterion))
-
-                project_goals.append(goal)
-
         # Create the project brief
         brief = ProjectBrief(
-            project_name=project_name,
-            project_description=project_description,
+            title=title,
+            description=description,
             timeline=timeline,
             additional_context=additional_context,
             created_by=current_user_id,
             updated_by=current_user_id,
             conversation_id=str(context.id),
         )
-
-        # We're only updating the brief here, not touching the goals
-        # Goals should be managed separately through dedicated methods
 
         # Save the brief
         ProjectStorage.write_project_brief(project_id, brief)
@@ -382,7 +358,7 @@ class ProjectManager:
                 context=context,
                 project_id=project_id,
                 entry_type=LogEntryType.BRIEFING_UPDATED.value,
-                message=f"Updated project brief: {project_name}",
+                message=f"Updated brief: {title}",
             )
         else:
             # This is a creation
@@ -390,7 +366,7 @@ class ProjectManager:
                 context=context,
                 project_id=project_id,
                 entry_type=LogEntryType.BRIEFING_CREATED.value,
-                message=f"Created project brief: {project_name}",
+                message=f"Created brief: {title}",
             )
 
         # Only notify if send_notification is True
@@ -400,7 +376,7 @@ class ProjectManager:
                 context=context,
                 project_id=project_id,
                 update_type="brief",
-                message=f"Project brief created: {project_name}",
+                message=f"Brief created: {title}",
             )
 
         return brief

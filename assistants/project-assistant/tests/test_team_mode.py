@@ -132,10 +132,10 @@ class ProjectGoal:
 
 
 class ProjectBrief(BaseArtifact):
-    def __init__(self, project_name=None, project_description=None, goals=None, **kwargs):
+    def __init__(self, title=None, description=None, goals=None, **kwargs):
         super().__init__(artifact_type=ArtifactType.PROJECT_BRIEF, **kwargs)
-        self.project_name = project_name or "Test Project"
-        self.project_description = project_description or "Test Description"
+        self.title = title or "Test Project"
+        self.description = description or "Test Description"
         self.goals = goals or []
 
 
@@ -264,8 +264,8 @@ class MockTeamConversationHandler:
             "has_project": True,
             "project_id": "test-project-id",
             "role": "team",
-            "project_name": "Test Project",
-            "project_description": "A test project",
+            "title": "Test Project",
+            "description": "A test project",
             "status": "in_progress",
             "progress": 50,
             "open_requests": 0,
@@ -399,6 +399,6 @@ class TestTeamConversationHandler:
         assert project_info["has_project"] is True
         assert project_info["project_id"] == "test-project-id"
         assert project_info["role"] == "team"
-        assert project_info["project_name"] == "Test Project"
+        assert project_info["title"] == "Test Project"
         assert project_info["status"] == "in_progress"
         assert project_info["progress"] == 50

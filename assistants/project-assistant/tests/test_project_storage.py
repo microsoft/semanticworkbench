@@ -14,6 +14,7 @@ from assistant.project_data import (
     InformationRequest,
     LogEntry,
     LogEntryType,
+    Project,
     ProjectBrief,
     ProjectGoal,
     ProjectInfo,
@@ -22,7 +23,6 @@ from assistant.project_data import (
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
-    Project,
 )
 from assistant.project_storage import ProjectStorage, ProjectStorageManager
 from assistant.project_storage_models import (
@@ -77,7 +77,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Mock send_conversation_state_event
         self.context.send_conversation_state_event = unittest.mock.AsyncMock()
-        
+
         # Mock get_participants with the correct structure
         participants_mock = unittest.mock.MagicMock()
         participants_mock.participants = []
@@ -121,13 +121,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         brief = ProjectBrief(
-            project_name="Test Project",
-            project_description="Test project description",
+            title="Test Project",
+            description="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
         )
-        
+
         # Create a Project with the goal
         project = Project(
             info=None,
@@ -135,7 +135,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             goals=[test_goal],
             whiteboard=None,
         )
-        
+
         # Write the project to storage
         project_path = ProjectStorageManager.get_project_path(self.project_id)
         project_path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,9 +184,9 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         # Verify the brief was loaded correctly
         self.assertIsNotNone(brief, "Should load the brief")
         if brief:  # Type checking guard
-            self.assertEqual(brief.project_name, "Test Project")
-            self.assertEqual(brief.project_description, "Test project description")
-        
+            self.assertEqual(brief.title, "Test Project")
+            self.assertEqual(brief.description, "Test project description")
+
         # Verify the project was loaded with goals correctly
         self.assertIsNotNone(project, "Should load the project")
         if project:  # Type checking guard
@@ -450,13 +450,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             related_entity_id="test-entity-id",
             metadata={"test": "metadata"},
         )
-        
+
         # Create a log with the entry
         log = ProjectLog(entries=[log_entry])
-        
+
         # Write the log directly
         ProjectStorage.write_project_log(self.project_id, log)
-        
+
         # Read the log back
         read_log = ProjectStorage.read_project_log(self.project_id)
         self.assertIsNotNone(read_log, "Should load the log")

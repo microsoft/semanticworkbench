@@ -149,7 +149,7 @@ projects/
 │   │   ├── request_id_1.json         # Individual request files
 │   │   └── request_id_2.json         # Each with a unique UUID
 │   ├── project.json                  # Core project information
-│   ├── brief.json                    # Project brief data
+│   ├── brief.json                    # Brief data
 │   ├── whiteboard.json               # Automatically updated knowledge content
 │   ├── log.json                      # Chronological event log
 │   └── coordinator_conversation.json # Recent coordinator messages for team access
@@ -166,6 +166,7 @@ Additionally, conversation-specific data is stored in the assistant library's co
 ```
 
 Key implementation details:
+
 - Using the assistant library's `storage_directory_for_context()` to generate unique storage paths
 - Storing Pydantic models via the library's `read_model()` and `write_model()` functions
 - Each project gets a unique folder containing all shared project data

@@ -7,7 +7,7 @@ The Project Assistant helps teams collaborate effectively by providing a structu
 ## Key Features
 
 - **Dual-role collaboration**: Separate interfaces for the project coordinator and team members.
-- **Project brief creation**: Define clear project goals and measurable success criteria.
+- **Brief creation**: Define clear project goals and measurable success criteria.
 - **Auto-updating project whiteboard**: Dynamically captures key project information from conversations.
 - **Goal tracking**: Monitor progress towards project completion with measurable criteria.
 - **Information requests**: Team members can request information or assistance from coordinators.
@@ -18,7 +18,7 @@ The Project Assistant helps teams collaborate effectively by providing a structu
 
 ### For Project Coordinators
 
-1. **Create a project brief**: Start by creating a project with a name and description using the assistant.
+1. **Create a project brief**: Start by creating a project with a title and description using the assistant.
 2. **Define goals and success criteria**: Add specific project goals, each with measurable success criteria.
 3. **Share with team**: Generate an invitation link to share with team members.
 4. **Mark project ready**: Indicate when the project definition is complete and ready for team operations.

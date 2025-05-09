@@ -221,10 +221,13 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 project_id = await ProjectManager.create_project(context)
 
                 # A basic brief to start with.
+
                 await ProjectManager.update_project_brief(
                     context=context,
-                    project_name=f"New {'Context' if is_context_transfer_assistant else 'Project'}",
-                    project_description="The brief is a place for you to craft some information to be shared with others. Before you invite your team, ask your assistant to update the brief with whatever details you'd like here.",
+                    title=f"New {config.Project_or_Context}",
+                    description="_This context brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the context you are sharing?_"
+                    if is_context_transfer_assistant
+                    else "_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
                 )
 
                 # Create a team conversation with a share URL

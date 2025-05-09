@@ -10,10 +10,10 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion, Project
-from assistant.project_manager import ProjectManager
 from assistant.conversation_project_link import ConversationProjectManager
-from assistant.project_storage import ProjectStorageManager, ProjectStorage
+from assistant.project_data import Project, ProjectBrief, ProjectGoal, SuccessCriterion
+from assistant.project_manager import ProjectManager
+from assistant.project_storage import ProjectStorage, ProjectStorageManager
 from assistant.project_storage_models import ConversationRole
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import read_model, write_model
@@ -87,7 +87,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         self.patches.append(patch3)
 
         # Create a test brief
-        self.project_name = "Test Project"
+        self.title = "Test Project"
         self.create_test_brief()
 
     async def asyncTearDown(self):
@@ -112,13 +112,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         brief = ProjectBrief(
-            project_name=self.project_name,
-            project_description="Test project description",
+            title=self.title,
+            description="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
         )
-        
+
         # Create a project with the goal
         project = Project(
             info=None,
@@ -126,7 +126,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             goals=[test_goal],
             whiteboard=None,
         )
-        
+
         # Write the project to storage
         project_path = ProjectStorageManager.get_project_path(self.project_id)
         project_path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,9 +151,9 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             # Verify the brief was loaded correctly
             self.assertIsNotNone(brief, "Should load the brief")
             if brief:  # Type checking guard
-                self.assertEqual(brief.project_name, self.project_name)
+                self.assertEqual(brief.title, self.title)
                 self.assertEqual(brief.conversation_id, self.conversation_id)
-            
+
             # Verify the project goals were loaded correctly
             self.assertIsNotNone(project, "Should load the project")
             if project:  # Type checking guard
@@ -171,16 +171,16 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         # Verify we got the correct brief
         self.assertIsNotNone(brief, "Should load the brief directly")
         if brief:  # Type checking guard
-            self.assertEqual(brief.project_name, self.project_name)
+            self.assertEqual(brief.title, self.title)
 
             # Test updating the brief
-            brief.project_name = "Updated Project Name"
+            brief.title = "Updated Project Title"
             write_model(brief_path, brief)
 
             # Read it back to verify the update
             updated_brief = read_model(brief_path, ProjectBrief)
             if updated_brief:  # Type checking guard
-                self.assertEqual(updated_brief.project_name, "Updated Project Name")
+                self.assertEqual(updated_brief.title, "Updated Project Title")
 
 
 if __name__ == "__main__":
