@@ -155,7 +155,7 @@ async def handle_completion(
         await context.send_messages(
             NewConversationMessage(
                 content=content,
-                message_type=MessageType.chat,
+                message_type=MessageType.chat if content else MessageType.log,
                 metadata=step_result.metadata,
             )
         )
@@ -245,7 +245,7 @@ async def handle_completion(
         await context.send_messages(
             NewConversationMessage(
                 content=content,
-                message_type=MessageType.note,
+                message_type=MessageType.log,
                 metadata=step_result.metadata,
             )
         )
