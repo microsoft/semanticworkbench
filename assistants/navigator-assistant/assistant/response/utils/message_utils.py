@@ -128,32 +128,30 @@ async def conversation_message_to_chat_message_params(
     chat_message_params: list[ChatCompletionMessageParam] = []
 
     # add the message to list, treating messages from a source other than this assistant as a user message
-    if message.message_type == MessageType.note:
-        # we are stuffing tool messages into the note message type, so we need to check for that
-        tool_message = conversation_message_to_tool_message(message)
-        if tool_message is not None:
-            chat_message_params.append(tool_message)
-        else:
-            logger.warning(f"Failed to convert tool message to completion message: {message}")
+    match message.sender.participant_id:
+        case context.assistant.id:
+            # we are stuffing tool messages into the note message type, so we need to check for that
+            tool_message = conversation_message_to_tool_message(message)
+            if tool_message is not None:
+                chat_message_params.append(tool_message)
+            else:
+                # add the assistant message to the completion messages
+                assistant_message = conversation_message_to_assistant_message(message, participants)
+                chat_message_params.append(assistant_message)
 
-    elif message.sender.participant_id == context.assistant.id:
-        # add the assistant message to the completion messages
-        assistant_message = conversation_message_to_assistant_message(message, participants)
-        chat_message_params.append(assistant_message)
+        case _:
+            # add the user message to the completion messages
+            user_message = conversation_message_to_user_message(message, participants)
+            chat_message_params.append(user_message)
 
-    else:
-        # add the user message to the completion messages
-        user_message = conversation_message_to_user_message(message, participants)
-        chat_message_params.append(user_message)
-
-        # add the attachment message to the completion messages
-        if message.filenames and len(message.filenames) > 0:
-            # add a system message to indicate the attachments
-            chat_message_params.append(
-                ChatCompletionSystemMessageParam(
-                    role="system", content=f"Attachment(s): {', '.join(message.filenames)}"
+            # add the attachment message to the completion messages
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                chat_message_params.append(
+                    ChatCompletionSystemMessageParam(
+                        role="system", content=f"Attachment(s): {', '.join(message.filenames)}"
+                    )
                 )
-            )
 
     return chat_message_params
 
@@ -180,7 +178,7 @@ async def get_history_messages(
     while True:
         # get the next batch of messages, including chat and tool result messages
         messages_response = await context.get_messages(
-            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note]
+            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note, MessageType.log]
         )
         messages_list = messages_response.messages
 
@@ -193,6 +191,10 @@ async def get_history_messages(
 
         # messages are returned in reverse order, so we need to reverse them
         for message in reversed(messages_list):
+            # skip appComponent messages
+            if message.metadata.get("_appComponent"):
+                continue
+
             # format the message
             formatted_message_list = await conversation_message_to_chat_message_params(context, message, participants)
             formatted_messages_token_count = openai_client.num_tokens_from_messages(formatted_message_list, model=model)

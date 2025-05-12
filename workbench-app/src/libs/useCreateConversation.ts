@@ -70,14 +70,18 @@ export const useCreateConversation = () => {
 
     const create = React.useCallback(
         async (
-            assistantInfo:
+            conversationInfo:
                 | {
                       assistantId: string;
+                      conversationMetadata?: { [key: string]: any };
+                      additionalAssistantIds?: string[];
                   }
                 | {
                       name: string;
                       assistantServiceId: string;
                       templateId: string;
+                      conversationMetadata?: { [key: string]: any };
+                      additionalAssistantIds?: string[];
                   },
         ) => {
             if (assistantsLoading || assistantServicesLoading || myAssistantServicesLoading) {
@@ -86,15 +90,15 @@ export const useCreateConversation = () => {
 
             let assistant: Assistant | undefined = undefined;
 
-            const conversation = await createConversation({}).unwrap();
+            const conversation = await createConversation({ metadata: conversationInfo.conversationMetadata }).unwrap();
 
-            if ('assistantId' in assistantInfo) {
-                assistant = assistants?.find((a) => a.id === assistantInfo.assistantId);
+            if ('assistantId' in conversationInfo) {
+                assistant = assistants?.find((a) => a.id === conversationInfo.assistantId);
                 if (!assistant) {
                     throw new Error('Assistant not found');
                 }
             } else {
-                const { name, assistantServiceId, templateId } = assistantInfo;
+                const { name, assistantServiceId, templateId } = conversationInfo;
 
                 assistant = await createAssistant({
                     name,
@@ -104,6 +108,11 @@ export const useCreateConversation = () => {
                 await refetchAssistants();
             }
 
+            const additionalAssistants =
+                conversationInfo.additionalAssistantIds
+                    ?.map((assistantId) => assistants?.find((a) => a.id === assistantId))
+                    .filter((a) => a !== undefined) || [];
+
             // send event to notify the conversation that the user has joined
             await createConversationMessage({
                 conversationId: conversation.id,
@@ -111,17 +120,19 @@ export const useCreateConversation = () => {
                 messageType: 'notice',
             });
 
-            // send notice message first, to announce before assistant reacts to create event
-            await createConversationMessage({
-                conversationId: conversation.id,
-                content: `${assistant.name} added to conversation`,
-                messageType: 'notice',
-            });
+            for (const assistantToAdd of [assistant, ...additionalAssistants]) {
+                // send notice message first, to announce before assistant reacts to create event
+                await createConversationMessage({
+                    conversationId: conversation.id,
+                    content: `${assistantToAdd.name} added to conversation`,
+                    messageType: 'notice',
+                });
 
-            await addConversationParticipant({
-                conversationId: conversation.id,
-                participantId: assistant.id,
-            });
+                await addConversationParticipant({
+                    conversationId: conversation.id,
+                    participantId: assistantToAdd.id,
+                });
+            }
 
             return {
                 assistant,

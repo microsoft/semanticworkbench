@@ -119,15 +119,26 @@ async def respond_to_conversation(
             step_count += 1
 
             # Check to see if we should interrupt our flow
-            last_message = await context.get_messages(limit=1, message_types=[MessageType.chat])
+            last_message = await context.get_messages(limit=1, message_types=[MessageType.chat, MessageType.command])
 
-            if step_count > 1 and last_message.messages[0].sender.participant_id != context.assistant.id:
+            if (
+                step_count > 1
+                and last_message.messages[0].sender.participant_id != context.assistant.id
+                and last_message.messages[0].id != message.id
+            ):
                 # The last message was from a sender other than the assistant, so we should
                 # interrupt our flow as this would have kicked off a new response from this
                 # assistant with the new message in mind and that process can decide if it
                 # should continue with the current flow or not.
                 interrupted = True
                 logger.info("Response interrupted.")
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="Response interrupted due to new message.",
+                        message_type=MessageType.notice,
+                        metadata=metadata,
+                    )
+                )
                 break
 
             # Reconnect to the MCP servers if they were disconnected
@@ -195,8 +206,14 @@ async def respond_to_conversation(
             )
             logger.info("Response stopped early due to maximum steps.")
 
-    # Log the completion of the response
-    logger.info("Response completed.")
+        # Log the completion of the response
+        logger.info(
+            "Response completed; interrupted: %s, completed_within_max_steps: %s, encountered_error: %s, step_count: %d",
+            interrupted,
+            completed_within_max_steps,
+            encountered_error,
+            step_count,
+        )
 
 
 def conditional_prompt(condition: bool, content: Callable[[], str]) -> str:

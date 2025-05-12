@@ -5,6 +5,7 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
+import io
 import logging
 import pathlib
 from typing import Any
@@ -214,6 +215,57 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
+
+    # hand the conversation off to the assistant if this conversation was spawned from another conversation
+    conversation = await context.get_conversation()
+    navigator_handoff = conversation.metadata.get("_navigator_handoff")
+
+    if navigator_handoff:
+        async with context.set_status("handing off..."):
+            spawned_from_conversation_id = navigator_handoff.get("spawned_from_conversation_id")
+            source_context = context.for_conversation(spawned_from_conversation_id)
+            files_to_copy = navigator_handoff.get("files_to_copy")
+            if files_to_copy:
+                for filename in files_to_copy:
+                    buffer = io.BytesIO()
+                    file = await source_context.get_file(filename)
+                    if not file:
+                        continue
+
+                    async with source_context.read_file(filename) as reader:
+                        async for chunk in reader:
+                            buffer.write(chunk)
+
+                    await context.write_file(filename, buffer, file.content_type)
+
+            introduction_message = navigator_handoff.get("introduction_message")
+            await context.send_messages([
+                NewConversationMessage(
+                    content=introduction_message,
+                    message_type=MessageType.chat,
+                ),
+                NewConversationMessage(
+                    content=f"{context.assistant.name} left the conversation.",
+                    message_type=MessageType.note,
+                ),
+            ])
+
+        await context.update_participant_me(
+            UpdateParticipant(
+                active_participant=False,
+            )
+        )
+
+        return
+
+    participants_response = await context.get_participants()
+    other_assistants_in_conversation = any(
+        participant
+        for participant in participants_response.participants
+        if participant.role == ParticipantRole.assistant and participant.id != context.assistant.id
+    )
+    if other_assistants_in_conversation:
+        return
 
     assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
     welcome_sent_before = len(assistant_sent_messages.messages) > 0

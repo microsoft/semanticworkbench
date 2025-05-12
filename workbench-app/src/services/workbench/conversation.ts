@@ -62,7 +62,15 @@ export const conversationApi = workbenchApi.injectEndpoints({
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
         getConversationMessages: builder.query<ConversationMessage[], GetConversationMessagesProps>({
-            query: ({ conversationId, messageTypes, participantRoles, participantIds, before, after, limit }) => {
+            query: ({
+                conversationId,
+                messageTypes = ['chat', 'log', 'note', 'notice', 'command', 'command-response'],
+                participantRoles,
+                participantIds,
+                before,
+                after,
+                limit,
+            }) => {
                 const params = new URLSearchParams();
 
                 // Append parameters to the query string, one by one for arrays
@@ -88,7 +96,15 @@ export const conversationApi = workbenchApi.injectEndpoints({
         }),
         getAllConversationMessages: builder.query<ConversationMessage[], GetConversationMessagesProps>({
             async queryFn(
-                { conversationId, messageTypes, participantRoles, participantIds, before, after, limit },
+                {
+                    conversationId,
+                    messageTypes = ['chat', 'log', 'note', 'notice', 'command', 'command-response'],
+                    participantRoles,
+                    participantIds,
+                    before,
+                    after,
+                    limit,
+                },
                 _queryApi,
                 _extraOptions,
                 fetchWithBQ,

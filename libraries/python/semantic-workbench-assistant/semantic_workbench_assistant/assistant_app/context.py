@@ -35,6 +35,16 @@ class ConversationContext:
     _status_stack: list[str | None] = field(default_factory=list)
     _prior_status: str | None = field(default=None)
 
+    def for_conversation(
+        self,
+        conversation_id: str,
+    ) -> "ConversationContext":
+        return ConversationContext(
+            id=conversation_id,
+            title="",
+            assistant=self.assistant,
+        )
+
     @property
     def _conversation_client(
         self,

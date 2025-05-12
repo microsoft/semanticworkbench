@@ -75,11 +75,13 @@ const useClasses = makeStyles({
 interface AssistantCardProps {
     assistantServiceId: string;
     templateId: string;
+    newConversationMetadata?: { [key: string]: any };
     hideContent?: boolean;
+    includeAssistantIds?: string[];
 }
 
 export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
-    const { assistantServiceId, templateId, hideContent } = props;
+    const { assistantServiceId, templateId, hideContent, newConversationMetadata, includeAssistantIds } = props;
     const { isFetching: createConversationIsFetching, assistants } = useCreateConversation();
     const {
         data: assistantServices,
@@ -97,14 +99,18 @@ export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
             return async () => {
                 setSubmitted(true);
                 try {
-                    const { conversation } = await createConversation({ assistantId });
+                    const { conversation } = await createConversation({
+                        assistantId,
+                        conversationMetadata: newConversationMetadata,
+                        additionalAssistantIds: includeAssistantIds,
+                    });
                     navigateToConversation(conversation.id);
                 } finally {
                     setSubmitted(false);
                 }
             };
         },
-        [createConversation, navigateToConversation],
+        [createConversation, navigateToConversation, newConversationMetadata, includeAssistantIds],
     );
 
     const quickAssistantCreateButton = React.useCallback(

@@ -101,6 +101,7 @@ export const DebugInspector: React.FC<DebugInspectorProps> = (props) => {
                                     ['image_url'],
                                     // Reversed from ['tools', 'parameters'] to match keyPath order
                                     ['parameters', 'tools'],
+                                    ['message'],
                                 ];
 
                                 // Check if the current node should be kept collapsed

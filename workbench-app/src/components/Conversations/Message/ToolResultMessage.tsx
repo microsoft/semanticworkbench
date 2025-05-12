@@ -94,7 +94,10 @@ export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
             </Accordion>
             <div className={classes.actions}>
                 <DebugInspector
-                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                    debug={{
+                        debug: message.hasDebugData ? debugData?.debugData || { loading: true } : null,
+                        message: message,
+                    }}
                     loading={isLoadingDebugData || isUninitializedDebugData}
                     onOpen={() => {
                         setSkipDebugLoad(false);
