@@ -331,7 +331,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                 participants.push(me);
             }
         }
-        const others = conversation.participants.filter((participant) => !participants.includes(participant));
+        const others = conversation.participants
+            .filter((participant) => !participants.includes(participant))
+            .filter((participant) => participant.active);
         participants.push(...others);
         return participants;
     }, [getOwnerParticipant, conversation, wasSharedWithMe, localUserId]);
