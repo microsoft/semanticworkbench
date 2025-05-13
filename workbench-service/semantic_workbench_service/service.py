@@ -104,7 +104,7 @@ def init(
     conversation_sse_queues: dict[uuid.UUID, set[asyncio.Queue[ConversationEvent]]] = defaultdict(set)
 
     user_sse_queues_lock = asyncio.Lock()
-    user_sse_queues: dict[str, set[asyncio.Queue[uuid.UUID]]] = defaultdict(set)
+    user_sse_queues: dict[str, set[asyncio.Queue[ConversationEvent]]] = defaultdict(set)
 
     assistant_event_queues: dict[uuid.UUID, asyncio.Queue[ConversationEvent]] = {}
 
@@ -177,9 +177,7 @@ def init(
                 ConversationEventType.participant_created,
                 ConversationEventType.participant_updated,
             ]:
-                task = asyncio.create_task(
-                    _notify_user_event(queue_item.event.conversation_id), name="notify_user_event"
-                )
+                task = asyncio.create_task(_notify_user_event(queue_item.event), name="notify_user_event")
                 background_tasks.add(task)
                 task.add_done_callback(background_tasks.discard)
 
@@ -218,14 +216,14 @@ def init(
                     assistant_id,
                 )
 
-    async def _notify_user_event(conversation_id: uuid.UUID) -> None:
+    async def _notify_user_event(event: ConversationEvent) -> None:
         listening_user_ids = set(user_sse_queues.keys())
         async with _controller_get_session() as session:
             active_user_participants = (
                 await session.exec(
                     select(db.UserParticipant.user_id).where(
                         col(db.UserParticipant.active_participant).is_(True),
-                        db.UserParticipant.conversation_id == conversation_id,
+                        db.UserParticipant.conversation_id == event.conversation_id,
                         col(db.UserParticipant.user_id).in_(listening_user_ids),
                     )
                 )
@@ -237,9 +235,9 @@ def init(
         async with user_sse_queues_lock:
             for user_id in active_user_participants:
                 for queue in user_sse_queues.get(user_id, {}):
-                    await queue.put(conversation_id)
+                    await queue.put(event)
                     logger.debug(
-                        "enqueued event for user SSE; user_id: %s, conversation_id: %s", user_id, conversation_id
+                        "enqueued event for user SSE; user_id: %s, conversation_id: %s", user_id, event.conversation_id
                     )
 
     assistant_client_pool = controller.AssistantServiceClientPool(api_key_store=api_key_store)
@@ -708,7 +706,7 @@ def init(
     ) -> EventSourceResponse:
         logger.debug("client connected to user events sse; user_id: %s", user_principal.user_id)
 
-        event_queue = asyncio.Queue[uuid.UUID]()
+        event_queue = asyncio.Queue[ConversationEvent]()
 
         async with user_sse_queues_lock:
             queues = user_sse_queues[user_principal.user_id]
@@ -734,14 +732,17 @@ def init(
                     try:
                         try:
                             async with asyncio.timeout(1):
-                                conversation_id = await event_queue.get()
+                                conversation_event = await event_queue.get()
                         except asyncio.TimeoutError:
                             continue
 
                         server_sent_event = ServerSentEvent(
-                            id=uuid.uuid4().hex,
-                            event="message.created",
-                            data=json.dumps({"conversation_id": str(conversation_id)}),
+                            id=conversation_event.id,
+                            event=conversation_event.event.value,
+                            data=json.dumps({
+                                **conversation_event.model_dump(mode="json", include={"timestamp", "data"}),
+                                "conversation_id": str(conversation_event.conversation_id),
+                            }),
                             retry=1000,
                         )
                         yield server_sent_event
