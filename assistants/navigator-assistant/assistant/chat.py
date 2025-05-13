@@ -220,7 +220,13 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     navigator_handoff = conversation.metadata.get("_navigator_handoff")
 
+    assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
+    assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
+
     if navigator_handoff:
+        if assistant_has_sent_a_message:
+            return
+
         async with context.set_status("handing off..."):
             spawned_from_conversation_id = navigator_handoff.get("spawned_from_conversation_id")
             source_context = context.for_conversation(spawned_from_conversation_id)
@@ -267,9 +273,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
     if other_assistants_in_conversation:
         return
 
-    assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
-    welcome_sent_before = len(assistant_sent_messages.messages) > 0
-    if welcome_sent_before:
+    if assistant_has_sent_a_message:
+        # don't send the welcome message if the assistant has already sent a message
         return
 
     # send a welcome message to the conversation
