@@ -5,7 +5,7 @@ import logging
 import pathlib
 
 import pdfplumber
-from markitdown import MarkItDown
+from markitdown import MarkItDown, StreamInfo
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ async def bytes_to_str(file_bytes: bytes, filename: str) -> str:
         # handle most common file types using MarkItDown.
         # Note .eml will include the raw html which is very token heavy
         case _ if filename_extension in ["docx", "pptx", "csv", "xlsx", "html", "eml"]:
-            return await _markitdown_bytes_to_str(file_bytes)
+            return await _markitdown_bytes_to_str(file_bytes, "." + filename_extension)
 
         case "pdf":
             return await _pdf_bytes_to_str(file_bytes)
@@ -37,12 +37,16 @@ async def bytes_to_str(file_bytes: bytes, filename: str) -> str:
                 return f"The filetype `{filename_extension}` is not supported or the file itself is malformed: {e}"
 
 
-async def _markitdown_bytes_to_str(file_bytes: bytes) -> str:
+async def _markitdown_bytes_to_str(file_bytes: bytes, filename_extension: str) -> str:
     """
     Convert a file using MarkItDown defaults.
     """
     with io.BytesIO(file_bytes) as temp:
-        result = await asyncio.to_thread(MarkItDown(enable_plugins=False).convert, source=temp)
+        result = await asyncio.to_thread(
+            MarkItDown(enable_plugins=False).convert,
+            source=temp,
+            stream_info=StreamInfo(extension=filename_extension),
+        )
         text = result.text_content
     return text
 
