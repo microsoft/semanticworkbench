@@ -53,6 +53,7 @@ class Assistant(BaseModel):
     name: str
     image: str | None
     assistant_service_id: str
+    assistant_service_online: bool
     template_id: str
     metadata: dict[str, Any]
     created_datetime: datetime.datetime

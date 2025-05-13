@@ -75,6 +75,7 @@ export const transformResponseToAssistant = (response: any): Assistant => {
             name: response.name,
             image: response.image,
             assistantServiceId: response.assistant_service_id,
+            assistantServiceOnline: response.assistant_service_online,
             createdDatetime: response.created_datetime,
             templateId: response.template_id,
             conversations: {
