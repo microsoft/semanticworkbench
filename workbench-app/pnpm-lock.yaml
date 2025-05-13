@@ -197,7 +197,7 @@ importers:
         version: 5.62.0(eslint@8.57.1)(typescript@5.6.2)
       '@vitejs/plugin-react':
         specifier: ^4.3.2
-        version: 4.3.2(vite@4.5.13(@types/node@20.16.10))
+        version: 4.3.2(vite@4.5.14(@types/node@20.16.10))
       depcheck:
         specifier: ^1.4.7
         version: 1.4.7
@@ -232,11 +232,11 @@ importers:
         specifier: ^5.6.2
         version: 5.6.2
       vite:
-        specifier: ^4.5.13
-        version: 4.5.13(@types/node@20.16.10)
+        specifier: ^4.5.14
+        version: 4.5.14(@types/node@20.16.10)
       vite-plugin-mkcert:
         specifier: ^1.17.8
-        version: 1.17.8(vite@4.5.13(@types/node@20.16.10))
+        version: 1.17.8(vite@4.5.14(@types/node@20.16.10))
 
 packages:
 
@@ -1145,8 +1145,8 @@ packages:
     resolution: {integrity: sha512-FDSOghenHTiToteC/QRlv2q3DhPZ/oOXTBoirfWNx1Cx3TMVcGWQtMMmQcSvb/JjpNeGzx8Pq/b4fKEJuWm1sw==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/runtime@7.27.0':
-    resolution: {integrity: sha512-VtPOkrdPHZsKc/clNqyi9WUA8TINkZ4cGk63UUE3u4pmB2k+ZMQRDuIOagv8UVd6j7k0T3+RRIb7beKTebNbcw==}
+  '@babel/runtime@7.27.1':
+    resolution: {integrity: sha512-1x3D2xEk2fRo3PAhwQwu5UubzgiVWSXTBfWpVd2Mx2AzRqJuDJCsgaDVZ7HB5iGzDW1Hl1sWN2mFyKjmR9uAog==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.25.0':
@@ -4533,8 +4533,8 @@ packages:
   lexical@0.17.1:
     resolution: {integrity: sha512-72/MhR7jqmyqD10bmJw8gztlCm4KDDT+TPtU4elqXrEvHoO5XENi34YAEUD9gIkPfqSwyLa9mwAX1nKzIr5xEA==}
 
-  lib0@0.2.104:
-    resolution: {integrity: sha512-1tqKRANSPTcjs/yjPoKh52oRM2u5AYdd8jie8sDiN8/5kpWWiQSHUGgtB4VEXLw1chVL3QPSPp8q9RWqzSn2FA==}
+  lib0@0.2.107:
+    resolution: {integrity: sha512-2xih/AugT0dJSgeSfsW/bqIPILlsqzEtmw8hXzWEnMLrOz12DTK5z9rjNgUT21/HkBjHSznOQBr67bcZdc8Ltg==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -5677,8 +5677,8 @@ packages:
     peerDependencies:
       vite: '>=3'
 
-  vite@4.5.13:
-    resolution: {integrity: sha512-Hgp8IF/yZDzKsN1hQWOuQZbrKiaFsbQud+07jJ8h9m9PaHWkpvZ5u55Xw5yYjWRXwRQ4jwFlJvY7T7FUJG9MCA==}
+  vite@4.5.14:
+    resolution: {integrity: sha512-+v57oAaoYNnO3hIu5Z/tJRZjq5aHM2zDve9YZ8HngVHbhk66RStobhb1sqPMIPEleV6cNKYK4eGrAbE9Ulbl2g==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
     peerDependencies:
@@ -6956,9 +6956,7 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@babel/runtime@7.27.0':
-    dependencies:
-      regenerator-runtime: 0.14.1
+  '@babel/runtime@7.27.1': {}
 
   '@babel/template@7.25.0':
     dependencies:
@@ -7807,7 +7805,7 @@ snapshots:
 
   '@fluentui/accessibility@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       lodash: 4.17.21
 
   '@fluentui/dom-utilities@1.1.2':
@@ -7922,7 +7920,7 @@ snapshots:
 
   '@fluentui/react-bindings@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-component-event-listener': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -8033,20 +8031,20 @@ snapshots:
 
   '@fluentui/react-component-event-listener@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-nesting-registry@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       prop-types: 15.8.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-ref@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       react-is: 17.0.2
@@ -8208,7 +8206,7 @@ snapshots:
 
   '@fluentui/react-icons-northstar@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       '@fluentui/accessibility': 0.66.5
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/styles': 0.66.5
@@ -8417,7 +8415,7 @@ snapshots:
 
   '@fluentui/react-northstar-fela-renderer@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       '@fluentui/react-northstar-styles-renderer': 0.66.5(react@18.3.1)
       '@fluentui/styles': 0.66.5
       css-in-js-utils: 3.1.0
@@ -8437,13 +8435,13 @@ snapshots:
 
   '@fluentui/react-northstar-styles-renderer@0.66.5(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       '@fluentui/styles': 0.66.5
       react: 18.3.1
 
   '@fluentui/react-northstar@0.66.5(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
@@ -8575,7 +8573,7 @@ snapshots:
 
   '@fluentui/react-proptypes@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       lodash: 4.17.21
       prop-types: 15.8.1
 
@@ -9039,7 +9037,7 @@ snapshots:
 
   '@fluentui/state@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
 
   '@fluentui/style-utilities@8.11.0(@types/react@18.3.10)(react@18.3.1)':
     dependencies:
@@ -9055,7 +9053,7 @@ snapshots:
 
   '@fluentui/styles@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       csstype: 3.1.3
       lodash: 4.17.21
 
@@ -10045,14 +10043,14 @@ snapshots:
 
   '@uppercod/match-media@1.1.1': {}
 
-  '@vitejs/plugin-react@4.3.2(vite@4.5.13(@types/node@20.16.10))':
+  '@vitejs/plugin-react@4.3.2(vite@4.5.14(@types/node@20.16.10))':
     dependencies:
       '@babel/core': 7.25.2
       '@babel/plugin-transform-react-jsx-self': 7.24.7(@babel/core@7.25.2)
       '@babel/plugin-transform-react-jsx-source': 7.24.7(@babel/core@7.25.2)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 4.5.13(@types/node@20.16.10)
+      vite: 4.5.14(@types/node@20.16.10)
     transitivePeerDependencies:
       - supports-color
 
@@ -10821,7 +10819,7 @@ snapshots:
 
   downshift@5.0.5(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.1
       compute-scroll-into-view: 1.0.11
       prop-types: 15.8.1
       react: 18.3.1
@@ -11906,7 +11904,7 @@ snapshots:
 
   lexical@0.17.1: {}
 
-  lib0@0.2.104:
+  lib0@0.2.107:
     dependencies:
       isomorphic.js: 0.2.5
 
@@ -13512,16 +13510,16 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.2
 
-  vite-plugin-mkcert@1.17.8(vite@4.5.13(@types/node@20.16.10)):
+  vite-plugin-mkcert@1.17.8(vite@4.5.14(@types/node@20.16.10)):
     dependencies:
       axios: 1.8.4(debug@4.4.0)
       debug: 4.4.0
       picocolors: 1.1.1
-      vite: 4.5.13(@types/node@20.16.10)
+      vite: 4.5.14(@types/node@20.16.10)
     transitivePeerDependencies:
       - supports-color
 
-  vite@4.5.13(@types/node@20.16.10):
+  vite@4.5.14(@types/node@20.16.10):
     dependencies:
       esbuild: 0.18.20
       postcss: 8.4.47
@@ -13630,7 +13628,7 @@ snapshots:
 
   yjs@13.6.19:
     dependencies:
-      lib0: 0.2.104
+      lib0: 0.2.107
 
   yocto-queue@0.1.0: {}
 
