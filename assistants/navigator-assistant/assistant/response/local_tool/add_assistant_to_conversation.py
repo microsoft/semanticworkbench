@@ -19,7 +19,7 @@ class ArgumentModel(BaseModel):
         Field(
             description="A list of attachment filenames to copy to the new conversation. If empty, no attachments will be copied.",
         ),
-    ]
+    ] = []
 
     introduction_message: Annotated[
         str,

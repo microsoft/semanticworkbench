@@ -51,6 +51,10 @@ class WhiteboardInspector:
             if participant.role != workbench_model.ParticipantRole.user:
                 return
 
+            config = await self._server_config_provider(ctx)
+            if not config.enabled:
+                return
+
             viewing_message_timestamp = participant.metadata.get("viewing_message_timestamp")
             if not viewing_message_timestamp:
                 return
