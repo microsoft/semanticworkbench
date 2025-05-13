@@ -3,6 +3,10 @@
 
 name: workbench-app continuous integration
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   push:
     branches:
@@ -36,7 +40,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
           cache-dependency-path: workbench-app/pnpm-lock.yaml
 
       - name: pnpm install
@@ -71,7 +75,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
           cache-dependency-path: workbench-app/pnpm-lock.yaml
 
       - name: pnpm install

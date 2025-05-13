@@ -1,5 +1,9 @@
 name: mcp-server-web-research continuous integration
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   pull_request:
     branches: ["main"]
