@@ -220,7 +220,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     navigator_handoff = conversation.metadata.get("_navigator_handoff")
 
-    assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
+    assistant_sent_messages = await context.get_messages(
+        participant_ids=[context.assistant.id], limit=1, message_types=[MessageType.chat]
+    )
     assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
 
     if navigator_handoff:
