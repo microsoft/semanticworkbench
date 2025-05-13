@@ -1,5 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { MessageBase } from './MessageBase';
+
 import { CopilotMessageV2, Timestamp, UserMessageV2 } from '@fluentui-copilot/react-copilot';
 import { Divider, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
@@ -155,13 +157,15 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 {body}
                 <ToolCalls message={message} />
             </CopilotMessageV2>
-        ) : (
+        ) : message.messageType === 'chat' ? (
             <div className={classes.user}>
                 {header}
                 <UserMessageV2 className={classes.userContent}>{body}</UserMessageV2>
                 {actions}
                 {footer}
             </div>
+        ) : (
+            <MessageBase className={classes.note} header={header} body={body} footer={footer} />
         );
 
     return (

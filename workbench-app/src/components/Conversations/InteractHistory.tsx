@@ -170,7 +170,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     lastDate = date;
                 }
 
-                if (message.messageType === 'chat' && message.sender.participantRole !== 'user') {
+                if (
+                    message.messageType === 'chat' &&
+                    message.sender.participantRole !== 'user' &&
+                    message.metadata?.generated_content !== false
+                ) {
                     generatedResponseCount += 1;
                 }
 
