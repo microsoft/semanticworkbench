@@ -5,6 +5,7 @@ export type Assistant = {
     name: string;
     image?: string;
     assistantServiceId: string;
+    assistantServiceOnline: boolean;
     templateId: string;
     createdDatetime: string;
     conversations: {

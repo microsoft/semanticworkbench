@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import {
+    AvatarProps,
     Button,
     Divider,
     Menu,
@@ -8,12 +9,13 @@ import {
     MenuList,
     MenuPopover,
     MenuTrigger,
+    Persona,
     makeStyles,
 } from '@fluentui/react-components';
 import { Bot24Regular, BotAddRegular, Sparkle24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Assistant } from '../../models/Assistant';
-import { useGetAssistantsQuery } from '../../services/workbench';
+import { useGetAssistantServiceInfosQuery, useGetAssistantsQuery } from '../../services/workbench';
 import { Loading } from '../App/Loading';
 import { AssistantCreate } from './AssistantCreate';
 
@@ -33,6 +35,11 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
     const { exceptAssistantIds, onAdd, disabled } = props;
     const classes = useClasses();
     const { data: assistants, error: getAssistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
+    const {
+        data: assistantServiceInfos,
+        error: getAssistantServiceInfosError,
+        isLoading: isLoadingAssistantServiceInfos,
+    } = useGetAssistantServiceInfosQuery({});
     const [assistantCreateOpen, setAssistantCreateOpen] = React.useState(false);
 
     if (getAssistantsError) {
@@ -40,7 +47,12 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
         throw new Error(`Error loading assistants: ${errorMessage}`);
     }
 
-    if (isLoadingAssistants) {
+    if (getAssistantServiceInfosError) {
+        const errorMessage = JSON.stringify(getAssistantServiceInfosError);
+        throw new Error(`Error loading assistant service infos: ${errorMessage}`);
+    }
+
+    if (isLoadingAssistants || isLoadingAssistantServiceInfos) {
         return <Loading />;
     }
 
@@ -57,6 +69,22 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
     };
 
     const unusedAssistants = assistants.filter((assistant) => !exceptAssistantIds?.includes(assistant.id));
+
+    const avatarForAssistant = (assistant: Assistant): AvatarProps => {
+        const assistantServiceInfo = assistantServiceInfos?.find(
+            (info) => info.assistantServiceId === assistant.assistantServiceId,
+        );
+        if (!assistantServiceInfo) {
+            return { icon: <Bot24Regular />, name: assistant.name };
+        }
+
+        const icon = assistantServiceInfo.metadata?._dashboard_card[assistant.templateId]?.icon;
+        if (!icon) {
+            return { icon: <Bot24Regular />, name: assistant.name };
+        }
+
+        return { image: { src: icon }, name: assistant.name };
+    };
 
     return (
         <div>
@@ -77,12 +105,20 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
                         {unusedAssistants
                             .sort((a, b) => a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase()))
                             .map((assistant) => (
-                                <MenuItem
-                                    key={assistant.id}
-                                    icon={<Bot24Regular />}
-                                    onClick={() => handleAssistantAdd(assistant)}
-                                >
-                                    {assistant.name}
+                                <MenuItem key={assistant.id} onClick={() => handleAssistantAdd(assistant)}>
+                                    <Persona
+                                        name={assistant.name}
+                                        size="medium"
+                                        avatar={avatarForAssistant(assistant)}
+                                        textAlignment="center"
+                                        presence={
+                                            !assistant.assistantServiceOnline
+                                                ? {
+                                                      status: 'offline',
+                                                  }
+                                                : undefined
+                                        }
+                                    />
                                 </MenuItem>
                             ))}
                     </MenuList>
