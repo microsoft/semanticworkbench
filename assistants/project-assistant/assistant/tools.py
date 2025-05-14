@@ -29,7 +29,6 @@ from .logging import logger
 from .project_common import ConfigurationTemplate
 from .project_data import (
     LogEntryType,
-    Project,
     ProjectInfo,
     ProjectState,
     RequestPriority,
@@ -113,14 +112,14 @@ class ProjectTools:
         )
 
         # Register template-specific tools
-        if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
-            self.tool_functions.add_function(
-                self.get_project_info, "get_project_info", "Get information about the current project"
-            )
-        else:
-            self.tool_functions.add_function(
-                self.get_context_info, "get_context_info", "Get information about the bundle of context"
-            )
+        # if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
+        #     self.tool_functions.add_function(
+        #         self.get_project_info, "get_project_info", "Get information about the current project"
+        #     )
+        # else:
+        #     self.tool_functions.add_function(
+        #         self.get_context_info, "get_context_info", "Get information about the bundle of context"
+        #     )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -165,11 +164,11 @@ class ProjectTools:
                 "delete_information_request",
                 "Delete an information request that is no longer needed",
             )
-            self.tool_functions.add_function(
-                self.view_coordinator_conversation,
-                "view_coordinator_conversation",
-                "View the Coordinator conversation messages to understand the project context and planning discussions",
-            )
+            # self.tool_functions.add_function(
+            #     self.view_coordinator_conversation,
+            #     "view_coordinator_conversation",
+            #     "View the Coordinator conversation messages to understand the project context and planning discussions",
+            # )
 
             if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
@@ -184,47 +183,47 @@ class ProjectTools:
                     self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
                 )
 
-    async def get_context_info(self) -> Project | None:
-        """
-        Get information about the current project.
+    # async def get_context_info(self) -> Project | None:
+    #     """
+    #     Get information about the current project.
 
-        Args:
-            none
+    #     Args:
+    #         none
 
-        Returns:
-            Information about the project in a formatted string
-        """
+    #     Returns:
+    #         Information about the project in a formatted string
+    #     """
 
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            return None
+    #     project_id = await ProjectManager.get_project_id(self.context)
+    #     if not project_id:
+    #         return None
 
-        project = await ProjectManager.get_project(self.context)
-        if not project:
-            return None
+    #     project = await ProjectManager.get_project(self.context)
+    #     if not project:
+    #         return None
 
-        return project
+    #     return project
 
-    async def get_project_info(self) -> Project | None:
-        """
-        Get information about the current project.
+    # async def get_project_info(self) -> Project | None:
+    #     """
+    #     Get information about the current project.
 
-        Args:
-            none
+    #     Args:
+    #         none
 
-        Returns:
-            Information about the project in a formatted string
-        """
+    #     Returns:
+    #         Information about the project in a formatted string
+    #     """
 
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            return None
+    #     project_id = await ProjectManager.get_project_id(self.context)
+    #     if not project_id:
+    #         return None
 
-        project = await ProjectManager.get_project(self.context)
-        if not project:
-            return None
+    #     project = await ProjectManager.get_project(self.context)
+    #     if not project:
+    #         return None
 
-        return project
+    #     return project
 
     async def update_project_status(
         self,
