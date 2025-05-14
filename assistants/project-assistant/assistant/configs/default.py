@@ -67,37 +67,41 @@ class PromptConfig(BaseModel):
         },
     )
 
-    instruction_prompt: Annotated[
+    coordinator_role: Annotated[
         str,
         Field(
-            title="Instruction Prompt",
-            description="The prompt used to instruct the behavior of the AI assistant. This is prepended to every response prompt.",
+            title="Coordinator Role",
+            description="The role of the coordinator assistant. This is added to the prompt when in coordinator mode.",
         ),
         UISchema(widget="textarea"),
-    ] = (
-        "You are an AI project assistant that helps teams collaborate. You can facilitate file sharing between "
-        "different conversations, allowing users to collaborate without being in the same conversation. "
-        "Users can invite others with the /invite command, and you'll help synchronize files between conversations. "
-        "In addition to text, you can also produce markdown, code snippets, and other types of content."
-    )
+    ] = load_text_include("coordinator_role.txt")
 
-    coordinator_prompt: Annotated[
+    coordinator_instructions: Annotated[
         str,
         Field(
-            title="Coordinator Prompt",
-            description="The prompt used to instruct the behavior of the coordinator assistant. This is added to the instruction prompt when in coordinator mode.",
+            title="Coordinator Instructions",
+            description="The instructions to give the coordinator assistant. This is added to the prompt when in coordinator mode.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("coordinator_prompt.txt")
+    ] = load_text_include("coordinator_instructions.txt")
 
-    team_prompt: Annotated[
+    team_role: Annotated[
         str,
         Field(
-            title="Team Prompt",
-            description="The prompt used to instruct the behavior of the team member assistant. This is added to the instruction prompt when in team member mode.",
+            title="Team Role",
+            description="The role of the team assistant. This is added to the prompt when in team member mode.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("team_prompt.txt")
+    ] = load_text_include("team_role.txt")
+
+    team_instructions: Annotated[
+        str,
+        Field(
+            title="Team Instructions",
+            description="The instructions to give the team assistant. This is added to the prompt when in team member mode.",
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("team_instructions.txt")
 
     project_information_request_detection: Annotated[
         str,

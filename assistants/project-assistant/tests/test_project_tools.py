@@ -60,7 +60,6 @@ class TestProjectTools:
         assert "mark_criterion_completed" in team_tools.tool_functions.function_map
         assert "report_project_completion" in team_tools.tool_functions.function_map
         assert "delete_information_request" in team_tools.tool_functions.function_map  # Added new function
-        assert "view_coordinator_conversation" in team_tools.tool_functions.function_map  # Added new function
 
         # Verify Coordinator-specific functions are NOT registered
         assert "create_project_brief" not in team_tools.tool_functions.function_map
@@ -69,13 +68,11 @@ class TestProjectTools:
         assert "mark_project_ready_for_working" not in team_tools.tool_functions.function_map
 
         # Verify common functions are registered for both roles
-        assert "get_project_info" in coordinator_tools.tool_functions.function_map
         assert "suggest_next_action" in coordinator_tools.tool_functions.function_map
 
         # Verify team detection tool is not in Coordinator tools
         assert "detect_information_request_needs" not in coordinator_tools.tool_functions.function_map
 
-        assert "get_project_info" in team_tools.tool_functions.function_map
         assert "suggest_next_action" in team_tools.tool_functions.function_map
 
         # detect_information_request_needs is not exposed as a tool function anymore

@@ -1,4 +1,3 @@
-from textwrap import dedent
 from typing import Annotated
 
 from pydantic import Field
@@ -10,38 +9,6 @@ from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, Team
 
 class ContextTransferPromptConfig(PromptConfig):
     """Prompt configuration specific to context transfer template."""
-
-    instruction_prompt: Annotated[
-        str,
-        Field(
-            title="Instruction Prompt",
-            description="The prompt used to instruct the behavior of the AI assistant.",
-        ),
-    ] = dedent("""
-        You are an AI context transfer assistant that helps users (coordinators) capture and share complex information in a way that others (team members) can easily explore and understand. You're designed to:
-
-        1. Help users organize context/knowledge from documents, code, research, or brainstorming sessions
-        2. Establish shared understanding through careful questioning
-        3. Make context/knowledge available by conversing with team members, so they can explore deeper context
-
-        You should focus on helping users clarify their thoughts and structure information effectively. Ask questions to understand what aspects of their knowledge are most important to convey.
-        """).strip()
-
-    coordinator_prompt: Annotated[
-        str,
-        Field(
-            title="Context Transfer Coordinator Prompt",
-            description="The prompt used to instruct the behavior of the context transfer coordinator.",
-        ),
-    ] = load_text_include("context_transfer_coordinator_prompt.txt")
-
-    team_prompt: Annotated[
-        str,
-        Field(
-            title="Context Transfer Team Prompt",
-            description="The prompt used to instruct the behavior of the context transfer team member.",
-        ),
-    ] = load_text_include("context_transfer_team_prompt.txt")
 
     whiteboard_prompt: Annotated[
         str,

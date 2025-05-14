@@ -26,6 +26,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.tools import ProjectTools
+from assistant.utils import load_text_include
 
 from .config import assistant_config
 from .logging import logger
@@ -35,6 +36,7 @@ from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole, CoordinatorConversationMessage
+from .string_utils import Context, ContextStrategy, Instructions, Prompt, render
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
@@ -63,7 +65,7 @@ def format_message(participants: ConversationParticipantList, message: Conversat
 
 async def respond_to_conversation(
     context: ConversationContext,
-    message: ConversationMessage,
+    new_message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
     metadata: Dict[str, Any],
 ) -> None:
@@ -73,39 +75,47 @@ async def respond_to_conversation(
     if "debug" not in metadata:
         metadata["debug"] = {}
 
+    # Config
     config = await assistant_config.get(context.assistant)
+    model = config.request_config.openai_model
 
+    # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
     template = get_template(context)
     metadata["debug"]["template"] = template
+    project_id = await ProjectManager.get_project_id(context)
+    if not project_id:
+        raise ValueError("Project ID not found in context")
 
     max_tokens = config.request_config.max_tokens
     available_tokens = max_tokens
 
-    ###
-    ### SYSTEM MESSAGE
-    ###
-
-    # Instruction and assistant name.
-    system_message_content = (
-        f'\n\n{config.prompt_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
-    )
+    ##
+    ## INSTRUCTIONS
+    ##
 
     # Add role-specific instructions.
-    role_specific_prompt = ""
     if role == ConversationRole.COORDINATOR:
-        role_specific_prompt = config.prompt_config.coordinator_prompt
+        assistant_role = config.prompt_config.coordinator_role
+        role_specific_instructions = config.prompt_config.coordinator_instructions
     else:
-        role_specific_prompt = config.prompt_config.team_prompt
+        assistant_role = config.prompt_config.team_role
+        role_specific_instructions = config.prompt_config.team_instructions
+    instructions = Instructions(role_specific_instructions)
 
-    if role_specific_prompt:
-        system_message_content += f"\n\n{role_specific_prompt}"
+    # Add whiteboard instructions.
+    instructions.add_subsection(
+        Instructions(
+            render(load_text_include("whiteboard_instructions.txt"), {"project_or_context": config.project_or_context}),
+            "Assistant Whiteboard",
+        )
+    )
 
     # If this is a multi-participant conversation, add a note about the participants.
     participants = await context.get_participants(include_inactive=True)
     if len(participants.participants) > 2:
-        system_message_content += (
+        participant_text = (
             "\n\n"
             f"There are {len(participants.participants)} participants in the conversation,"
             " including you as the assistant and the following users:"
@@ -121,50 +131,56 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{SILENCE_TOKEN}" to skip'
             " your turn."
         )
+        instructions.add_subsection(Instructions(participant_text, "Multi-participant conversation instructions"))
+
+    prompt = Prompt(
+        role=assistant_role,
+        instructions=instructions,
+        context_strategy=ContextStrategy.MULTI,
+        output_format="Respond as JSON with your response in the `response` field and all citations in the `citations` field.",
+    )
 
     ###
-    ### SYSTEM MESSAGE: Project data
+    ### Context
     ###
-
-    project_id = await ProjectManager.get_project_id(context)
-    if not project_id:
-        raise ValueError("Project ID not found in context")
-
-    project_data: dict[str, str] = {}
-    all_requests = []
 
     # Project info
     project_info = ProjectStorage.read_project_info(project_id)
-    project_info_text = ""
     if project_info:
-        project_info_text = dedent(f"""
-            ### {config.project_or_context.upper()} INFO
-            **Current State:** {project_info.state.value}
+        data = project_info.model_dump()
 
-            **Full {config.project_or_context} info**
-            ```json
-            {project_info.model_dump_json(indent=2)}
-            ```
-            """)
-        if project_info.status_message:
-            project_info_text += f"**Status Message:** {project_info.status_message}\n"
-        project_data["info"] = project_info_text
+        # Delete fields that are not relevant to the context assistant.
+        if not is_project_assistant(context):
+            if "state" in data:
+                del data["state"]
+            if "progress_percentage" in data:
+                del data["progress_percentage"]
+            if "completed_criteria" in data:
+                del data["completed_criteria"]
+            if "total_criteria" in data:
+                del data["total_criteria"]
+            if "lifecycle" in data:
+                del data["lifecycle"]
+
+        project_info_text = project_info.model_dump_json(indent=2)
+        prompt.contexts.append(Context(f"{config.Project_or_Context} Info", project_info_text))
 
     # Brief
     briefing = ProjectStorage.read_project_brief(project_id)
     project_brief_text = ""
     if briefing:
-        project_brief_text = dedent(f"""
-            ### {config.project_or_context.upper()} BRIEF
-            **Title:** {briefing.title}
-            **Description:** {briefing.description}
-            """)
-        project_data["briefing"] = project_brief_text
+        project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.description}"
+        prompt.contexts.append(
+            Context(
+                f"{config.Project_or_Context} Brief",
+                project_brief_text,
+            )
+        )
 
     # Project goals
     project = ProjectStorage.read_project(project_id)
     if is_project_assistant(context) and project and project.goals:
-        project_brief_text += "\n#### PROJECT GOALS:\n\n"
+        goals_text = ""
         for i, goal in enumerate(project.goals):
             # Count completed criteria
             completed = sum(1 for c in goal.success_criteria if c.completed)
@@ -172,48 +188,28 @@ async def respond_to_conversation(
 
             project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
             if goal.success_criteria:
-                project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for j, criterion in enumerate(goal.success_criteria):
+                goals_text += f"   Progress: {completed}/{total} criteria complete\n"
+                for criterion in goal.success_criteria:
                     check = "✅" if criterion.completed else "⬜"
-                    project_brief_text += f"   {check} {criterion.description}\n"
-            project_brief_text += "\n"
-        project_data["goals"] = project_brief_text
+                    goals_text += f"   {check} {criterion.description}\n"
+        prompt.contexts.append(
+            Context(
+                "Project Goals",
+                goals_text,
+            )
+        )
 
     # Whiteboard
     whiteboard = ProjectStorage.read_project_whiteboard(project_id)
     if whiteboard and whiteboard.content:
-        whiteboard_text = dedent(f"""
-            ### ASSISTANT WHITEBOARD - KEY {config.project_or_context.upper()} INFORMATION
-            The whiteboard contains critical {config.project_or_context} information that has been automatically extracted from previous conversations.
-            It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
-
-            Key characteristics of this whiteboard:
-            - It contains the most essential information about the {config.project_or_context} that should be readily available
-            - It has been automatically curated to focus on high-value content relevant to the {config.project_or_context}
-            - It is maintained and updated as the conversation progresses
-            - It should be treated as a trusted source of contextual information for this {config.project_or_context}
-
-            When using the whiteboard:
-            - Prioritize this information when addressing questions or providing updates
-            - Reference it to ensure consistency in your responses across the conversation
-            - Use it to track important details that might otherwise be lost in the conversation history
-
-            WHITEBOARD CONTENT:
-            ```markdown
-            {whiteboard.content}
-            ```
-
-            """)
-        project_data["whiteboard"] = whiteboard_text
+        prompt.contexts.append(Context("Assistant Whiteboard", whiteboard.content, "The assistant's whiteboard"))
 
     # Information requests
     all_requests = ProjectStorage.get_all_information_requests(project_id)
     if role == ConversationRole.COORDINATOR:
         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
         if active_requests:
-            coordinator_requests = "\n\n### ACTIVE INFORMATION REQUESTS\n"
-            coordinator_requests += "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-
+            coordinator_requests = "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
             for req in active_requests[:10]:  # Limit to 10 for brevity
                 priority_marker = {
                     "low": "🔹",
@@ -228,57 +224,50 @@ async def respond_to_conversation(
 
             if len(active_requests) > 10:
                 coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
-            project_data["information_requests"] = coordinator_requests
         else:
-            project_data["information_requests"] = (
-                "\n\n### ACTIVE INFORMATION REQUESTS\nNo active information requests."
+            coordinator_requests = "No active information requests."
+        prompt.contexts.append(
+            Context(
+                "Information Requests",
+                coordinator_requests,
             )
+        )
     else:  # team role
         information_requests_info = ""
         my_requests = []
-        if all_requests:
-            # Filter for requests from this conversation that aren't resolved
-            my_requests = [
-                r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
-            ]
 
-            if my_requests:
-                information_requests_info = "\n\n### YOUR CURRENT INFORMATION REQUESTS:\n"
-                for req in my_requests:
-                    information_requests_info += (
-                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-                    )
-                information_requests_info += (
-                    '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
-                )
-                project_data["information_requests"] = information_requests_info
+        # Filter for requests from this conversation that aren't resolved.
+        my_requests = [
+            r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+        ]
 
-    # Add project data to system message.
-    project_info = f"\n\n## CURRENT {config.project_or_context.upper()} INFORMATION\n\n" + "\n".join(
-        project_data.values()
+        if my_requests:
+            information_requests_info = ""
+            for req in my_requests:
+                information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
+            information_requests_info += (
+                '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
+            )
+        else:
+            information_requests_info = "No active information requests."
+
+        prompt.contexts.append(
+            Context(
+                "Information Requests",
+                information_requests_info,
+            )
+        )
+
+    # Calculate token count for all system messages so far.
+    completion_messages = prompt.messages()
+    project_info_tokens = openai_client.num_tokens_from_messages(
+        model=model,
+        messages=completion_messages,
     )
-    system_message_content += f"\n\n{project_info}"
-
-    # Finally, create the full system message.
-    system_message: ChatCompletionMessageParam = {
-        "role": "system",
-        "content": system_message_content,
-    }
-
-    # Calculate token count for the system message.
-    system_message_tokens = openai_client.num_tokens_from_messages(
-        model=config.request_config.openai_model,
-        messages=[system_message],
-    )
-    available_tokens -= system_message_tokens
-
-    # Initialize message list with system message.
-    completion_messages: list[ChatCompletionMessageParam] = [
-        system_message,
-    ]
+    available_tokens -= project_info_tokens
 
     ###
-    ### SYSTEM_MESSAGE: Coordinator conversation as an attachment.
+    ### Coordinator conversation as an attachment.
     ###
 
     # Get the coordinator conversation and add it as an attachment.
@@ -288,9 +277,7 @@ async def respond_to_conversation(
         total_coordinator_conversation_tokens = 0
         selected_coordinator_conversation_messages: List[CoordinatorConversationMessage] = []
         for msg in reversed(coordinator_conversation.messages):
-            tokens = openai_client.num_tokens_from_string(
-                message.model_dump_json(), model=config.request_config.openai_model
-            )
+            tokens = openai_client.num_tokens_from_string(msg.model_dump_json(), model=model)
             if (
                 total_coordinator_conversation_tokens + tokens
                 > config.request_config.coordinator_conversation_token_limit
@@ -314,7 +301,7 @@ async def respond_to_conversation(
         completion_messages.append(coordinator_conversation_message)
 
         coordinator_conversation_tokens = openai_client.num_tokens_from_messages(
-            model=config.request_config.openai_model,
+            model=model,
             messages=[coordinator_conversation_message],
         )
         available_tokens -= coordinator_conversation_tokens
@@ -333,7 +320,7 @@ async def respond_to_conversation(
 
     # Update token count to include attachment messages.
     attachment_tokens = openai_client.num_tokens_from_messages(
-        model=config.request_config.openai_model,
+        model=model,
         messages=attachment_messages,
     )
     available_tokens -= attachment_tokens
@@ -346,30 +333,30 @@ async def respond_to_conversation(
     ###
 
     # Format the current message.
-    if message.sender.participant_id == context.assistant.id:
+    if new_message.sender.participant_id == context.assistant.id:
         user_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
             role="assistant",
-            content=format_message(participants, message),
+            content=format_message(participants, new_message),
         )
     else:
         user_message: ChatCompletionMessageParam = ChatCompletionUserMessageParam(
             role="user",
-            content=format_message(participants, message),
+            content=format_message(participants, new_message),
         )
 
     # Calculate tokens for this message.
-    user_message_tokens = openai_client.num_tokens_from_messages(
-        model=config.request_config.openai_model,
+    tokens = openai_client.num_tokens_from_messages(
+        model=model,
         messages=[user_message],
     )
-    available_tokens -= user_message_tokens
+    available_tokens -= tokens
 
     ###
     ### HISTORY MESSAGES
     ###
 
     history_messages: list[ChatCompletionMessageParam] = []
-    before_message_id = message.id
+    before_message_id = new_message.id
     history_messages_tokens = 0
     token_overage = 0
 
@@ -401,17 +388,17 @@ async def respond_to_conversation(
                 )
 
             # Calculate tokens for this message.
-            user_message_tokens = openai_client.num_tokens_from_messages(
-                model=config.request_config.openai_model,
+            current_message_tokens = openai_client.num_tokens_from_messages(
+                model=model,
                 messages=[current_message],
             )
 
             # Check if we can add this message without exceeding the token limit.
-            if token_overage == 0 and history_messages_tokens + user_message_tokens < available_tokens:
+            if token_overage == 0 and history_messages_tokens + current_message_tokens < available_tokens:
                 history_messages = [current_message] + history_messages
-                history_messages_tokens += user_message_tokens
+                history_messages_tokens += current_message_tokens
             else:
-                token_overage += user_message_tokens
+                token_overage += current_message_tokens
 
         # If we've already exceeded the token limit, no need to fetch more messages.
         if token_overage > 0:
@@ -421,21 +408,21 @@ async def respond_to_conversation(
     completion_messages.extend(history_messages)
     completion_messages.append(user_message)
 
-    # Add a system message to indicate attachments are a part of the user message.
-    if message.filenames and len(message.filenames) > 0:
+    # Add a system message to indicate attachments are a part of the new message.
+    if new_message.filenames and len(new_message.filenames) > 0:
         attachment_message = ChatCompletionSystemMessageParam(
             role="system",
-            content=f"Attachment(s): {', '.join(message.filenames)}",
+            content=f"Attachment(s): {', '.join(new_message.filenames)}",
         )
         completion_messages.append(attachment_message)
         attachment_message_tokens = openai_client.num_tokens_from_messages(
-            model=config.request_config.openai_model,
+            model=model,
             messages=[attachment_message],
         )
         available_tokens -= attachment_message_tokens
 
     ##
-    ## TOKEN COUNT HANDLING
+    ## Token count check
     ##
     total_tokens = max_tokens - available_tokens
     metadata["debug"]["token_usage"] = {"total": total_tokens, "max": max_tokens}
@@ -452,7 +439,7 @@ async def respond_to_conversation(
     # For team role, analyze message for possible information request needs.
     # Send a notification if we think it might be one.
     if role is ConversationRole.TEAM:
-        detection_result = await detect_information_request_needs(context, message.content)
+        detection_result = await detect_information_request_needs(context, new_message.content)
 
         if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
             suggested_title = detection_result.get("potential_title", "")
@@ -461,7 +448,7 @@ async def respond_to_conversation(
             reason = detection_result.get("reason", "")
 
             suggestion = (
-                f"**Information Request Detected**\n\n"
+                f"**Potential _Information Request_ Detected**\n\n"
                 f"It appears that you might need information from the {config.project_or_context} coordinator. {reason}\n\n"
                 f"Would you like me to create an information request?\n"
                 f"**Title:** {suggested_title}\n"
@@ -482,12 +469,21 @@ async def respond_to_conversation(
     ## MAKE THE LLM CALL
     ##
 
+    class Output(BaseModel):
+        response: str
+        citations: list[str]
+
+        model_config = {
+            "extra": "forbid"  # This sets additionalProperties=false in the schema
+        }
+
     async with openai_client.create_client(config.service_config) as client:
         try:
             completion_args = {
                 "messages": completion_messages,
-                "model": config.request_config.openai_model,
+                "model": model,
                 "max_tokens": config.request_config.response_tokens,
+                "response_format": Output,
             }
 
             project_tools = ProjectTools(context, role)
@@ -558,9 +554,20 @@ async def respond_to_conversation(
                 )
             return
 
+    # Prepare response and citations.
+    try:
+        output_model = Output.model_validate_json(content)
+        citations = ", ".join(output_model.citations) if output_model.citations else "None"
+        output = f"{output_model.response}\n\nCitations: _{citations}_"
+
+    except Exception as e:
+        logger.exception(f"exception occurred parsing json response: {e}")
+        metadata["debug"]["error"] = str(e)
+        output = "[no response from openai]"
+
     await context.send_messages(
         NewConversationMessage(
-            content=str(content) if content is not None else "[no response from openai]",
+            content=output,
             message_type=MessageType.chat,
             metadata=metadata,
         )

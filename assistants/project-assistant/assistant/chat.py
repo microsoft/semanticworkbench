@@ -299,7 +299,7 @@ async def on_message_created(
         async with context.set_status("pondering..."):
             await respond_to_conversation(
                 context,
-                message=message,
+                new_message=message,
                 attachments_extension=attachments_extension,
                 metadata=metadata,
             )
@@ -340,7 +340,7 @@ async def on_command_created(
         if not command_processed:
             await respond_to_conversation(
                 context,
-                message=message,
+                new_message=message,
                 attachments_extension=attachments_extension,
                 metadata=metadata,
             )
