@@ -483,12 +483,13 @@ class AssistantService(FastAPIAssistantService):
                 end = perf_counter()
 
                 logger.debug(
-                    "forwarded event to event handler; assistant_id: %s, conversation_id: %s, event: %s, time-since-event: %s, time-taken: %s",
+                    "forwarded event to event handler; assistant_id: %s, conversation_id: %s, event_id: %s, event: %s, time-since-event: %s, time-taken: %s",
                     assistant_id,
                     event.conversation_id,
+                    event.id,
                     event.event,
                     timestamp_now - event.timestamp,
-                    end - start,
+                    datetime.timedelta(seconds=end - start),
                 )
 
             except Exception:
