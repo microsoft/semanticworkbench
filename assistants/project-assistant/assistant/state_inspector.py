@@ -181,7 +181,7 @@ class ProjectInspectorStateProvider:
                     priority_emoji = "⚠️"
 
                 lines.append(f"{priority_emoji} **{request.title}** ({request.status})")
-                lines.append(f"  **Request ID for resolution:** `{request.request_id}`")
+                lines.append(request.description)
                 lines.append("")
         else:
             lines.append("## Information Requests")
