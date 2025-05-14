@@ -113,7 +113,6 @@ For both configuration templates, the system supports an iterative and asynchron
    - Automatic capture of both user and assistant messages
    - Metadata preservation including sender name and timestamp
    - Limited to recent messages (last 50) to prevent excessive storage
-   - Read-only access via the `view_coordinator_conversation` tool for team members
    - Team members can view Coordinator discussions for better context awareness
 
 ## Data
@@ -257,5 +256,4 @@ Five key entity types provide the foundation for project communication:
    - Content and sender metadata preservation
    - Limited message history (most recent 50 messages)
    - Automatic pruning of older messages
-   - Read-only access for team members via the `view_coordinator_conversation` tool
    - Includes both user and assistant messages

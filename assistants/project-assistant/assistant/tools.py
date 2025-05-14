@@ -164,11 +164,6 @@ class ProjectTools:
                 "delete_information_request",
                 "Delete an information request that is no longer needed",
             )
-            # self.tool_functions.add_function(
-            #     self.view_coordinator_conversation,
-            #     "view_coordinator_conversation",
-            #     "View the Coordinator conversation messages to understand the project context and planning discussions",
-            # )
 
             if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
@@ -382,10 +377,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - When requesting additional resources or documentation
         - When you need a decision from the project Coordinator
         - When a user expressly asks for information or help with something unclear
-
-        Before creating a request, check if the information is already available by:
-        1. Using get_project_info() to check existing project data
-        2. Using view_coordinator_conversation() to see if the information was already shared
 
         Set an appropriate priority based on how critical the information is:
         - "low": Nice to have, not blocking progress
@@ -1105,66 +1096,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         )
 
         return "Project successfully marked as complete. All participants have been notified."
-
-    async def view_coordinator_conversation(self, message_count: int) -> str:
-        """
-        View the Coordinator conversation messages for the project.
-        This allows Team members to see the context and planning discussions from the Coordinator.
-
-        Args:
-            message_count: Number of recent messages to return (between 1-50). Recommend using 20 for a reasonable amount.
-
-        Returns:
-            Formatted string containing Coordinator conversation messages
-        """
-        if self.role is not ConversationRole.TEAM:
-            return "This tool is only available to Team members."
-
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            logger.warning("No project ID found for this conversation")
-            return "No project associated with this conversation. Unable to view Coordinator conversation."
-
-        # Limit message count to reasonable value
-        message_count = min(max(1, message_count), 50)  # Between 1 and 50
-        try:
-            # Read from shared storage instead of trying cross-conversation API access
-
-            # Read Coordinator conversation messages from shared storage
-            coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
-
-            if not coordinator_conversation or not coordinator_conversation.messages:
-                logger.warning(f"No Coordinator conversation data found for project {project_id}")
-                return "No Coordinator conversation messages available. Check back later when Coordinator has sent messages."
-
-            # Format the messages for display
-            output = []
-            output.append("# Coordinator Conversation\n")
-            output.append(
-                "Here are the recent messages from the Coordinator to help you understand the project context:\n"
-            )
-
-            # Sort messages by timestamp and limit to the requested count
-            messages = sorted(coordinator_conversation.messages, key=lambda m: m.timestamp)
-            messages = messages[-message_count:]  # Get the most recent messages
-
-            for msg in messages:
-                # Format timestamp
-                timestamp = msg.timestamp.strftime("%Y-%m-%d %H:%M")
-
-                # Add formatted message
-                output.append(f"### {msg.sender_name} - {timestamp}")
-                output.append(f"{msg.content}\n")
-
-            if len(output) <= 3:  # Just the header and note, no actual messages
-                return "No chat messages found in the Coordinator conversation."
-
-            return "\n".join(output)
-
-        except Exception as e:
-            logger.exception(f"Error retrieving Coordinator conversation from shared storage: {e}")
-            return f"Error retrieving Coordinator conversation: {str(e)}. Please try again later."
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """

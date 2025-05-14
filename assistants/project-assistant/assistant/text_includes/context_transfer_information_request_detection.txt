@@ -33,6 +33,4 @@ Be EXTREMELY conservative - only return is_information_request=true if you're HI
 that the question cannot be answered with the existing knowledge context and truly requires
 additional information from the knowledge creator.
 
-You might want to use the `view_coordinator_conversation` as an additional check for information that can be used to answer the recipient's query without needing to create an information request.
-
 In context transfer mode, most questions should be answered directly without creating information requests.
