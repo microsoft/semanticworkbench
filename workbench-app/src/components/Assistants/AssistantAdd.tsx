@@ -12,7 +12,7 @@ import {
     Persona,
     makeStyles,
 } from '@fluentui/react-components';
-import { Bot24Regular, BotAddRegular, Sparkle24Regular } from '@fluentui/react-icons';
+import { Bot24Regular, BotAddRegular, BotRegular, Sparkle24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Assistant } from '../../models/Assistant';
 import { useGetAssistantServiceInfosQuery, useGetAssistantsQuery } from '../../services/workbench';
@@ -71,19 +71,13 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
     const unusedAssistants = assistants.filter((assistant) => !exceptAssistantIds?.includes(assistant.id));
 
     const avatarForAssistant = (assistant: Assistant): AvatarProps => {
-        const assistantServiceInfo = assistantServiceInfos?.find(
-            (info) => info.assistantServiceId === assistant.assistantServiceId,
-        );
-        if (!assistantServiceInfo) {
-            return { icon: <Bot24Regular />, name: assistant.name };
+        const icon = assistantServiceInfos?.find((info) => info.assistantServiceId === assistant.assistantServiceId)
+            ?.metadata?._dashboard_card?.[assistant.templateId]?.icon;
+        if (icon) {
+            return { image: { src: icon }, name: '' };
         }
 
-        const icon = assistantServiceInfo.metadata?._dashboard_card[assistant.templateId]?.icon;
-        if (!icon) {
-            return { icon: <Bot24Regular />, name: assistant.name };
-        }
-
-        return { image: { src: icon }, name: assistant.name };
+        return { icon: <BotRegular />, name: '' };
     };
 
     return (
