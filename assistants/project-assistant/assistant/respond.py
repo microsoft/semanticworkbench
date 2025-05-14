@@ -137,7 +137,7 @@ async def respond_to_conversation(
         role=assistant_role,
         instructions=instructions,
         context_strategy=ContextStrategy.MULTI,
-        output_format="Respond as JSON with your response in the `response` field and all citations in the `citations` field.",
+        output_format="Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.",
     )
 
     ###
@@ -470,8 +470,22 @@ async def respond_to_conversation(
     ##
 
     class Output(BaseModel):
-        response: str
-        citations: list[str]
+        """
+        Attributes:
+            response: The response from the assistant.
+            citations: A list of citations for the response provided from the assistant.
+            next_step_suggestion: Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.
+        """
+
+        response: str = Field(
+            description="The response from the assistant.",
+        )
+        citations: list[str] = Field(
+            description="A list of citations for the response provided from the assistant.",
+        )
+        next_step_suggestion: str = Field(
+            description="Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
+        )
 
         model_config = {
             "extra": "forbid"  # This sets additionalProperties=false in the schema
@@ -558,12 +572,15 @@ async def respond_to_conversation(
     try:
         output_model = Output.model_validate_json(content)
         citations = ", ".join(output_model.citations) if output_model.citations else "None"
-        output = f"{output_model.response}\n\nCitations: _{citations}_"
+        if role == ConversationRole.COORDINATOR:
+            output = output_model.response
+        else:
+            output = f"{output_model.response}\n\n{output_model.next_step_suggestion}\n\nCitations: _{citations}_"
 
     except Exception as e:
         logger.exception(f"exception occurred parsing json response: {e}")
         metadata["debug"]["error"] = str(e)
-        output = "[no response from openai]"
+        output = content
 
     await context.send_messages(
         NewConversationMessage(
