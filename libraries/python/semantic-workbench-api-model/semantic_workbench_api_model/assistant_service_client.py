@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Self
 
 import asgi_correlation_id
-import hishel
 import httpx
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -322,7 +321,7 @@ class AssistantServiceClientBuilder:
         self._api_key = api_key
 
     def _client(self, *additional_paths: str) -> httpx.AsyncClient:
-        return hishel.AsyncCacheClient(
+        return httpx.AsyncClient(
             transport=httpx_transport_factory(),
             base_url="/".join([self._base_url, *additional_paths]),
             timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
@@ -332,7 +331,6 @@ class AssistantServiceClientBuilder:
                     asgi_correlation_id.correlation_id.get() or ""
                 ),
             },
-            storage=hishel.AsyncFileStorage(),
         )
 
     def for_service(self) -> AssistantServiceClient:
