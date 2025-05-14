@@ -135,7 +135,7 @@ class EventHandlerList(Generic[EventHandlerT], list[tuple[EventHandlerT, Include
             finally:
                 end = perf_counter()
                 logger.debug(
-                    "event handler %s.%s took %s",
+                    "event handler metrics; name: %s.%s, duration: %s",
                     handler_module,
                     handler_name,
                     datetime.timedelta(seconds=end - start),
