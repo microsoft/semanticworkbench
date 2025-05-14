@@ -11,6 +11,7 @@ from typing import (
     AsyncContextManager,
     AsyncIterator,
     Callable,
+    Coroutine,
     TypeVar,
     cast,
 )
@@ -279,21 +280,35 @@ class AssistantService(FastAPIAssistantService):
 
         assistant_context = require_found(self.get_assistant_context(assistant_id))
         if is_new:
-            task = asyncio.create_task(
+            await self.execute_as_task(
                 self.assistant_app.events.assistant._on_created_handlers(True, assistant_context)
             )
         else:
-            task = asyncio.create_task(
+            await self.execute_as_task(
                 self.assistant_app.events.assistant._on_updated_handlers(True, assistant_context)
             )
-
-        self._conversation_event_tasks.add(task)
-        task.add_done_callback(self._conversation_event_tasks.discard)
 
         if from_export is not None:
             await self.assistant_app.data_exporter.import_(assistant_context, from_export)
 
         return await self.get_assistant(assistant_id)
+
+    async def execute_as_task(self, coro: Coroutine) -> None:
+        scheduled = datetime.datetime.now(datetime.UTC)
+
+        async def wrapper():
+            started = datetime.datetime.now(datetime.UTC)
+            try:
+                await coro
+            finally:
+                end = datetime.datetime.now(datetime.UTC)
+                delay = started - scheduled
+                elapsed = end - started
+                logger.debug("scheduled task finished; delay: %s, elapsed: %s", delay, elapsed)
+
+        task = asyncio.create_task(wrapper())
+        self._conversation_event_tasks.add(task)
+        task.add_done_callback(self._conversation_event_tasks.discard)
 
     @translate_assistant_errors
     async def export_assistant_data(self, assistant_id: str) -> StreamingResponse:
@@ -379,16 +394,13 @@ class AssistantService(FastAPIAssistantService):
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
         if is_new:
-            task = asyncio.create_task(
+            await self.execute_as_task(
                 self.assistant_app.events.conversation._on_created_handlers(not from_export, conversation_context)
             )
         else:
-            task = asyncio.create_task(
+            await self.execute_as_task(
                 self.assistant_app.events.conversation._on_updated_handlers(True, conversation_context)
             )
-
-        self._conversation_event_tasks.add(task)
-        task.add_done_callback(self._conversation_event_tasks.discard)
 
         if from_export is not None:
             await self.assistant_app.conversation_data_exporter.import_(conversation_context, from_export)
