@@ -1,7 +1,9 @@
 import asyncio
+import datetime
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from time import perf_counter
 from typing import (
     IO,
     Any,
@@ -114,6 +116,9 @@ class EventHandlerList(Generic[EventHandlerT], list[tuple[EventHandlerT, Include
             if not external_event and include == "others":
                 continue
 
+            handler_module = getattr(handler, "__module__", None)
+            handler_name = getattr(handler, "__name__", None)
+            start = perf_counter()
             try:
                 if asyncio.iscoroutinefunction(handler):
                     await handler(*args, **kwargs)
@@ -124,8 +129,17 @@ class EventHandlerList(Generic[EventHandlerT], list[tuple[EventHandlerT, Include
                     continue
 
             except Exception:
-                logger.exception("error in event handler {handler}")
+                logger.exception("error in event handler; name: %s.%s", handler_module, handler_name)
                 return
+
+            finally:
+                end = perf_counter()
+                logger.debug(
+                    "event handler %s.%s took %s",
+                    handler_module,
+                    handler_name,
+                    datetime.timedelta(seconds=end - start),
+                )
 
             raise TypeError(f"EventHandler {handler} is not a coroutine or callable")
 
