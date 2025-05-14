@@ -1,9 +1,11 @@
 import asyncio
 import contextlib
+import datetime
 import functools
 import logging
 import pathlib
 from contextlib import asynccontextmanager, contextmanager
+from time import perf_counter
 from typing import (
     IO,
     AsyncContextManager,
@@ -474,7 +476,20 @@ class AssistantService(FastAPIAssistantService):
                 if conversation_context is None:
                     continue
 
+                timestamp_now = datetime.datetime.now(datetime.UTC)
+
+                start = perf_counter()
                 await self._forward_event(conversation_context, event)
+                end = perf_counter()
+
+                logger.debug(
+                    "forwarded event to event handler; assistant_id: %s, conversation_id: %s, event: %s, time-since-event: %s, time-taken: %s",
+                    assistant_id,
+                    event.conversation_id,
+                    event.event,
+                    timestamp_now - event.timestamp,
+                    end - start,
+                )
 
             except Exception:
                 logging.exception("exception in _forward_events_from_queue loop")
