@@ -12,7 +12,7 @@ import {
     Persona,
     makeStyles,
 } from '@fluentui/react-components';
-import { Bot24Regular, BotAddRegular, BotRegular, Sparkle24Regular } from '@fluentui/react-icons';
+import { BotAddRegular, BotRegular, Sparkle24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Assistant } from '../../models/Assistant';
 import { useGetAssistantServiceInfosQuery, useGetAssistantsQuery } from '../../services/workbench';
