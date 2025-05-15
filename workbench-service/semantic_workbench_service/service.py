@@ -86,6 +86,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from semantic_workbench_service import azure_speech
+from semantic_workbench_service.logging_config import log_request_middleware
 
 from . import assistant_api_key, auth, controller, db, files, middleware, settings
 from .event import ConversationEventQueueItem
@@ -160,11 +161,15 @@ def init(
         )
 
         if "user" in queue_item.event_audience:
+            enqueued_count = 0
             async with conversation_sse_queues_lock:
                 for queue in conversation_sse_queues.get(queue_item.event.conversation_id, {}):
+                    enqueued_count += 1
                     await queue.put(queue_item.event)
+
             logger.debug(
-                "enqueued event for SSE; conversation_id: %s, event: %s, event_id: %s",
+                "enqueued event for SSE; count: %d, conversation_id: %s, event: %s, event_id: %s",
+                enqueued_count,
                 queue_item.event.conversation_id,
                 queue_item.event.event,
                 queue_item.event.id,
@@ -264,6 +269,8 @@ def init(
         expose_headers=["*"],
     )
     app.add_middleware(CorrelationIdMiddleware)
+
+    app.middleware("http")(log_request_middleware())
 
     user_controller = controller.UserController(get_session=_controller_get_session)
     assistant_controller = controller.AssistantController(

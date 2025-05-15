@@ -40,6 +40,7 @@ from semantic_workbench_api_model import (
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import auth, settings
+from .logging_config import log_request_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class FastAPIAssistantService(ABC):
                     name=self.service_name,
                     description=self.service_description,
                     url=HttpUrl(settings.callback_url),
-                    online_expires_in_seconds=settings.workbench_service_ping_interval_seconds * 2.5,
+                    online_expires_in_seconds=settings.workbench_service_ping_interval_seconds * 3.5,
                 ),
             )
 
@@ -292,6 +293,7 @@ def _assistant_service_api(
             exclude_paths=set(settings.anonymous_paths),
         )
     app.add_middleware(asgi_correlation_id.CorrelationIdMiddleware)
+    app.middleware("http")(log_request_middleware())
 
     @app.exception_handler(StarletteHTTPException)
     async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:

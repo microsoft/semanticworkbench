@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     workbench_service_url: HttpUrl = HttpUrl("http://127.0.0.1:3000")
     workbench_service_api_key: str = ""
-    workbench_service_ping_interval_seconds: float = 20.0
+    workbench_service_ping_interval_seconds: float = 30.0
 
     assistant_service_id: str | None = None
     assistant_service_name: str | None = None
