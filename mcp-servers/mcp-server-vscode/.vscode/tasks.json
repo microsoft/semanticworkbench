@@ -1,26 +1,41 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "watch",
-      "type": "npm",
-      "script": "watch",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "custom",
-        "fileLocation": "absolute",
-        "pattern": {
-          "regexp": "a^"
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "vite-build",
+            "type": "shell",
+            "command": "npx vite build",
+            "isBackground": false,
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true,
+                "revealProblems": "onProblem"
+            },
+            "problemMatcher": ["$vite"]
         },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^\\[webpack-cli\\] Compiler starting",
-          "endsPattern": "^webpack\\s+.*compiled successfully.*$"
+        {
+            "label": "watch",
+            "type": "npm",
+            "script": "watch",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "a^"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^\\[webpack-cli\\] Compiler starting",
+                    "endsPattern": "^webpack\\s+.*compiled successfully.*$"
+                }
+            },
+            "presentation": {
+                "clear": true
+            }
         }
-      },
-      "presentation": {
-        "clear": true
-      }
-    }
-  ]
+    ]
 }
