@@ -237,23 +237,26 @@ class AssistantService(FastAPIAssistantService):
 
     @translate_assistant_errors
     async def get_service_info(self) -> assistant_model.ServiceInfoModel:
-        return assistant_model.ServiceInfoModel(
-            assistant_service_id=self.service_id,
-            name=self.service_name,
-            templates=[
+        templates = []
+        for template in self.assistant_app.templates.values():
+            default_config = self.assistant_app.config_provider.default_for(template.id)
+            templates.append(
                 assistant_model.AssistantTemplateModel(
                     id=template.id,
                     name=template.name,
                     description=template.description,
                     config=assistant_model.ConfigResponseModel(
-                        config=self.assistant_app.config_provider.default_for(template.id).config,
+                        config=default_config.config,
                         errors=[],
-                        json_schema=self.assistant_app.config_provider.default_for(template.id).json_schema,
-                        ui_schema=self.assistant_app.config_provider.default_for(template.id).ui_schema,
+                        json_schema=default_config.json_schema,
+                        ui_schema=default_config.ui_schema,
                     ),
                 )
-                for template in self.assistant_app.templates.values()
-            ],
+            )
+        return assistant_model.ServiceInfoModel(
+            assistant_service_id=self.service_id,
+            name=self.service_name,
+            templates=templates,
             metadata=self.assistant_app.assistant_service_metadata,
         )
 
