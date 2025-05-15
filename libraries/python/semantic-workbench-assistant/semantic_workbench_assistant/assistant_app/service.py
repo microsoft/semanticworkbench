@@ -444,6 +444,10 @@ class AssistantService(FastAPIAssistantService):
 
     async def _get_or_create_queue(self, assistant_id: str, conversation_id: str) -> asyncio.Queue[_Event]:
         key = (assistant_id, conversation_id)
+        queue = self._conversation_event_queues.get(key)
+        if queue is not None:
+            return queue
+
         async with self._event_queue_lock:
             queue = self._conversation_event_queues.get(key)
             if queue is not None:
