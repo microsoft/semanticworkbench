@@ -46,6 +46,7 @@ def main():
         app,
         host=settings.service.host,
         port=settings.service.port,
+        access_log=False,
         log_config={"version": 1, "disable_existing_loggers": False},
     )
 

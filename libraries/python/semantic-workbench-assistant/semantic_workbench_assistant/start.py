@@ -95,6 +95,7 @@ def main():
         host=settings.host,
         port=settings.port,
         reload=reload,
+        access_log=False,
         log_config={"version": 1, "disable_existing_loggers": False},
     )
 
