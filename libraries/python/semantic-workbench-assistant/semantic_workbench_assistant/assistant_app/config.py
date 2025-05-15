@@ -123,11 +123,32 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
             ),
         )
 
-    @staticmethod
-    def _config_data_model_for(config: ConfigModelT, errors: list[str] | None = None) -> AssistantConfigDataModel:
+    ui_schema_cache: dict[type, dict[str, Any]] = {}
+
+    def cache_ui_schema(self, config: ConfigModelT) -> dict[str, Any]:
+        """
+        Get the UI schema for the given config model.
+        This method caches the UI schema to avoid re-generating it for the same config model.
+        """
+        if type(config) not in self.ui_schema_cache:
+            self.ui_schema_cache[type(config)] = get_ui_schema(type(config))
+        return self.ui_schema_cache[type(config)]
+
+    json_schema_cache: dict[type, dict[str, Any]] = {}
+
+    def cache_json_schema(self, config: ConfigModelT) -> dict[str, Any]:
+        """
+        Get the JSON schema for the given config model.
+        This method caches the JSON schema to avoid re-generating it for the same config model.
+        """
+        if type(config) not in self.json_schema_cache:
+            self.json_schema_cache[type(config)] = config.model_json_schema()
+        return self.json_schema_cache[type(config)]
+
+    def _config_data_model_for(self, config: ConfigModelT, errors: list[str] | None = None) -> AssistantConfigDataModel:
         return AssistantConfigDataModel(
             config=config.model_dump(mode="json"),
             errors=errors,
-            json_schema=type(config).model_json_schema(),
-            ui_schema=get_ui_schema(type(config)),
+            json_schema=self.cache_json_schema(config),
+            ui_schema=self.cache_ui_schema(config),
         )
