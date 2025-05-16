@@ -22,7 +22,6 @@ export const Constants = {
             return `calc(100vw - ${this.conversationListMinWidth} - ${this.conversationHistoryMinWidth})`;
         },
         defaultChatWidthPercent: 33,
-        maxMessagesPerRequest: 500,
         maxFileAttachmentsPerMessage: 10,
         loaderDelayMs: 100,
         responsiveBreakpoints: {

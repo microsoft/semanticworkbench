@@ -1,15 +1,15 @@
 import React from 'react';
-import { Constants } from '../Constants';
 import { ConversationMessage } from '../models/ConversationMessage';
 import { useAppDispatch } from '../redux/app/hooks';
 import {
     conversationApi,
-    updateGetAllConversationMessagesQueryData,
-    useGetAllConversationMessagesQuery,
+    updateGetConversationMessagesQueryData,
+    useGetConversationMessagesQuery,
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
+    workbenchApi,
 } from '../services/workbench';
 import { useGetAssistantCapabilities } from './useAssistantCapabilities';
 import { useConversationEvents } from './useConversationEvents';
@@ -27,9 +27,8 @@ export const useHistoryUtility = (conversationId: string) => {
         data: allConversationMessages,
         error: allConversationMessagesError,
         isLoading: allConversationMessagesIsLoading,
-    } = useGetAllConversationMessagesQuery({
+    } = useGetConversationMessagesQuery({
         conversationId,
-        limit: Constants.app.maxMessagesPerRequest,
     });
     const {
         data: conversationParticipants,
@@ -72,31 +71,8 @@ export const useHistoryUtility = (conversationId: string) => {
 
     // handler for when a new message is created
     const onMessageCreated = React.useCallback(async () => {
-        if (!allConversationMessages) {
-            return;
-        }
-
-        const lastMessageId = allConversationMessages[allConversationMessages.length - 1]?.id;
-        const newMessages = await dispatch(
-            conversationApi.endpoints.getAllConversationMessages.initiate(
-                {
-                    conversationId,
-                    limit: Constants.app.maxMessagesPerRequest,
-                    after: lastMessageId,
-                },
-                { forceRefetch: true },
-            ),
-        ).unwrap();
-        const updatedMessages = [...allConversationMessages, ...newMessages];
-
-        // update the cache with the new messages
-        dispatch(
-            updateGetAllConversationMessagesQueryData(
-                { conversationId, limit: Constants.app.maxMessagesPerRequest },
-                updatedMessages,
-            ),
-        );
-    }, [allConversationMessages, conversationId, dispatch]);
+        dispatch(workbenchApi.util.invalidateTags(['ConversationMessage']));
+    }, [dispatch]);
 
     // handler for when a message is deleted
     const onMessageDeleted = React.useCallback(
@@ -108,12 +84,7 @@ export const useHistoryUtility = (conversationId: string) => {
             const updatedMessages = allConversationMessages.filter((message) => message.id !== messageId);
 
             // remove the message from the messages state
-            dispatch(
-                updateGetAllConversationMessagesQueryData(
-                    { conversationId, limit: Constants.app.maxMessagesPerRequest },
-                    updatedMessages,
-                ),
-            );
+            dispatch(updateGetConversationMessagesQueryData({ conversationId }, updatedMessages));
         },
         [allConversationMessages, conversationId, dispatch],
     );

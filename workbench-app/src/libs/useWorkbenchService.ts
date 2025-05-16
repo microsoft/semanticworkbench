@@ -7,7 +7,6 @@ import { AssistantServiceInfo } from '../models/AssistantServiceInfo';
 import { AssistantServiceRegistration } from '../models/AssistantServiceRegistration';
 import { Conversation } from '../models/Conversation';
 import { ConversationFile } from '../models/ConversationFile';
-import { ConversationMessage } from '../models/ConversationMessage';
 import { ConversationParticipant } from '../models/ConversationParticipant';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
@@ -155,29 +154,11 @@ export const useWorkbenchService = () => {
             conversation: Conversation,
             participants: ConversationParticipant[],
         ): Promise<{ blob: Blob; filename: string }> => {
-            const messages: ConversationMessage[] = [];
-            let before_message_id: string | undefined = undefined;
-
-            while (true) {
-                try {
-                    const new_messages = await dispatch(
-                        conversationApi.endpoints.getConversationMessages.initiate({
-                            conversationId: conversation.id,
-                            before: before_message_id,
-                        }),
-                    ).unwrap();
-
-                    if (new_messages.length === 0) {
-                        break;
-                    }
-
-                    messages.unshift(...new_messages);
-                    before_message_id = new_messages[0].id;
-                } catch (error) {
-                    dispatch(addError({ title: 'Export transcript', message: (error as Error).message }));
-                    throw error;
-                }
-            }
+            const messages = await dispatch(
+                conversationApi.endpoints.getConversationMessages.initiate({
+                    conversationId: conversation.id,
+                }),
+            ).unwrap();
 
             const timestampForFilename = Utility.getTimestampForFilename();
             const filename = `transcript_${conversation.title.replaceAll(' ', '_')}_${timestampForFilename}.md`;
