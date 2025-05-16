@@ -314,7 +314,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // need to define the extra fields for the message such as sender, timestamp, etc.
             // so that the message can be rendered correctly
             dispatch(
-                updateGetConversationMessagesQueryData(conversation.id, [
+                updateGetConversationMessagesQueryData({ conversationId: conversation.id }, [
                     ...(messages ?? []),
                     {
                         id: 'optimistic',

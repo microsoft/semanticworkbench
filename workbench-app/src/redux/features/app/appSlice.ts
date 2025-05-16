@@ -4,7 +4,7 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
-import { conversationApi } from '../../../services/workbench';
+import { workbenchApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
 const localStorageKey = {
@@ -95,10 +95,7 @@ export const appSlice = createSlice({
 
             // dispatch to invalidate messages cache
             if (action.payload) {
-                conversationApi.endpoints.getConversationMessages.initiate(
-                    { conversationId: action.payload },
-                    { forceRefetch: true },
-                );
+                workbenchApi.util.invalidateTags(['ConversationMessage']);
             }
         },
         setGlobalContentOpen: (state: AppState, action: PayloadAction<boolean>) => {

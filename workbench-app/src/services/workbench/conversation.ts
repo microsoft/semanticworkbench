@@ -9,9 +9,6 @@ interface GetConversationMessagesProps {
     messageTypes?: string[];
     participantRoles?: string[];
     participantIds?: string[];
-    before?: string;
-    after?: string;
-    limit?: number;
 }
 
 export const conversationApi = workbenchApi.injectEndpoints({
@@ -62,74 +59,34 @@ export const conversationApi = workbenchApi.injectEndpoints({
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
         getConversationMessages: builder.query<ConversationMessage[], GetConversationMessagesProps>({
-            query: ({
-                conversationId,
-                messageTypes = ['chat', 'log', 'note', 'notice', 'command', 'command-response'],
-                participantRoles,
-                participantIds,
-                before,
-                after,
-                limit,
-            }) => {
-                const params = new URLSearchParams();
-
-                // Append parameters to the query string, one by one for arrays
-                messageTypes?.forEach((type) => params.append('message_type', type));
-                participantRoles?.forEach((role) => params.append('participant_role', role));
-                participantIds?.forEach((id) => params.append('participant_id', id));
-
-                if (before) {
-                    params.set('before', before);
-                }
-                if (after) {
-                    params.set('after', after);
-                }
-                // Ensure limit does not exceed 500
-                if (limit !== undefined) {
-                    params.set('limit', String(Math.min(limit, 500)));
-                }
-
-                return `/conversations/${conversationId}/messages?${params.toString()}`;
-            },
-            providesTags: ['Conversation'],
-            transformResponse: (response: any) => transformResponseToConversationMessages(response),
-        }),
-        getAllConversationMessages: builder.query<ConversationMessage[], GetConversationMessagesProps>({
             async queryFn(
                 {
                     conversationId,
                     messageTypes = ['chat', 'log', 'note', 'notice', 'command', 'command-response'],
                     participantRoles,
                     participantIds,
-                    before,
-                    after,
-                    limit,
                 },
                 _queryApi,
                 _extraOptions,
                 fetchWithBQ,
             ) {
                 let allMessages: ConversationMessage[] = [];
-                let updatedBefore = before;
+                let before = undefined;
 
                 while (true) {
                     const params = new URLSearchParams();
+
+                    if (before) {
+                        params.set('before', before);
+                    }
 
                     // Append parameters to the query string, one by one for arrays
                     messageTypes?.forEach((type) => params.append('message_type', type));
                     participantRoles?.forEach((role) => params.append('participant_role', role));
                     participantIds?.forEach((id) => params.append('participant_id', id));
 
-                    if (updatedBefore) {
-                        params.set('before', updatedBefore);
-                    }
-                    if (after) {
-                        params.set('after', after);
-                    }
-                    // Ensure limit does not exceed 500
-                    if (limit !== undefined) {
-                        params.set('limit', String(Math.min(limit, 500)));
-                    }
+                    const limit = 500;
+                    params.set('limit', String(limit));
 
                     const url = `/conversations/${conversationId}/messages?${params.toString()}`;
 
@@ -145,12 +102,12 @@ export const conversationApi = workbenchApi.injectEndpoints({
                         break;
                     }
 
-                    updatedBefore = messages[0].id;
+                    before = messages[0].id;
                 }
 
                 return { data: allMessages };
             },
-            providesTags: ['Conversation'],
+            providesTags: ['Conversation', 'ConversationMessage'],
         }),
         getConversationMessageDebugData: builder.query<
             ConversationMessageDebug,
@@ -186,9 +143,6 @@ export const conversationApi = workbenchApi.injectEndpoints({
 
 // Non-hook helpers
 
-export const updateGetConversationMessagesQueryData = (conversationId: string, data: ConversationMessage[]) =>
-    conversationApi.util.updateQueryData('getConversationMessages', { conversationId }, () => data);
-
 export const {
     useCreateConversationMutation,
     useDuplicateConversationMutation,
@@ -197,16 +151,15 @@ export const {
     useGetAssistantConversationsQuery,
     useGetConversationQuery,
     useGetConversationMessagesQuery,
-    useGetAllConversationMessagesQuery,
     useGetConversationMessageDebugDataQuery,
     useCreateConversationMessageMutation,
     useDeleteConversationMessageMutation,
 } = conversationApi;
 
-export const updateGetAllConversationMessagesQueryData = (
+export const updateGetConversationMessagesQueryData = (
     options: GetConversationMessagesProps,
     messages: ConversationMessage[],
-) => conversationApi.util.updateQueryData('getAllConversationMessages', options, () => messages);
+) => conversationApi.util.updateQueryData('getConversationMessages', options, () => messages);
 
 const transformConversationForRequest = (conversation: Partial<Conversation>) => ({
     id: conversation.id,
