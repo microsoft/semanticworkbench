@@ -5,10 +5,14 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
+import datetime
+import inspect
 import io
 import logging
 import pathlib
-from typing import Any
+from contextlib import asynccontextmanager
+from time import perf_counter
+from typing import Any, AsyncGenerator
 
 import deepmerge
 from assistant_extensions import attachments, dashboard_card, mcp, navigator
@@ -93,7 +97,8 @@ assistant = AssistantApp(
 
 async def whiteboard_config_provider(ctx: ConversationContext) -> mcp.MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    return config.tools.hosted_mcp_servers.memory_whiteboard
+    enabled = config.tools.enabled and config.tools.hosted_mcp_servers.memory_whiteboard.enabled
+    return config.tools.hosted_mcp_servers.memory_whiteboard.model_copy(update={"enabled": enabled})
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
@@ -210,6 +215,27 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
     return True
 
 
+@asynccontextmanager
+async def timing(message: str) -> AsyncGenerator[None, None]:
+    """
+    Context manager to time the execution of a block of code.
+    """
+    caller_frame = inspect.stack()[2]
+    src = pathlib.Path(caller_frame.filename).name + ":" + str(caller_frame.lineno)
+    caller = caller_frame.function
+    start_time = perf_counter()
+    yield
+    end_time = perf_counter()
+    elapsed_time = datetime.timedelta(seconds=end_time - start_time)
+    logger.info(
+        "timing; message: %s, elapsed time: %s, caller: %s, src: %s",
+        message,
+        elapsed_time,
+        caller,
+        src,
+    )
+
+
 @assistant.events.conversation.on_created
 async def on_conversation_created(context: ConversationContext) -> None:
     """
@@ -217,19 +243,22 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
 
     # hand the conversation off to the assistant if this conversation was spawned from another conversation
-    conversation = await context.get_conversation()
+    async with timing("get-conversation"):
+        conversation = await context.get_conversation()
+
     navigator_handoff = conversation.metadata.get("_navigator_handoff")
 
-    assistant_sent_messages = await context.get_messages(
-        participant_ids=[context.assistant.id], limit=1, message_types=[MessageType.chat]
-    )
-    assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
+    async with timing("get-assistant-messages"):
+        assistant_sent_messages = await context.get_messages(
+            participant_ids=[context.assistant.id], limit=1, message_types=[MessageType.chat]
+        )
+        assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
 
     if navigator_handoff:
         if assistant_has_sent_a_message:
             return
 
-        async with context.set_status("handing off..."):
+        async with timing("hand-off"), context.set_status("handing off..."):
             spawned_from_conversation_id = navigator_handoff.get("spawned_from_conversation_id")
             source_context = context.for_conversation(spawned_from_conversation_id)
             files_to_copy = navigator_handoff.get("files_to_copy")
@@ -266,31 +295,33 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
         return
 
-    participants_response = await context.get_participants()
-    other_assistants_in_conversation = any(
-        participant
-        for participant in participants_response.participants
-        if participant.role == ParticipantRole.assistant and participant.id != context.assistant.id
-    )
-    if other_assistants_in_conversation:
-        return
+    async with timing("get-participants"):
+        participants_response = await context.get_participants()
+        other_assistants_in_conversation = any(
+            participant
+            for participant in participants_response.participants
+            if participant.role == ParticipantRole.assistant and participant.id != context.assistant.id
+        )
+        if other_assistants_in_conversation:
+            return
 
     if assistant_has_sent_a_message:
         # don't send the welcome message if the assistant has already sent a message
         return
 
     # send a welcome message to the conversation
-    config = await assistant_config.get(context.assistant)
-    welcome_message = config.response_behavior.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
-        )
-    )
+    async with timing("get-assistant-config"):
+        config = await assistant_config.get(context.assistant)
 
-    await context.update_participant_me(UpdateParticipant())
+    async with timing("send-welcome-message"):
+        welcome_message = config.response_behavior.welcome_message
+        await context.send_messages(
+            NewConversationMessage(
+                content=welcome_message,
+                message_type=MessageType.chat,
+                metadata={"generated_content": False},
+            )
+        )
 
 
 # endregion

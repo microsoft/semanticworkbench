@@ -94,11 +94,10 @@ async def get_completion(
                 completion_args["parallel_tool_calls"] = False
 
     logger.debug(
-        dedent(f"""
-            Initiating OpenAI request:
-            {client.base_url} for '{request_config.model}'
-            with {len(chat_message_params)} messages
-        """).strip()
+        "Initiating OpenAI request: %s for '%s' with %d messages",
+        client.base_url,
+        request_config.model,
+        len(chat_message_params),
     )
     completion = await client.chat.completions.create(**completion_args)
     return completion
