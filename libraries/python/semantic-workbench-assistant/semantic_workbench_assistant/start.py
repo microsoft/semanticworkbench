@@ -74,9 +74,6 @@ def main():
 
     args = parse_args.parse_args()
 
-    assistant_root_module = args.app.split(":")[0].split(".")[0]
-    logging.getLogger(assistant_root_module).setLevel(logging.DEBUG)
-
     logger.info(f"Starting '{args.app}' assistant service ...")
     reload = args.reload != "false"
     if reload:
