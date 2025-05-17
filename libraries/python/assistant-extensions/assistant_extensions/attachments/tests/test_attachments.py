@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from typing import Any, AsyncGenerator, AsyncIterator, Callable, Iterable
 from unittest import mock
 
+import httpx
 import pytest
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from llm_client.model import (
@@ -114,7 +115,7 @@ async def test_get_completion_messages_for_attachments(
                 _assistant_service_id="assistant_id",
                 _template_id="",
             ),
-            httpx_client=mock.ANY,
+            httpx_client=httpx.AsyncClient(),
         )
     )
     mock_conversation_context.id = "conversation_id"
