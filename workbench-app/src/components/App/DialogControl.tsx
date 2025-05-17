@@ -58,7 +58,7 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
     const classes = useClasses();
 
     return (
-        <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
+        <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange} inertTrapFocus={true}>
             <DialogTrigger disableButtonEnhancement>{trigger}</DialogTrigger>
             <DialogSurface className={classNames?.dialogSurface}>
                 <DialogBody>
