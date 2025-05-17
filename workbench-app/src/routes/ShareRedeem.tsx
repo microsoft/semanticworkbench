@@ -165,7 +165,7 @@ export const ShareRedeem: React.FC = () => {
             onClick: () => void;
         }) => {
             return (
-                <DialogTrigger disableButtonEnhancement action="open">
+                <DialogTrigger disableButtonEnhancement action="open" key={options.label}>
                     <Button
                         style={{ width: 'max-content' }}
                         appearance={options?.appearance ?? 'primary'}
@@ -255,11 +255,11 @@ export const ShareRedeem: React.FC = () => {
             return renderAppView({
                 dialogTitle: 'Share is no longer redeemable',
                 dialogContent: (
-                    <p>
+                    <div>
                         The share has already been redeemed or has expired.
                         {shareDetails}
                         If you believe this is an error, please contact the person who shared the conversation with you.
-                    </p>
+                    </div>
                 ),
             });
 
@@ -269,13 +269,13 @@ export const ShareRedeem: React.FC = () => {
                 dialogTitle: inviteTitle,
                 dialogContent: (
                     <>
-                        <p>
+                        <div>
                             You have been <em>invited to participate</em> in a conversation: By joining, you will be
                             able to view and participate in the conversation.
                             {shareDetails}
-                        </p>
-                        <p>{existingCopyNote}</p>
-                        <p>{copyNote}</p>
+                        </div>
+                        <div>{existingCopyNote}</div>
+                        <div>{copyNote}</div>
                     </>
                 ),
                 dialogActions: [
@@ -297,13 +297,13 @@ export const ShareRedeem: React.FC = () => {
                 dialogTitle: inviteTitle,
                 dialogContent: (
                     <>
-                        <p>
+                        <div>
                             You have been <em>invited to observe</em> a conversation: By observing, you will be able to
                             view the conversation without participating.
                             {shareDetails}
-                        </p>
-                        <p>{existingCopyNote}</p>
-                        <p>{copyNote}</p>
+                        </div>
+                        <div>{existingCopyNote}</div>
+                        <div>{copyNote}</div>
                     </>
                 ),
                 dialogActions: [
@@ -325,12 +325,12 @@ export const ShareRedeem: React.FC = () => {
                 dialogTitle: inviteTitle,
                 dialogContent: (
                     <>
-                        <p>
+                        <div>
                             You have been <em>invited to copy</em> a conversation:
                             {shareDetails}
-                        </p>
-                        <p>{existingCopyNote}</p>
-                        <p>{copyNote}</p>
+                        </div>
+                        <div>{existingCopyNote}</div>
+                        <div>{copyNote}</div>
                     </>
                 ),
                 dialogActions: [
