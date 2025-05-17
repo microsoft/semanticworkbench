@@ -105,12 +105,14 @@ async def test_get_completion_messages_for_attachments(
 ) -> None:
     mock_assistant_app = mock.MagicMock(spec=AssistantAppProtocol)
 
+    assistant_id = uuid.uuid4()
+
     mock_conversation_context = mock.MagicMock(
         spec=ConversationContext(
             id="conversation_id",
             title="conversation_title",
             assistant=AssistantContext(
-                id="assistant_id",
+                id=str(assistant_id),
                 name="assistant_name",
                 _assistant_service_id="assistant_id",
                 _template_id="",
@@ -119,7 +121,7 @@ async def test_get_completion_messages_for_attachments(
         )
     )
     mock_conversation_context.id = "conversation_id"
-    mock_conversation_context.assistant.id = "assistant_id"
+    mock_conversation_context.assistant.id = str(assistant_id)
 
     mock_conversation_context.list_files.return_value = FileList(
         files=[
