@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Content Safety for Semantic Workbench Assistants"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "azure-ai-contentsafety>=1.0.0",
     "azure-core[aio]>=1.30.0",

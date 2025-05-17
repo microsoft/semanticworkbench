@@ -8,14 +8,12 @@ contexts and accessing other conversations.
 
 from typing import Any, Optional, Tuple
 
-import semantic_workbench_api_model.workbench_service_client as wsc
 from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
-from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .logging import logger
 from .conversation_project_link import ConversationProjectManager
+from .logging import logger
 from .project_storage import ProjectStorageManager
 from .project_storage_models import ConversationRole
 
@@ -33,17 +31,7 @@ class ConversationClientManager:
         """
         Gets a client for accessing another conversation.
         """
-        # Create a client for the target conversation
-        builder = wsc.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
-            assistant_service_id=context.assistant._assistant_service_id,
-            api_key=settings.workbench_service_api_key,
-        )
-        client = builder.for_conversation(
-            assistant_id=context.assistant.id,
-            conversation_id=conversation_id,
-        )
-        return client
+        return context.for_conversation(conversation_id)._conversation_client
 
     @staticmethod
     async def get_coordinator_client_for_project(
@@ -88,17 +76,10 @@ class ConversationClientManager:
         Creates a temporary context for the target conversation ID.
         """
         try:
-            # We'll use the same assistant as in the source context
-            assistant = source_context.assistant
-
             # Create a temporary context with the same properties as the original
             # but pointing to a different conversation
 
-            temp_context = ConversationContext(
-                assistant=assistant,
-                id=target_conversation_id,
-                title=source_context.title,
-            )
+            temp_context = source_context.for_conversation(target_conversation_id)
 
             return temp_context
 

@@ -177,11 +177,7 @@ class UserProxyRunner:
         conversation_id = response.conversation_ids[0]
 
         # create a new conversation context
-        workflow_context = ConversationContext(
-            id=str(conversation_id),
-            title=title,
-            assistant=context.assistant,
-        )
+        workflow_context = context.for_conversation(str(conversation_id))
 
         # send link to chat for the new conversation
         await context.send_messages(

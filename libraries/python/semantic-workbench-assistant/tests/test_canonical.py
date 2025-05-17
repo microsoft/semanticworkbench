@@ -1,12 +1,9 @@
-import datetime
 import uuid
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import assistant_model
-from semantic_workbench_api_model.workbench_model import AssistantServiceRegistration
 from semantic_workbench_assistant import canonical, settings, storage
 
 
@@ -18,43 +15,12 @@ def canonical_assistant_service(
     return canonical.canonical_app.fastapi_app()
 
 
-@pytest.fixture()
-def mock_workbench_service_url(monkeypatch: pytest.MonkeyPatch) -> str:
-    workbench_service_url = "http://test-workbench"
-    monkeypatch.setattr(settings, "workbench_service_url", workbench_service_url)
-    return workbench_service_url
-
-
-@pytest.fixture()
-def mock_assistant_service_response(
-    httpx_mock: HTTPXMock, canonical_assistant_service: FastAPI, mock_workbench_service_url: str
-):
-    assistant_service_id = canonical_assistant_service.extra.get("assistant_service_id") or ""
-    httpx_mock.add_response(
-        url=f"{mock_workbench_service_url}/assistant-service-registrations/{assistant_service_id}",
-        method="PUT",
-        json=AssistantServiceRegistration(
-            assistant_service_id=assistant_service_id,
-            created_by_user_id="",
-            created_by_user_name="",
-            created_datetime=datetime.datetime.now(datetime.UTC),
-            assistant_service_url=settings.callback_url,
-            name="",
-            description="",
-            include_in_listing=True,
-            api_key_name="",
-            assistant_service_online=True,
-            assistant_service_online_expiration_datetime=None,
-        ).model_dump(mode="json"),
-    )
-
-
-def test_service_init(canonical_assistant_service: FastAPI, mock_assistant_service_response):
+def test_service_init(canonical_assistant_service: FastAPI):
     with TestClient(app=canonical_assistant_service):
         pass
 
 
-def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_assistant_service_response):
+def test_create_assistant_put_config(canonical_assistant_service: FastAPI):
     with TestClient(app=canonical_assistant_service) as client:
         assistant_id = str(uuid.uuid4())
         assistant_definition = assistant_model.AssistantPutRequestModel(
@@ -106,7 +72,7 @@ def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_
         }
 
 
-def test_create_assistant_put_invalid_config(canonical_assistant_service: FastAPI, mock_assistant_service_response):
+def test_create_assistant_put_invalid_config(canonical_assistant_service: FastAPI):
     with TestClient(app=canonical_assistant_service) as client:
         assistant_id = str(uuid.uuid4())
         assistant_definition = assistant_model.AssistantPutRequestModel(
