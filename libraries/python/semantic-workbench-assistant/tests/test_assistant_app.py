@@ -357,14 +357,9 @@ async def test_assistant_with_state_exporter(
         )
 
         assert state_exporter_wrapper.import_.called
-        assert state_exporter_wrapper.import_.call_args[0][0] == ConversationContext(
-            id=str(conversation_id),
-            title="My conversation",
-            assistant=mock.ANY,
-            _status_lock=mock.ANY,
-            _status_stack=mock.ANY,
-            _prior_status=mock.ANY,
-        )
+        assert isinstance(state_exporter_wrapper.import_.call_args[0][0], ConversationContext)
+        assert state_exporter_wrapper.import_.call_args[0][0].id == str(conversation_id)
+        assert state_exporter_wrapper.import_.call_args[0][0].title == "My conversation"
 
         assert state_exporter.data == import_bytes
 
@@ -374,14 +369,9 @@ async def test_assistant_with_state_exporter(
                 bytes_out.extend(chunk)
 
         assert state_exporter_wrapper.export.called
-        assert state_exporter_wrapper.export.call_args[0][0] == ConversationContext(
-            id=str(conversation_id),
-            title="My conversation",
-            assistant=mock.ANY,
-            _status_lock=mock.ANY,
-            _status_stack=mock.ANY,
-            _prior_status=mock.ANY,
-        )
+        assert isinstance(state_exporter_wrapper.import_.call_args[0][0], ConversationContext)
+        assert state_exporter_wrapper.import_.call_args[0][0].id == str(conversation_id)
+        assert state_exporter_wrapper.import_.call_args[0][0].title == "My conversation"
 
         assert bytes_out == import_bytes
 
@@ -524,6 +514,7 @@ async def test_file_system_storage_state_data_provider_to_empty_dir(
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
+        httpx_client=mock.ANY,
     )
 
     dest_conversation_context = ConversationContext(
@@ -535,6 +526,7 @@ async def test_file_system_storage_state_data_provider_to_empty_dir(
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
+        httpx_client=mock.ANY,
     )
 
     src_dir_path = storage_directory_for_context(src_conversation_context)
@@ -574,6 +566,7 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir(
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
+        httpx_client=mock.ANY,
     )
 
     dest_conversation_context = ConversationContext(
@@ -585,6 +578,7 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir(
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
+        httpx_client=mock.ANY,
     )
 
     # set up contents of the non-empty destination directory

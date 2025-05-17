@@ -18,6 +18,7 @@ import asgi_correlation_id
 import backoff
 import backoff.types
 import httpx
+import semantic_workbench_api_model.workbench_service_client
 from fastapi import (
     FastAPI,
     File,
@@ -71,6 +72,11 @@ class FastAPIAssistantService(ABC):
         self._service_id = service_id
         self._service_name = service_name
         self._service_description = service_description
+        self._workbench_httpx_client = httpx.AsyncClient(
+            transport=semantic_workbench_api_model.workbench_service_client.httpx_transport_factory(),
+            timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
+            base_url=str(settings.workbench_service_url),
+        )
 
         @asynccontextmanager
         async def lifespan() -> AsyncIterator[None]:
@@ -81,21 +87,21 @@ class FastAPIAssistantService(ABC):
                 settings.callback_url,
             )
 
-            async with self.workbench_client.for_service() as service_client:
-                # start periodic pings to workbench
-                ping_task = asyncio.create_task(
-                    self._periodically_ping_semantic_workbench(service_client), name="ping-workbench"
-                )
+            service_client = self.workbench_client.for_service()
+            # start periodic pings to workbench
+            ping_task = asyncio.create_task(
+                self._periodically_ping_semantic_workbench(service_client), name="ping-workbench"
+            )
 
+            try:
+                yield
+
+            finally:
+                ping_task.cancel()
                 try:
-                    yield
-
-                finally:
-                    ping_task.cancel()
-                    try:
-                        await ping_task
-                    except asyncio.CancelledError:
-                        pass
+                    await ping_task
+                except asyncio.CancelledError:
+                    pass
 
         register_lifespan_handler(lifespan)
 
@@ -175,9 +181,9 @@ class FastAPIAssistantService(ABC):
     @property
     def workbench_client(self) -> workbench_service_client.WorkbenchServiceClientBuilder:
         return workbench_service_client.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
             assistant_service_id=self.service_id,
             api_key=settings.workbench_service_api_key,
+            httpx_client=self._workbench_httpx_client,
         )
 
     @abstractmethod

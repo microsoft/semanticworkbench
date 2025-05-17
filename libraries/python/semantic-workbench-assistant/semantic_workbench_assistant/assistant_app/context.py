@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, AsyncIterator
 
+import httpx
 import semantic_workbench_api_model
 import semantic_workbench_api_model.workbench_service_client
 from semantic_workbench_api_model import workbench_model
@@ -25,15 +26,23 @@ class AssistantContext:
     _template_id: str = field(default="default")
 
 
-@dataclass
 class ConversationContext:
-    id: str
-    title: str
-    assistant: AssistantContext
+    def __init__(
+        self,
+        id: str,
+        title: str,
+        assistant: AssistantContext,
+        httpx_client: httpx.AsyncClient,
+    ) -> None:
+        self.id = id
+        self.title = title
+        self.assistant = assistant
 
-    _status_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    _status_stack: list[str | None] = field(default_factory=list)
-    _prior_status: str | None = field(default=None)
+        self._httpx_client = httpx_client
+
+        self._status_lock = asyncio.Lock()
+        self._status_stack: list[str | None] = []
+        self._prior_status: str | None = None
 
     def for_conversation(
         self,
@@ -43,6 +52,7 @@ class ConversationContext:
             id=conversation_id,
             title="",
             assistant=self.assistant,
+            httpx_client=self._httpx_client,
         )
 
     @property
@@ -50,9 +60,9 @@ class ConversationContext:
         self,
     ) -> semantic_workbench_api_model.workbench_service_client.ConversationAPIClient:
         return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
             assistant_service_id=self.assistant._assistant_service_id,
             api_key=settings.workbench_service_api_key,
+            httpx_client=self._httpx_client,
         ).for_conversation(self.assistant.id, self.id)
 
     @property
@@ -60,9 +70,9 @@ class ConversationContext:
         self,
     ) -> semantic_workbench_api_model.workbench_service_client.ConversationsAPIClient:
         return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
             assistant_service_id=self.assistant._assistant_service_id,
             api_key=settings.workbench_service_api_key,
+            httpx_client=self._httpx_client,
         ).for_conversations(self.assistant.id)
 
     @property
@@ -70,9 +80,9 @@ class ConversationContext:
         self,
     ) -> semantic_workbench_api_model.workbench_service_client.AssistantServiceAPIClient:
         return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
             assistant_service_id=self.assistant._assistant_service_id,
             api_key=settings.workbench_service_api_key,
+            httpx_client=self._httpx_client,
         ).for_service()
 
     async def send_messages(

@@ -17,6 +17,9 @@ from typing import (
 )
 
 import asgi_correlation_id
+import httpx
+import semantic_workbench_api_model
+import semantic_workbench_api_model.workbench_service_client
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
@@ -137,6 +140,11 @@ class AssistantService(FastAPIAssistantService):
         self._event_queue_lock = asyncio.Lock()
         self._conversation_event_queues: dict[tuple[str, str], asyncio.Queue[_Event]] = {}
         self._conversation_event_tasks: set[asyncio.Task] = set()
+        self._workbench_httpx_client = httpx.AsyncClient(
+            transport=semantic_workbench_api_model.workbench_service_client.httpx_transport_factory(),
+            timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
+            base_url=str(settings.workbench_service_url),
+        )
         register_lifespan_handler(self.lifespan)
 
     @asynccontextmanager
@@ -146,6 +154,7 @@ class AssistantService(FastAPIAssistantService):
         try:
             yield
         finally:
+            await self._workbench_httpx_client.aclose()
             await self.assistant_app.events._on_service_shutdown_handlers(True)
 
             for task in self._conversation_event_tasks:
@@ -212,6 +221,7 @@ class AssistantService(FastAPIAssistantService):
             assistant=assistant_context,
             id=conversation_state.conversation_id,
             title=conversation_state.title,
+            httpx_client=self._workbench_httpx_client,
         )
 
         content_interceptor = self.assistant_app.content_interceptor

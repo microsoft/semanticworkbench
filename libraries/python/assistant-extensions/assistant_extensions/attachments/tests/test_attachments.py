@@ -114,6 +114,7 @@ async def test_get_completion_messages_for_attachments(
                 _assistant_service_id="assistant_id",
                 _template_id="",
             ),
+            httpx_client=mock.ANY,
         )
     )
     mock_conversation_context.id = "conversation_id"
