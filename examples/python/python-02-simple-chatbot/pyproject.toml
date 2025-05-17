@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Exploration of a python Semantic Workbench OpenAI assistant."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "openai>=1.61.0",
     "tiktoken>=0.8.0",
