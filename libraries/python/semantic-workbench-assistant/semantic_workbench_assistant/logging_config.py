@@ -1,6 +1,5 @@
 import logging
 import logging.config
-import re
 from time import perf_counter
 from typing import Awaitable, Callable
 
@@ -61,27 +60,9 @@ class CustomJSONFormatter(jsonlogger.JsonFormatter):
         return log_record
 
 
-class DebugLevelForNoisyLogFilter(logging.Filter):
-    """Lowers log level to DEBUG for logs that match specific logger names and message patterns."""
-
-    def __init__(self, log_level: int, names_and_patterns: list[tuple[str, re.Pattern]]):
-        self._log_level = log_level
-        self._names_and_patterns = names_and_patterns
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not any(
-            record.name == name and pattern.search(record.getMessage()) for name, pattern in self._names_and_patterns
-        ):
-            return True
-
-        record.levelname = logging.getLevelName(logging.DEBUG)
-        record.levelno = logging.DEBUG
-
-        return self._log_level <= record.levelno
-
-
 def config(settings: LoggingSettings):
-    log_level = logging.getLevelNamesMapping()[settings.log_level.upper()]
+    log_level = settings.log_level.upper()
+    # log_level_int = logging.getLevelNamesMapping()[log_level]
 
     handler = "rich"
     if settings.json_format:
@@ -108,12 +89,12 @@ def config(settings: LoggingSettings):
                 "class": "rich.logging.RichHandler",
                 "rich_tracebacks": True,
                 "formatter": "default",
-                "filters": ["asgi_correlation_id", "debug_level_for_noisy_logs"],
+                "filters": ["asgi_correlation_id"],
             },
             "json": {
                 "class": "logging.StreamHandler",
                 "formatter": "json",
-                "filters": ["asgi_correlation_id", "debug_level_for_noisy_logs"],
+                "filters": ["asgi_correlation_id"],
             },
         },
         "loggers": {
@@ -123,20 +104,15 @@ def config(settings: LoggingSettings):
             "azure.identity": {
                 "level": "WARNING",
             },
+            "semantic_workbench_assistant": {
+                "level": log_level,
+            },
         },
         "root": {
             "handlers": [handler],
             "level": log_level,
         },
         "filters": {
-            "debug_level_for_noisy_logs": {
-                "()": DebugLevelForNoisyLogFilter,
-                "log_level": log_level,
-                "names_and_patterns": [
-                    # noisy assistant-service ping requests
-                    ("httpx", re.compile(r"PUT .+/assistant-service-registrations/[^\s]+ \"HTTP")),
-                ],
-            },
             "asgi_correlation_id": {
                 "()": asgi_correlation_id.CorrelationIdFilter,
                 "uuid_length": 8,
