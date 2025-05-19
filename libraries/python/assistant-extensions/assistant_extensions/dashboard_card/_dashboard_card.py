@@ -112,3 +112,17 @@ def metadata(*templates: TemplateConfig) -> dict[str, Any]:
     return {
         dashboard_card_metadata_key: template_dict,
     }
+
+
+def extract_metadata_for_dashboard_card(metadata: dict[str, Any], template_id: str) -> TemplateConfig | None:
+    """
+    Extracts the metadata for a specific template ID from the assistant service metadata.
+    Args:
+        metadata (dict[str, Any]): The assistant service metadata.
+        template_id (str): The template ID to extract the metadata for.
+    Returns:
+        TemplateConfig | None: The metadata for the specified template ID, or None if not found.
+    """
+    if dashboard_card_metadata_key not in metadata:
+        return None
+    return metadata[dashboard_card_metadata_key].get(template_id)

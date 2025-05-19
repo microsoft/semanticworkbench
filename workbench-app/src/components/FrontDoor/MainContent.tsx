@@ -225,6 +225,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                     key={ids.assistantServiceId + '/' + ids.templateId}
                                     assistantServiceId={ids.assistantServiceId}
                                     templateId={ids.templateId}
+                                    requireEnabled={true}
                                 />
                             ))}
                         </div>
