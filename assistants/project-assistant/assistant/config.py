@@ -13,7 +13,7 @@ from .configs import (
 assistant_config = BaseModelAssistantConfig(
     AssistantConfigModel,
     additional_templates={
-        "context_transfer": ContextTransferConfigModel,
+        "knowledge_transfer": ContextTransferConfigModel,
     },
 )
 

@@ -71,8 +71,8 @@ assistant = AssistantApp(
     },
     additional_templates=[
         AssistantTemplate(
-            id="context_transfer",
-            name="Context Transfer Assistant (experimental)",
+            id="knowledge_transfer",
+            name="Knowledge Transfer Assistant",
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
     ],
@@ -91,8 +91,8 @@ assistant = AssistantApp(
                 ),
             ),
             dashboard_card.TemplateConfig(
-                enabled=False,
-                template_id="context_transfer",
+                enabled=True,
+                template_id="knowledge_transfer",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
                 ),
@@ -105,7 +105,7 @@ assistant = AssistantApp(
         ),
         **navigator.metadata_for_assistant_navigator({
             "default": load_text_include("project_assistant_info.md"),
-            "context_transfer": load_text_include("context_transfer_assistant_info.md"),
+            "knowledge_transfer": load_text_include("context_transfer_assistant_info.md"),
         }),
     },
 )
@@ -225,7 +225,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 await ProjectManager.update_project_brief(
                     context=context,
                     title=f"New {config.Project_or_Context}",
-                    description="_This context brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the context you are sharing?_"
+                    description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
                     if is_context_transfer_assistant
                     else "_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
                 )

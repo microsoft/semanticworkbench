@@ -1,8 +1,8 @@
-# Context Transfer Assistant
+# Knowledge Transfer Assistant
 
 ## Overview
 
-The Context Transfer Assistant helps teams share knowledge (bundles of context) efficiently between a coordinator and team members. It provides a structured way to capture, organize, and transfer complex information across conversations while maintaining a central knowledge repository accessible to all participants.
+The Knowledge Transfer Assistant helps teams share knowledge efficiently between a coordinator and team members. It provides a structured way to capture, organize, and transfer complex information across conversations while maintaining a central knowledge repository accessible to all participants.
 
 ## Key Features
 
@@ -11,9 +11,9 @@ The Context Transfer Assistant helps teams share knowledge (bundles of context) 
 - **Auto-updating whiteboard**: Dynamic capture of key information from coordinator conversations.
 - **Information requests**: Team members can request specific information from coordinators.
 - **File sharing**: Automatic synchronization of uploaded files across team conversations.
-- **Coordinator conversation access**: Team members can view recent coordinator conversations for context.
+- **Coordinator conversation access**: Team members can view recent coordinator conversations for knowledge.
 
-## How to Use the Context Transfer Assistant
+## How to Use the Knowledge Transfer Assistant
 
 ### For Knowledge Coordinators
 
@@ -61,4 +61,4 @@ The Context Transfer Assistant helps teams share knowledge (bundles of context) 
 - **Documentation collaboration**: Work together on comprehensive documentation
 - **Process knowledge transfer**: Explain complex workflows and procedures
 
-The Context Transfer Assistant is designed to streamline knowledge sharing, reduce information gaps, and create a persistent, structured knowledge space that teams can reference over time.
+The Knowledge Transfer Assistant is designed to streamline knowledge sharing, reduce information gaps, and create a persistent, structured knowledge space that teams can reference over time.

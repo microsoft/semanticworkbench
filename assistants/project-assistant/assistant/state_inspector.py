@@ -121,7 +121,7 @@ class ProjectInspectorStateProvider:
 
         lines.append("")
 
-        lines.append("## Brief")
+        lines.append(f"## {'Knowledge' if is_context_transfer else 'Project'} Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -133,7 +133,7 @@ class ProjectInspectorStateProvider:
 
             # In context transfer mode, show additional context in a dedicated section
             if is_context_transfer and brief.additional_context:
-                lines.append("## Additional Context")
+                lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
@@ -196,7 +196,7 @@ class ProjectInspectorStateProvider:
             lines.append("")
             # Display the share URL as a properly formatted link
             lines.append("**Share this link with your team members:**")
-            lines.append(f"[Context Transfer link]({share_url})")
+            lines.append(f"[Knowledge Transfer link]({share_url})")
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
             lines.append("")
@@ -256,7 +256,7 @@ class ProjectInspectorStateProvider:
 
             # In context transfer mode, show additional context in a dedicated section
             if is_context_transfer and brief.additional_context:
-                lines.append("## Additional Context")
+                lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
