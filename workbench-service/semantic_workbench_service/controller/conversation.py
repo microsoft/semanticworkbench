@@ -33,6 +33,7 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateConversation,
     UpdateParticipant,
 )
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import and_, col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -609,9 +610,10 @@ class ConversationController:
 
                 if update_participant.metadata is not None:
                     event_type = event_type or ConversationEventType.participant_updated
-                    participant.meta_data = deepmerge.always_merger.merge(
-                        {**participant.meta_data}, update_participant.metadata
-                    )
+                    participant.meta_data = {
+                        **deepmerge.always_merger.merge(participant.meta_data.copy(), update_participant.metadata)
+                    }
+                    flag_modified(participant, "meta_data")
 
                 if event_type is not None:
                     session.add(participant)

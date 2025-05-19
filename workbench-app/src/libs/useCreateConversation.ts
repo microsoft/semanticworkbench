@@ -10,6 +10,7 @@ import {
     useCreateConversationMutation,
     useGetAssistantServiceInfosQuery,
     useGetAssistantsQuery,
+    useLazyGetConversationQuery,
 } from '../services/workbench';
 
 export interface AssistantServiceTemplate {
@@ -39,6 +40,7 @@ export const useCreateConversation = () => {
     const [createConversation] = useCreateConversationMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+    const [getConversation] = useLazyGetConversationQuery();
 
     const [isFetching, setIsFetching] = React.useState(true);
     const localUserName = useAppSelector((state) => state.localUser.name);
@@ -74,14 +76,18 @@ export const useCreateConversation = () => {
                 | {
                       assistantId: string;
                       conversationMetadata?: { [key: string]: any };
+                      participantMetadata?: { [key: string]: any };
                       additionalAssistantIds?: string[];
+                      existingConversationId?: string;
                   }
                 | {
                       name: string;
                       assistantServiceId: string;
                       templateId: string;
                       conversationMetadata?: { [key: string]: any };
+                      participantMetadata?: { [key: string]: any };
                       additionalAssistantIds?: string[];
+                      existingConversationId?: string;
                   },
         ) => {
             if (assistantsLoading || assistantServicesLoading || myAssistantServicesLoading) {
@@ -90,7 +96,9 @@ export const useCreateConversation = () => {
 
             let assistant: Assistant | undefined = undefined;
 
-            const conversation = await createConversation({ metadata: conversationInfo.conversationMetadata }).unwrap();
+            const conversation = conversationInfo.existingConversationId
+                ? await getConversation(conversationInfo.existingConversationId).unwrap()
+                : await createConversation({ metadata: conversationInfo.conversationMetadata }).unwrap();
 
             if ('assistantId' in conversationInfo) {
                 assistant = assistants?.find((a) => a.id === conversationInfo.assistantId);
@@ -113,24 +121,30 @@ export const useCreateConversation = () => {
                     ?.map((assistantId) => assistants?.find((a) => a.id === assistantId))
                     .filter((a) => a !== undefined) || [];
 
-            // send event to notify the conversation that the user has joined
-            await createConversationMessage({
-                conversationId: conversation.id,
-                content: `${localUserName ?? 'Unknown user'} created the conversation`,
-                messageType: 'notice',
-            });
+            if (conversationInfo.existingConversationId === undefined) {
+                // send event to notify the conversation that the user has joined
+                await createConversationMessage({
+                    conversationId: conversation.id,
+                    content: `${localUserName ?? 'Unknown user'} created the conversation`,
+                    messageType: 'notice',
+                });
+            }
 
-            for (const assistantToAdd of [assistant, ...additionalAssistants]) {
+            for (const assistantAndMetadata of [
+                { assistant, metadata: conversationInfo.participantMetadata },
+                ...additionalAssistants.map((a) => ({ assistant: a, metadata: undefined })),
+            ]) {
                 // send notice message first, to announce before assistant reacts to create event
                 await createConversationMessage({
                     conversationId: conversation.id,
-                    content: `${assistantToAdd.name} added to conversation`,
+                    content: `${assistantAndMetadata.assistant.name} added to conversation`,
                     messageType: 'notice',
                 });
 
                 await addConversationParticipant({
                     conversationId: conversation.id,
-                    participantId: assistantToAdd.id,
+                    participantId: assistantAndMetadata.assistant.id,
+                    metadata: assistantAndMetadata.metadata,
                 });
             }
 
@@ -143,13 +157,14 @@ export const useCreateConversation = () => {
             assistantsLoading,
             assistantServicesLoading,
             myAssistantServicesLoading,
+            getConversation,
             createConversation,
-            createConversationMessage,
-            localUserName,
-            addConversationParticipant,
             assistants,
             createAssistant,
             refetchAssistants,
+            createConversationMessage,
+            localUserName,
+            addConversationParticipant,
         ],
     );
 

@@ -176,7 +176,7 @@ async def handle_completion(
                 local_tool = next((local_tool for local_tool in local_tools if tool_call.name == local_tool.name), None)
                 if local_tool:
                     # If the tool call is a local tool, handle it locally
-                    logger.info(f"Handling local tool call: {tool_call.name}")
+                    logger.info("executing local tool call; tool name: %s", tool_call.name)
                     typed_argument = local_tool.argument_model.model_validate(tool_call.arguments)
                     content = await local_tool.func(typed_argument, context)
 
