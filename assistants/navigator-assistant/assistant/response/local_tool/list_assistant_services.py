@@ -1,4 +1,4 @@
-from assistant_extensions import navigator
+from assistant_extensions import dashboard_card, navigator
 from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -37,6 +37,7 @@ async def get_assistant_services(context: ConversationContext) -> str:
         f"{metadata_for_navigator.get(template.id, '')}\n\n"
         for service, metadata_for_navigator in navigator_visible_services
         for template in service.templates
+        if dashboard_card.extract_metadata_for_dashboard_card(service.metadata, template.id)
     ])
 
 

@@ -78,10 +78,18 @@ interface AssistantCardProps {
     newConversationMetadata?: { [key: string]: any };
     hideContent?: boolean;
     includeAssistantIds?: string[];
+    requireEnabled?: boolean;
 }
 
 export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
-    const { assistantServiceId, templateId, hideContent, newConversationMetadata, includeAssistantIds } = props;
+    const {
+        assistantServiceId,
+        templateId,
+        hideContent,
+        newConversationMetadata,
+        includeAssistantIds,
+        requireEnabled,
+    } = props;
     const { isFetching: createConversationIsFetching, assistants } = useCreateConversation();
     const {
         data: assistantServices,
@@ -193,7 +201,7 @@ export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
                 service.metadata._dashboard_card &&
                 service.assistantServiceId === assistantServiceId &&
                 service.metadata._dashboard_card[templateId] &&
-                service.metadata._dashboard_card[templateId].enabled,
+                (!requireEnabled || service.metadata._dashboard_card[templateId].enabled),
         );
 
         if (!service) {
@@ -219,6 +227,7 @@ export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
         assistantInstances,
         templateId,
         assistantServiceId,
+        requireEnabled,
     ]);
 
     if (!dashboardCard) {
