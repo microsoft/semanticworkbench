@@ -75,21 +75,16 @@ const useClasses = makeStyles({
 interface AssistantCardProps {
     assistantServiceId: string;
     templateId: string;
-    newConversationMetadata?: { [key: string]: any };
+    participantMetadata?: { [key: string]: any };
     hideContent?: boolean;
     includeAssistantIds?: string[];
     requireEnabled?: boolean;
+    existingConversationId?: string;
 }
 
 export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
-    const {
-        assistantServiceId,
-        templateId,
-        hideContent,
-        newConversationMetadata,
-        includeAssistantIds,
-        requireEnabled,
-    } = props;
+    const { assistantServiceId, templateId, hideContent, participantMetadata, requireEnabled, existingConversationId } =
+        props;
     const { isFetching: createConversationIsFetching, assistants } = useCreateConversation();
     const {
         data: assistantServices,
@@ -109,8 +104,8 @@ export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
                 try {
                     const { conversation } = await createConversation({
                         assistantId,
-                        conversationMetadata: newConversationMetadata,
-                        additionalAssistantIds: includeAssistantIds,
+                        participantMetadata: participantMetadata,
+                        existingConversationId,
                     });
                     navigateToConversation(conversation.id);
                 } finally {
@@ -118,7 +113,7 @@ export const AssistantCard: React.FC<AssistantCardProps> = (props) => {
                 }
             };
         },
-        [createConversation, navigateToConversation, newConversationMetadata, includeAssistantIds],
+        [createConversation, navigateToConversation, participantMetadata, existingConversationId],
     );
 
     const quickAssistantCreateButton = React.useCallback(

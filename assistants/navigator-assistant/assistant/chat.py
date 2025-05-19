@@ -5,14 +5,10 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
-import datetime
-import inspect
 import io
 import logging
 import pathlib
-from contextlib import asynccontextmanager
-from time import perf_counter
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import deepmerge
 from assistant_extensions import attachments, dashboard_card, mcp, navigator
@@ -20,6 +16,7 @@ from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
+    ConversationParticipant,
     MessageType,
     NewConversationMessage,
     ParticipantRole,
@@ -215,25 +212,74 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
     return True
 
 
-@asynccontextmanager
-async def timing(message: str) -> AsyncGenerator[None, None]:
+async def handoff_to_assistant(context: ConversationContext, participant: ConversationParticipant) -> bool:
     """
-    Context manager to time the execution of a block of code.
+    Handoff the conversation to the assistant, if there is handoff metadata in the participant.
     """
-    caller_frame = inspect.stack()[2]
-    src = pathlib.Path(caller_frame.filename).name + ":" + str(caller_frame.lineno)
-    caller = caller_frame.function
-    start_time = perf_counter()
-    yield
-    end_time = perf_counter()
-    elapsed_time = datetime.timedelta(seconds=end_time - start_time)
-    logger.info(
-        "timing; message: %s, elapsed time: %s, caller: %s, src: %s",
-        message,
-        elapsed_time,
-        caller,
-        src,
+
+    navigator_handoff = participant.metadata.get("_navigator_handoff")
+
+    if not navigator_handoff:
+        return False
+
+    assistant_note_messages = await context.get_messages(
+        participant_ids=[context.assistant.id], message_types=[MessageType.note]
     )
+
+    for note_message in assistant_note_messages.messages:
+        handoff_to_participant_id = note_message.metadata.get("_handoff")
+
+        if not handoff_to_participant_id:
+            continue
+
+        if handoff_to_participant_id == participant.id:
+            # we've already handed off to this participant
+            return False
+
+    spawned_from_conversation_id = navigator_handoff.get("spawned_from_conversation_id")
+    files_to_copy = navigator_handoff.get("files_to_copy")
+    introduction_message = navigator_handoff.get("introduction_message")
+
+    async with context.set_status("handing off..."):
+        # copy files if the conversation was spawned from another conversation
+        is_different_conversation = spawned_from_conversation_id and spawned_from_conversation_id != context.id
+        if is_different_conversation and files_to_copy:
+            source_context = context.for_conversation(spawned_from_conversation_id)
+            for filename in files_to_copy:
+                buffer = io.BytesIO()
+                file = await source_context.get_file(filename)
+                if not file:
+                    continue
+
+                async with source_context.read_file(filename) as reader:
+                    async for chunk in reader:
+                        buffer.write(chunk)
+
+                await context.write_file(filename, buffer, file.content_type)
+
+        # send the introduction message to the conversation
+        await context.send_messages([
+            NewConversationMessage(
+                content=introduction_message,
+                message_type=MessageType.chat,
+            ),
+            # the "leaving" message doubles as a note to the assistant that they have handed off to
+            # this participant and won't do it again, even if navigator is added to the conversation again
+            NewConversationMessage(
+                content=f"{context.assistant.name} left the conversation.",
+                message_type=MessageType.note,
+                metadata={"_handoff": {"participant_id": participant.id}},
+            ),
+        ])
+
+    # leave the conversation
+    await context.update_participant_me(
+        UpdateParticipant(
+            active_participant=False,
+        )
+    )
+
+    return True
 
 
 @assistant.events.conversation.on_created
@@ -242,86 +288,57 @@ async def on_conversation_created(context: ConversationContext) -> None:
     Handle the event triggered when the assistant is added to a conversation.
     """
 
-    # hand the conversation off to the assistant if this conversation was spawned from another conversation
-    async with timing("get-conversation"):
-        conversation = await context.get_conversation()
-
-    navigator_handoff = conversation.metadata.get("_navigator_handoff")
-
-    async with timing("get-assistant-messages"):
-        assistant_sent_messages = await context.get_messages(
-            participant_ids=[context.assistant.id], limit=1, message_types=[MessageType.chat]
-        )
-        assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
-
-    if navigator_handoff:
-        if assistant_has_sent_a_message:
+    participants_response = await context.get_participants()
+    other_assistant_participants = [
+        participant
+        for participant in participants_response.participants
+        if participant.role == ParticipantRole.assistant and participant.id != context.assistant.id
+    ]
+    for participant in other_assistant_participants:
+        # check if the participant has handoff metadata
+        if await handoff_to_assistant(context, participant):
+            # if we handed off to this participant, don't send the welcome message
             return
 
-        async with timing("hand-off"), context.set_status("handing off..."):
-            spawned_from_conversation_id = navigator_handoff.get("spawned_from_conversation_id")
-            source_context = context.for_conversation(spawned_from_conversation_id)
-            files_to_copy = navigator_handoff.get("files_to_copy")
-            if files_to_copy:
-                for filename in files_to_copy:
-                    buffer = io.BytesIO()
-                    file = await source_context.get_file(filename)
-                    if not file:
-                        continue
-
-                    async with source_context.read_file(filename) as reader:
-                        async for chunk in reader:
-                            buffer.write(chunk)
-
-                    await context.write_file(filename, buffer, file.content_type)
-
-            introduction_message = navigator_handoff.get("introduction_message")
-            await context.send_messages([
-                NewConversationMessage(
-                    content=introduction_message,
-                    message_type=MessageType.chat,
-                ),
-                NewConversationMessage(
-                    content=f"{context.assistant.name} left the conversation.",
-                    message_type=MessageType.note,
-                ),
-            ])
-
-        await context.update_participant_me(
-            UpdateParticipant(
-                active_participant=False,
-            )
-        )
-
+    if len(other_assistant_participants) > 0:
         return
 
-    async with timing("get-participants"):
-        participants_response = await context.get_participants()
-        other_assistants_in_conversation = any(
-            participant
-            for participant in participants_response.participants
-            if participant.role == ParticipantRole.assistant and participant.id != context.assistant.id
-        )
-        if other_assistants_in_conversation:
-            return
-
+    assistant_sent_messages = await context.get_messages(
+        participant_ids=[context.assistant.id], limit=1, message_types=[MessageType.chat]
+    )
+    assistant_has_sent_a_message = len(assistant_sent_messages.messages) > 0
     if assistant_has_sent_a_message:
         # don't send the welcome message if the assistant has already sent a message
         return
 
     # send a welcome message to the conversation
-    async with timing("get-assistant-config"):
-        config = await assistant_config.get(context.assistant)
+    config = await assistant_config.get(context.assistant)
 
-    async with timing("send-welcome-message"):
-        welcome_message = config.response_behavior.welcome_message
-        await context.send_messages(
-            NewConversationMessage(
-                content=welcome_message,
-                message_type=MessageType.chat,
-                metadata={"generated_content": False},
-            )
+    welcome_message = config.response_behavior.welcome_message
+    await context.send_messages(
+        NewConversationMessage(
+            content=welcome_message,
+            message_type=MessageType.chat,
+            metadata={"generated_content": False},
         )
+    )
+
+
+@assistant.events.conversation.participant.on_created
+@assistant.events.conversation.participant.on_updated
+async def on_participant_created(
+    context: ConversationContext, event: ConversationEvent, participant: ConversationParticipant
+) -> None:
+    """
+    Handle the event triggered when a participant is added to the conversation.
+    """
+
+    # check if the participant is an assistant
+    if participant.role != ParticipantRole.assistant:
+        return
+
+    # check if the assistant should handoff to this participant
+    await handoff_to_assistant(context, participant)
 
 
 # endregion

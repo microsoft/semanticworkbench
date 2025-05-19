@@ -8,11 +8,14 @@ const participantApi = workbenchApi.injectEndpoints({
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversationParticipants(response),
         }),
-        addConversationParticipant: builder.mutation<void, { conversationId: string; participantId: string }>({
-            query: ({ conversationId, participantId }) => ({
+        addConversationParticipant: builder.mutation<
+            void,
+            { conversationId: string; participantId: string; metadata?: Record<string, any> }
+        >({
+            query: ({ conversationId, participantId, metadata }) => ({
                 url: `/conversations/${conversationId}/participants/${participantId}`,
                 method: 'PUT',
-                body: { active_participant: true },
+                body: { active_participant: true, metadata },
             }),
             invalidatesTags: ['Conversation'],
         }),

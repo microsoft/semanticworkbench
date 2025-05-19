@@ -27,8 +27,8 @@ export const ContentRenderer: React.FC<ContentRendererProps> = (props) => {
                     <AssistantCard
                         assistantServiceId={appComponent.props.assistantServiceId}
                         templateId={appComponent.props.templateId}
-                        includeAssistantIds={appComponent.props.includeAssistantIds}
-                        newConversationMetadata={appComponent.props.newConversationMetadata}
+                        existingConversationId={appComponent.props.existingConversationId}
+                        participantMetadata={appComponent.props.participantMetadata}
                         hideContent
                     />
                 );
