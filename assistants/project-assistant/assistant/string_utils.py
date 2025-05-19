@@ -129,3 +129,24 @@ class Prompt:
                 messages.append(context.message())
 
         return messages
+
+
+class TokenBudget:
+    def __init__(self, budget: int) -> None:
+        self.budget = budget
+        self.used = 0
+
+    def add(self, tokens: int) -> None:
+        self.used += tokens
+
+    def remaining(self) -> int:
+        return self.budget - self.used
+
+    def is_under_budget(self) -> bool:
+        return self.remaining() > 0
+
+    def is_over_budget(self) -> bool:
+        return self.remaining() < 0
+
+    def fits(self, tokens: int) -> bool:
+        return self.remaining() >= tokens

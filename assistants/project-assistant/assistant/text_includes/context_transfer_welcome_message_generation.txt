@@ -1,9 +1,9 @@
-Create a welcome message specific to this context bundle prepared by the coordinator. It should be something like:
+Create a welcome message specific to this shared knowledge bundle prepared by the coordinator. It should be something like:
 
 ```
 # Welcome!
 
-This is your personal conversation for gaining deeper understanding of the context shared to you! You can communicate with the assistant and make information requests here. See more information about your context in the side panel. <and then include a brief overview of the context bundle>
+This is your personal conversation for gaining deeper understanding of the knowledge shared to you! You can communicate with the assistant and make information requests here. See more information about your shared knowledge in the side panel. <and then include a brief overview of the shared knowledge>
 ```
 
 Your output format should be markdown. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes.

@@ -10,10 +10,10 @@ from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .conversation_project_link import ConversationProjectManager
 from .logging import logger
 from .project_data import LogEntryType
 from .project_storage import ProjectStorage
-from .conversation_project_link import ConversationProjectManager
 from .project_storage_models import ConversationRole
 
 
@@ -24,7 +24,7 @@ class ConfigurationTemplate(Enum):
     """
 
     PROJECT_ASSISTANT = "project_assistant"
-    CONTEXT_TRANSFER_ASSISTANT = "context_transfer_assistant"
+    CONTEXT_TRANSFER_ASSISTANT = "knowledge_transfer_assistant"
 
 
 def get_template(context: ConversationContext) -> ConfigurationTemplate:

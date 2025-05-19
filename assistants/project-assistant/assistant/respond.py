@@ -12,6 +12,7 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
+from openai_client import num_tokens_from_messages
 from openai_client.completion import message_content_from_completion
 from openai_client.tools import complete_with_tool_calls
 from pydantic import Field
@@ -36,7 +37,7 @@ from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole, CoordinatorConversationMessage
-from .string_utils import Context, ContextStrategy, Instructions, Prompt, render
+from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
@@ -88,8 +89,7 @@ async def respond_to_conversation(
     if not project_id:
         raise ValueError("Project ID not found in context")
 
-    max_tokens = config.request_config.max_tokens
-    available_tokens = max_tokens
+    token_budget = TokenBudget(config.request_config.max_tokens)
 
     ##
     ## INSTRUCTIONS
@@ -260,11 +260,12 @@ async def respond_to_conversation(
 
     # Calculate token count for all system messages so far.
     completion_messages = prompt.messages()
-    project_info_tokens = openai_client.num_tokens_from_messages(
-        model=model,
-        messages=completion_messages,
+    token_budget.add(
+        num_tokens_from_messages(
+            model=model,
+            messages=completion_messages,
+        )
     )
-    available_tokens -= project_info_tokens
 
     ###
     ### Coordinator conversation as an attachment.
@@ -300,15 +301,19 @@ async def respond_to_conversation(
         )
         completion_messages.append(coordinator_conversation_message)
 
-        coordinator_conversation_tokens = openai_client.num_tokens_from_messages(
-            model=model,
-            messages=[coordinator_conversation_message],
+        token_budget.add(
+            num_tokens_from_messages(
+                model=model,
+                messages=[coordinator_conversation_message],
+            )
         )
-        available_tokens -= coordinator_conversation_tokens
 
     ###
     ### ATTACHMENTS
     ###
+
+    # TODO: A better pattern here might be to keep the attachements as user
+    # in the proper flow of the conversation rather than as .
 
     # Generate the attachment messages.
     attachment_messages: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
@@ -318,21 +323,22 @@ async def respond_to_conversation(
         )
     )
 
-    # Update token count to include attachment messages.
-    attachment_tokens = openai_client.num_tokens_from_messages(
-        model=model,
-        messages=attachment_messages,
-    )
-    available_tokens -= attachment_tokens
+    # TODO: This will exceed the token limit if there are too many attachments.
+    # We do give them a warning below, though, and tell them to remove
+    # attachments if this happens.
 
-    # Add attachment messages to completion messages.
+    token_budget.add(
+        num_tokens_from_messages(
+            model=model,
+            messages=attachment_messages,
+        )
+    )
     completion_messages.extend(attachment_messages)
 
     ###
     ### USER MESSAGE
     ###
 
-    # Format the current message.
     if new_message.sender.participant_id == context.assistant.id:
         user_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
             role="assistant",
@@ -344,12 +350,12 @@ async def respond_to_conversation(
             content=format_message(participants, new_message),
         )
 
-    # Calculate tokens for this message.
-    tokens = openai_client.num_tokens_from_messages(
-        model=model,
-        messages=[user_message],
+    token_budget.add(
+        num_tokens_from_messages(
+            model=model,
+            messages=[user_message],
+        )
     )
-    available_tokens -= tokens
 
     ###
     ### HISTORY MESSAGES
@@ -357,11 +363,11 @@ async def respond_to_conversation(
 
     history_messages: list[ChatCompletionMessageParam] = []
     before_message_id = new_message.id
-    history_messages_tokens = 0
-    token_overage = 0
+    history_token_budget = TokenBudget(token_budget.remaining())
 
-    # We'll fetch messages in batches until we hit the token limit or run out of messages.
-    while True:
+    # Fetch messages from the workbench in batches that will fit our token budget.
+    under_budget = True
+    while under_budget:
         # Get a batch of messages
         messages_response = await context.get_messages(
             before=before_message_id,
@@ -374,34 +380,30 @@ async def respond_to_conversation(
         before_message_id = messages_list[0].id
 
         for msg in reversed(messages_list):
-            formatted_message = format_message(participants, msg)
-            is_assistant = msg.sender.participant_id == context.assistant.id
-            if is_assistant:
+            if msg.sender.participant_id == context.assistant.id:
                 current_message = ChatCompletionAssistantMessageParam(
                     role="assistant",
-                    content=formatted_message,
+                    content=format_message(participants, msg),
                 )
             else:
                 current_message = ChatCompletionUserMessageParam(
                     role="user",
-                    content=formatted_message,
+                    content=format_message(participants, msg),
                 )
 
-            # Calculate tokens for this message.
-            current_message_tokens = openai_client.num_tokens_from_messages(
+            current_message_tokens = num_tokens_from_messages(
                 model=model,
                 messages=[current_message],
             )
 
-            # Check if we can add this message without exceeding the token limit.
-            if token_overage == 0 and history_messages_tokens + current_message_tokens < available_tokens:
+            if history_token_budget.fits(current_message_tokens):
                 history_messages = [current_message] + history_messages
-                history_messages_tokens += current_message_tokens
+                history_token_budget.add(current_message_tokens)
             else:
-                token_overage += current_message_tokens
+                under_budget = False
+                break
 
-        # If we've already exceeded the token limit, no need to fetch more messages.
-        if token_overage > 0:
+        if not under_budget:
             break
 
     # Add all chat messages.
@@ -415,25 +417,23 @@ async def respond_to_conversation(
             content=f"Attachment(s): {', '.join(new_message.filenames)}",
         )
         completion_messages.append(attachment_message)
-        attachment_message_tokens = openai_client.num_tokens_from_messages(
-            model=model,
-            messages=[attachment_message],
+        token_budget.add(
+            num_tokens_from_messages(
+                model=model,
+                messages=[attachment_message],
+            )
         )
-        available_tokens -= attachment_message_tokens
 
     ##
-    ## Token count check
+    ## Final token count check
     ##
-    total_tokens = max_tokens - available_tokens
-    metadata["debug"]["token_usage"] = {"total": total_tokens, "max": max_tokens}
-    metadata["token_counts"] = {
-        "total": total_tokens,
-        "max": config.request_config.max_tokens,
-    }
-    if available_tokens < 0:
+    token_counts = {"total": token_budget.used, "max": token_budget.budget}
+    metadata["debug"]["token_usage"] = token_counts  # For debug.
+    metadata["token_counts"] = token_counts  # For footer.
+    if token_budget.remaining() < 0:
         raise ValueError(
-            f"You've exceeded the token limit of {config.request_config.max_tokens} in this conversation "
-            f"({total_tokens}). Try removing some attachments."
+            f"You've exceeded the token limit of {token_budget.budget} in this conversation "
+            f"({token_budget.used}). Try removing some attachments."
         )
 
     # For team role, analyze message for possible information request needs.
@@ -512,22 +512,22 @@ async def respond_to_conversation(
             footer_items = []
 
             # Add the token usage message to the footer items
-            if completion_response and total_tokens > 0:
-                completion_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
-                request_tokens = total_tokens - completion_tokens
+            if completion_response:
+                reponse_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
+                request_tokens = token_budget.used
                 footer_items.append(
                     get_token_usage_message(
                         max_tokens=config.request_config.max_tokens,
-                        total_tokens=total_tokens,
+                        total_tokens=request_tokens + reponse_tokens,
                         request_tokens=request_tokens,
-                        completion_tokens=completion_tokens,
+                        completion_tokens=reponse_tokens,
                     )
                 )
 
                 await context.update_conversation(
                     metadata={
                         "token_counts": {
-                            "total": total_tokens,
+                            "total": request_tokens + reponse_tokens,
                             "max": config.request_config.max_tokens,
                         }
                     }
