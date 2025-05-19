@@ -54,7 +54,13 @@ async def assistant_card(args: ArgumentModel, context: ConversationContext) -> s
             args.assistant_service_id,
             args.template_id,
         )
-        return "Error: The selected assistant_service_id and template_id are not available."
+        return (
+            "Error: The selected assistant_service_id and template_id are not available. For reference, the available assistants are:\n\n"
+            + "\n\n".join([
+                f"assistant_service_id: {assistant_service_id}, template_id: {template.id}\nname: {template.name}\n\n"
+                for assistant_service_id, template, _ in service_templates
+            ])
+        )
 
     await context.send_messages(
         NewConversationMessage(
