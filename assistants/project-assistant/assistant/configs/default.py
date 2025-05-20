@@ -58,9 +58,10 @@ class PromptConfig(BaseModel):
         title="Prompt Templates",
         json_schema_extra={
             "required": [
-                "instruction_prompt",
-                "coordinator_prompt",
-                "team_prompt",
+                "coordinator_role",
+                "coordinator_instructions",
+                "team_role",
+                "team_instructions",
                 "whiteboard_prompt",
                 "project_information_request_detection",
             ],

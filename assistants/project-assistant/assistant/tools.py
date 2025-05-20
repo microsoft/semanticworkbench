@@ -38,7 +38,7 @@ from .project_manager import ProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
-from .utils import DEFAULT_TEMPLATE_ID, is_context_transfer_assistant
+from .utils import DEFAULT_TEMPLATE_ID, is_knowledge_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -95,13 +95,13 @@ class ProjectTools:
         self.context = context
         self.role = role
         self.tool_functions = ToolFunctions()
-        self.is_context_transfer = is_context_transfer_assistant(context)
+        self.is_knowledge_transfer = is_knowledge_transfer_assistant(context)
 
         template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
         self.config_template = (
             ConfigurationTemplate.PROJECT_ASSISTANT
             if template_id == DEFAULT_TEMPLATE_ID
-            else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+            else ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
         )
 
         # Register common tools for both roles in both configs
@@ -1171,7 +1171,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         if not ready_for_working and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for working
-            if self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
+            if self.config_template == ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT:
                 has_goals = True
                 has_criteria = True
             else:

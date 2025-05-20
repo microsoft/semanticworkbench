@@ -40,7 +40,7 @@ from .project_storage_models import ConversationRole, CoordinatorConversationMes
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
 
 SILENCE_TOKEN = "{{SILENCE}}"
-CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+KNOWLEDGE_TRANSFER_ASSISTANT = ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
 PROJECT_ASSISTANT = ConfigurationTemplate.PROJECT_ASSISTANT
 
 

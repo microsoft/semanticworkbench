@@ -1,9 +1,9 @@
-from .context_transfer import ContextTransferConfigModel
 from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
+from .knowledge_transfer import KnowledgeTransferConfigModel
 
 __all__ = [
     "AssistantConfigModel",
-    "ContextTransferConfigModel",
+    "KnowledgeTransferConfigModel",
     "CoordinatorConfig",
     "RequestConfig",
     "TeamConfig",
