@@ -31,12 +31,17 @@ from semantic_workbench_assistant.assistant_app import (
 from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
-from assistant.utils import CONTEXT_TRANSFER_TEMPLATE_ID, DEFAULT_TEMPLATE_ID, load_text_include
+from assistant.utils import (
+    DEFAULT_TEMPLATE_ID,
+    KNOWLEDGE_TRANSFER_TEMPLATE_ID,
+    is_knowledge_transfer_assistant,
+    load_text_include,
+)
 
 from .config import assistant_config
 from .conversation_project_link import ConversationProjectManager
 from .logging import logger
-from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
+from .project_common import detect_assistant_role
 from .project_data import LogEntryType
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
@@ -71,7 +76,7 @@ assistant = AssistantApp(
     },
     additional_templates=[
         AssistantTemplate(
-            id=CONTEXT_TRANSFER_TEMPLATE_ID,
+            id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
             name="Knowledge Transfer Assistant",
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
@@ -92,20 +97,20 @@ assistant = AssistantApp(
             ),
             dashboard_card.TemplateConfig(
                 enabled=True,
-                template_id=CONTEXT_TRANSFER_TEMPLATE_ID,
+                template_id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
                 ),
                 background_color="rgb(198,177,222)",
                 card_content=dashboard_card.CardContent(
                     content_type="text/markdown",
-                    content=load_text_include("context_transfer_card_content.md"),
+                    content=load_text_include("knowledge_transfer_card_content.md"),
                 ),
             ),
         ),
         **navigator.metadata_for_assistant_navigator({
             "default": load_text_include("project_assistant_info.md"),
-            "knowledge_transfer": load_text_include("context_transfer_assistant_info.md"),
+            "knowledge_transfer": load_text_include("knowledge_transfer_assistant_info.md"),
         }),
     },
 )
@@ -134,8 +139,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation_metadata = conversation.metadata or {}
 
     config = await assistant_config.get(context.assistant)
-    template = get_template(context)
-    is_context_transfer_assistant = template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
 
     ##
     ## Figure out what type of conversation this is.
@@ -226,7 +229,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                     context=context,
                     title=f"New {config.Project_or_Context}",
                     description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
-                    if is_context_transfer_assistant
+                    if is_knowledge_transfer_assistant(context)
                     else "_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
                 )
 
@@ -291,7 +294,6 @@ async def on_message_created(
                             is_assistant=message.sender.participant_role == ParticipantRole.assistant,
                             timestamp=message.timestamp,
                         )
-                        logger.info(f"Stored Coordinator message for Team access: {message.id}")
                 except Exception as e:
                     # Don't fail message handling if storage fails
                     logger.exception(f"Error storing Coordinator message for Team access: {e}")
@@ -381,7 +383,6 @@ async def on_file_created(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Store in project storage (marked as coordinator file)
-            logger.info(f"Copying Coordinator file to project storage: {file.filename}")
 
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
@@ -451,7 +452,6 @@ async def on_file_updated(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in project storage
-            logger.info(f"Updating Coordinator file in project storage: {file.filename}")
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
                 project_id=project_id,
@@ -516,7 +516,6 @@ async def on_file_deleted(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from project storage
-            logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
             success = await ProjectFileManager.delete_file_from_project_storage(
                 context=context, project_id=project_id, filename=file.filename
             )

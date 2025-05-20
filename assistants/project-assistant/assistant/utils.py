@@ -6,27 +6,41 @@ codebase, helping to reduce code duplication and maintain consistency.
 """
 
 import pathlib
+from enum import Enum
 from typing import Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
 
-CONTEXT_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
+KNOWLEDGE_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
 DEFAULT_TEMPLATE_ID = "default"
 
 
-def is_context_transfer_assistant(context: ConversationContext) -> bool:
+class ConfigurationTemplate(Enum):
+    """
+    This assistant can be in one of two different template configurations. It
+    behaves quite differently based on which configuration it it in.
+    """
+
+    PROJECT_ASSISTANT = DEFAULT_TEMPLATE_ID
+    KNOWLEDGE_TRANSFER_ASSISTANT = KNOWLEDGE_TRANSFER_TEMPLATE_ID
+
+
+def get_template(context: ConversationContext) -> ConfigurationTemplate:
+    template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
+    return (
+        ConfigurationTemplate.PROJECT_ASSISTANT
+        if template_id == DEFAULT_TEMPLATE_ID
+        else ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
+    )
+
+
+def is_knowledge_transfer_assistant(context: ConversationContext) -> bool:
     """
     Determine if the assistant is using the context transfer template.
-
-    Args:
-        context: The conversation context containing assistant information
-
-    Returns:
-        True if this is a context transfer assistant, False otherwise
     """
-    return context.assistant._template_id == CONTEXT_TRANSFER_TEMPLATE_ID
+    return context.assistant._template_id == KNOWLEDGE_TRANSFER_TEMPLATE_ID
 
 
 def load_text_include(filename) -> str:

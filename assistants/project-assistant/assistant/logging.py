@@ -8,6 +8,7 @@ including JSON formatting and file logging.
 import json
 import logging
 import os
+import platform
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -166,10 +167,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
         text_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s"))
         logger.addHandler(text_file_handler)
 
-        # Create an initial log entry with system info
-        import platform
-
-        logger.info(
+        logger.debug(
             f"File logging enabled: {log_file}",
             extra={
                 "system": platform.system(),

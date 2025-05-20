@@ -143,14 +143,8 @@ class ProjectFileManager:
             # Check if project storage directory exists
             files_dir = ProjectFileManager.get_project_files_dir(project_id)
             if not files_dir.exists():
-                logger.info(f"Creating project files directory: {files_dir}", extra=safe_extra(log_extra))
+                logger.debug(f"Creating project files directory: {files_dir}", extra=safe_extra(log_extra))
                 files_dir.mkdir(parents=True, exist_ok=True)
-
-            # Log the file upload operation starting
-            logger.info(
-                f"Starting upload of file '{file.filename}' ({file.file_size} bytes) to project storage",
-                extra=safe_extra(log_extra),
-            )
 
             # Read the file from the conversation with error handling
             try:
@@ -167,7 +161,6 @@ class ProjectFileManager:
                     )
                     return False
 
-                logger.info(f"Successfully read {buffer_size} bytes from file", extra=safe_extra(log_extra))
             except Exception as read_error:
                 logger.error(f"Error reading file from conversation: {read_error}", extra=safe_extra(log_extra))
                 return False
@@ -188,10 +181,6 @@ class ProjectFileManager:
                     )
                     return False
 
-                logger.info(
-                    f"Successfully wrote file to {file_path} ({file_path.stat().st_size} bytes)",
-                    extra=safe_extra(log_extra),
-                )
             except Exception as write_error:
                 logger.error(f"Error writing file to project storage: {write_error}", extra=safe_extra(log_extra))
                 return False
@@ -217,7 +206,6 @@ class ProjectFileManager:
                 metadata = read_model(metadata_path, ProjectFileCollection)
                 if not metadata:
                     # Create new collection
-                    logger.info("Creating new metadata collection", extra=safe_extra(log_extra))
                     metadata = ProjectFileCollection(
                         files=[],
                     )
@@ -225,14 +213,11 @@ class ProjectFileManager:
                 # Check if file already exists in collection
                 existing_idx = next((i for i, f in enumerate(metadata.files) if f.filename == file.filename), None)
                 if existing_idx is not None:
-                    logger.info("Updating existing file metadata in collection", extra=safe_extra(log_extra))
                     metadata.files[existing_idx] = file_metadata
                 else:
-                    logger.info("Adding new file metadata to collection", extra=safe_extra(log_extra))
                     metadata.files.append(file_metadata)
 
                 # Save metadata
-                logger.debug(f"Writing metadata to {metadata_path}", extra=safe_extra(log_extra))
                 ProjectFileManager.write_file_metadata(project_id, metadata)
 
                 # Verify metadata was written
@@ -253,12 +238,10 @@ class ProjectFileManager:
                     )
                     return False
 
-                logger.info(f"Successfully verified file metadata for {file.filename}", extra=safe_extra(log_extra))
             except Exception as metadata_error:
                 logger.error(f"Error updating metadata: {metadata_error}", extra=safe_extra(log_extra))
                 return False
 
-            logger.info("File successfully copied to project storage", extra=safe_extra(log_extra))
             return True
 
         except Exception as e:
@@ -327,7 +310,7 @@ class ProjectFileManager:
                     if file_exists:
                         # Delete the file
                         await client.delete_file(filename)
-                        logger.info(f"Deleted file {filename} from Team conversation {conv_id}")
+                        logger.debug(f"Deleted file {filename} from Team conversation {conv_id}")
 
                         # Send notification
                         await client.send_messages(
@@ -353,8 +336,6 @@ class ProjectFileManager:
         Copies a file from project storage to a target conversation.
         """
         try:
-            logger.info(f"Copying file {filename} to conversation {target_conversation_id}")
-
             # Check if the file exists in project storage
             file_path = ProjectFileManager.get_file_path(project_id, filename)
             if not file_path.exists():
@@ -405,20 +386,20 @@ class ProjectFileManager:
                 file_exists = any(f.filename == filename for f in target_files)
 
                 if file_exists:
-                    logger.info(f"File {filename} exists, deleting before upload")
+                    logger.debug(f"File {filename} exists, deleting before upload")
                     await target_client.delete_file(filename)
 
                     # Brief wait after deletion
                     await asyncio.sleep(1.0)
             except Exception as e:
-                logger.info(f"Could not check/delete existing file: {e}")
+                logger.error(f"Could not check/delete existing file: {e}")
                 # Continue with upload anyway
 
             # Upload the file
             try:
                 file_content.seek(0)  # Reset position to start of file
                 await target_client.write_file(filename=filename, file_content=file_content, content_type=content_type)
-                logger.info(f"Successfully uploaded file {filename}")
+                logger.debug(f"Successfully uploaded file {filename}")
                 return True
             except Exception as upload_error:
                 logger.error(f"Failed to upload file: {upload_error}")
@@ -477,7 +458,7 @@ class ProjectFileManager:
         """
         Synchronize all project files to a Team conversation.
         """
-        logger.info(f"Starting file synchronization for project {project_id}")
+        logger.debug(f"Starting file synchronization for project {project_id}")
 
         # Get file metadata for the project
         metadata = ProjectFileManager.read_file_metadata(project_id)
@@ -493,8 +474,6 @@ class ProjectFileManager:
 
         # Identify Coordinator files to sync
         coordinator_files = [f for f in metadata.files if f.is_coordinator_file]
-        if not coordinator_files:
-            logger.info("No Coordinator files to sync")
 
         # Check which files already exist in conversation
         conversation = await context.get_conversation()
@@ -514,7 +493,6 @@ class ProjectFileManager:
                 continue
 
             # Try to copy the file
-            logger.info(f"Copying file {file_meta.filename} to conversation")
             success = await ProjectFileManager.copy_file_to_conversation(
                 context=context,
                 project_id=project_id,
@@ -612,7 +590,6 @@ class ProjectFileManager:
 
                 action = "added" if update_type == "file_created" else "updated"
                 if success:
-                    logger.info(f"Successfully {action} file {filename} in Team conversation {context.id}")
                     return True
                 else:
                     logger.warning(f"Failed to {action} file {filename} in Team conversation {context.id}")
@@ -629,7 +606,7 @@ class ProjectFileManager:
                     if file_exists:
                         # Delete the file
                         await context.delete_file(filename)
-                        logger.info(f"Deleted file {filename} from Team conversation {context.id}")
+                        logger.debug(f"Deleted file {filename} from Team conversation {context.id}")
                         return True
                     else:
                         # File doesn't exist, nothing to do

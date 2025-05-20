@@ -102,8 +102,6 @@ class ProjectManager:
         if not conversation or not conversation.id:
             raise ValueError("Failed to create team conversation")
 
-        logger.info(f"Created team conversation: {conversation.id}")
-
         new_share = NewConversationShare(
             conversation_id=conversation.id,
             label="Join Team Conversation",
@@ -120,7 +118,6 @@ class ProjectManager:
         )
 
         share_url = f"/conversation-share/{share.id}/redeem"
-        logger.info(f"Created share for conversation {conversation.id}: {share_url}")
 
         # Store team conversation info in ProjectInfo
         project_info = ProjectStorage.read_project_info(project_id)
@@ -129,7 +126,6 @@ class ProjectManager:
             project_info.share_url = share_url
             project_info.updated_at = datetime.utcnow()
             ProjectStorage.write_project_info(project_id, project_info)
-            logger.info(f"Updated project info with team conversation: {conversation.id}")
         else:
             raise ValueError(f"Project info not found for project ID: {project_id}")
 
@@ -161,31 +157,28 @@ class ProjectManager:
 
         # Generate a unique project ID
         project_id = str(uuid.uuid4())
-        logger.info(f"Starting project creation with new ID: {project_id}")
 
         # Create the project directory structure first
         project_dir = ProjectStorageManager.get_project_dir(project_id)
-        logger.info(f"Created project directory: {project_dir}")
+        logger.debug(f"Created project directory: {project_dir}")
 
         # Create and save the initial project info
         project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
 
         # Save the project info
         ProjectStorage.write_project_info(project_id, project_info)
-        logger.info(f"Created and saved project info: {project_info}")
+        logger.debug(f"Created and saved project info: {project_info}")
 
         # Associate the conversation with the project
-        logger.info(f"Associating conversation {context.id} with project {project_id}")
+        logger.debug(f"Associating conversation {context.id} with project {project_id}")
         await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
         # No need to set conversation role in project storage, as we use metadata
-        logger.info(f"Conversation {context.id} is Coordinator for project {project_id}")
+        logger.debug(f"Conversation {context.id} is Coordinator for project {project_id}")
 
         # Ensure linked_conversations directory exists
         linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
-        logger.info(f"Ensured linked_conversations directory exists: {linked_dir}")
-
-        logger.info(f"Successfully created new project {project_id} for conversation {context.id}")
+        logger.debug(f"Ensured linked_conversations directory exists: {linked_dir}")
 
         return project_id
 
@@ -914,7 +907,7 @@ class ProjectManager:
 
             # Check if already resolved
             if information_request.status == RequestStatus.RESOLVED:
-                logger.info(f"Information request {request_id} is already resolved")
+                logger.warning(f"Information request {request_id} is already resolved")
                 return True, information_request
 
             # Update the request
@@ -1178,7 +1171,7 @@ class ProjectManager:
 
             # Skip if no messages to analyze
             if not chat_history:
-                logger.info("No chat history to analyze for whiteboard update")
+                logger.warning("No chat history to analyze for whiteboard update")
                 return False, None
 
             # Format the chat history for the prompt
@@ -1225,7 +1218,7 @@ class ProjectManager:
 
             # Only update if we have content
             if not whiteboard_content:
-                logger.info("No content extracted from whiteboard LLM analysis")
+                logger.warning("No content extracted from whiteboard LLM analysis")
                 return False, None
 
             # Update the whiteboard with the extracted content

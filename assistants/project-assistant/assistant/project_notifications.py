@@ -51,7 +51,6 @@ class ProjectNotifier:
         project_info = ProjectStorage.read_project_info(project_id)
         if project_info and project_info.team_conversation_id:
             shareable_conversation_id = project_info.team_conversation_id
-            logger.info(f"Excluding shareable team conversation from notifications: {shareable_conversation_id}")
 
         # Send notification to each linked conversation, excluding current and shareable conversation
         for conv_id in linked_conversations:
@@ -77,13 +76,9 @@ class ProjectNotifier:
                             },
                         )
                     )
-                    logger.info(f"Sent notification to conversation {conv_id}")
+                    logger.debug(f"Sent notification to conversation {conv_id}")
                 except Exception as e:
                     logger.error(f"Failed to notify conversation {conv_id}: {e}")
-            elif conv_id == shareable_conversation_id:
-                logger.info(f"Skipping notification to shareable conversation: {conv_id}")
-            elif conv_id == current_conversation_id:
-                logger.debug(f"Skipping notification to current conversation: {conv_id}")
 
     @staticmethod
     async def notify_project_update(
@@ -181,7 +176,6 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
         project_info = ProjectStorage.read_project_info(project_id)
         if project_info and project_info.team_conversation_id:
             shareable_conversation_id = project_info.team_conversation_id
-            logger.info(f"Excluding shareable team conversation from UI updates: {shareable_conversation_id}")
 
         # Get Coordinator client and update Coordinator if not the current conversation
         (
@@ -194,7 +188,7 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
                 # Get assistant ID from context
                 assistant_id = context.assistant.id
                 await coordinator_client.send_conversation_state_event(assistant_id, state_event)
-                logger.info(
+                logger.debug(
                     f"Sent state event to Coordinator conversation {coordinator_conversation_id} to refresh inspector"
                 )
             except Exception as e:

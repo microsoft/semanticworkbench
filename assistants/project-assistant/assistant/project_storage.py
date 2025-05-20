@@ -14,7 +14,6 @@ from semantic_workbench_assistant.assistant_app.context import storage_directory
 from semantic_workbench_assistant.storage import read_model, write_model
 
 # Import inside functions to avoid circular imports
-from .logging import logger
 from .project_data import (
     InformationRequest,
     LogEntry,
@@ -132,8 +131,6 @@ class ProjectStorageManager:
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
         file_path = storage_dir / "project_association.json"
-        logger.info(f"Project association file path: {file_path} (exists: {file_path.exists()})")
-        logger.info(f"Storage directory: {storage_dir} (exists: {storage_dir.exists()})")
         return file_path
 
 

@@ -26,7 +26,6 @@ from .command_processor import (
 from .conversation_clients import ConversationClientManager
 from .conversation_project_link import ConversationProjectManager
 from .logging import logger
-from .project_common import ConfigurationTemplate
 from .project_data import (
     LogEntryType,
     ProjectInfo,
@@ -38,7 +37,7 @@ from .project_manager import ProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
-from .utils import DEFAULT_TEMPLATE_ID, is_context_transfer_assistant
+from .utils import is_knowledge_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -95,31 +94,14 @@ class ProjectTools:
         self.context = context
         self.role = role
         self.tool_functions = ToolFunctions()
-        self.is_context_transfer = is_context_transfer_assistant(context)
-
-        template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
-        self.config_template = (
-            ConfigurationTemplate.PROJECT_ASSISTANT
-            if template_id == DEFAULT_TEMPLATE_ID
-            else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
-        )
-
-        # Register common tools for both roles in both configs
-        self.tool_functions.add_function(
-            self.suggest_next_action,
-            "suggest_next_action",
-            "Suggest the next action the user should take based on project state",
-        )
 
         # Register template-specific tools
-        # if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
-        #     self.tool_functions.add_function(
-        #         self.get_project_info, "get_project_info", "Get information about the current project"
-        #     )
-        # else:
-        #     self.tool_functions.add_function(
-        #         self.get_context_info, "get_context_info", "Get information about the bundle of context"
-        #     )
+        if not is_knowledge_transfer_assistant(context):
+            self.tool_functions.add_function(
+                self.suggest_next_action,
+                "suggest_next_action",
+                "Suggest the next action the user should take based on project state",
+            )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -135,7 +117,7 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
+            if not is_knowledge_transfer_assistant(context):
                 self.tool_functions.add_function(
                     self.add_project_goal,
                     "add_project_goal",
@@ -165,7 +147,7 @@ class ProjectTools:
                 "Delete an information request that is no longer needed",
             )
 
-            if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
+            if not is_knowledge_transfer_assistant(context):
                 self.tool_functions.add_function(
                     self.update_project_status,
                     "update_project_status",
@@ -453,7 +435,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         try:
             cleaned_request_id = request_id.strip()
             cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
-            logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
 
             # Read the information request
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
@@ -463,10 +444,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 all_requests = ProjectStorage.get_all_information_requests(project_id)
                 matching_request = None
 
-                # Log available request IDs for debug purposes
                 available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
-                logger.info(f"Available request IDs for this conversation: {available_ids}")
-                logger.info(f"Looking for request ID: '{cleaned_request_id}'")
 
                 # Try to normalize the request ID to a UUID format
                 normalized_id = cleaned_request_id
@@ -479,7 +457,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     # Try to format in standard UUID format (8-4-4-4-12)
                     try:
                         formatted_id = f"{normalized_id[0:8]}-{normalized_id[8:12]}-{normalized_id[12:16]}-{normalized_id[16:20]}-{normalized_id[20:32]}"
-                        logger.info(f"Reformatted ID without hyphens to: {formatted_id}")
+                        logger.debug(f"Reformatted ID without hyphens to: {formatted_id}")
                         normalized_id = formatted_id
                     except Exception as e:
                         logger.warning(f"Failed to reformat ID: {e}")
@@ -512,27 +490,21 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         len(normalized_id) >= 8 and normalized_id[:8] == req_id_str[:8] and len(req_id_clean) >= 30,
                     ]):
                         matching_request = req
-                        logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
                         break
 
                 if matching_request:
                     information_request = matching_request
-                    # Use the actual request_id for future operations
                     request_id = matching_request.request_id
-                    logger.info(f"Using matched request ID: {request_id}")
                 else:
-                    # Log the attempted deletion for debugging
                     logger.warning(
                         f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
                     )
-                    # Provide a more helpful error message with available IDs
                     if available_ids:
                         id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
                         return f"Information request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
                     else:
                         return f"Information request with ID '{request_id}' not found. You don't have any active requests to delete."
 
-            # Verify ownership - team member can only delete their own requests
             if information_request.conversation_id != str(self.context.id):
                 return "You can only delete information requests that you created. This request was created by another conversation."
 
@@ -1148,7 +1120,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
+        if not is_knowledge_transfer_assistant(self.context):
             if not project or not project.goals:
                 if self.role is ConversationRole.COORDINATOR:
                     return {
@@ -1171,7 +1143,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         if not ready_for_working and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for working
-            if self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
+            if not is_knowledge_transfer_assistant(self.context):
                 has_goals = True
                 has_criteria = True
             else:

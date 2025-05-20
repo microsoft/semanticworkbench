@@ -4,8 +4,8 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .configs import (
     AssistantConfigModel,
-    ContextTransferConfigModel,
     CoordinatorConfig,
+    KnowledgeTransferConfigModel,
     RequestConfig,
     TeamConfig,
 )
@@ -13,13 +13,13 @@ from .configs import (
 assistant_config = BaseModelAssistantConfig(
     AssistantConfigModel,
     additional_templates={
-        "knowledge_transfer": ContextTransferConfigModel,
+        "knowledge_transfer": KnowledgeTransferConfigModel,
     },
 )
 
 __all__ = [
     "AssistantConfigModel",
-    "ContextTransferConfigModel",
+    "KnowledgeTransferConfigModel",
     "CoordinatorConfig",
     "RequestConfig",
     "TeamConfig",
