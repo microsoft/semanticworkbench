@@ -13,8 +13,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.utils import is_knowledge_transfer_assistant
+
 from .conversation_project_link import ConversationProjectManager
-from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
+from .project_common import detect_assistant_role
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ProjectStorage
@@ -54,12 +56,11 @@ class ProjectInspectorStateProvider:
         # State variables that will determine the content to display.
         conversation_role = await detect_assistant_role(context)
 
-        template = get_template(context)
-        is_context_transfer = template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+        is_knowledge_transfer = is_knowledge_transfer_assistant(context)
 
-        if is_context_transfer:
-            self.display_name = "Knowledge Context"
-            self.description = "Context transfer information."
+        if is_knowledge_transfer:
+            self.display_name = "Knowledge Overview"
+            self.description = "Information about the knowledge space."
 
         # Determine the conversation's role and project
         project_id = await ConversationProjectManager.get_associated_project_id(context)
@@ -74,11 +75,11 @@ class ProjectInspectorStateProvider:
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_markdown(
-                project_id, conversation_role, brief, project_info, context, is_context_transfer
+                project_id, conversation_role, brief, project_info, context, is_knowledge_transfer
             )
         else:
             markdown = await self._format_team_markdown(
-                project_id, conversation_role, brief, project_info, context, is_context_transfer
+                project_id, conversation_role, brief, project_info, context, is_knowledge_transfer
             )
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
@@ -90,7 +91,7 @@ class ProjectInspectorStateProvider:
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        is_context_transfer: bool,
+        is_knowledge_transfer: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
 
@@ -101,7 +102,7 @@ class ProjectInspectorStateProvider:
 
         lines.append("**Role:** Coordinator")
 
-        if not is_context_transfer:
+        if not is_knowledge_transfer:
             stage_label = "Planning Stage"
             if project_info and project_info.state:
                 if project_info.state.value == "planning":
@@ -121,7 +122,7 @@ class ProjectInspectorStateProvider:
 
         lines.append("")
 
-        lines.append(f"## {'Knowledge' if is_context_transfer else 'Project'} Brief")
+        lines.append(f"## {'Knowledge' if is_knowledge_transfer else 'Project'} Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -132,13 +133,13 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if is_context_transfer and brief.additional_context:
+            if is_knowledge_transfer and brief.additional_context:
                 lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if not is_context_transfer and project and project.goals:
+        if not is_knowledge_transfer and project and project.goals:
             lines.append("## Goals")
             for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -210,7 +211,7 @@ class ProjectInspectorStateProvider:
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        is_context_transfer: bool,
+        is_knowledge_transfer: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
 
@@ -222,7 +223,7 @@ class ProjectInspectorStateProvider:
         lines.append("**Role:** Team")
 
         # Determine stage based on project status
-        if not is_context_transfer:
+        if not is_knowledge_transfer:
             stage_label = "Working Stage"
             if project_info and project_info.state:
                 if project_info.state.value == "planning":
@@ -255,13 +256,13 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if is_context_transfer and brief.additional_context:
+            if is_knowledge_transfer and brief.additional_context:
                 lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if not is_context_transfer and project and project.goals:
+        if not is_knowledge_transfer and project and project.goals:
             lines.append("## Objectives")
             for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)

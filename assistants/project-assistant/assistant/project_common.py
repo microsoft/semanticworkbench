@@ -12,10 +12,10 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .conversation_project_link import ConversationProjectManager
 from .logging import logger
-from .utils import DEFAULT_TEMPLATE_ID
 from .project_data import LogEntryType
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole
+from .utils import DEFAULT_TEMPLATE_ID
 
 
 class ConfigurationTemplate(Enum):
@@ -25,7 +25,7 @@ class ConfigurationTemplate(Enum):
     """
 
     PROJECT_ASSISTANT = "project_assistant"
-    CONTEXT_TRANSFER_ASSISTANT = "knowledge_transfer_assistant"
+    KNOWLEDGE_TRANSFER_ASSISTANT = "knowledge_transfer_assistant"
 
 
 def get_template(context: ConversationContext) -> ConfigurationTemplate:
@@ -33,7 +33,7 @@ def get_template(context: ConversationContext) -> ConfigurationTemplate:
     return (
         ConfigurationTemplate.PROJECT_ASSISTANT
         if template_id == DEFAULT_TEMPLATE_ID
-        else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+        else ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
     )
 
 

@@ -12,21 +12,15 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
 
-CONTEXT_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
+KNOWLEDGE_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
 DEFAULT_TEMPLATE_ID = "default"
 
 
-def is_context_transfer_assistant(context: ConversationContext) -> bool:
+def is_knowledge_transfer_assistant(context: ConversationContext) -> bool:
     """
     Determine if the assistant is using the context transfer template.
-
-    Args:
-        context: The conversation context containing assistant information
-
-    Returns:
-        True if this is a context transfer assistant, False otherwise
     """
-    return context.assistant._template_id == CONTEXT_TRANSFER_TEMPLATE_ID
+    return context.assistant._template_id == KNOWLEDGE_TRANSFER_TEMPLATE_ID
 
 
 def load_text_include(filename) -> str:

@@ -7,7 +7,7 @@ from ..utils import load_text_include
 from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, TeamConfig
 
 
-class ContextTransferPromptConfig(PromptConfig):
+class KnowledgeTransferPromptConfig(PromptConfig):
     """Prompt configuration specific to knowledge transfer template."""
 
     whiteboard_prompt: Annotated[
@@ -16,7 +16,7 @@ class ContextTransferPromptConfig(PromptConfig):
             title="Knowledge Transfer Whiteboard Prompt",
             description="The prompt used to generate whiteboard content in knowledge transfer mode.",
         ),
-    ] = load_text_include("context_transfer_whiteboard_prompt.txt")
+    ] = load_text_include("knowledge_transfer_whiteboard_prompt.txt")
 
     project_information_request_detection: Annotated[
         str,
@@ -24,7 +24,7 @@ class ContextTransferPromptConfig(PromptConfig):
             title="Knowledge Transfer Information Request Detection Prompt",
             description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
-    ] = load_text_include("context_transfer_information_request_detection.txt")
+    ] = load_text_include("knowledge_transfer_information_request_detection.txt")
 
     welcome_message_generation: Annotated[
         str,
@@ -33,10 +33,10 @@ class ContextTransferPromptConfig(PromptConfig):
             description="The prompt used to generate a welcome message for new team conversations.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("context_transfer_welcome_message_generation.txt")
+    ] = load_text_include("knowledge_transfer_welcome_message_generation.txt")
 
 
-class ContextTransferCoordinatorConfig(CoordinatorConfig):
+class KnowledgeTransferCoordinatorConfig(CoordinatorConfig):
     """Coordinator configuration specific to knowledge transfer template."""
 
     welcome_message: Annotated[
@@ -61,7 +61,7 @@ In the side panel, you can see your "knowledge brief". This brief will be shared
 What knowledge would you like to transfer today?"""
 
 
-class ContextTransferTeamConfig(TeamConfig):
+class KnowledgeTransferTeamConfig(TeamConfig):
     """Team configuration specific to knowlege transfer template."""
 
     default_welcome_message: Annotated[
@@ -73,7 +73,7 @@ class ContextTransferTeamConfig(TeamConfig):
     ] = "# Welcome to your Knowledge Transfer space!\n\nYou now have access to the shared knowledge that has been prepared for you. This is your personal conversation for exploring your knowledge space."
 
 
-class ContextTransferConfigModel(AssistantConfigModel):
+class KnowledgeTransferConfigModel(AssistantConfigModel):
     project_or_context: Annotated[str, UISchema(widget="hidden")] = "knowledge"
     Project_or_Context: Annotated[str, UISchema(widget="hidden")] = "Knowledge"
 
@@ -83,7 +83,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             title="Prompt Configuration",
             description="Configuration for prompt templates used throughout the assistant.",
         ),
-    ] = ContextTransferPromptConfig()
+    ] = KnowledgeTransferPromptConfig()
 
     proactive_guidance: Annotated[
         bool,
@@ -107,7 +107,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             title="Knowledge Transfer Coordinator Configuration",
             description="Configuration for coordinators in knowledge transfer mode.",
         ),
-    ] = ContextTransferCoordinatorConfig()
+    ] = KnowledgeTransferCoordinatorConfig()
 
     team_config: Annotated[
         TeamConfig,
@@ -115,4 +115,4 @@ class ContextTransferConfigModel(AssistantConfigModel):
             title="Knowledge Transfer Team Configuration",
             description="Configuration for team members in knowledge transfer mode.",
         ),
-    ] = ContextTransferTeamConfig()
+    ] = KnowledgeTransferTeamConfig()
