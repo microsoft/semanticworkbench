@@ -14,7 +14,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.project_manager import ProjectManager
 from assistant.project_storage import ProjectStorage
-from assistant.respond import is_project_assistant
+from assistant.utils import is_knowledge_transfer_assistant
 
 from .config import assistant_config
 from .logging import logger
@@ -49,7 +49,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Goals
     project = ProjectStorage.read_project(project_id)
-    if project and project.goals and is_project_assistant(context):
+    if project and project.goals and not is_knowledge_transfer_assistant(context):
         project_brief_text += "\n#### PROJECT GOALS:\n\n"
         for i, goal in enumerate(project.goals):
             completed = sum(1 for c in goal.success_criteria if c.completed)

@@ -5,7 +5,6 @@ This module provides shared functionality for team and coordinator conversation 
 helping to reduce code duplication and maintain consistency.
 """
 
-from enum import Enum
 from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -15,26 +14,6 @@ from .logging import logger
 from .project_data import LogEntryType
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole
-from .utils import DEFAULT_TEMPLATE_ID
-
-
-class ConfigurationTemplate(Enum):
-    """
-    This assistant can be in one of two different template configurations. It
-    behaves quite differently based on which configuration it it in.
-    """
-
-    PROJECT_ASSISTANT = "project_assistant"
-    KNOWLEDGE_TRANSFER_ASSISTANT = "knowledge_transfer_assistant"
-
-
-def get_template(context: ConversationContext) -> ConfigurationTemplate:
-    template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
-    return (
-        ConfigurationTemplate.PROJECT_ASSISTANT
-        if template_id == DEFAULT_TEMPLATE_ID
-        else ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
-    )
 
 
 async def detect_assistant_role(context: ConversationContext) -> ConversationRole:

@@ -95,24 +95,24 @@ class ConversationProjectManager:
         """
         Associates a conversation with a project.
         """
-        logger.info(f"Associating conversation {context.id} with project {project_id}")
+        logger.debug(f"Associating conversation {context.id} with project {project_id}")
 
         try:
             # 1. Store the project association in the conversation's storage directory
             project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
             project_path = ProjectStorageManager.get_conversation_project_file_path(context)
-            logger.info(f"Writing project association to {project_path}")
+            logger.debug(f"Writing project association to {project_path}")
             write_model(project_path, project_data)
 
             # 2. Register this conversation in the project's linked_conversations directory
             linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
-            logger.info(f"Registering in linked_conversations directory: {linked_dir}")
+            logger.debug(f"Registering in linked_conversations directory: {linked_dir}")
             conversation_file = linked_dir / str(context.id)
 
             # Touch the file to create it if it doesn't exist
             # We don't need to write any content to it, just its existence is sufficient
             conversation_file.touch(exist_ok=True)
-            logger.info(f"Created conversation link file: {conversation_file}")
+            logger.debug(f"Created conversation link file: {conversation_file}")
         except Exception as e:
             logger.error(f"Error associating conversation with project: {e}")
             raise

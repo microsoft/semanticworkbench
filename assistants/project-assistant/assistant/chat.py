@@ -294,7 +294,6 @@ async def on_message_created(
                             is_assistant=message.sender.participant_role == ParticipantRole.assistant,
                             timestamp=message.timestamp,
                         )
-                        logger.info(f"Stored Coordinator message for Team access: {message.id}")
                 except Exception as e:
                     # Don't fail message handling if storage fails
                     logger.exception(f"Error storing Coordinator message for Team access: {e}")
@@ -384,7 +383,6 @@ async def on_file_created(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Store in project storage (marked as coordinator file)
-            logger.info(f"Copying Coordinator file to project storage: {file.filename}")
 
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
@@ -454,7 +452,6 @@ async def on_file_updated(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in project storage
-            logger.info(f"Updating Coordinator file in project storage: {file.filename}")
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
                 project_id=project_id,
@@ -519,7 +516,6 @@ async def on_file_deleted(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from project storage
-            logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
             success = await ProjectFileManager.delete_file_from_project_storage(
                 context=context, project_id=project_id, filename=file.filename
             )

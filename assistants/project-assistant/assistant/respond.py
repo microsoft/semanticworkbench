@@ -26,33 +26,21 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.tools import ProjectTools
-from assistant.utils import load_text_include
-
 from .config import assistant_config
 from .logging import logger
 from .project_analysis import detect_information_request_needs
-from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
+from .project_common import detect_assistant_role
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
+from .tools import ProjectTools
+from .utils import get_template, is_knowledge_transfer_assistant, load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
-KNOWLEDGE_TRANSFER_ASSISTANT = ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
-PROJECT_ASSISTANT = ConfigurationTemplate.PROJECT_ASSISTANT
 
 
-def is_project_assistant(context: ConversationContext) -> bool:
-    """
-    Check if the assistant is a project assistant.
-    """
-    template = get_template(context)
-    return template == PROJECT_ASSISTANT
-
-
-# Format message helper function
 def format_message(participants: ConversationParticipantList, message: ConversationMessage) -> str:
     """Consistent formatter that includes the participant name for multi-participant and name references"""
     conversation_participant = next(
@@ -149,8 +137,8 @@ async def respond_to_conversation(
     if project_info:
         data = project_info.model_dump()
 
-        # Delete fields that are not relevant to the context assistant.
-        if not is_project_assistant(context):
+        # Delete fields that are not relevant to the knowledge transfer assistant.
+        if is_knowledge_transfer_assistant(context):
             if "state" in data:
                 del data["state"]
             if "progress_percentage" in data:
@@ -179,7 +167,7 @@ async def respond_to_conversation(
 
     # Project goals
     project = ProjectStorage.read_project(project_id)
-    if is_project_assistant(context) and project and project.goals:
+    if not is_knowledge_transfer_assistant(context) and project and project.goals:
         goals_text = ""
         for i, goal in enumerate(project.goals):
             # Count completed criteria
