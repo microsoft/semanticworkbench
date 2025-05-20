@@ -91,7 +91,7 @@ assistant = AssistantApp(
                 ),
             ),
             dashboard_card.TemplateConfig(
-                enabled=True,
+                enabled=False,
                 template_id="context_transfer",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
