@@ -31,7 +31,7 @@ from semantic_workbench_assistant.assistant_app import (
 from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
-from assistant.utils import load_text_include
+from assistant.utils import CONTEXT_TRANSFER_TEMPLATE_ID, DEFAULT_TEMPLATE_ID, load_text_include
 
 from .config import assistant_config
 from .conversation_project_link import ConversationProjectManager
@@ -71,7 +71,7 @@ assistant = AssistantApp(
     },
     additional_templates=[
         AssistantTemplate(
-            id="knowledge_transfer",
+            id=CONTEXT_TRANSFER_TEMPLATE_ID,
             name="Knowledge Transfer Assistant",
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
@@ -80,7 +80,7 @@ assistant = AssistantApp(
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
                 enabled=False,
-                template_id="default",
+                template_id=DEFAULT_TEMPLATE_ID,
                 background_color="rgb(159, 216, 159)",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
@@ -92,7 +92,7 @@ assistant = AssistantApp(
             ),
             dashboard_card.TemplateConfig(
                 enabled=True,
-                template_id="knowledge_transfer",
+                template_id=CONTEXT_TRANSFER_TEMPLATE_ID,
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
                 ),

@@ -26,7 +26,8 @@ class TestProjectTools:
         # Add the assistant attribute for the get_project_tools test
         context.assistant = MagicMock()
         # Use the correct property name (_template_id)
-        context.assistant._template_id = "default"
+        from assistant.utils import DEFAULT_TEMPLATE_ID
+        context.assistant._template_id = DEFAULT_TEMPLATE_ID
         return context
 
     def test_initialization(self, context):

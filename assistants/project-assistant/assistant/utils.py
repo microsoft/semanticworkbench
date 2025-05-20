@@ -13,6 +13,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from .logging import logger
 
 CONTEXT_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
+DEFAULT_TEMPLATE_ID = "default"
 
 
 def is_context_transfer_assistant(context: ConversationContext) -> bool:

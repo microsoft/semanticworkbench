@@ -38,7 +38,7 @@ from .project_manager import ProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
-from .utils import is_context_transfer_assistant
+from .utils import DEFAULT_TEMPLATE_ID, is_context_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -97,10 +97,10 @@ class ProjectTools:
         self.tool_functions = ToolFunctions()
         self.is_context_transfer = is_context_transfer_assistant(context)
 
-        template_id = context.assistant._template_id or "default"
+        template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
         self.config_template = (
             ConfigurationTemplate.PROJECT_ASSISTANT
-            if template_id == "default"
+            if template_id == DEFAULT_TEMPLATE_ID
             else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
         )
 
