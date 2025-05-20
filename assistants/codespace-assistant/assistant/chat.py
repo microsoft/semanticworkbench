@@ -105,7 +105,8 @@ assistant = AssistantApp(
         ),
         **navigator.metadata_for_assistant_navigator({
             "default": helpers.load_text_include("codespace_assistant_info.md"),
-            "context_transfer": helpers.load_text_include("context_transfer_assistant_info.md"),
+            # hide the context transfer assistant from the navigator
+            # "context_transfer": helpers.load_text_include("context_transfer_assistant_info.md"),
         }),
     },
 )
