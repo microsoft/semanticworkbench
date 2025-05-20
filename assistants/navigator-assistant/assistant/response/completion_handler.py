@@ -17,6 +17,7 @@ from openai.types.chat import (
     ParsedChatCompletion,
 )
 from openai_client import OpenAIRequestConfig, num_tokens_from_messages
+from pydantic import ValidationError
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
@@ -177,8 +178,13 @@ async def handle_completion(
                 if local_tool:
                     # If the tool call is a local tool, handle it locally
                     logger.info("executing local tool call; tool name: %s", tool_call.name)
-                    typed_argument = local_tool.argument_model.model_validate(tool_call.arguments)
-                    content = await local_tool.func(typed_argument, context)
+                    try:
+                        typed_argument = local_tool.argument_model.model_validate(tool_call.arguments)
+                    except ValidationError as e:
+                        logger.exception("error validating local tool call arguments")
+                        content = f"Error validating local tool call arguments: {e}"
+                    else:
+                        content = await local_tool.func(typed_argument, context)
 
                 else:
                     tool_call_result = await handle_mcp_tool_call(
@@ -198,7 +204,7 @@ async def handle_completion(
                     )
 
             except Exception as e:
-                logger.exception(f"Error handling tool call '{tool_call.name}': {e}")
+                logger.exception("error handling tool call '%s'", tool_call.name)
                 deepmerge.always_merger.merge(
                     step_result.metadata,
                     {
@@ -209,15 +215,7 @@ async def handle_completion(
                         },
                     },
                 )
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=f"Error executing tool '{tool_call.name}': {e}",
-                        message_type=MessageType.notice,
-                        metadata=step_result.metadata,
-                    )
-                )
-                step_result.status = "error"
-                return step_result
+                content = f"Error executing tool '{tool_call.name}': {e}"
 
         # Add the token count for the tool call result to the total token count
         step_result.conversation_tokens += num_tokens_from_messages(
