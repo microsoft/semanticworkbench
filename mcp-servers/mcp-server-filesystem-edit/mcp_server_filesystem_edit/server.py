@@ -376,7 +376,8 @@ def create_mcp_server() -> FastMCP:
             )
             editor = CommonEdit()
             output = await editor.run(request)
-            tool_output: str = output.change_summary + "\n" + output.output_message
+            tool_output: str = f'This is the new content of the file:\n<file filename="{validated_path.name}">\n{output.new_content or output.output_message}\n</file>\n'
+            tool_output += "The user can see the new content in their editor or choice, so you should only briefly summarize the changes that were made."
             await write_file(ctx, validated_path, output.new_content)
             # If this is a tex file, auto compile it to PDF
             if file_type == "latex" and settings.pdflatex_enabled:
@@ -399,7 +400,8 @@ def create_mcp_server() -> FastMCP:
                     )
                     editor = CommonEdit()
                     output = await editor.run(request)
-                    tool_output: str = output.change_summary + "\n" + output.output_message
+                    tool_output: str = f'This is the new content of the file:\n<file filename="{validated_path.name}">\n{output.new_content or output.output_message}\n</file>\n'
+                    tool_output += "The user can see the new content in their editor or choice, so you should only briefly summarize the changes that were made."
                     write_markdown(document, output.new_content)
                 case ".pptx":
                     _, document = open_document_in_office(validated_path, OfficeAppType.POWERPOINT)
