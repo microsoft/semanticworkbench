@@ -179,6 +179,12 @@ class ConversationMessage(BaseModel):
 
         return "".join(self.content.split(" ", 1)[1:])
 
+    def mentions(self, assistant_id: str) -> bool:
+        mentions = self.metadata.get("mentions")
+        if not isinstance(mentions, list):
+            return False
+        return assistant_id in mentions
+
 
 class ConversationMessageDebug(BaseModel):
     message_id: uuid.UUID

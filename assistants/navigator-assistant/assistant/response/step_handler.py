@@ -47,29 +47,6 @@ async def next_step(
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
-    # helper function for handling errors
-    async def handle_error(error_message: str, error_debug: dict[str, Any] | None = None) -> StepResult:
-        if error_debug is not None:
-            deepmerge.always_merger.merge(
-                step_result.metadata,
-                {
-                    "debug": {
-                        metadata_key: {
-                            "error": error_debug,
-                        },
-                    },
-                },
-            )
-        await context.send_messages(
-            NewConversationMessage(
-                content=error_message,
-                message_type=MessageType.notice,
-                metadata=step_result.metadata,
-            )
-        )
-        step_result.status = "error"
-        return step_result
-
     # Track the start time of the response generation
     response_start_time = time.time()
 
