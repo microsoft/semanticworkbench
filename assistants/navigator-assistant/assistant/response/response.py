@@ -160,7 +160,7 @@ async def respond_to_conversation(
                     config.prompts.instruction_prompt,
                     'Your name is "{context.assistant.name}".',
                     conditional_prompt(
-                        len(participants_response.participants) > 2,
+                        len(participants_response.participants) > 2 and not message.mentions(context.assistant.id),
                         lambda: participants_system_prompt(
                             context, participants_response.participants, silence_token="{{SILENCE}}"
                         ),
@@ -239,7 +239,7 @@ def participants_system_prompt(
     ])
     system_message_content = dedent(f"""
         There are {len(participants)} participants in the conversation,
-        including you as the assistant and the following users: {participant_names}.
+        including you as the assistant, with the name {context.assistant.name}, and the following users: {participant_names}.
         \n\n
         You do not need to respond to every message. Do not respond if the last thing said was a closing
         statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not

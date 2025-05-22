@@ -198,7 +198,7 @@ async def should_respond_to_message(context: ConversationContext, message: Conve
         return False
 
     # if configure to only respond to mentions, ignore messages where the content does not mention the assistant somewhere in the message
-    if context.assistant.id not in message.metadata.get("mentions", []):
+    if not message.mentions(context.assistant.id):
         # check to see if there are any other assistants in the conversation
         participant_list = await context.get_participants()
         other_assistants = [
@@ -227,11 +227,11 @@ async def handoff_to_assistant(context: ConversationContext, participant: Conver
     )
 
     for note_message in assistant_note_messages.messages:
-        handoff_to_participant_id = note_message.metadata.get("_handoff")
-
-        if not handoff_to_participant_id:
+        note_handoff = note_message.metadata.get("_handoff")
+        if not note_handoff or not isinstance(note_handoff, dict):
             continue
 
+        handoff_to_participant_id = note_handoff.get("participant_id")
         if handoff_to_participant_id == participant.id:
             # we've already handed off to this participant
             return False
