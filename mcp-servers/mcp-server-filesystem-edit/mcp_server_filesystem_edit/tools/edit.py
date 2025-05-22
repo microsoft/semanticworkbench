@@ -260,13 +260,8 @@ class CommonEdit:
             tool_calls = convert_response.choices[0].message.tool_calls or []
             updated_doc_markdown, output_message = await self.execute_tool_calls(request, convert_response)
 
-        change_summary = await self.run_change_summary(
-            before_doc=request.file_content,
-            after_doc=updated_doc_markdown,
-            edit_request=request,
-        )
         output = EditOutput(
-            change_summary=change_summary,
+            change_summary="",
             output_message=output_message,
             new_content=updated_doc_markdown,
             reasoning=reasoning,
