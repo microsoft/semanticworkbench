@@ -460,16 +460,19 @@ async def respond_to_conversation(
     class Output(BaseModel):
         """
         Attributes:
-            response: The response from the assistant.
-            citations: A list of citations for the response provided from the assistant.
+            citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
+            excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
             next_step_suggestion: Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.
         """
 
+        citations: list[str] = Field(
+            description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
+        )
+        excerpt: str | None = Field(
+            description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.",
+        )
         response: str = Field(
             description="The response from the assistant.",
-        )
-        citations: list[str] = Field(
-            description="A list of citations for the response provided from the assistant.",
         )
         next_step_suggestion: str = Field(
             description="Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
@@ -501,21 +504,21 @@ async def respond_to_conversation(
 
             # Add the token usage message to the footer items
             if completion_response:
-                reponse_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
+                response_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
                 request_tokens = token_budget.used
                 footer_items.append(
                     get_token_usage_message(
                         max_tokens=config.request_config.max_tokens,
-                        total_tokens=request_tokens + reponse_tokens,
+                        total_tokens=request_tokens + response_tokens,
                         request_tokens=request_tokens,
-                        completion_tokens=reponse_tokens,
+                        completion_tokens=response_tokens,
                     )
                 )
 
                 await context.update_conversation(
                     metadata={
                         "token_counts": {
-                            "total": request_tokens + reponse_tokens,
+                            "total": request_tokens + response_tokens,
                             "max": config.request_config.max_tokens,
                         }
                     }
@@ -557,22 +560,31 @@ async def respond_to_conversation(
             return
 
     # Prepare response and citations.
+    response_parts: list[str] = []
     try:
         output_model = Output.model_validate_json(content)
-        citations = ", ".join(output_model.citations) if output_model.citations else "None"
-        if role == ConversationRole.COORDINATOR:
-            output = output_model.response
-        else:
-            output = f"{output_model.response}\n\n{output_model.next_step_suggestion}\n\nCitations: _{citations}_"
+        if output_model.response:
+            response_parts.append(output_model.response)
+
+        if role == ConversationRole.TEAM and output_model.excerpt:
+            output_model.excerpt = output_model.excerpt.strip().strip('"')
+            response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
+
+        if role == ConversationRole.TEAM and output_model.next_step_suggestion:
+            response_parts.append(output_model.next_step_suggestion)
+
+        if role == ConversationRole.TEAM and output_model.citations:
+            citations = ", ".join(output_model.citations)
+            response_parts.append(f"Sources: _{citations}_")
 
     except Exception as e:
         logger.exception(f"exception occurred parsing json response: {e}")
         metadata["debug"]["error"] = str(e)
-        output = content
+        response_parts.append(content)
 
     await context.send_messages(
         NewConversationMessage(
-            content=output,
+            content="\n\n".join(response_parts),
             message_type=MessageType.chat,
             metadata=metadata,
         )
