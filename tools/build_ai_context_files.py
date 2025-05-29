@@ -66,10 +66,31 @@ def strip_date_line(text: str) -> str:
 def build_context_files(force=False) -> None:
     # Define the tasks to run for Semantic Workbench
     tasks = [
-        # Core Python Libraries
+        # Python Libraries - Core Infrastructure
         {
-            "patterns": ["libraries/python"],
-            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES.md",
+            "patterns": ["libraries/python/semantic-workbench-api-model", "libraries/python/semantic-workbench-assistant", "libraries/python/events"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_CORE.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Python Libraries - AI Clients
+        {
+            "patterns": ["libraries/python/anthropic-client", "libraries/python/openai-client", "libraries/python/llm-client"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_AI_CLIENTS.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Python Libraries - Extensions & Tools
+        {
+            "patterns": ["libraries/python/assistant-extensions", "libraries/python/mcp-extensions", "libraries/python/mcp-tunnel", "libraries/python/content-safety"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_EXTENSIONS.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Python Libraries - Specialized Features
+        {
+            "patterns": ["libraries/python/assistant-drive", "libraries/python/guided-conversation", "libraries/python/skills"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_SPECIALIZED.md",
             "exclude": collect_files.DEFAULT_EXCLUDE,
             "include": ["pyproject.toml", "README.md"],
         },
@@ -94,11 +115,53 @@ def build_context_files(force=False) -> None:
             "exclude": collect_files.DEFAULT_EXCLUDE + ["devdb", "migrations/versions"],
             "include": ["pyproject.toml", "alembic.ini", "migrations/env.py"],
         },
-        # Assistant Implementations
+        # Assistants Overview - Common patterns and shared structure
         {
-            "patterns": ["assistants"],
-            "output": f"{OUTPUT_DIR}/ASSISTANTS.md",
-            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png", "assets"],
+            "patterns": ["assistants/Makefile"],
+            "output": f"{OUTPUT_DIR}/ASSISTANTS_OVERVIEW.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["assistants/*/README.md", "assistants/*/pyproject.toml"],
+        },
+        # Project Assistant - Most complex assistant with project management features
+        {
+            "patterns": ["assistants/project-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANT_PROJECT.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png"],
+            "include": ["pyproject.toml", "README.md", "CLAUDE.md"],
+        },
+        # Document Assistant - Document processing and analysis
+        {
+            "patterns": ["assistants/document-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANT_DOCUMENT.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png", "test_data"],
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Codespace Assistant - Development environment assistant
+        {
+            "patterns": ["assistants/codespace-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANT_CODESPACE.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png"],
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Navigator Assistant - Workbench navigation and assistance
+        {
+            "patterns": ["assistants/navigator-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANT_NAVIGATOR.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png"],
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Prospector Assistant - Advanced agent with artifact creation
+        {
+            "patterns": ["assistants/prospector-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANT_PROSPECTOR.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png", "gc_learnings/images"],
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Other Assistants - Explorer, Guided Conversation, Skill assistants
+        {
+            "patterns": ["assistants/explorer-assistant", "assistants/guided-conversation-assistant", "assistants/skill-assistant"],
+            "output": f"{OUTPUT_DIR}/ASSISTANTS_OTHER.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE + ["*.svg", "*.png"],
             "include": ["pyproject.toml", "README.md"],
         },
         # MCP Servers
