@@ -1,5 +1,47 @@
 # Semantic Workbench Developer Guidelines
 
+## AI Context System
+**Generate comprehensive codebase context for development:**
+* `make ai-context-files` - Generate AI context files for all components
+* Files created in `ai_context/generated/` organized by logical boundaries:
+  - **Python Libraries** (by functional group):
+    - `PYTHON_LIBRARIES_CORE.md` - Core API model, assistant framework, events
+    - `PYTHON_LIBRARIES_AI_CLIENTS.md` - Anthropic, OpenAI, LLM clients
+    - `PYTHON_LIBRARIES_EXTENSIONS.md` - Assistant/MCP extensions, content safety
+    - `PYTHON_LIBRARIES_SPECIALIZED.md` - Guided conversation, assistant drive
+    - `PYTHON_LIBRARIES_SKILLS.md` - Skills library with patterns and routines
+  - **Assistants** (by individual implementation):
+    - `ASSISTANTS_OVERVIEW.md` - Common patterns and all assistant summaries
+    - `ASSISTANT_PROJECT.md` - Project assistant (most complex)
+    - `ASSISTANT_DOCUMENT.md` - Document processing assistant
+    - `ASSISTANT_CODESPACE.md` - Development environment assistant
+    - `ASSISTANT_NAVIGATOR.md` - Workbench navigation assistant
+    - `ASSISTANT_PROSPECTOR.md` - Advanced agent with artifact creation
+    - `ASSISTANTS_OTHER.md` - Explorer, guided conversation, skill assistants
+  - **Platform Components**:
+    - `WORKBENCH_FRONTEND.md` - React app components and UI patterns
+    - `WORKBENCH_SERVICE.md` - Backend API, database, and service logic
+    - `MCP_SERVERS.md` - Model Context Protocol server implementations
+    - `DOTNET_LIBRARIES.md` - .NET libraries and connectors
+  - **Supporting Files**:
+    - `EXAMPLES.md` - Sample code and getting-started templates
+    - `TOOLS.md` - Build scripts and development utilities
+    - `CONFIGURATION.md` - Root-level configs and project setup
+    - `ASPIRE_ORCHESTRATOR.md` - Container orchestration setup
+
+**Using AI Context for Development:**
+* **New developers**: Read `CONFIGURATION.md` + `PYTHON_LIBRARIES_CORE.md` for project overview
+* **Building assistants**: 
+  - Start with `ASSISTANTS_OVERVIEW.md` for common patterns
+  - Use specific assistant files (e.g., `ASSISTANT_PROJECT.md`) as implementation templates
+* **Working on specific assistants**: Load the relevant `ASSISTANT_*.md` file for focused context
+* **Library development**: Choose appropriate `PYTHON_LIBRARIES_*.md` file by functional area
+* **Frontend work**: Study component patterns in `WORKBENCH_FRONTEND.md`
+* **API development**: Follow service patterns from `WORKBENCH_SERVICE.md`
+* **MCP servers**: Use existing servers in `MCP_SERVERS.md` as templates
+* **AI tools**: Provide relevant context files for better code generation and debugging
+* **Code reviews**: Reference context files to understand cross-component impacts
+
 ## Common Commands
 * Build/Install: `make install` (recursive for all subdirectories)
 * Format: `make format` (runs ruff formatter)
