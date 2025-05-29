@@ -14,7 +14,7 @@ ifndef IS_RECURSIVE_MAKE
 # make with VERBOSE=1 to print all outputs of recursive makes
 VERBOSE ?= 0
 
-RECURSIVE_TARGETS = clean install test format lint type-check lock
+RECURSIVE_TARGETS = clean install test format lint type-check lock ai-context-files
 
 # You can pass in a list of files or directories to retain when running `clean/git-clean`
 # ex: make clean GIT_CLEAN_RETAIN=".env .data"
@@ -69,7 +69,16 @@ endif
 
 clean: git-clean
 
-$(RECURSIVE_TARGETS): .clean-error-log $(MAKE_DIRS) .print-error-log
+# Special target that only runs at root level (not recursive)
+.PHONY: ai-context-files
+ai-context-files:
+	@echo "Building AI context files..."
+	@python tools/build_ai_context_files.py
+	@python tools/build_git_collector_files.py 2>/dev/null || echo "Note: git-collector not available, skipping external docs"
+	@echo "AI context files generated in ai_context/generated/"
+
+# Exclude ai-context-files from recursive processing
+$(filter-out ai-context-files,$(RECURSIVE_TARGETS)): .clean-error-log $(MAKE_DIRS) .print-error-log
 
 $(MAKE_DIRS):
 ifdef FAIL_ON_ERROR
