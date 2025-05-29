@@ -8,7 +8,8 @@
     - `PYTHON_LIBRARIES_CORE.md` - Core API model, assistant framework, events
     - `PYTHON_LIBRARIES_AI_CLIENTS.md` - Anthropic, OpenAI, LLM clients
     - `PYTHON_LIBRARIES_EXTENSIONS.md` - Assistant/MCP extensions, content safety
-    - `PYTHON_LIBRARIES_SPECIALIZED.md` - Skills library, guided conversation, assistant drive
+    - `PYTHON_LIBRARIES_SPECIALIZED.md` - Guided conversation, assistant drive
+    - `PYTHON_LIBRARIES_SKILLS.md` - Skills library with patterns and routines
   - **Assistants** (by individual implementation):
     - `ASSISTANTS_OVERVIEW.md` - Common patterns and all assistant summaries
     - `ASSISTANT_PROJECT.md` - Project assistant (most complex)

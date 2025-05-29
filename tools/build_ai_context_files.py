@@ -89,8 +89,15 @@ def build_context_files(force=False) -> None:
         },
         # Python Libraries - Specialized Features
         {
-            "patterns": ["libraries/python/assistant-drive", "libraries/python/guided-conversation", "libraries/python/skills"],
+            "patterns": ["libraries/python/assistant-drive", "libraries/python/guided-conversation"],
             "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_SPECIALIZED.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Python Libraries - Skills Library
+        {
+            "patterns": ["libraries/python/skills"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_SKILLS.md",
             "exclude": collect_files.DEFAULT_EXCLUDE,
             "include": ["pyproject.toml", "README.md"],
         },

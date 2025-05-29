@@ -5,7 +5,7 @@
 **Search:** ['assistants/Makefile']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** ['assistants/*/README.md', 'assistants/*/pyproject.toml']
-**Date:** 5/29/2025, 11:26:49 AM
+**Date:** 5/29/2025, 11:45:28 AM
 **Files:** 17
 
 === File: assistants/Makefile ===

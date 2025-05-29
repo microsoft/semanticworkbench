@@ -5,7 +5,7 @@
 **Search:** ['tools']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** []
-**Date:** 5/29/2025, 11:26:49 AM
+**Date:** 5/29/2025, 11:45:28 AM
 **Files:** 27
 
 === File: tools/build_ai_context_files.py ===
@@ -100,8 +100,15 @@ def build_context_files(force=False) -> None:
         },
         # Python Libraries - Specialized Features
         {
-            "patterns": ["libraries/python/assistant-drive", "libraries/python/guided-conversation", "libraries/python/skills"],
+            "patterns": ["libraries/python/assistant-drive", "libraries/python/guided-conversation"],
             "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_SPECIALIZED.md",
+            "exclude": collect_files.DEFAULT_EXCLUDE,
+            "include": ["pyproject.toml", "README.md"],
+        },
+        # Python Libraries - Skills Library
+        {
+            "patterns": ["libraries/python/skills"],
+            "output": f"{OUTPUT_DIR}/PYTHON_LIBRARIES_SKILLS.md",
             "exclude": collect_files.DEFAULT_EXCLUDE,
             "include": ["pyproject.toml", "README.md"],
         },

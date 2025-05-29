@@ -5,7 +5,7 @@
 **Search:** ['assistants/document-assistant']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png', 'test_data']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:26:49 AM
+**Date:** 5/29/2025, 11:45:28 AM
 **Files:** 38
 
 === File: README.md ===

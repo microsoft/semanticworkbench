@@ -5,7 +5,7 @@
 **Search:** ['libraries/python/semantic-workbench-api-model', 'libraries/python/semantic-workbench-assistant', 'libraries/python/events']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:26:48 AM
+**Date:** 5/29/2025, 11:45:28 AM
 **Files:** 45
 
 === File: README.md ===
