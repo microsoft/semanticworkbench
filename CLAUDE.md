@@ -1,5 +1,27 @@
 # Semantic Workbench Developer Guidelines
 
+## AI Context System
+**Generate comprehensive codebase context for development:**
+* `make ai-context-files` - Generate AI context files for all components
+* Files created in `ai_context/generated/` organized by logical boundaries:
+  - `PYTHON_LIBRARIES.md` - Core libraries and shared utilities
+  - `ASSISTANTS.md` - All assistant implementations and patterns
+  - `WORKBENCH_FRONTEND.md` - React app components and UI patterns
+  - `WORKBENCH_SERVICE.md` - Backend API, database, and service logic
+  - `MCP_SERVERS.md` - Model Context Protocol server implementations
+  - `EXAMPLES.md` - Sample code and getting-started templates
+  - `TOOLS.md` - Build scripts and development utilities
+  - `CONFIGURATION.md` - Root-level configs and project setup
+
+**Using AI Context for Development:**
+* **New developers**: Read `CONFIGURATION.md` + `PYTHON_LIBRARIES.md` for project overview
+* **Building assistants**: Reference patterns in `ASSISTANTS.md` for consistent implementation
+* **Frontend work**: Study component patterns in `WORKBENCH_FRONTEND.md`
+* **API development**: Follow service patterns from `WORKBENCH_SERVICE.md`
+* **MCP servers**: Use existing servers in `MCP_SERVERS.md` as templates
+* **AI tools**: Provide relevant context files for better code generation and debugging
+* **Code reviews**: Reference context files to understand cross-component impacts
+
 ## Common Commands
 * Build/Install: `make install` (recursive for all subdirectories)
 * Format: `make format` (runs ruff formatter)
