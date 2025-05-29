@@ -1,0 +1,64 @@
+name: Update AI Context Files
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: ["main"]
+    paths: 
+      - "libraries/**"
+      - "assistants/**" 
+      - "workbench-app/**"
+      - "workbench-service/**"
+      - "mcp-servers/**"
+      - "examples/**"
+      - "tools/**"
+      - "aspire-orchestrator/**"
+      - "*.md"
+      - "*.toml"
+      - "*.json"
+      - "Makefile"
+      - ".github/workflows/ai-context-update.yml"
+
+  workflow_dispatch:
+
+jobs:
+  update-ai-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Generate AI context files
+        run: make ai-context-files
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet ai_context/generated/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ai_context/generated/
+          git commit -m "🤖 Update AI context files
+
+          Generated with [AI Context System](tools/build_ai_context_files.py)
+          
+          Files updated based on changes in: ${{ github.event.head_commit.message }}"
+          git push
