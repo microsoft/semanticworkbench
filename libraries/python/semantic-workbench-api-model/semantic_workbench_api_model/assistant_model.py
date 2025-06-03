@@ -60,6 +60,14 @@ class AssistantTemplateModel(BaseModel):
     config: ConfigResponseModel
 
 
+class LegacyServiceInfoModel(BaseModel):
+    assistant_service_id: str
+    name: str
+    description: str
+    default_config: ConfigResponseModel
+    metadata: dict[str, Any] = {}
+
+
 class ServiceInfoModel(BaseModel):
     assistant_service_id: str
     name: str
