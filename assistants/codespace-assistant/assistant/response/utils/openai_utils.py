@@ -87,7 +87,7 @@ async def get_completion(
     # add tools to completion args if model supports tools
     if request_config.model not in no_tools_support:
         completion_args["tools"] = tools or NotGiven()
-        if tools is not None:
+        if tools:
             completion_args["tool_choice"] = "auto"
 
             if request_config.model not in no_parallel_tool_calls:

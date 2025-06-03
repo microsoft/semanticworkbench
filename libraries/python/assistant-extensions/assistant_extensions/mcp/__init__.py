@@ -21,9 +21,15 @@ from ._model import (
 )
 from ._openai_utils import (
     OpenAISamplingHandler,
+    SamplingChatMessageProvider,
     sampling_message_to_chat_completion_message,
 )
-from ._tool_utils import handle_mcp_tool_call, retrieve_mcp_tools_from_sessions
+from ._tool_utils import (
+    execute_tool,
+    handle_mcp_tool_call,
+    retrieve_mcp_tools_and_sessions_from_sessions,
+    retrieve_mcp_tools_from_sessions,
+)
 from ._workbench_file_resource_handler import WorkbenchFileClientResourceHandler
 
 __all__ = [
@@ -49,4 +55,7 @@ __all__ = [
     "sampling_message_to_chat_completion_message",
     "AssistantFileResourceHandler",
     "WorkbenchFileClientResourceHandler",
+    "execute_tool",
+    "retrieve_mcp_tools_and_sessions_from_sessions",
+    "SamplingChatMessageProvider",
 ]

@@ -32,7 +32,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel
 from .response import respond_to_conversation
-from .whiteboard import WhiteboardInspector
+from .whiteboard import WhiteboardInspector, get_whiteboard_service_config
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +94,9 @@ assistant = AssistantApp(
 
 async def whiteboard_config_provider(ctx: ConversationContext) -> mcp.MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    enabled = config.tools.enabled and config.tools.hosted_mcp_servers.memory_whiteboard.enabled
-    return config.tools.hosted_mcp_servers.memory_whiteboard.model_copy(update={"enabled": enabled})
+    service_config = get_whiteboard_service_config(config)
+    enabled = config.tools.enabled and service_config.enabled
+    return service_config.model_copy(update={"enabled": enabled})
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)

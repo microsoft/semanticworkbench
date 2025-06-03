@@ -124,7 +124,7 @@ async def respond_to_conversation(
                 break
 
             # Reconnect to the MCP servers if they were disconnected
-            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
+            mcp_sessions = await refresh_mcp_sessions(mcp_sessions, stack)
 
             step_result = await next_step(
                 sampling_handler=sampling_handler,

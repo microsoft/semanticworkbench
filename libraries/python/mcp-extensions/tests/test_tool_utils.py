@@ -9,7 +9,7 @@ from mcp_extensions._tool_utils import (
 
 def test_convert_tools_to_openai_tools_empty():
     result = convert_tools_to_openai_tools([])
-    assert result is None
+    assert result == []
 
 
 # Test: send_tool_call_progress

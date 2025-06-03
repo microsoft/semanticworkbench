@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from textwrap import dedent
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator
 
 import deepmerge
 from mcp import Tool
@@ -18,7 +18,7 @@ from ._model import (
 logger = logging.getLogger(__name__)
 
 
-def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_tools: list[str] = []) -> List[Tool]:
+def retrieve_mcp_tools_from_sessions(mcp_sessions: list[MCPSession], exclude_tools: list[str] = []) -> list[Tool]:
     """
     Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
     and any duplicate keys (names) - first tool wins.
@@ -45,8 +45,37 @@ def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_too
     return tools
 
 
+def retrieve_mcp_tools_and_sessions_from_sessions(
+    mcp_sessions: list[MCPSession], exclude_tools: list[str] = []
+) -> list[tuple[Tool, MCPSession]]:
+    """
+    Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
+    and any duplicate keys (names) - first tool wins.
+    """
+    tools = []
+    tool_names = set()
+    for mcp_session in mcp_sessions:
+        for tool in mcp_session.tools:
+            if tool.name in tool_names:
+                logger.warning(
+                    "Duplicate tool name '%s' found in session %s; skipping",
+                    tool.name,
+                    mcp_session.config.server_config.key,
+                )
+                # Skip duplicate tools
+                continue
+
+            if tool.name in exclude_tools:
+                # Skip excluded tools
+                continue
+
+            tools.append((tool, mcp_session))
+            tool_names.add(tool.name)
+    return tools
+
+
 def get_mcp_session_and_tool_by_tool_name(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_name: str,
 ) -> tuple[MCPSession | None, Tool | None]:
     """
@@ -59,7 +88,7 @@ def get_mcp_session_and_tool_by_tool_name(
 
 
 async def handle_mcp_tool_call(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
 ) -> ExtendedCallToolResult:
@@ -84,7 +113,7 @@ async def handle_mcp_tool_call(
 
 
 async def handle_long_running_tool_call(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
 ) -> AsyncGenerator[ExtendedCallToolResult, None]:
@@ -141,7 +170,7 @@ async def execute_tool(
     # Prepare to capture tool output
     tool_result = None
     tool_output: list[TextContent | ImageContent | EmbeddedResource] = []
-    content_items: List[str] = []
+    content_items: list[str] = []
 
     async def tool_call_function() -> CallToolResult:
         return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)

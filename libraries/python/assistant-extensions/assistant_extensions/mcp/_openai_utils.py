@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import Any, Callable, List, Union
+from typing import Any, Awaitable, Callable, Protocol
 
 import deepmerge
 from mcp import ClientSession, CreateMessageResult, SamplingMessage
@@ -17,10 +18,9 @@ from openai.types.chat import (
     ChatCompletionContentPartImageParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
-    ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
 )
-from openai_client import OpenAIRequestConfig, create_client
+from openai_client import OpenAIRequestConfig, create_client, num_tokens_from_messages
 
 from ..ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from ._model import MCPSamplingMessageHandler
@@ -35,9 +35,13 @@ logger = logging.getLogger(__name__)
 # It works ok in office server but not giphy, so it is likely a server issue.
 
 OpenAIMessageProcessor = Callable[
-    [List[SamplingMessage]],
-    List[ChatCompletionMessageParam],
+    [list[SamplingMessage], int, str],
+    Awaitable[list[ChatCompletionMessageParam]],
 ]
+
+
+class SamplingChatMessageProvider(Protocol):
+    async def __call__(self, available_tokens: int, model: str) -> list[ChatCompletionMessageParam]: ...
 
 
 class OpenAISamplingHandler(SamplingHandler):
@@ -47,13 +51,12 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def __init__(
         self,
-        ai_client_configs: list[Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]],
-        assistant_mcp_tools: list[ChatCompletionToolParam] | None = None,
+        ai_client_configs: list[AzureOpenAIClientConfigModel | OpenAIClientConfigModel],
         message_processor: OpenAIMessageProcessor | None = None,
         handler: MCPSamplingMessageHandler | None = None,
+        message_providers: dict[str, SamplingChatMessageProvider] = {},
     ) -> None:
         self.ai_client_configs = ai_client_configs
-        self.assistant_mcp_tools = assistant_mcp_tools
 
         # set a default message processor that converts sampling messages to
         # chat completion messages and performs any necessary transformations
@@ -66,11 +69,54 @@ class OpenAISamplingHandler(SamplingHandler):
         # and more context is available
         self._message_handler: MCPSamplingMessageHandler = handler or self._default_message_handler
 
-    def _default_message_processor(self, messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
+        self._message_providers = message_providers
+
+    async def _default_message_processor(
+        self, messages: list[SamplingMessage], available_tokens: int, model: str
+    ) -> list[ChatCompletionMessageParam]:
         """
         Default template processor that passes messages through.
         """
-        return [sampling_message_to_chat_completion_message(message) for message in messages]
+        updated_messages: list[ChatCompletionMessageParam] = []
+
+        def add_converted_message(message: SamplingMessage) -> None:
+            updated_messages.append(sampling_message_to_chat_completion_message(message))
+
+        for message in messages:
+            if not isinstance(message.content, TextContent):
+                add_converted_message(message)
+                continue
+
+            # Determine if the message.content.text is a json payload
+            content = message.content.text
+            if not content.startswith("{") or not content.endswith("}"):
+                add_converted_message(message)
+                continue
+
+            # Attempt to parse the json payload
+            try:
+                json_payload = json.loads(content)
+                variable = json_payload.get("variable")
+
+            except json.JSONDecodeError:
+                add_converted_message(message)
+                continue
+
+            else:
+                source = self._message_providers.get(variable)
+                if not source:
+                    add_converted_message(message)
+                    continue
+
+                available_for_source = available_tokens - num_tokens_from_messages(
+                    messages=[sampling_message_to_chat_completion_message(message) for message in messages],
+                    model=model,
+                )
+                chat_messages = await source(available_for_source, model)
+                updated_messages.extend(chat_messages)
+                continue
+
+        return updated_messages
 
     async def _default_message_handler(
         self,
@@ -135,7 +181,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def _ai_client_config_from_model_preferences(
         self, model_preferences: ModelPreferences | None
-    ) -> Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel] | None:
+    ) -> AzureOpenAIClientConfigModel | OpenAIClientConfigModel | None:
         """
         Returns an AI client config from model preferences.
         """
@@ -197,20 +243,23 @@ class OpenAISamplingHandler(SamplingHandler):
                     content=request.systemPrompt,
                 )
             )
-        # Add sampling messages
-        messages += template_processor(request.messages)
 
-        # TODO: not yet, but we can provide an option for running tools at the assistant
-        # level and then pass the results to in the results
-        # tools = self._assistant_mcp_tools
-        # for now:
-        tools = None
+        available_tokens = (
+            request_config.max_tokens
+            - request_config.response_tokens
+            - num_tokens_from_messages(
+                messages=messages,
+                model=request_config.model,
+            )
+        )
+        # Add sampling messages
+        messages += await template_processor(request.messages, available_tokens, request_config.model)
 
         # Build the completion arguments, adding tools if provided
         completion_args: dict = {
             "messages": messages,
             "model": request_config.model,
-            "tools": tools,
+            "tools": None,
         }
 
         # Allow overriding completion arguments with extra_args from metadata
@@ -230,7 +279,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
 def openai_template_processor(
     value: SamplingMessage,
-) -> Union[SamplingMessage, List[SamplingMessage]]:
+) -> SamplingMessage | list[SamplingMessage]:
     """
     Processes a SamplingMessage using OpenAI's template processor.
     """
