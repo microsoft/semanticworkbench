@@ -1,7 +1,7 @@
 # utils/tool_utils.py
 import asyncio
 import logging
-from typing import Any, List
+from typing import Any
 
 import deepmerge
 from mcp import ServerSession, Tool
@@ -78,47 +78,44 @@ async def execute_tool(
     return result
 
 
+def convert_tool_to_openai_tool(
+    mcp_tool: Tool, extra_properties: dict[str, Any] | None = None
+) -> ChatCompletionToolParam:
+    parameters = mcp_tool.inputSchema.copy()
+
+    if isinstance(extra_properties, dict):
+        # Add the extra properties to the input schema
+        parameters = deepmerge.always_merger.merge(
+            parameters,
+            {
+                "properties": {
+                    **extra_properties,
+                },
+                "required": [
+                    *extra_properties.keys(),
+                ],
+            },
+        )
+
+    function = FunctionDefinition(
+        name=mcp_tool.name,
+        description=mcp_tool.description if mcp_tool.description else "[no description provided]",
+        parameters=parameters,
+    )
+
+    return ChatCompletionToolParam(
+        function=function,
+        type="function",
+    )
+
+
 def convert_tools_to_openai_tools(
-    mcp_tools: List[Tool] | None, extra_properties: dict[str, Any] | None = None
-) -> List[ChatCompletionToolParam] | None:
+    mcp_tools: list[Tool], extra_properties: dict[str, Any] | None = None
+) -> list[ChatCompletionToolParam]:
     """
     Converts MCP tools into OpenAI-compatible tool schemas to facilitate interoperability.
     Extra properties can be appended to the generated schema, enabling richer descriptions
     or added functionality (e.g., custom fields for user context or explanations).
     """
 
-    if not mcp_tools:
-        return None
-
-    openai_tools: List[ChatCompletionToolParam] = []
-    for mcp_tool in mcp_tools:
-        parameters = mcp_tool.inputSchema.copy()
-
-        if isinstance(extra_properties, dict):
-            # Add the extra properties to the input schema
-            parameters = deepmerge.always_merger.merge(
-                parameters,
-                {
-                    "properties": {
-                        **extra_properties,
-                    },
-                    "required": [
-                        *extra_properties.keys(),
-                    ],
-                },
-            )
-
-        function = FunctionDefinition(
-            name=mcp_tool.name,
-            description=mcp_tool.description if mcp_tool.description else "[no description provided]",
-            parameters=parameters,
-        )
-
-        openai_tools.append(
-            ChatCompletionToolParam(
-                function=function,
-                type="function",
-            )
-        )
-
-    return openai_tools
+    return [convert_tool_to_openai_tool(mcp_tool, extra_properties) for mcp_tool in mcp_tools]

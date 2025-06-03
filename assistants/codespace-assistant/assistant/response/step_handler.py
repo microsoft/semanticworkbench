@@ -77,7 +77,6 @@ async def next_step(
 
     # convert the tools to make them compatible with the OpenAI API
     tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
-    sampling_handler.assistant_mcp_tools = tools
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,

@@ -70,8 +70,9 @@ def tool_calls_from_metadata(metadata: dict[str, Any]) -> list[ChatCompletionMes
                 continue
 
         id = tool_call["id"]
-        name = tool_call["name"]
-        arguments = json.dumps(tool_call["arguments"])
+        function = tool_call["function"]
+        name = function["name"]
+        arguments = json.dumps(function["arguments"])
         if id is not None and name is not None and arguments is not None:
             tool_call_params.append(
                 ChatCompletionMessageToolCallParam(

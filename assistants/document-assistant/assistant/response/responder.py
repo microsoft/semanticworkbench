@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from contextlib import AsyncExitStack
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 import deepmerge
 import pendulum
@@ -130,7 +130,7 @@ class ConversationResponder:
         step_count = 0
         while step_count < self.config.orchestration.options.max_steps:
             step_count += 1
-            self.mcp_sessions = await refresh_mcp_sessions(self.mcp_sessions)
+            self.mcp_sessions = await refresh_mcp_sessions(self.mcp_sessions, self.stack)
 
             # Check to see if we should interrupt our flow
             last_message = await self.context.get_messages(limit=1, message_types=[MessageType.chat])
@@ -603,14 +603,16 @@ class ConversationResponder:
     async def _update_sampling_message_processor(
         self,
         chat_history: list[ChatCompletionMessageParam],
-    ) -> Callable[[list[SamplingMessage]], list[ChatCompletionMessageParam]]:
+    ) -> Callable[[list[SamplingMessage], int, str], Awaitable[list[ChatCompletionMessageParam]]]:
         """
         Constructs function that will inject context from the assistant into sampling calls from the MCP server if it requests it.
         Currently supports a custom message of:
         `{"variable": "history_messages"}` which will inject the chat history with attachments into the sampling call.
         """
 
-        def _sampling_message_processor(messages: list[SamplingMessage]) -> list[ChatCompletionMessageParam]:
+        async def _sampling_message_processor(
+            messages: list[SamplingMessage], available_tokens: int, model: str
+        ) -> list[ChatCompletionMessageParam]:
             updated_messages: list[ChatCompletionMessageParam] = []
 
             for message in messages:
@@ -656,7 +658,7 @@ class ConversationResponder:
             ai_client_configs=[
                 generative_ai_client_config,
                 reasoning_ai_client_config,
-            ]
+            ],
         )
         self.sampling_handler = sampling_handler
 

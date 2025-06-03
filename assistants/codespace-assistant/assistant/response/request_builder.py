@@ -168,7 +168,9 @@ async def build_request(
         )
 
     # Create a message processor for the sampling handler
-    def message_processor(messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
+    async def message_processor(
+        messages: List[SamplingMessage], available_tokens: int, model: str
+    ) -> List[ChatCompletionMessageParam]:
         updated_messages: List[ChatCompletionMessageParam] = []
 
         def add_converted_message(message: SamplingMessage) -> None:

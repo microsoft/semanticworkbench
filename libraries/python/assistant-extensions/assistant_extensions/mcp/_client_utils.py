@@ -184,9 +184,7 @@ async def connect_to_mcp_server_sse(client_settings: MCPClientSettings) -> Async
         raise
 
 
-async def refresh_mcp_sessions(
-    mcp_sessions: list[MCPSession],
-) -> list[MCPSession]:
+async def refresh_mcp_sessions(mcp_sessions: list[MCPSession], stack: AsyncExitStack) -> list[MCPSession]:
     """
     Check each MCP session for connectivity. If a session is marked as disconnected,
     attempt to reconnect it using reconnect_mcp_session.
@@ -195,7 +193,7 @@ async def refresh_mcp_sessions(
     for session in mcp_sessions:
         if not session.is_connected:
             logger.info(f"Session {session.config.server_config.key} is disconnected. Attempting to reconnect...")
-            new_session = await reconnect_mcp_session(session.config)
+            new_session = await reconnect_mcp_session(session.config, stack)
             if new_session:
                 active_sessions.append(new_session)
             else:
@@ -205,7 +203,7 @@ async def refresh_mcp_sessions(
     return active_sessions
 
 
-async def reconnect_mcp_session(client_settings: MCPClientSettings) -> MCPSession | None:
+async def reconnect_mcp_session(client_settings: MCPClientSettings, stack: AsyncExitStack) -> MCPSession | None:
     """
     Attempt to reconnect to the MCP server using the provided configuration.
     Returns a new MCPSession if successful, or None otherwise.
@@ -213,19 +211,15 @@ async def reconnect_mcp_session(client_settings: MCPClientSettings) -> MCPSessio
     to avoid interfering with cancel scopes.
     """
     try:
-        async with connect_to_mcp_server(client_settings) as client_session:
-            if client_session is None:
-                logger.error("Reconnection returned no client session for %s", client_settings.server_config.key)
-                return None
+        client_session = await stack.enter_async_context(connect_to_mcp_server(client_settings))
+        mcp_session = MCPSession(config=client_settings, client_session=client_session)
+        await mcp_session.initialize()
 
-            new_session = MCPSession(config=client_settings, client_session=client_session)
-            await new_session.initialize()
-            new_session.is_connected = True
-            logger.info("Successfully reconnected to MCP server %s", client_settings.server_config.key)
-            return new_session
-    except Exception:
-        logger.exception("Error reconnecting MCP server %s", client_settings.server_config.key)
-        return None
+        return mcp_session
+    except Exception as e:
+        # Log a cleaner error message for this specific server
+        logger.exception("failed to connect to MCP server: %s", client_settings.server_config.key)
+        raise MCPServerConnectionError(client_settings.server_config, e) from e
 
 
 class MCPServerConnectionError(Exception):

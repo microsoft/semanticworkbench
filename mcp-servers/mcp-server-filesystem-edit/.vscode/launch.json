@@ -10,14 +10,6 @@
       "args": ["--transport", "sse", "--port", "25567"],
       "consoleTitle": "mcp-server-filesystem-edit",
       "justMyCode": false
-    },
-    {
-      "name": "Python: Current File",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }

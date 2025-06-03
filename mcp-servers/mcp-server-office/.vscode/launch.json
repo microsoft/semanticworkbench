@@ -10,14 +10,6 @@
       "args": ["--transport", "sse", "--port", "25566"],
       "consoleTitle": "mcp-server-office"
       // "justMyCode": false // Set to false to debug external libraries
-    },
-    {
-      "name": "Python: Current File",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }
