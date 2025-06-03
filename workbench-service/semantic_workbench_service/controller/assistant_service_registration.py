@@ -378,6 +378,9 @@ class AssistantServiceRegistrationController:
             if registration is None:
                 raise exceptions.NotFoundError()
 
+            if not registration.assistant_service_online:
+                raise exceptions.NotFoundError()
+
         return await (await self._client_pool.service_client(registration=registration)).get_service_info()
 
     async def get_service_infos(self, user_ids: set[str] = set()) -> AssistantServiceInfoList:

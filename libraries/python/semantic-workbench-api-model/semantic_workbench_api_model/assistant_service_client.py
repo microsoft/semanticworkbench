@@ -11,13 +11,15 @@ from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Se
 import asgi_correlation_id
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from semantic_workbench_api_model.assistant_model import (
     AssistantPutRequestModel,
+    AssistantTemplateModel,
     ConfigPutRequestModel,
     ConfigResponseModel,
     ConversationPutRequestModel,
+    LegacyServiceInfoModel,
     ServiceInfoModel,
     StateDescriptionListResponseModel,
     StatePutRequestModel,
@@ -308,7 +310,25 @@ class AssistantServiceClient:
         if not response.is_success:
             raise AssistantResponseError(response)
 
-        return ServiceInfoModel.model_validate(response.json())
+        response_json = response.json()
+
+        try:
+            return ServiceInfoModel.model_validate(response_json)
+        except ValidationError:
+            legacy = LegacyServiceInfoModel.model_validate(response_json)
+            return ServiceInfoModel(
+                assistant_service_id=legacy.assistant_service_id,
+                name=legacy.name,
+                metadata=legacy.metadata,
+                templates=[
+                    AssistantTemplateModel(
+                        id="default",
+                        name=legacy.name,
+                        description=legacy.description,
+                        config=legacy.default_config,
+                    )
+                ],
+            )
 
 
 class AssistantServiceClientBuilder:
