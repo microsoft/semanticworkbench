@@ -77,7 +77,7 @@ assistant = AssistantApp(
     assistant_service_metadata={
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
-                enabled=True,
+                enabled=False,
                 template_id=DEFAULT_TEMPLATE_ID,
                 background_color="rgb(140, 200, 140)",
                 icon=dashboard_card.image_to_url(
