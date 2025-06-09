@@ -162,29 +162,12 @@ In the side panel, you can see your "knowledge brief". This brief will be shared
 
 What knowledge would you like to transfer today?"""
 
-    prompt_for_files: Annotated[
-        str,
-        Field(
-            title="File Upload Prompt",
-            description="The message used to prompt project coordinators to upload relevant files.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "To begin building your project context, would you like to upload any relevant files like documents, images, or data that your team will need? You can drag and drop files directly into this conversation."
-
-    list_participants_command: Annotated[
-        str,
-        Field(
-            title="List Participants Command",
-            description="The command project coordinators can use to list all participants (without the slash).",
-        ),
-    ] = "list-participants"
-
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(
         title="Team Member Configuration",
         json_schema_extra={
-            "required": ["default_welcome_message", "status_command"],
+            "required": ["default_welcome_message"],
         },
     )
 
@@ -196,14 +179,6 @@ class TeamConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
-
-    status_command: Annotated[
-        str,
-        Field(
-            title="Status Command",
-            description="The command project participants can use to check project status (without the slash).",
-        ),
-    ] = "project-status"
 
 
 # Base Assistant Configuration - shared by all templates

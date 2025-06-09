@@ -8,11 +8,9 @@ requires-python = ">=3.11"
 dependencies = [
     "assistant-extensions[attachments]>=0.1.0",
     "content-safety>=0.1.0",
-    "deepmerge>=2.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "semantic-workbench-assistant>=0.1.0",
-    "tiktoken>=0.8.0",
 ]
 
 [dependency-groups]

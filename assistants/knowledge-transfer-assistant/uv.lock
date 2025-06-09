@@ -175,11 +175,9 @@ source = { editable = "." }
 dependencies = [
     { name = "assistant-extensions", extra = ["attachments"] },
     { name = "content-safety" },
-    { name = "deepmerge" },
     { name = "openai" },
     { name = "openai-client" },
     { name = "semantic-workbench-assistant" },
-    { name = "tiktoken" },
 ]
 
 [package.dev-dependencies]
@@ -194,11 +192,9 @@ dev = [
 requires-dist = [
     { name = "assistant-extensions", extras = ["attachments"], editable = "../../libraries/python/assistant-extensions" },
     { name = "content-safety", editable = "../../libraries/python/content-safety" },
-    { name = "deepmerge", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
-    { name = "tiktoken", specifier = ">=0.8.0" },
 ]
 
 [package.metadata.requires-dev]
