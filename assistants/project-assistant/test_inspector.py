@@ -6,7 +6,7 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-from assistant.chat import assistant
+from assistant.assistant import assistant
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app import ConversationContext
 

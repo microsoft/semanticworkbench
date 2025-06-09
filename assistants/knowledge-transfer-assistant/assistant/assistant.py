@@ -35,21 +35,21 @@ from assistant.utils import (
     load_text_include,
 )
 
+from .common import detect_assistant_role
 from .config import assistant_config
 from .conversation_project_link import ConversationProjectManager
+from .data import LogEntryType
+from .files import ProjectFileManager
 from .logging import logger
-from .project_common import detect_assistant_role
-from .project_data import LogEntryType
-from .project_files import ProjectFileManager
-from .project_manager import ProjectManager
-from .project_notifications import ProjectNotifier
-from .project_storage import ProjectStorage
-from .project_storage_models import ConversationRole
+from .manager import ProjectManager
+from .notifications import ProjectNotifier
 from .state_inspector import ProjectInspectorStateProvider
+from .storage import ProjectStorage
+from .storage_models import ConversationRole
 
-service_id = "project-assistant.made-exploration"
-service_name = "Project Assistant"
-service_description = "A mediator assistant that facilitates file sharing between conversations."
+service_id = "knowledge-transfer-assistant.made-exploration"
+service_name = "Knowledge Transfer Assistant"
+service_description = "A mediator assistant that facilitates sharing knowledge between parties."
 
 
 async def content_evaluator_factory(
@@ -71,15 +71,14 @@ assistant = AssistantApp(
     inspector_state_providers={
         "project_status": ProjectInspectorStateProvider(assistant_config),
     },
-    additional_templates=[],
     assistant_service_metadata={
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
-                enabled=False,
+                enabled=True,
                 template_id=DEFAULT_TEMPLATE_ID,
                 background_color="rgb(159, 216, 159)",
                 icon=dashboard_card.image_to_url(
-                    pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
+                    pathlib.Path(__file__).parent / "assets" / "icon-knowledge-transfer.svg", "image/svg+xml"
                 ),
                 card_content=dashboard_card.CardContent(
                     content_type="text/markdown",
@@ -88,7 +87,7 @@ assistant = AssistantApp(
             ),
         ),
         **navigator.metadata_for_assistant_navigator({
-            "default": load_text_include("project_assistant_info.md"),
+            "default": load_text_include("assistant_info.md"),
         }),
     },
 )
@@ -205,8 +204,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
                 await ProjectManager.update_project_brief(
                     context=context,
-                    title=f"New {config.Project_or_Context}",
-                    description="_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
+                    title="Knowledge Brief",
+                    description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_",
                 )
 
                 # Create a team conversation with a share URL

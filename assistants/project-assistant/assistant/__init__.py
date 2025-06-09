@@ -1,4 +1,4 @@
-from .chat import app
+from .assistant import app
 from .logging import logger, setup_file_logging
 
 # Set up file logging
