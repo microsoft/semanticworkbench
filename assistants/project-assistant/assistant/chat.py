@@ -89,7 +89,6 @@ assistant = AssistantApp(
         ),
         **navigator.metadata_for_assistant_navigator({
             "default": load_text_include("project_assistant_info.md"),
-            "knowledge_transfer": load_text_include("knowledge_transfer_assistant_info.md"),
         }),
     },
 )

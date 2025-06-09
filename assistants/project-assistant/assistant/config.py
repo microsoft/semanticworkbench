@@ -8,7 +8,8 @@ from semantic_workbench_assistant.assistant_app import (
     BaseModelAssistantConfig,
 )
 from semantic_workbench_assistant.config import UISchema
-from utils import load_text_include
+
+from .utils import load_text_include
 
 
 class RequestConfig(BaseModel):
