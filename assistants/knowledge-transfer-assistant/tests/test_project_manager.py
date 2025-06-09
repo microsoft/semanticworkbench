@@ -21,8 +21,9 @@ class TestProjectManager:
         context.id = "test-conversation-id"
         return context
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal(self, context, monkeypatch):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal(self, context, monkeypatch):
         """Test the delete_project_goal method in ProjectManager."""
         # Setup test data
         project_id = "test-project-id"
@@ -67,7 +68,7 @@ class TestProjectManager:
             return project_id
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
         )
 
         # Mock require_current_user
@@ -75,7 +76,7 @@ class TestProjectManager:
             return "test-user-id"
 
         monkeypatch.setattr(
-            "assistant.project_manager.require_current_user", AsyncMock(side_effect=mock_require_current_user)
+            "assistant.manager.require_current_user", AsyncMock(side_effect=mock_require_current_user)
         )
 
         # Mock read_project
@@ -84,7 +85,7 @@ class TestProjectManager:
             return test_project
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project)
+            "assistant.storage.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project)
         )
 
         # Mock read_project_info
@@ -149,7 +150,7 @@ class TestProjectManager:
             notify_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectNotifier.notify_project_update",
+            "assistant.notifications.ProjectNotifier.notify_project_update",
             AsyncMock(side_effect=mock_notify_project_update),
         )
 
@@ -179,8 +180,9 @@ class TestProjectManager:
         assert notify_called
         assert refresh_called
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal_invalid_index(self, context, monkeypatch):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal_invalid_index(self, context, monkeypatch):
         """Test deleting a goal with an invalid index."""
         # Setup
         project_id = "test-project-id"
@@ -231,8 +233,9 @@ class TestProjectManager:
         assert error_message is not None
         assert "Invalid goal index" in str(error_message)
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal_no_project(self, context, monkeypatch):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal_no_project(self, context, monkeypatch):
         """Test deleting a goal when no project is associated with the conversation."""
 
         # Mock get_project_id to return None

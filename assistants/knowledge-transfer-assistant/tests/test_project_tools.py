@@ -40,16 +40,11 @@ class TestProjectTools:
 
         # Verify Coordinator-specific functions are registered
         assert "update_brief" in coordinator_tools.tool_functions.function_map
-        assert "add_project_goal" in coordinator_tools.tool_functions.function_map
-        assert "delete_project_goal" in coordinator_tools.tool_functions.function_map
         assert "resolve_information_request" in coordinator_tools.tool_functions.function_map
-        assert "mark_project_ready_for_working" in coordinator_tools.tool_functions.function_map
 
         # Verify Team-specific functions are NOT registered
         assert "create_information_request" not in coordinator_tools.tool_functions.function_map
-        assert "update_project_status" not in coordinator_tools.tool_functions.function_map
-        assert "mark_criterion_completed" not in coordinator_tools.tool_functions.function_map
-        assert "report_project_completion" not in coordinator_tools.tool_functions.function_map
+        assert "delete_information_request" not in coordinator_tools.tool_functions.function_map
 
         # Test Team role
         team_tools = ProjectTools(context, ConversationRole.TEAM)
@@ -58,24 +53,11 @@ class TestProjectTools:
 
         # Verify Team-specific functions are registered
         assert "create_information_request" in team_tools.tool_functions.function_map
-        assert "update_project_status" in team_tools.tool_functions.function_map  # Updated to match implementation
-        assert "mark_criterion_completed" in team_tools.tool_functions.function_map
-        assert "report_project_completion" in team_tools.tool_functions.function_map
-        assert "delete_information_request" in team_tools.tool_functions.function_map  # Added new function
+        assert "delete_information_request" in team_tools.tool_functions.function_map
 
         # Verify Coordinator-specific functions are NOT registered
-        assert "create_project_brief" not in team_tools.tool_functions.function_map
-        assert "add_project_goal" not in team_tools.tool_functions.function_map
+        assert "update_brief" not in team_tools.tool_functions.function_map
         assert "resolve_information_request" not in team_tools.tool_functions.function_map
-        assert "mark_project_ready_for_working" not in team_tools.tool_functions.function_map
-
-        # Verify common functions are registered for both roles
-        assert "suggest_next_action" in coordinator_tools.tool_functions.function_map
-
-        # Verify team detection tool is not in Coordinator tools
-        assert "detect_information_request_needs" not in coordinator_tools.tool_functions.function_map
-
-        assert "suggest_next_action" in team_tools.tool_functions.function_map
 
         # detect_information_request_needs is not exposed as a tool function anymore
         assert "detect_information_request_needs" not in team_tools.tool_functions.function_map
@@ -99,12 +81,12 @@ class TestProjectTools:
         # Create a ProjectTools instance directly
         tools = ProjectTools(context, ConversationRole.COORDINATOR)
 
-        # Make sure add_project_goal was added when track_progress=True
-        assert "add_project_goal" in tools.tool_functions.function_map
+        # Make sure basic tools are available
+        assert "update_brief" in tools.tool_functions.function_map
 
-        # For team role, check criterion completion
+        # For team role, check available functions
         team_tools = ProjectTools(context, ConversationRole.TEAM)
-        assert "mark_criterion_completed" in team_tools.tool_functions.function_map
+        assert "create_information_request" in team_tools.tool_functions.function_map
 
         # Now test with track_progress set to False
         mock_config.track_progress = False
@@ -138,14 +120,14 @@ class TestProjectTools:
         # Get the tools using our function that checks track_progress
         project_tools = await check_tools_with_config(context, ConversationRole.COORDINATOR)
 
-        # Verify progress-tracking tools are removed when track_progress=False
-        assert "add_project_goal" not in project_tools.tool_functions.function_map
-        assert "mark_project_ready_for_working" not in project_tools.tool_functions.function_map
+        # Verify basic tools are still available regardless of track_progress setting
+        assert "update_brief" in project_tools.tool_functions.function_map
+        assert "resolve_information_request" in project_tools.tool_functions.function_map
 
         # For team tools
         team_tools = await check_tools_with_config(context, ConversationRole.TEAM)
-        assert "mark_criterion_completed" not in team_tools.tool_functions.function_map
-        assert "report_project_completion" not in team_tools.tool_functions.function_map
+        assert "create_information_request" in team_tools.tool_functions.function_map
+        assert "delete_information_request" in team_tools.tool_functions.function_map
 
     @pytest.mark.asyncio
     async def test_detect_information_request_needs(self, context, monkeypatch):
@@ -169,7 +151,7 @@ class TestProjectTools:
         # Patch assistant_config.get
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        monkeypatch.setattr("assistant.project_analysis.assistant_config", mock_assistant_config)
+        monkeypatch.setattr("assistant.analysis.assistant_config", mock_assistant_config)
 
         # Create a mock message for the message history
         mock_msg = MagicMock()
@@ -223,8 +205,9 @@ class TestProjectTools:
         assert result["potential_title"] == "Test title"
         assert result["original_message"] == test_message
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal(self, context, monkeypatch):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal(self, context, monkeypatch):
         """Test the delete_project_goal functionality."""
         # Create ProjectTools instance for Coordinator role
         tools = ProjectTools(context, ConversationRole.COORDINATOR)
@@ -239,7 +222,7 @@ class TestProjectTools:
             return project_id
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
         )
 
         # Mock require_current_user to return a user ID
@@ -272,8 +255,9 @@ class TestProjectTools:
         call_args = context.send_messages.call_args[0][0]
         assert call_args.content == expected_message_content
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal_wrong_role(self, context):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal_wrong_role(self, context):
         """Test delete_project_goal with wrong role (Team instead of Coordinator)."""
         # Create ProjectTools instance for Team role
         tools = ProjectTools(context, ConversationRole.TEAM)
@@ -286,8 +270,9 @@ class TestProjectTools:
         # Verify context.send_messages was not called
         context.send_messages.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_delete_project_goal_error(self, context, monkeypatch):
+    # DISABLED: delete_project_goal functionality has been removed from the codebase
+    # @pytest.mark.asyncio
+    async def disabled_test_delete_project_goal_error(self, context, monkeypatch):
         """Test delete_project_goal with error condition."""
         # Create ProjectTools instance for Coordinator role
         tools = ProjectTools(context, ConversationRole.COORDINATOR)

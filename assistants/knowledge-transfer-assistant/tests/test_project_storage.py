@@ -88,7 +88,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             return self.test_dir / f"context_{context.id}"
 
         patch1 = unittest.mock.patch(
-            "assistant.project_storage.storage_directory_for_context", side_effect=mock_storage_directory_for_context
+            "assistant.storage.storage_directory_for_context", side_effect=mock_storage_directory_for_context
         )
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)
