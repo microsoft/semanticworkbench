@@ -4,7 +4,7 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "assistants: project-assistant",
+      "name": "assistants: knowledge-transfer-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
       "consoleTitle": "${workspaceFolderBasename}",

@@ -36,7 +36,7 @@ from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
 from .tools import ProjectTools
-from .utils import get_template, is_knowledge_transfer_assistant, load_text_include
+from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
 
@@ -71,8 +71,6 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    template = get_template(context)
-    metadata["debug"]["template"] = template
     project_id = await ProjectManager.get_project_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
@@ -135,21 +133,6 @@ async def respond_to_conversation(
     # Project info
     project_info = ProjectStorage.read_project_info(project_id)
     if project_info:
-        data = project_info.model_dump()
-
-        # Delete fields that are not relevant to the knowledge transfer assistant.
-        if is_knowledge_transfer_assistant(context):
-            if "state" in data:
-                del data["state"]
-            if "progress_percentage" in data:
-                del data["progress_percentage"]
-            if "completed_criteria" in data:
-                del data["completed_criteria"]
-            if "total_criteria" in data:
-                del data["total_criteria"]
-            if "lifecycle" in data:
-                del data["lifecycle"]
-
         project_info_text = project_info.model_dump_json(indent=2)
         prompt.contexts.append(Context(f"{config.Project_or_Context} Info", project_info_text))
 
@@ -167,7 +150,7 @@ async def respond_to_conversation(
 
     # Project goals
     project = ProjectStorage.read_project(project_id)
-    if not is_knowledge_transfer_assistant(context) and project and project.goals:
+    if project and project.goals:
         goals_text = ""
         for i, goal in enumerate(project.goals):
             # Count completed criteria

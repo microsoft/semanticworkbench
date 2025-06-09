@@ -22,7 +22,6 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantCapability,
-    AssistantTemplate,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
@@ -33,8 +32,6 @@ from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
 from assistant.utils import (
     DEFAULT_TEMPLATE_ID,
-    KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-    is_knowledge_transfer_assistant,
     load_text_include,
 )
 
@@ -74,13 +71,7 @@ assistant = AssistantApp(
     inspector_state_providers={
         "project_status": ProjectInspectorStateProvider(assistant_config),
     },
-    additional_templates=[
-        AssistantTemplate(
-            id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-            name="Knowledge Transfer Assistant",
-            description="An assistant for capturing and sharing complex information for others to explore.",
-        ),
-    ],
+    additional_templates=[],
     assistant_service_metadata={
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
@@ -93,18 +84,6 @@ assistant = AssistantApp(
                 card_content=dashboard_card.CardContent(
                     content_type="text/markdown",
                     content=load_text_include("card_content.md"),
-                ),
-            ),
-            dashboard_card.TemplateConfig(
-                enabled=True,
-                template_id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-                icon=dashboard_card.image_to_url(
-                    pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
-                ),
-                background_color="rgb(198,177,222)",
-                card_content=dashboard_card.CardContent(
-                    content_type="text/markdown",
-                    content=load_text_include("knowledge_transfer_card_content.md"),
                 ),
             ),
         ),
@@ -228,9 +207,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 await ProjectManager.update_project_brief(
                     context=context,
                     title=f"New {config.Project_or_Context}",
-                    description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
-                    if is_knowledge_transfer_assistant(context)
-                    else "_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
+                    description="_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
                 )
 
                 # Create a team conversation with a share URL
