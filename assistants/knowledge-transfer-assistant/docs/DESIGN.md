@@ -1,154 +1,181 @@
-# Project Assistant Implementation Plan
+# Knowledge Transfer Assistant Implementation Design
 
 ## Overview
 
-The Project Assistant is designed as a dual-role context transfer system that facilitates knowledge transfer between different conversations in the Semantic Workbench. It provides a structured way for Coordinators to create project information and Team members to access it, with bidirectional updates and communication.
+The Knowledge Transfer Assistant is designed as a dual-role context transfer system that facilitates knowledge sharing between different conversations in the Semantic Workbench. It provides a structured way for Coordinators to organize and share complex information with Team members, featuring bidirectional communication, automatic knowledge synthesis, and real-time collaboration.
 
 ## System Design
 
-### Configuration Templates
+### Core Architecture
 
-The Project Assistant supports two different configuration templates within a unified codebase. The templates modify the behavior of the assistants considerably, so we basically have two different assistants with this single assistant codebase.
+The Knowledge Transfer Assistant operates as a single unified system focused on knowledge transfer and information sharing. It serves as a mediator assistant that helps bridge knowledge gaps between coordinators who possess information and team members who need access to that information.
 
-1. **Default Template (Project Assistant)**:
-   - Full project management capabilities with tracking features
-   - Includes goals, success criteria, and project state monitoring
-   - Tracks progress of project tasks and completion status
-   - Uses "Project Assistant" branding and terminology
-   - Provides comprehensive project dashboard with status tracking
-   - Focuses on project management workflow with sequential stages
+**Key Characteristics:**
 
-2. **Context Transfer Template (Context Transfer Assistant)**:
-   - Simplified knowledge sharing without project tracking features
-   - Designed for knowledge transfer without formal project structure
-   - No goals or success criteria tracking
-   - Uses "Context Transfer Assistant" branding and terminology
-   - Maintains core information request capabilities without project stages
-   - Different welcome messages and UI labels appropriate for knowledge sharing
-
-The system automatically adapts its behavior, prompts, and UI based on which template is selected during assistant instantiation, while maintaining a unified codebase and consistent architecture.
-
-Some features remain in both assistant configurations:
-
-- Both assistants maintain a "whiteboard" internally to build up context of the project (the "project" for the Context Transfer Assistant is to transfer the context well, while for the Project Assistant it is a project in a more formal sense). The whiteboard is updated by the assistant each time they reply to the user. The whiteboard is distinct from the project information dashboard which is a collaboration between the user and the assistant.
-- Both assistants syncronize project information and files between coordinators and team members.
-- Both assistants facilitate the creation of information requests by team members, and the answering of information requests by the coordinators.
-- Both assistants can speak conversationally and run their own sets of tools.
+- **Service Name**: Knowledge Transfer Assistant
+- **Service ID**: `knowledge-transfer-assistant.made-exploration`
+- **Primary Focus**: File-sharing mediation and collaborative knowledge sharing
+- **Architecture**: Dual-role system with coordinator and team member modes
 
 ### Conversation Structure
 
-The Project Assistant (in both configurations) manages three distinct types of conversations:
+The Knowledge Transfer Assistant manages three distinct types of conversations:
 
 1. **Coordinator Conversation**:
-   - Created when a user first interacts with the Project Assistant
-   - Acts as the personal workspace for the project owner/coordinator
+   - Created when a user first interacts with the Knowledge Transfer Assistant
+   - Acts as the personal workspace for the knowledge organizer/coordinator
    - Contains private communication between the coordinator and the assistant
    - Stores the link to the shareable team conversation
-   - Used for high-level project management and planning
+   - Used for knowledge organization, structuring, and planning
+   - Maintains an auto-updating whiteboard based on conversation content
 
 2. **Shareable Team Conversation**:
-   - Automatically created when a coordinator starts a new project
+   - Automatically created when a coordinator establishes a knowledge transfer project
    - Never directly used by any user - serves as a template only
-   - Has a share URL associated with it
+   - Has a share URL associated with it for team access
    - When team members click the share link, they get a copy of this conversation
    - Contains project-specific setup and metadata
+   - Pre-configured with team member role and access to shared knowledge
 
 3. **Team Conversation(s)**:
    - Created when a team member redeems the share URL
    - Each team member gets their own personal conversation
-   - All team conversations are linked to the same project
-   - Used for team members to work on the project, make information requests, etc.
-   - Automatically set up with the team member role
+   - All team conversations are linked to the same knowledge transfer project
+   - Used for team members to explore knowledge, ask questions, and request information
+   - Automatically set up with team member role and access to shared artifacts
 
 ### Conversation Roles
 
-Within each configuration template, the Project Assistant supports two distinct conversation roles:
+The Knowledge Transfer Assistant supports two distinct conversation roles:
 
 1. **Coordinator Role**:
-   - Knowledge Base Development: Collection and organization of project-critical information
-   - Information Request Resolution: Coordinator resolves information requests from team members
-   - **In Default Template**:
-     - Project Brief Creation with goals and success criteria
-     - Project Preparation with staged milestones
-     - "Ready for Working" milestone management
-   - **In Context Transfer Template**:
-     - Knowledge organization without formal project stages
-     - Focus on information structuring without tracking progress
+   - **Knowledge Organization**: Collection and structuring of complex information for sharing
+   - **Automatic Whiteboard Management**: System maintains an auto-updating knowledge repository
+   - **Information Request Resolution**: Responds to specific information needs from team members
+   - **File and Context Sharing**: Uploads and organizes relevant documents and resources
+   - **Project Brief Creation**: Establishes goals, context, and success criteria for knowledge transfer
+   - **Access to Full Context**: Can see all team member requests and interactions
 
 2. **Team Member Role**:
-   - Information Access: Team members interact with the shared Knowledge Base
-   - Request Management: Team members create and delete information requests as needed
-   - **In Default Template**:
-     - Progress Tracking with criteria completion
-     - Dashboard updates with completion status
-     - Support for "Project Completion" milestone
-   - **In Context Transfer Template**:
-     - Knowledge exploration without progress tracking
-     - Information requests without formal project stages
+   - **Knowledge Exploration**: Interactive access to structured knowledge base and whiteboard
+   - **Information Request Creation**: Can request specific information or clarification from coordinators
+   - **File Synchronization**: Access to shared files and documents from coordinators
+   - **Progress Tracking**: Can update status and mark success criteria as completed
+   - **Coordinator Context Access**: Can view recent coordinator conversations for additional context
+   - **Collaborative Discovery**: Can explore knowledge at their own pace and depth
 
-For both configuration templates, the system supports an iterative and asynchronous workflow where the team members' operations and the coordinator's support activities can occur concurrently. The default template provides a comprehensive project dashboard with status tracking, while the context transfer template focuses on knowledge exchange without formal project stages.
+The system supports an iterative and asynchronous workflow where team member exploration and coordinator guidance can occur concurrently with automatic synchronization of knowledge and updates.
 
 ### Key Architectural Features
 
 1. **Simplified Invitation System**:
-   - Uses Semantic Workbench features to clone new team conversations from shareable conversations. The coordinator gives the team members redeemable share links out-of-band.
+   - Uses Semantic Workbench conversation sharing capabilities
+   - Coordinators share redeemable URLs with team members out-of-band
+   - Each team member gets their own conversation copy linked to the project
+   - No manual project joining process required
 
-2. **Comprehensive LLM Context**:
-   - Project data (brief, info, whiteboard, requests) embedded directly in prompts
-   - Role-specific formatting to highlight relevant information
+2. **Comprehensive LLM Context Integration**:
+   - All project data (brief, whiteboard, requests) embedded directly in prompts
+   - Role-specific formatting to highlight relevant information for each user type
    - Dynamic listing of information requests with proper ID formatting
-   - Intelligent truncation to manage context length
-   - Improves response quality by reducing the need for tool calls
+   - Intelligent content truncation to manage context length effectively
+   - Reduces need for tool calls by providing rich context upfront
 
 3. **Robust Information Request Management**:
-   - Complete lifecycle from creation to deletion
+   - Complete lifecycle from creation to resolution
    - Enhanced UUID handling with multiple matching strategies
-   - Conversation-based ownership controls
-   - Role-appropriate visibility of requests
-   - Proper notification for all parties
+   - Conversation-based ownership controls and permissions
+   - Role-appropriate visibility of requests (coordinators see all, team members see read-only)
+   - Proper notification system for all parties involved
 
-4. **Coordinator Conversation Sharing**:
-   - Selective Coordinator conversation message sharing with team members
-   - Storage in a centralized JSON file for all team members to access
+4. **Automatic Knowledge Synthesis**:
+   - Auto-updating whiteboard that extracts key information from coordinator conversations
+   - AI-powered content organization and structuring
+   - Token-limited content (~2500 tokens) for manageability
+   - Markdown formatting for readability and structure
+   - Continuous updates without manual maintenance required
+
+5. **Cross-Conversation Communication**:
+   - Selective coordinator conversation sharing with team members
+   - Storage in centralized JSON files accessible to all team members
    - Automatic capture of both user and assistant messages
-   - Metadata preservation including sender name and timestamp
-   - Limited to recent messages (last 50) to prevent excessive storage
-   - Team members can view Coordinator discussions for better context awareness
+   - Metadata preservation including sender attribution and timestamps
+   - Limited to recent messages (last 50) to prevent excessive storage growth
 
-## Data
+## Data Architecture
 
-The Project Assistant manages several key entities that work together to provide a cohesive experience:
+The Knowledge Transfer Assistant manages several key entities that work together to provide a cohesive knowledge sharing experience:
 
-1. **Project Brief**: A clear, concise statement of the project, including goals, success criteria, and high-level context necessary for the Team to start. Owned by Coordinator, with individual success criteria that can be marked complete by Team members.
+### Core Data Models
 
-2. **Project Whiteboard**: A dynamic, automatically updated knowledge repository that captures key information from conversations. The whiteboard is continuously updated as the coordinator interacts with the assistant, extracting and organizing essential project context. It's formatted in Markdown and made available to all team members without requiring manual maintenance.
+1. **Project Brief**:
+   - Clear statement of knowledge transfer goals and objectives
+   - Success criteria that can be tracked and marked complete
+   - Timeline and additional context for knowledge transfer scope
+   - Version tracking for modifications and updates
+   - Serves as the foundation for structured knowledge sharing
 
-3. **Project Info**: Core metadata and state information about the project, including its unique ID, name, current lifecycle state, conversation IDs, share URL, and status messages. This model serves as the central reference point for project identification and collaboration settings. It replaced the previous dashboard entity to eliminate duplication and provide cleaner separation between data and UI.
+2. **Project Whiteboard**:
+   - Dynamic, automatically updated knowledge repository
+   - AI-powered synthesis of coordinator conversation content
+   - Simplified Markdown formatting for readability
+   - Version tracking with timestamps for change management
+   - Automatic organization of key information and insights
+   - Content truncation to maintain manageable size (~2500 tokens)
+   - Updated after each assistant message in coordinator conversations
 
-4. **Information Requests**: A concise, prioritized list of Team needs—specifically unresolved blockers, missing information, or required resources—logged for Coordinator review and resolution. Created and deletable by Team members, resolved by Coordinator, with robust UUID-based identification.
+3. **Project Info**:
+   - Unique project identifier and descriptive name
+   - Current project state tracking (planning, in_progress, completed, etc.)
+   - Coordinator and team conversation ID references
+   - Shareable invitation URL for team member access
+   - Status messages and custom project notes
+   - Creation and update timestamps for audit trails
+   - Central reference point for project metadata and coordination
 
-5. **Project Log**: A chronological record of all actions and interactions during the project, including updates to the project whiteboard, creation and deletion of information requests, and progress reports from the team. Maintained by the system, visible to both coordinator and team members.
+4. **Information Requests**:
+   - Prioritized information needs (low, medium, high, critical priority levels)
+   - Status tracking (new, acknowledged, in_progress, resolved, deferred)
+   - Complete request lifecycle management (creation, updates, resolution)
+   - UUID-based identification with flexible matching algorithms
+   - Resolution information and detailed update history
+   - Conversation-based ownership controls and access permissions
 
-6. **Coordinator Conversation Storage**: A selective representation of key Coordinator conversation messages made accessible to Team members for context. Includes both user and assistant messages with metadata, limited to the most recent 50 messages to prevent excessive storage growth, with proper attribution of message sources.
+5. **Project Log**:
+   - Chronological record of all project events and interactions
+   - Rich categorization system with specialized entry types
+   - Attribution of actions to specific users and conversations
+   - Metadata for event context and traceability
+   - Events for milestone transitions, request handling, and whiteboard updates
+   - Request deletion tracking and audit trails
+   - Complete history of all project activities for review
 
-The State Inspector UI component (visible tab in the Semantic Workbench) dynamically composes information from these entities to present a unified view, rather than relying on a single "dashboard" entity. This decoupling of data from UI allows for more flexible presentation and eliminates redundancy.
+6. **Coordinator Conversation Storage**:
+   - Shared access to coordinator conversation context for team members
+   - Content and sender metadata preservation for full context
+   - Limited message history (most recent 50 messages) to manage storage
+   - Automatic pruning of older messages to prevent data bloat
+   - Includes both user and assistant messages for complete context
+   - Enables team members to understand coordinator reasoning and context
 
 ## Storage Architecture
 
-The Project Assistant leverages the Semantic Workbench Assistant library's storage capabilities to maintain project state and artifacts. The storage architecture is structured as follows:
+The Knowledge Transfer Assistant leverages the Semantic Workbench Assistant library's storage capabilities with a file-based architecture designed for reliability and simplicity:
 
-```
+### Directory Structure
+
+```text
 projects/
 ├── project_id_1/
 │   ├── linked_conversations/         # Directory tracking all linked conversations
-│   │   ├── conversation_id_1         # Empty file - just presence indicates linkage
+│   │   ├── conversation_id_1         # Empty file - presence indicates linkage
 │   │   ├── conversation_id_2         # Empty file for another linked conversation
 │   │   └── ...                       # One file per linked conversation
 │   ├── requests/                     # Information requests directory
-│   │   ├── request_id_1.json         # Individual request files
-│   │   └── request_id_2.json         # Each with a unique UUID
-│   ├── project.json                  # Core project information
-│   ├── brief.json                    # Brief data
+│   │   ├── request_id_1.json         # Individual request files with UUID names
+│   │   └── request_id_2.json         # Each request stored independently
+│   ├── project.json                  # Core project information and metadata
+│   ├── brief.json                    # Knowledge transfer brief and goals
 │   ├── whiteboard.json               # Automatically updated knowledge content
 │   ├── log.json                      # Chronological event log
 │   └── coordinator_conversation.json # Recent coordinator messages for team access
@@ -156,104 +183,119 @@ projects/
     └── ...
 ```
 
-Additionally, conversation-specific data is stored in the assistant library's context-specific storage. This provides the mechanism for the assistant to know which project it is a part of:
+### Conversation-Specific Storage
 
-```
+Additionally, conversation-specific data is stored in the assistant library's context-specific storage:
+
+```text
 .data/assistants/{assistant_id}/conversations/{conversation_id}/
 ├── project_role.json         # Role of this conversation (coordinator or team)
 └── project_association.json  # Project this conversation is associated with
 ```
 
-Key implementation details:
+### Implementation Details
 
-- Using the assistant library's `storage_directory_for_context()` to generate unique storage paths
-- Storing Pydantic models via the library's `read_model()` and `write_model()` functions
+**Storage Technology:**
+
+- File-based JSON storage using Pydantic models for type safety
+- Path management through `pathlib.Path` for cross-platform compatibility
+- Leverages Semantic Workbench Assistant library's storage utilities
+- Uses `settings.storage.root` for configurable base directory
+- No external database dependencies - pure file system storage
+
+**Data Management:**
+
 - Each project gets a unique folder containing all shared project data
 - Conversation roles and project associations tracked in conversation-specific storage
-- Linked conversations tracked with empty files in a special directory
+- Linked conversations tracked with empty files in a special directory for efficiency
 - Information requests stored as individual files with UUID-based filenames
 - Auto-updating whiteboard maintained with AI-processed conversation content
-- Coordinator conversation messages stored centrally with a maximum of 50 recent messages
+- Coordinator conversation messages stored centrally with 50-message limit
 - Project log maintained as a single growing JSON file with chronological entries
-- Clean separation between conversation-specific and shared project data
 
-## Role-Based Behavior
+**Performance and Reliability:**
 
-The project assistant provides a customized experience based on whether the user is in Coordinator or Team mode:
+- Atomic read/write operations for individual files to prevent corruption
+- Proper error handling and optional return types for graceful degradation
+- Efficient directory-based conversation linking without complex joins
+- Token limiting for whiteboard content to manage memory usage
+- Message limiting for coordinator conversations to prevent storage bloat
 
-### Coordinator Role
+## Role-Based Behavior Implementation
 
-- Creates and updates the Project Brief with goals and success criteria
-- Contributes to the auto-updating Project Whiteboard through conversations
-- Shares a unique project URL with team members for easy access
-- Receives and resolves Information Requests from team members
-- Sees all active requests from all team members with their priorities
-- Controls milestone transitions (in default template)
-- Receives notifications when team members delete their requests
-- Gets comprehensive project data directly in the LLM prompt context
+The Knowledge Transfer Assistant provides customized experiences based on user role:
 
-### Team Member Role
+### Coordinator Role Capabilities
 
-- Works with the Project Whiteboard that's automatically updated based on coordinator conversations
-- Creates Information Requests when encountering information gaps or blockers
-- Deletes Information Requests that are no longer needed
-- Joins projects by redeeming the share URL provided by the coordinator
-- Views requests from other team members in read-only mode
-- Reports on progress and findings
-- Marks individual success criteria as completed (in default template)
-- Views recent coordinator conversations for additional context
-- Gets comprehensive project data directly in the LLM prompt context
+- **Knowledge Base Development**: Creates and organizes project briefs with clear goals and success criteria
+- **Automatic Context Synthesis**: Maintains auto-updating whiteboard through AI-powered conversation analysis
+- **Information Request Resolution**: Receives, processes, and resolves information requests from team members
+- **File and Resource Sharing**: Uploads and shares relevant documents, data, and resources with team access
+- **Team Coordination**: Shares unique project URLs with team members for streamlined access
+- **Comprehensive Visibility**: Sees all active requests from all team members with priority levels
+- **Progress Oversight**: Receives notifications and updates on team member activities and request status
+- **Rich Context Access**: Gets comprehensive project data directly embedded in LLM prompt context
 
-## Data Models
+### Team Member Role Capabilities
 
-Five key entity types provide the foundation for project communication:
+- **Knowledge Exploration**: Interactive access to structured whiteboard content automatically updated from coordinator conversations
+- **Information Request Management**: Creates prioritized information requests when encountering gaps or blockers
+- **Request Lifecycle Control**: Can delete information requests that are no longer needed or relevant
+- **Streamlined Project Access**: Joins projects by redeeming share URLs provided by coordinators
+- **Cross-Team Visibility**: Views requests from other team members in read-only mode for coordination
+- **Progress Reporting**: Updates project status with findings, progress, and completion information
+- **Success Criteria Tracking**: Marks individual success criteria as completed with timestamp attribution
+- **Coordinator Context Access**: Views recent coordinator conversations for additional background and reasoning
+- **File Synchronization**: Automatic access to files and resources shared by coordinators
+- **Rich Context Access**: Gets comprehensive project data directly embedded in LLM prompt context
 
-1. **Project Brief**:
-   - Project name and description
-   - Goals with priority levels
-   - Success criteria with completion tracking
-   - Individual criterion completion with timestamp and attribution
-   - Version tracking for modifications
+## Command System Implementation
 
-2. **Project Whiteboard**:
-   - Dynamically generated and auto-updated content
-   - AI-powered synthesis of conversation content
-   - Simplified Markdown formatting for readability
-   - Version tracking with timestamps
-   - Automatic organization of key information
-   - Content truncation to maintain manageable size (limited to ~2000 tokens)
-   - Updated after each assistant message in coordinator conversations
+The Knowledge Transfer Assistant implements a role-based command authorization system:
 
-3. **Project Info**:
-   - Unique project identifier and name
-   - Current project state tracking (planning, ready_for_working, in_progress, completed, aborted)
-   - Coordinator and team conversation IDs
-   - Shareable invitation URL for team members
-   - Status messages and custom project notes
-   - Creation and update timestamps
-   - Serves as the central reference for project metadata
-   - Replaced previous dashboard entity to decouple data from UI
+### General Commands (All Users)
 
-4. **Information Requests**:
-   - Prioritized information needs (low, medium, high, critical)
-   - Status tracking (new, acknowledged, in_progress, resolved, deferred)
-   - Complete request lifecycle (creation, deletion)
-   - UUID-based identification with flexible matching
-   - Resolution information and update history
-   - Conversation-based ownership controls
+- `/help [command]` - Context-sensitive help with available commands
+- `/project-info [brief|whiteboard|status|requests]` - View project information components
 
-5. **Project Log**:
-   - Chronological record of all events
-   - Rich categorization system with specialized entry types
-   - Attribution of actions to specific users
-   - Metadata for event context
-   - Events for milestone transitions, request handling, and whiteboard updates
-   - Request deletion tracking
-   - Full history of all project activities
+### Coordinator Commands
 
-6. **Coordinator Conversation Storage**:
-   - Shared access to coordinator conversation for team members
-   - Content and sender metadata preservation
-   - Limited message history (most recent 50 messages)
-   - Automatic pruning of older messages
-   - Includes both user and assistant messages
+- `/create-brief` - Create knowledge transfer brief with goals and context
+- `/add-goal` - Add goals with success criteria to existing brief
+- `/resolve-request` - Resolve information requests from team members with detailed responses
+- `/list-participants` - List all project participants across linked conversations
+
+### Team Commands
+
+- `/request-info` - Create prioritized information requests for coordinator attention
+- `/update-status` - Update project status with progress and findings
+- `/sync-files` - Manually synchronize shared files from coordinator workspace
+
+### Command Authorization
+
+- Commands are strictly controlled based on user role (coordinator vs team)
+- Unauthorized access attempts receive helpful error messages
+- Role detection uses conversation metadata as primary source with file storage backup
+- Command help displays only available commands for each role
+
+## User Interface Integration
+
+### State Inspector Panel
+
+The Knowledge Transfer Assistant integrates with the Semantic Workbench's state inspector to provide:
+
+- Real-time project status dashboard
+- Dynamic composition of information from multiple data entities
+- Visual progress tracking and completion status
+- Information request status and priority visualization
+- Project timeline and milestone tracking
+- Cross-conversation activity summaries
+
+### Real-Time Synchronization
+
+- UI updates triggered automatically after data modifications
+- Uses `AssistantStateEvent` for cross-conversation UI synchronization
+- Efficient refresh patterns to minimize unnecessary updates
+- Consistent state representation across all linked conversations
+
+This design provides a comprehensive foundation for knowledge transfer and collaborative information sharing while maintaining simplicity, reliability, and user-friendly interaction patterns.

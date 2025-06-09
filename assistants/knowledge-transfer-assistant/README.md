@@ -1,24 +1,24 @@
-# Project Assistant
+# Knowledge Transfer Assistant
 
-A dual-mode context transfer system that facilitates collaborative projects between Coordinators and Team members in the Semantic Workbench.
+A file-sharing mediator assistant that facilitates collaborative knowledge sharing between Coordinators and Team members in the Semantic Workbench.
 
 ## Overview
 
-The Project Assistant is designed to bridge the information gap between project Coordinators and Team members by providing a structured communication system with shared artifacts, real-time updates, and bidirectional information flow. It enables:
+The Knowledge Transfer Assistant is designed to bridge the information gap between project Coordinators and Team members by providing a structured communication system with shared artifacts, real-time updates, and bidirectional information flow. It enables:
 
-- **Project Definition**: Coordinators can create detailed project briefs with goals and success criteria
+- **Knowledge Organization**: Coordinators can structure and organize complex information for sharing
 - **Information Sharing**: Knowledge transfer between separate conversations
 - **Information Requests**: Team members can request information or assistance from Coordinators
-- **Progress Tracking**: Real-time project dashboard updates and completion criteria
+- **Progress Tracking**: Real-time project dashboard updates and completion tracking
 - **Inspector Panel**: Visual dashboard showing project state and progress
 
 ## Key Features
 
-### Conversation Types and Dual Mode Operation 
+### Conversation Types and Dual Mode Operation
 
-The Project Assistant creates and manages three distinct types of conversations:
+The Knowledge Transfer Assistant creates and manages three distinct types of conversations:
 
-1. **Coordinator Conversation**: The personal conversation used by the project coordinator/owner to create and manage the project.
+1. **Coordinator Conversation**: The personal conversation used by the project coordinator/owner to create and manage the knowledge base.
 
 2. **Shareable Team Conversation**: A template conversation that's automatically created along with a share URL. This conversation is never directly used - it serves as the template for creating individual team conversations when users click the share link.
 
@@ -26,24 +26,23 @@ The Project Assistant creates and manages three distinct types of conversations:
 
 The assistant operates in two distinct modes with different capabilities:
 
-1. **Coordinator Mode (Planning Stage)**
-   - Create project briefs with clear goals and success criteria
+1. **Coordinator Mode**
+   - Create and organize knowledge briefs
    - Maintain an auto-updating project whiteboard with critical information
    - Provide guidance and respond to information requests
-   - Control the "Ready for Working" milestone when project definition is complete
+   - Share files and context with team members
 
-2. **Team Mode (Working Stage)**
+2. **Team Mode**
    - Access project brief and project whiteboard
-   - Mark success criteria as completed
-   - Log requests for information or assistance from Coordinators
-   - Update project dashboard with progress information
-   - Report project completion when all criteria are met
+   - Request information or assistance from Coordinators
+   - Update project status with progress information
+   - Synchronize shared files from the coordinator
 
 ### Key Artifacts
 
-The system manages several core artifacts that support project operations:
+The system manages several core artifacts that support knowledge transfer operations:
 
-- **Project Brief**: Details project goals and success criteria
+- **Project Brief**: Details knowledge goals and success criteria
 - **Project Whiteboard**: Dynamically updated information repository that captures key project context
 - **Information Requests**: Documented information needs from Team members
 - **Project Dashboard**: Real-time progress tracking and state information
@@ -61,40 +60,38 @@ The assistant uses a multi-layered state management approach:
 
 ### Commands
 
-#### Common Commands
-- `/status` - View current project status and progress
-- `/info [brief|whiteboard|requests|all]` - View project information
+#### General Commands (All Users)
+
+- `/help [command]` - Get help with available commands
+- `/project-info [brief|whiteboard|status|requests]` - View project information
 
 #### Coordinator Commands
-- `/create-project <name> | <description>` - Create a new project
-- `/add-goal <name> | <description> | [criteria1;criteria2;...]` - Add a project goal
-- `/add-kb-section <title> | <content>` - Add whiteboard content manually
-- `/ready-for-working` - Mark project as ready for team operations
-- `/invite` - Generate project invitation for team members
-- `/resolve <request-id> | <resolution>` - Resolve an information request
+
+- `/create-brief` - Create a knowledge brief
+- `/add-goal` - Add a goal with success criteria
+- `/resolve-request` - Resolve an information request from team members
+- `/list-participants` - List all project participants
 
 #### Team Commands
-- `/join <invitation-code>` - Join an existing project
-- `/request-info <title> | <description> | [priority]` - Create information request
-- `/update-status <status> | <progress> | <message>` - Update project status
-- `/complete-criteria <goal-index> <criteria-index>` - Mark criterion as complete
-- `/complete-project` - Report project completion
+
+- `/request-info` - Request information or assistance from the Coordinator
+- `/update-status` - Update project status and progress
+- `/sync-files` - Synchronize shared files from the project
 
 ### Workflow
 
 1. **Coordinator Preparation**:
-   - Create project brief with goals and success criteria
+   - Create knowledge brief with goals and context
    - The project whiteboard automatically updates with key information
-   - Generate invitation link for team members
-   - Mark project as ready for working
+   - Share invitation link with team members
+   - Upload relevant files for team access
 
 2. **Team Operations**:
    - Join project using invitation link
    - Review project brief and whiteboard content
-   - Execute project tasks and track progress
-   - Create information requests when information is needed
-   - Mark criteria as completed when achieved
-   - Report project completion when all goals are met
+   - Request additional information when needed
+   - Update project status with progress
+   - Synchronize files from coordinator
 
 3. **Collaborative Cycle**:
    - Coordinator responds to information requests
@@ -106,12 +103,16 @@ The assistant uses a multi-layered state management approach:
 ### Project Structure
 
 - `/assistant/`: Core implementation files
-  - `chat.py`: Main assistant implementation with event handlers
-  - `project_tools.py`: Tool functions for the LLM to use
+  - `assistant.py`: Main assistant implementation with event handlers
+  - `command_processor.py`: Command handling logic with role-based authorization
   - `state_inspector.py`: Inspector panel implementation
-  - `project_manager.py`: Project state and artifact management
-  - `artifact_messaging.py`: Cross-conversation artifact sharing
-  - `command_processor.py`: Command handling logic
+  - `manager.py`: Project state and artifact management
+  - `conversation_project_link.py`: Cross-conversation linking and synchronization
+  - `storage.py` & `storage_models.py`: Persistent state management
+  - `config.py`: Role-specific prompt templates and configuration
+  - `tools.py`: LLM tool functions for project operations
+  - `files.py`: File synchronization and management
+  - `notifications.py`: Cross-conversation notification system
 
 - `/docs/`: Documentation files
   - `DESIGN.md`: System design and architecture
@@ -133,13 +134,14 @@ make test
 # Type checking
 make type-check
 
-# Linting
+# Linting and formatting
 make lint
+make format
 ```
 
 ## Architecture
 
-The Project Assistant leverages the Semantic Workbench Assistant library for core functionality and extends it with:
+The Knowledge Transfer Assistant leverages the Semantic Workbench Assistant library for core functionality and extends it with:
 
 1. **Cross-Conversation Communication**: Using the conversation sharing API
 2. **Artifact Management**: Structured data models for project information
