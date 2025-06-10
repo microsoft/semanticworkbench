@@ -41,6 +41,7 @@ The system manages three types of conversations:
 - Type-check: `make type-check` (runs pyright)
 - Test: `make test` (runs pytest)
 - Single test: `uv run pytest tests/test_file.py::test_function -v`
+- Manual inspector test: `python tests/test_inspector.py` (test state inspector functionality)
 
 ## Development Notes
 
@@ -64,6 +65,15 @@ The assistant supports two templates with unified codebase:
 - **Project Whiteboard**: Dynamically updated context repository
 - **Information Requests**: Bidirectional communication between coordinators and team members
 - **Project Dashboard**: Real-time progress and state information
+
+### Dependencies
+
+The assistant uses several key dependencies from the Semantic Workbench ecosystem:
+
+- `semantic-workbench-assistant`: Core assistant framework
+- `assistant-extensions[attachments]`: File attachment support
+- `content-safety`: Content moderation capabilities
+- `openai-client`: LLM integration
 
 ## Code Style
 
