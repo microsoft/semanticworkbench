@@ -217,12 +217,12 @@ class TestProjectTools:
         goal_index = 1
         goal_name = "Test Goal"
 
-        # Mock ProjectManager.get_project_id
+        # Mock KnowledgeTransferManager.get_project_id
         async def mock_get_project_id(*args, **kwargs):
             return project_id
 
         monkeypatch.setattr(
-            "assistant.manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.manager.KnowledgeTransferManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
         )
 
         # Mock require_current_user to return a user ID
@@ -233,12 +233,12 @@ class TestProjectTools:
             "assistant.project_manager.require_current_user", AsyncMock(side_effect=mock_require_current_user)
         )
 
-        # Mock ProjectManager.delete_project_goal to return success
+        # Mock KnowledgeTransferManager.delete_project_goal to return success
         async def mock_delete_project_goal(*args, **kwargs):
             return True, goal_name
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.delete_project_goal",
+            "assistant.project_manager.KnowledgeTransferManager.delete_project_goal",
             AsyncMock(side_effect=mock_delete_project_goal),
         )
 
@@ -280,20 +280,21 @@ class TestProjectTools:
         # Setup mocks
         error_message = "Invalid goal index"
 
-        # Mock ProjectManager.get_project_id
+        # Mock KnowledgeTransferManager.get_project_id
         async def mock_get_project_id(*args, **kwargs):
             return "test-project-id"
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.project_manager.KnowledgeTransferManager.get_project_id",
+            AsyncMock(side_effect=mock_get_project_id),
         )
 
-        # Mock ProjectManager.delete_project_goal to return failure
+        # Mock KnowledgeTransferManager.delete_project_goal to return failure
         async def mock_delete_project_goal(*args, **kwargs):
             return False, error_message
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.delete_project_goal",
+            "assistant.project_manager.KnowledgeTransferManager.delete_project_goal",
             AsyncMock(side_effect=mock_delete_project_goal),
         )
 

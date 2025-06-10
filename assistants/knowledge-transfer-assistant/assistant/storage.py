@@ -1,5 +1,5 @@
 """
-Project storage management module.
+KnowledgePackage storage management module.
 
 Provides direct access to project data with a clean, simple storage approach.
 """
@@ -17,12 +17,12 @@ from semantic_workbench_assistant.storage import read_model, write_model
 from .data import (
     InformationRequest,
     LogEntry,
+    KnowledgeBrief,
+    KnowledgeDigest,
+    KnowledgePackage,
+    KnowledgePackageInfo,
     LogEntryType,
-    Project,
-    ProjectBrief,
-    ProjectInfo,
-    ProjectLog,
-    ProjectWhiteboard,
+    KnowledgePackageLog,
 )
 from .storage_models import CoordinatorConversationMessage, CoordinatorConversationStorage
 from .utils import get_current_user
@@ -94,7 +94,7 @@ class ProjectStorageManager:
 
     @staticmethod
     def get_project_path(project_id: str) -> pathlib.Path:
-        """Gets the path to the complete Project data file."""
+        """Gets the path to the complete KnowledgePackage data file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_FILE
 
@@ -138,49 +138,49 @@ class ProjectStorage:
     """Unified storage operations for project data."""
 
     @staticmethod
-    def read_project_info(project_id: str) -> Optional[ProjectInfo]:
+    def read_project_info(project_id: str) -> Optional[KnowledgePackageInfo]:
         """Reads the project info."""
         path = ProjectStorageManager.get_project_info_path(project_id)
-        return read_model(path, ProjectInfo)
+        return read_model(path, KnowledgePackageInfo)
 
     @staticmethod
-    def write_project_info(project_id: str, info: ProjectInfo) -> pathlib.Path:
+    def write_project_info(project_id: str, info: KnowledgePackageInfo) -> pathlib.Path:
         """Writes the project info."""
         path = ProjectStorageManager.get_project_info_path(project_id)
         write_model(path, info)
         return path
 
     @staticmethod
-    def read_project_brief(project_id: str) -> Optional[ProjectBrief]:
+    def read_project_brief(project_id: str) -> Optional[KnowledgeBrief]:
         """Reads the project brief."""
         path = ProjectStorageManager.get_brief_path(project_id)
-        return read_model(path, ProjectBrief)
+        return read_model(path, KnowledgeBrief)
 
     @staticmethod
-    def write_project_brief(project_id: str, brief: ProjectBrief) -> pathlib.Path:
+    def write_project_brief(project_id: str, brief: KnowledgeBrief) -> pathlib.Path:
         """Writes the project brief."""
         path = ProjectStorageManager.get_brief_path(project_id)
         write_model(path, brief)
         return path
 
     @staticmethod
-    def read_project_log(project_id: str) -> Optional[ProjectLog]:
+    def read_project_log(project_id: str) -> Optional[KnowledgePackageLog]:
         """Reads the project log."""
         path = ProjectStorageManager.get_project_log_path(project_id)
-        return read_model(path, ProjectLog)
+        return read_model(path, KnowledgePackageLog)
 
     @staticmethod
-    def write_project_log(project_id: str, log: ProjectLog) -> pathlib.Path:
+    def write_project_log(project_id: str, log: KnowledgePackageLog) -> pathlib.Path:
         """Writes the project log."""
         path = ProjectStorageManager.get_project_log_path(project_id)
         write_model(path, log)
         return path
 
     @staticmethod
-    def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
+    def read_project_whiteboard(project_id: str) -> Optional[KnowledgeDigest]:
         """Reads the project whiteboard."""
         path = ProjectStorageManager.get_project_whiteboard_path(project_id)
-        return read_model(path, ProjectWhiteboard)
+        return read_model(path, KnowledgeDigest)
 
     @staticmethod
     def read_coordinator_conversation(project_id: str) -> Optional[CoordinatorConversationStorage]:
@@ -218,7 +218,7 @@ class ProjectStorage:
         # Get existing conversation or create new one
         conversation = ProjectStorage.read_coordinator_conversation(project_id)
         if not conversation:
-            conversation = CoordinatorConversationStorage(project_id=project_id)
+            conversation = CoordinatorConversationStorage(knowledge_package_id=project_id)
 
         # Create new message
         new_message = CoordinatorConversationMessage(
@@ -240,7 +240,7 @@ class ProjectStorage:
         ProjectStorage.write_coordinator_conversation(project_id, conversation)
 
     @staticmethod
-    def write_project_whiteboard(project_id: str, whiteboard: ProjectWhiteboard) -> pathlib.Path:
+    def write_project_whiteboard(project_id: str, whiteboard: KnowledgeDigest) -> pathlib.Path:
         """Writes the project whiteboard."""
         path = ProjectStorageManager.get_project_whiteboard_path(project_id)
         write_model(path, whiteboard)
@@ -264,14 +264,14 @@ class ProjectStorage:
         return path
 
     @staticmethod
-    def read_project(project_id: str) -> Optional[Project]:
-        """Reads the complete Project data."""
+    def read_project(project_id: str) -> Optional[KnowledgePackage]:
+        """Reads the complete KnowledgePackage data."""
         path = ProjectStorageManager.get_project_path(project_id)
-        return read_model(path, Project)
+        return read_model(path, KnowledgePackage)
 
     @staticmethod
-    def write_project(project_id: str, project: Project) -> pathlib.Path:
-        """Writes the complete Project data."""
+    def write_project(project_id: str, project: KnowledgePackage) -> pathlib.Path:
+        """Writes the complete KnowledgePackage data."""
         path = ProjectStorageManager.get_project_path(project_id)
         write_model(path, project)
         return path
@@ -361,7 +361,7 @@ class ProjectStorage:
         # Get existing log or create a new one
         log = ProjectStorage.read_project_log(project_id)
         if not log:
-            log = ProjectLog(
+            log = KnowledgePackageLog(
                 entries=[],
             )
 

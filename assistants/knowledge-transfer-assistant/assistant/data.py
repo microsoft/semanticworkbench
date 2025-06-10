@@ -13,20 +13,20 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-class ProjectState(str, Enum):
+class KnowledgeTransferState(str, Enum):
     """
-    States for project progression.
+    States for knowledge transfer progression.
 
-    The project state represents the current phase of the project lifecycle.
-    Projects follow a standard flow: PLANNING -> READY_FOR_WORKING -> IN_PROGRESS -> COMPLETED.
-    ABORTED is a terminal state that can be reached from any other state if the project is canceled.
+    The transfer state represents the current phase of the knowledge transfer lifecycle.
+    Knowledge transfer follows a standard flow: ORGANIZING -> READY_FOR_TRANSFER -> ACTIVE_TRANSFER -> COMPLETED.
+    ARCHIVED is a terminal state that can be reached from any other state if the knowledge package is archived.
     """
 
-    PLANNING = "planning"  # Initial state - Coordinator is defining the project brief and goals
-    READY_FOR_WORKING = "ready_for_working"  # Project is defined and ready for team members to begin work
-    IN_PROGRESS = "in_progress"  # Team members are actively working on the project
-    COMPLETED = "completed"  # Project goals have been achieved and the project is complete
-    ABORTED = "aborted"  # Project was terminated early or canceled
+    ORGANIZING = "organizing"  # Initial state - Coordinator is capturing and organizing knowledge
+    READY_FOR_TRANSFER = "ready_for_transfer"  # Knowledge is organized and ready for team members to access
+    ACTIVE_TRANSFER = "active_transfer"  # Team members are actively learning and exploring the knowledge
+    COMPLETED = "completed"  # Learning objectives have been achieved and the transfer is complete
+    ARCHIVED = "archived"  # Knowledge package was archived or is no longer active
 
 
 class RequestPriority(str, Enum):
@@ -125,88 +125,86 @@ class BaseEntity(BaseModel):
     conversation_id: str  # Source conversation ID
 
 
-class SuccessCriterion(BaseModel):
+class LearningOutcome(BaseModel):
     """
-    A specific measurable criterion that defines project success.
+    A specific measurable learning outcome that defines knowledge transfer success.
 
-    Success criteria are individual checkpoints that must be completed
-    to achieve a project goal. Each criterion represents a concrete,
-    verifiable action or condition that can be marked as completed.
+    Learning outcomes are individual checkpoints that must be achieved
+    to accomplish a learning objective. Each outcome represents a concrete,
+    verifiable understanding or skill that can be marked as achieved.
 
-    When all success criteria for all goals are completed, the project
-    can be considered successful. Team members typically report when
-    criteria have been met.
-    """
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the criterion
-    description: str  # Clear, specific description of what needs to be accomplished
-    completed: bool = False  # Whether this criterion has been met
-    completed_at: Optional[datetime] = None  # When the criterion was marked as completed
-    completed_by: Optional[str] = None  # User ID of the person who completed the criterion
-
-
-class ProjectGoal(BaseModel):
-    """
-    A specific goal for the project with associated success criteria.
-
-    Project goals represent the major objectives that need to be accomplished
-    for the project to be successful. Each goal consists of a name, description,
-    priority level, and a list of specific success criteria that define when
-    the goal can be considered complete.
-
-    Goals are typically set by the Coordinator during project planning and then tracked
-    by both the Coordinator and team members throughout the project.
+    When all learning outcomes for all objectives are achieved, the knowledge
+    transfer can be considered successful. Team members typically report when
+    outcomes have been achieved.
     """
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the goal
-    name: str  # Short, clear name of the goal
-    description: str  # Detailed description of what the goal entails
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the outcome
+    description: str  # Clear, specific description of what needs to be understood or accomplished
+    achieved: bool = False  # Whether this outcome has been achieved
+    achieved_at: Optional[datetime] = None  # When the outcome was marked as achieved
+    achieved_by: Optional[str] = None  # User ID of the person who achieved the outcome
+
+
+class LearningObjective(BaseModel):
+    """
+    A specific learning objective with associated learning outcomes.
+
+    Learning objectives represent the major knowledge areas that need to be understood
+    for the knowledge transfer to be successful. Each objective consists of a name, description,
+    priority level, and a list of specific learning outcomes that define when
+    the objective can be considered achieved.
+
+    Objectives are typically set by the Coordinator during knowledge organization and then tracked
+    by both the Coordinator and team members throughout the knowledge transfer.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the objective
+    name: str  # Short, clear name of the learning objective
+    description: str  # Detailed description of what should be learned
     priority: int = 1  # Priority level (1 = highest priority, increasing numbers = lower priority)
-    success_criteria: List[SuccessCriterion] = Field(default_factory=list)  # List of criteria to meet
+    learning_outcomes: List[LearningOutcome] = Field(default_factory=list)  # List of outcomes to achieve
 
 
-class ProjectBrief(BaseEntity):
+class KnowledgeBrief(BaseEntity):
     """
-    A thorough, comprehensive documentation of the project or context to be transferred,
-    containing all relevant information necessary for understanding and execution.
+    A thorough, comprehensive documentation of the knowledge to be transferred,
+    containing all relevant information necessary for understanding and learning.
 
-    The brief is the primary document that defines the project or context.
+    The brief is the primary document that defines the knowledge package.
     It serves as the central reference for both the Coordinator and team members
-    to understand what needs to be accomplished and why, or in the case of context transfer,
-    what information needs to be preserved and communicated.
+    to understand what needs to be learned and why, capturing the comprehensive
+    context of the knowledge being transferred.
 
-    In the standard project configuration, it includes project goals, success criteria,
-    and complete context. In context transfer configuration, it focuses on capturing
-    comprehensive context through detailed description and additional_context fields.
+    The brief includes learning objectives, outcomes, and complete context.
+    It focuses on capturing comprehensive knowledge through detailed description
+    and additional_context fields that help learners understand the scope and purpose.
 
-    Created by the Coordinator during the PLANNING phase, the brief must be
-    completed before the project can move to the READY_FOR_WORKING state.
-    Once team operations begin, the brief can still be updated,
+    Created by the Coordinator during the ORGANIZING phase, the brief must be
+    completed before the knowledge can move to the READY_FOR_TRANSFER state.
+    Once team members begin learning, the brief can still be updated,
     but major changes should be communicated to all participants.
     """
 
-    title: str  # Short, distinctive title for the project or context bundle to transfer
-    description: str  # Comprehensive description of the project's or context's purpose, scope, and context
-    timeline: Optional[str] = None  # Expected timeline or deadline information (not used in context transfer mode)
-    additional_context: Optional[str] = (
-        None  # Detailed supplementary information for project participants or context transfer
-    )
+    title: str  # Short, distinctive title for the knowledge package to transfer
+    description: str  # Comprehensive description of the knowledge's purpose, scope, and context
+    timeline: Optional[str] = None  # Expected timeline for learning (optional)
+    additional_context: Optional[str] = None  # Detailed supplementary information for knowledge transfer participants
 
 
-class ProjectWhiteboard(BaseEntity):
+class KnowledgeDigest(BaseEntity):
     """
-    A dynamic whiteboard that gets automatically updated as the coordinator assembles their project.
+    A dynamic knowledge digest that gets automatically updated as the coordinator organizes knowledge.
 
-    The project whiteboard captures and maintains important project context that emerges during
+    The knowledge digest captures and maintains important knowledge context that emerges during
     conversations. It is automatically updated after each assistant message by analyzing
-    the conversation history and extracting key information.
+    the conversation history and extracting key information in FAQ format.
 
-    Unlike a traditional knowledge base with separate sections, the whiteboard is a single
-    consolidated view that shows the most relevant information for the project. It serves as
+    Unlike a traditional knowledge base with separate sections, the digest is a single
+    consolidated view that shows the most relevant information for the knowledge transfer. It serves as
     a dynamic, evolving source of truth that all team members can reference.
     """
 
-    content: str = ""  # Markdown content for the whiteboard
+    content: str = ""  # Markdown content for the knowledge digest (FAQ format)
     is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
@@ -278,7 +276,7 @@ class LogEntry(BaseModel):
     metadata: Optional[Dict] = None  # Additional structured data about the event
 
 
-class ProjectLog(BaseModel):
+class KnowledgePackageLog(BaseModel):
     """
     A chronological record of all actions and interactions during the project,
     including updates and progress reports.
@@ -300,45 +298,47 @@ class ProjectLog(BaseModel):
     entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
-class ProjectInfo(BaseModel):
+class KnowledgePackageInfo(BaseModel):
     """
-    Core information about a project.
+    Core information about a knowledge package.
 
-    This model stores essential project metadata that doesn't fit into other
-    specific models like brief or whiteboard. It's the central reference point
-    for project identification, state, and team collaboration settings.
+    This model stores essential knowledge package metadata that doesn't fit into other
+    specific models like brief or digest. It's the central reference point
+    for knowledge package identification, state, and team collaboration settings.
     """
 
-    project_id: str  # Unique identifier for the project
-    state: ProjectState = ProjectState.PLANNING  # Current project lifecycle state
+    package_id: str  # Unique identifier for the knowledge package
+    transfer_state: KnowledgeTransferState = (
+        KnowledgeTransferState.ORGANIZING
+    )  # Current knowledge transfer lifecycle state
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
     team_conversation_id: Optional[str] = None  # ID of the team conversation
-    share_url: Optional[str] = None  # Shareable URL for inviting users to the team conversation
+    share_url: Optional[str] = None  # Shareable URL for inviting team members
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: Optional[str] = None  # User ID who last updated the project info
-    status_message: Optional[str] = None  # Custom status message about the project
-    progress_percentage: Optional[int] = None  # Current progress percentage (0-100)
-    next_actions: List[str] = Field(default_factory=list)  # List of next actions planned
+    updated_by: Optional[str] = None  # User ID who last updated the package info
+    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
+    completion_percentage: Optional[int] = None  # Current learning completion percentage (0-100)
+    next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
     version: int = 1  # Version counter for tracking changes
-    completed_criteria: int = 0  # Count of completed success criteria
-    total_criteria: int = 0  # Total count of success criteria
-    lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Lifecycle metadata
+    achieved_outcomes: int = 0  # Count of achieved learning outcomes
+    total_outcomes: int = 0  # Total count of learning outcomes
+    transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
 
 
-class Project(BaseModel):
+class KnowledgePackage(BaseModel):
     """
-    A comprehensive representation of a project, including its brief, whiteboard,
+    A comprehensive representation of a knowledge package, including its brief, digest,
     information requests, logs, and other related entities.
 
-    This model encapsulates all the components that make up a project,
-    providing a single point of access to all relevant information.
-    It serves as the main interface for interacting with the project data.
+    This model encapsulates all the components that make up a knowledge transfer package,
+    providing a single point of access to all relevant information for Coordinators and Team members.
+    It serves as the main interface for interacting with the knowledge transfer data.
     """
 
-    info: Optional[ProjectInfo]
-    brief: Optional[ProjectBrief]
-    goals: List[ProjectGoal] = Field(default_factory=list)
+    info: Optional[KnowledgePackageInfo]
+    brief: Optional[KnowledgeBrief]
+    learning_objectives: List[LearningObjective] = Field(default_factory=list)
     requests: List[InformationRequest] = Field(default_factory=list)
-    whiteboard: Optional[ProjectWhiteboard]
-    log: Optional[ProjectLog] = Field(default_factory=lambda: ProjectLog())
+    digest: Optional[KnowledgeDigest]
+    log: Optional[KnowledgePackageLog] = Field(default_factory=lambda: KnowledgePackageLog())

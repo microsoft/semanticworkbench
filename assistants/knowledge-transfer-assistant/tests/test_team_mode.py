@@ -105,38 +105,38 @@ class ProjectDashboard(BaseArtifact):
         self, state=None, progress_percentage=0, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
     ):
         super().__init__(artifact_type=ArtifactType.PROJECT_DASHBOARD, **kwargs)
-        self.state = state or ProjectState.PLANNING
-        self.progress_percentage = progress_percentage
+        self.transfer_state = state or ProjectState.PLANNING
+        self.completion_percentage = progress_percentage
         self.active_requests = active_requests or []
-        self.completed_criteria = completed_criteria
+        self.achieved_criteria = completed_criteria
         self.total_criteria = total_criteria
-        self.status_message = None
+        self.transfer_notes = None
 
 
-class SuccessCriterion:
+class LearningOutcome:
     def __init__(self, id=None, description=None, completed=False, completed_by=None):
         self.id = id or "test-criterion-id"
         self.description = description or "Test criterion"
-        self.completed = completed
-        self.completed_at = None if not completed else datetime.utcnow()
-        self.completed_by = completed_by
+        self.achieved = completed
+        self.achieved_at = None if not completed else datetime.utcnow()
+        self.achieved_by = completed_by
 
 
-class ProjectGoal:
+class LearningObjective:
     def __init__(self, id=None, name=None, description=None, priority=1, success_criteria=None):
         self.id = id or "test-goal-id"
         self.name = name or "Test Goal"
         self.description = description or "Test Goal Description"
         self.priority = priority
-        self.success_criteria = success_criteria or []
+        self.learning_outcomes = success_criteria or []
 
 
-class ProjectBrief(BaseArtifact):
+class KnowledgeBrief(BaseArtifact):
     def __init__(self, title=None, description=None, goals=None, **kwargs):
         super().__init__(artifact_type=ArtifactType.PROJECT_BRIEF, **kwargs)
-        self.title = title or "Test Project"
+        self.title = title or "Test KnowledgePackage"
         self.description = description or "Test Description"
-        self.goals = goals or []
+        self.learning_objectives = goals or []
 
 
 # Create a mock for the TeamConversationHandler
@@ -185,10 +185,10 @@ class MockTeamConversationHandler:
             conversation_id=str(self.context.id),
             project_id="test-project-id",
         )
-        dashboard.status_message = status_message
+        dashboard.transfer_notes = status_message
 
         # Call mocked log_action for state change and progress update
-        await self.log_action(LogEntryType.MILESTONE_PASSED, "Project is now in progress")
+        await self.log_action(LogEntryType.MILESTONE_PASSED, "KnowledgePackage is now in progress")
 
         await self.log_action(LogEntryType.STATUS_CHANGED, f"Updated project progress to {progress_percentage}%")
 
@@ -204,10 +204,10 @@ class MockTeamConversationHandler:
 
     async def mark_criterion_completed(self, goal_id, criterion_id):
         # Mock implementation
-        criterion = SuccessCriterion(id=criterion_id, description="Test criterion")
-        criterion.completed = True
-        criterion.completed_at = datetime.utcnow()
-        criterion.completed_by = "test-user-id"
+        criterion = LearningOutcome(id=criterion_id, description="Test criterion")
+        criterion.achieved = True
+        criterion.achieved_at = datetime.utcnow()
+        criterion.achieved_by = "test-user-id"
 
         dashboard = ProjectDashboard(
             state=ProjectState.IN_PROGRESS,
@@ -243,20 +243,20 @@ class MockTeamConversationHandler:
             conversation_id=str(self.context.id),
             project_id="test-project-id",
         )
-        dashboard.status_message = completion_summary
+        dashboard.transfer_notes = completion_summary
 
         # Call mocked log_action
-        await self.log_action(LogEntryType.PROJECT_COMPLETED, "Project marked as completed")
+        await self.log_action(LogEntryType.PROJECT_COMPLETED, "KnowledgePackage marked as completed")
 
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
-                content="🎉 Project has been marked as completed.",
+                content="🎉 KnowledgePackage has been marked as completed.",
                 message_type=MessageType.notice,
             )
         )
 
-        return True, "Project has been marked as completed", dashboard
+        return True, "KnowledgePackage has been marked as completed", dashboard
 
     async def get_project_info(self):
         # Mock implementation
@@ -264,7 +264,7 @@ class MockTeamConversationHandler:
             "has_project": True,
             "project_id": "test-project-id",
             "role": "team",
-            "title": "Test Project",
+            "title": "Test KnowledgePackage",
             "description": "A test project",
             "status": "in_progress",
             "progress": 50,
@@ -335,9 +335,9 @@ class TestTeamConversationHandler:
         assert success is True
         assert "Updated project progress to 50%" in message
         assert dashboard is not None
-        assert dashboard.progress_percentage == 50
-        assert dashboard.status_message == "Making progress in the team"
-        assert dashboard.state == ProjectState.IN_PROGRESS
+        assert dashboard.completion_percentage == 50
+        assert dashboard.transfer_notes == "Making progress in the team"
+        assert dashboard.transfer_state == ProjectState.IN_PROGRESS
 
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
@@ -357,9 +357,9 @@ class TestTeamConversationHandler:
         assert success is True
         assert "Marked criterion" in message
         assert updated_dashboard is not None
-        assert updated_dashboard.completed_criteria == 1
+        assert updated_dashboard.achieved_criteria == 1
         assert updated_dashboard.total_criteria == 1
-        assert updated_dashboard.progress_percentage == 100  # 1/1 = 100%
+        assert updated_dashboard.completion_percentage == 100  # 1/1 = 100%
 
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
@@ -372,16 +372,18 @@ class TestTeamConversationHandler:
         """Test reporting project completion."""
         # Call the method
         success, message, dashboard = await team_handler.report_project_completion(
-            "Project has been successfully completed with all objectives achieved."
+            "KnowledgePackage has been successfully completed with all objectives achieved."
         )
 
         # Assertions
         assert success is True
-        assert "Project has been marked as completed" in message
+        assert "KnowledgePackage has been marked as completed" in message
         assert dashboard is not None
-        assert dashboard.state == ProjectState.COMPLETED
-        assert dashboard.progress_percentage == 100
-        assert dashboard.status_message == "Project has been successfully completed with all objectives achieved."
+        assert dashboard.transfer_state == ProjectState.COMPLETED
+        assert dashboard.completion_percentage == 100
+        assert (
+            dashboard.transfer_notes == "KnowledgePackage has been successfully completed with all objectives achieved."
+        )
 
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
@@ -399,6 +401,6 @@ class TestTeamConversationHandler:
         assert project_info["has_project"] is True
         assert project_info["project_id"] == "test-project-id"
         assert project_info["role"] == "team"
-        assert project_info["title"] == "Test Project"
+        assert project_info["title"] == "Test KnowledgePackage"
         assert project_info["status"] == "in_progress"
         assert project_info["progress"] == 50

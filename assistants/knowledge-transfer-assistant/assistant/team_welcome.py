@@ -12,7 +12,7 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.manager import ProjectManager
+from assistant.manager import KnowledgeTransferManager
 from assistant.storage import ProjectStorage
 
 from .config import assistant_config
@@ -29,7 +29,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Get project data
 
-    project_id = await ProjectManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_project_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
@@ -48,16 +48,16 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Goals
     project = ProjectStorage.read_project(project_id)
-    if project and project.goals:
+    if project and project.learning_objectives:
         project_brief_text += "\n#### PROJECT GOALS:\n\n"
-        for i, goal in enumerate(project.goals):
-            completed = sum(1 for c in goal.success_criteria if c.completed)
-            total = len(goal.success_criteria)
+        for i, goal in enumerate(project.learning_objectives):
+            completed = sum(1 for c in goal.learning_outcomes if c.achieved)
+            total = len(goal.learning_outcomes)
             project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-            if goal.success_criteria:
+            if goal.learning_outcomes:
                 project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for j, criterion in enumerate(goal.success_criteria):
-                    check = "✅" if criterion.completed else "⬜"
+                for j, criterion in enumerate(goal.learning_outcomes):
+                    check = "✅" if criterion.achieved else "⬜"
                     project_brief_text += f"   {check} {criterion.description}\n"
             project_brief_text += "\n"
         project_data["goals"] = project_brief_text

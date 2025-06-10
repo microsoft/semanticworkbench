@@ -14,9 +14,9 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .common import detect_assistant_role
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import RequestStatus
-from .manager import ProjectManager
+from .manager import KnowledgeTransferManager
 from .storage import ProjectStorage
 from .storage_models import ConversationRole
 
@@ -58,15 +58,15 @@ class ProjectInspectorStateProvider:
         self.description = "Information about the knowledge space."
 
         # Determine the conversation's role and project
-        project_id = await ConversationProjectManager.get_associated_project_id(context)
+        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
         if not project_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active project. Start a conversation to create one."}
             )
 
         # Get project information
-        brief = await ProjectManager.get_project_brief(context)
-        project_info = await ProjectManager.get_project_info(context)
+        brief = await KnowledgeTransferManager.get_project_brief(context)
+        project_info = await KnowledgeTransferManager.get_project_info(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_markdown(
@@ -102,7 +102,7 @@ class ProjectInspectorStateProvider:
         #         stage_label = "Ready for Working"
         #     elif project_info.state.value == "in_progress":
         #         stage_label = "Working Stage"
-        #     elif project_info.state.value == "completed":
+        #     elif project_info.state.value == "achieved":
         #         stage_label = "Completed Stage"
         #     elif project_info.state.value == "aborted":
         #         stage_label = "Aborted Stage"
@@ -130,25 +130,25 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if project and project.goals:
+        if project and project.learning_objectives:
             lines.append("## Goals")
-            for goal in project.goals:
-                criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
-                criteria_total = len(goal.success_criteria)
+            for goal in project.learning_objectives:
+                criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
+                criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")
                 lines.append(goal.description)
                 lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
 
-                if goal.success_criteria:
+                if goal.learning_outcomes:
                     lines.append("")
                     lines.append("#### Success Criteria:")
-                    for criterion in goal.success_criteria:
-                        status_emoji = "✅" if criterion.completed else "⬜"
+                    for criterion in goal.learning_outcomes:
+                        status_emoji = "✅" if criterion.achieved else "⬜"
                         lines.append(f"- {status_emoji} {criterion.description}")
                 lines.append("")
 
         # Add information requests section
-        requests = await ProjectManager.get_information_requests(context)
+        requests = await KnowledgeTransferManager.get_information_requests(context)
         # Filter out resolved requests
         requests = [req for req in requests if req.status != RequestStatus.RESOLVED]
         if requests:
@@ -181,7 +181,7 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
         # Share URL section
-        project_info = await ProjectManager.get_project_info(context, project_id)
+        project_info = await KnowledgeTransferManager.get_project_info(context, project_id)
         share_url = project_info.share_url if project_info else None
         if share_url:
             lines.append("## Share")
@@ -221,7 +221,7 @@ class ProjectInspectorStateProvider:
         #         stage_label = "Working Stage"
         #     elif project_info.state.value == "in_progress":
         #         stage_label = "Working Stage"
-        #     elif project_info.state.value == "completed":
+        #     elif project_info.state.value == "achieved":
         #         stage_label = "Completed Stage"
         #     elif project_info.state.value == "aborted":
         #         stage_label = "Aborted Stage"
@@ -251,28 +251,28 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if project and project.goals:
+        if project and project.learning_objectives:
             lines.append("## Objectives")
-            for goal in project.goals:
-                criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
-                criteria_total = len(goal.success_criteria)
+            for goal in project.learning_objectives:
+                criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
+                criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")
                 lines.append(goal.description)
                 lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
 
-                if goal.success_criteria:
+                if goal.learning_outcomes:
                     lines.append("")
                     lines.append("#### Success Criteria:")
-                    for criterion in goal.success_criteria:
-                        status_emoji = "✅" if criterion.completed else "⬜"
+                    for criterion in goal.learning_outcomes:
+                        status_emoji = "✅" if criterion.achieved else "⬜"
                         completion_info = ""
-                        if criterion.completed and hasattr(criterion, "completed_at") and criterion.completed_at:
-                            completion_info = f" (completed on {criterion.completed_at.strftime('%Y-%m-%d')})"
+                        if criterion.achieved and hasattr(criterion, "achieved_at") and criterion.achieved_at:
+                            completion_info = f" (achieved on {criterion.achieved_at.strftime('%Y-%m-%d')})"
                         lines.append(f"- {status_emoji} {criterion.description}{completion_info}")
                 lines.append("")
 
         # Add my information requests section
-        requests = await ProjectManager.get_information_requests(context)
+        requests = await KnowledgeTransferManager.get_information_requests(context)
         my_requests = [r for r in requests if r.conversation_id == str(context.id)]
         if my_requests:
             lines.append("## My Information Requests")

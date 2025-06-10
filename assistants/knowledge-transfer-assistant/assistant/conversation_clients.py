@@ -12,7 +12,7 @@ from semantic_workbench_api_model.workbench_service_client import ConversationAP
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .logging import logger
 from .storage import ProjectStorageManager
 from .storage_models import ConversationRole
@@ -53,7 +53,7 @@ class ConversationClientManager:
                 return None, None
 
         # Read the role information to get the Coordinator conversation ID
-        role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
+        role_data = read_model(role_file, ConversationKnowledgePackageManager.ConversationRoleInfo)
         if not role_data or not role_data.conversation_id:
             return None, None
 

@@ -10,9 +10,9 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.conversation_project_link import ConversationProjectManager
-from assistant.data import Project, ProjectBrief, ProjectGoal, SuccessCriterion
-from assistant.manager import ProjectManager
+from assistant.conversation_project_link import ConversationKnowledgePackageManager
+from assistant.data import KnowledgePackage, KnowledgeBrief, LearningObjective, LearningOutcome
+from assistant.manager import KnowledgeTransferManager
 from assistant.storage import ProjectStorage, ProjectStorageManager
 from assistant.storage_models import ConversationRole
 from semantic_workbench_assistant import settings
@@ -71,7 +71,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             return self.project_id
 
         patch2 = unittest.mock.patch.object(
-            ConversationProjectManager, "get_associated_project_id", side_effect=mock_get_associated_project_id
+            ConversationKnowledgePackageManager, "get_associated_project_id", side_effect=mock_get_associated_project_id
         )
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)
@@ -81,13 +81,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             return ConversationRole.COORDINATOR
 
         patch3 = unittest.mock.patch.object(
-            ConversationProjectManager, "get_conversation_role", side_effect=mock_get_conversation_role
+            ConversationKnowledgePackageManager, "get_conversation_role", side_effect=mock_get_conversation_role
         )
         self.mock_get_role = patch3.start()
         self.patches.append(patch3)
 
         # Create a test brief
-        self.title = "Test Project"
+        self.title = "Test KnowledgePackage"
         self.create_test_brief()
 
     async def asyncTearDown(self):
@@ -105,13 +105,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     def create_test_brief(self):
         """Create a test project brief in the project's shared directory"""
         # Create a project brief
-        test_goal = ProjectGoal(
+        test_goal = LearningObjective(
             name="Test Goal",
             description="This is a test goal",
-            success_criteria=[SuccessCriterion(description="Test criteria")],
+            learning_outcomes=[LearningOutcome(description="Test criteria")],
         )
 
-        brief = ProjectBrief(
+        brief = KnowledgeBrief(
             title=self.title,
             description="Test project description",
             created_by=self.user_id,
@@ -120,11 +120,11 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Create a project with the goal
-        project = Project(
+        project = KnowledgePackage(
             info=None,
             brief=brief,
-            goals=[test_goal],
-            whiteboard=None,
+            learning_objectives=[test_goal],
+            digest=None,
         )
 
         # Write the project to storage
@@ -139,13 +139,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_project_brief(self) -> None:
         """Test that get_project_brief correctly loads the brief from storage"""
-        # Mock the ProjectManager to use our test context
-        with unittest.mock.patch.object(ProjectManager, "get_project_id", return_value=self.project_id):
+        # Mock the KnowledgeTransferManager to use our test context
+        with unittest.mock.patch.object(KnowledgeTransferManager, "get_project_id", return_value=self.project_id):
             # Using Any here to satisfy type checker with our mock
             context: Any = self.context
 
-            # Get the brief using the ProjectManager
-            brief = await ProjectManager.get_project_brief(context)
+            # Get the brief using the KnowledgeTransferManager
+            brief = await KnowledgeTransferManager.get_project_brief(context)
             project = ProjectStorage.read_project(self.project_id)
 
             # Verify the brief was loaded correctly
@@ -157,8 +157,8 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             # Verify the project goals were loaded correctly
             self.assertIsNotNone(project, "Should load the project")
             if project:  # Type checking guard
-                self.assertEqual(len(project.goals), 1, "Should have one goal")
-                self.assertEqual(project.goals[0].name, "Test Goal")
+                self.assertEqual(len(project.learning_objectives), 1, "Should have one goal")
+                self.assertEqual(project.learning_objectives[0].name, "Test Goal")
 
     async def test_direct_storage_access(self) -> None:
         """Test direct access to project storage"""
@@ -166,7 +166,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         brief_path = ProjectStorageManager.get_brief_path(self.project_id)
 
         # Read the brief directly using read_model
-        brief = read_model(brief_path, ProjectBrief)
+        brief = read_model(brief_path, KnowledgeBrief)
 
         # Verify we got the correct brief
         self.assertIsNotNone(brief, "Should load the brief directly")
@@ -174,13 +174,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(brief.title, self.title)
 
             # Test updating the brief
-            brief.title = "Updated Project Title"
+            brief.title = "Updated KnowledgePackageTitle"
             write_model(brief_path, brief)
 
             # Read it back to verify the update
-            updated_brief = read_model(brief_path, ProjectBrief)
+            updated_brief = read_model(brief_path, KnowledgeBrief)
             if updated_brief:  # Type checking guard
-                self.assertEqual(updated_brief.title, "Updated Project Title")
+                self.assertEqual(updated_brief.title, "Updated KnowledgePackageTitle")
 
 
 if __name__ == "__main__":

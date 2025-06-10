@@ -1,5 +1,5 @@
 """
-Project management logic for working with project data.
+KnowledgePackage management logic for working with project data.
 
 This module provides the core business logic for working with project data
 """
@@ -22,20 +22,20 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import (
     InformationRequest,
+    KnowledgeBrief,
+    KnowledgeDigest,
+    KnowledgePackage,
+    KnowledgePackageInfo,
+    KnowledgeTransferState,
+    LearningObjective,
+    LearningOutcome,
     LogEntryType,
-    Project,
-    ProjectBrief,
-    ProjectGoal,
-    ProjectInfo,
-    ProjectLog,
-    ProjectState,
-    ProjectWhiteboard,
+    KnowledgePackageLog,
     RequestPriority,
     RequestStatus,
-    SuccessCriterion,
 )
 from .logging import logger
 from .notifications import ProjectNotifier
@@ -44,11 +44,11 @@ from .storage_models import ConversationRole
 from .utils import get_current_user, require_current_user
 
 
-class ProjectManager:
+class KnowledgeTransferManager:
     """
-    Manages the creation, modification, and lifecycle of projects.
+    Manages the creation, modification, and lifecycle of knowledge transfer packages.
 
-    The ProjectManager provides a centralized set of operations for working with project data.
+    The KnowledgeTransferManager provides a centralized set of operations for working with project data.
     It handles all the core business logic for interacting with projects, ensuring that
     operations are performed consistently and following the proper rules and constraints.
 
@@ -119,7 +119,7 @@ class ProjectManager:
 
         share_url = f"/conversation-share/{share.id}/redeem"
 
-        # Store team conversation info in ProjectInfo
+        # Store team conversation info in KnowledgePackageInfo
         project_info = ProjectStorage.read_project_info(project_id)
         if project_info:
             project_info.team_conversation_id = str(conversation.id)
@@ -127,7 +127,7 @@ class ProjectManager:
             project_info.updated_at = datetime.utcnow()
             ProjectStorage.write_project_info(project_id, project_info)
         else:
-            raise ValueError(f"Project info not found for project ID: {project_id}")
+            raise ValueError(f"KnowledgePackage info not found for project ID: {project_id}")
 
         return share_url
 
@@ -163,7 +163,7 @@ class ProjectManager:
         logger.debug(f"Created project directory: {project_dir}")
 
         # Create and save the initial project info
-        project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
+        project_info = KnowledgePackageInfo(package_id=project_id, coordinator_conversation_id=str(context.id))
 
         # Save the project info
         ProjectStorage.write_project_info(project_id, project_info)
@@ -171,7 +171,7 @@ class ProjectManager:
 
         # Associate the conversation with the project
         logger.debug(f"Associating conversation {context.id} with project {project_id}")
-        await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+        await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
 
         # No need to set conversation role in project storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for project {project_id}")
@@ -206,7 +206,7 @@ class ProjectManager:
                 return False
 
             # Associate the conversation with the project
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
 
             # Role is set in metadata, not in storage
 
@@ -232,7 +232,7 @@ class ProjectManager:
         Returns:
             The project ID string if the conversation is part of a project, None otherwise
         """
-        return await ConversationProjectManager.get_associated_project_id(context)
+        return await ConversationKnowledgePackageManager.get_associated_project_id(context)
 
     @staticmethod
     async def get_project_role(context: ConversationContext) -> Optional[ConversationRole]:
@@ -251,7 +251,7 @@ class ProjectManager:
             context: Current conversation context
 
         Returns:
-            The role (ProjectRole.COORDINATOR or ProjectRole.TEAM) if the conversation
+            The role (KnowledgePackageRole.COORDINATOR or KnowledgePackageRole.TEAM) if the conversation
             is part of a project, None otherwise
         """
         try:
@@ -271,7 +271,7 @@ class ProjectManager:
             return None
 
     @staticmethod
-    async def get_project_brief(context: ConversationContext) -> Optional[ProjectBrief]:
+    async def get_project_brief(context: ConversationContext) -> Optional[KnowledgeBrief]:
         """
         Gets the project brief for the current conversation's project.
 
@@ -283,10 +283,10 @@ class ProjectManager:
             context: Current conversation context
 
         Returns:
-            The ProjectBrief object if found, None if the conversation is not
+            The KnowledgeBrief object if found, None if the conversation is not
             part of a project or if no brief has been created yet
         """
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
@@ -300,7 +300,7 @@ class ProjectManager:
         timeline: Optional[str] = None,
         additional_context: Optional[str] = None,
         send_notification: bool = True,
-    ) -> Optional[ProjectBrief]:
+    ) -> Optional[KnowledgeBrief]:
         """
         Creates or updates a project brief for the current project.
 
@@ -317,10 +317,10 @@ class ProjectManager:
             send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
-            The updated ProjectBrief object if successful, None otherwise
+            The updated KnowledgeBrief object if successful, None otherwise
         """
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             logger.error("Cannot update brief: no project associated with this conversation")
             return
@@ -330,7 +330,7 @@ class ProjectManager:
             return
 
         # Create the project brief
-        brief = ProjectBrief(
+        brief = KnowledgeBrief(
             title=title,
             description=description,
             timeline=timeline,
@@ -377,9 +377,9 @@ class ProjectManager:
     @staticmethod
     async def get_project_state(
         context: ConversationContext,
-    ) -> Optional[ProjectState]:
+    ) -> Optional[KnowledgeTransferState]:
         """Gets the project state for the current conversation's project."""
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
@@ -388,7 +388,7 @@ class ProjectManager:
         if not project_info:
             return None
 
-        return project_info.state
+        return project_info.transfer_state
 
     @staticmethod
     async def add_project_goal(
@@ -397,7 +397,7 @@ class ProjectManager:
         goal_description: str,
         success_criteria: Optional[List[str]] = None,
         priority: int = 1,
-    ) -> Optional[ProjectGoal]:
+    ) -> Optional[LearningObjective]:
         """
         Adds a goal to the project.
 
@@ -409,10 +409,10 @@ class ProjectManager:
             priority: Priority of the goal (default: 1)
 
         Returns:
-            The created ProjectGoal if successful, None otherwise
+            The created LearningObjective if successful, None otherwise
         """
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             logger.error("Cannot add goal: no project associated with this conversation")
             return None
@@ -426,30 +426,31 @@ class ProjectManager:
         criterion_objects = []
         if success_criteria:
             for criterion in success_criteria:
-                criterion_objects.append(SuccessCriterion(description=criterion))
+                criterion_objects.append(LearningOutcome(description=criterion))
 
         # Create the new goal
-        new_goal = ProjectGoal(
+        new_goal = LearningObjective(
             name=goal_name,
             description=goal_description,
             priority=priority,
-            success_criteria=criterion_objects,
+            learning_outcomes=criterion_objects,
         )
 
         # Get the existing project
         project = ProjectStorage.read_project(project_id)
         if not project:
             # Create a new project if it doesn't exist
-            project = Project(
+            project = KnowledgePackage(
                 info=None,
                 brief=None,
-                goals=[new_goal],
-                whiteboard=None,
+                learning_objectives=[new_goal],
+                digest=None,
                 requests=[],
+                log=None,
             )
         else:
             # Add the goal to the existing project
-            project.goals.append(new_goal)
+            project.learning_objectives.append(new_goal)
 
         # Save the updated project
         ProjectStorage.write_project(project_id, project)
@@ -488,7 +489,7 @@ class ProjectManager:
             Tuple of (success, goal_name_or_error_message)
         """
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             logger.error("Cannot delete goal: no project associated with this conversation")
             return False, "No project associated with this conversation."
@@ -500,22 +501,22 @@ class ProjectManager:
 
         # Get the existing project
         project = ProjectStorage.read_project(project_id)
-        if not project or not project.goals:
+        if not project or not project.learning_objectives:
             return False, "No project goals found."
 
         # Validate index
-        if goal_index < 0 or goal_index >= len(project.goals):
+        if goal_index < 0 or goal_index >= len(project.learning_objectives):
             return (
                 False,
-                f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.goals) - 1}. There are {len(project.goals)} goals.",
+                f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} goals.",
             )
 
         # Get the goal to delete
-        goal = project.goals[goal_index]
+        goal = project.learning_objectives[goal_index]
         goal_name = goal.name
 
         # Remove the goal from the list
-        project.goals.pop(goal_index)
+        project.learning_objectives.pop(goal_index)
 
         # Save the updated project
         ProjectStorage.write_project(project_id, project)
@@ -545,20 +546,20 @@ class ProjectManager:
 
             # Get the updated project to access goals
             updated_project = ProjectStorage.read_project(project_id)
-            if updated_project and updated_project.goals:
-                for g in updated_project.goals:
-                    total_criteria += len(g.success_criteria)
-                    completed_criteria += sum(1 for c in g.success_criteria if c.completed)
+            if updated_project and updated_project.learning_objectives:
+                for g in updated_project.learning_objectives:
+                    total_criteria += len(g.learning_outcomes)
+                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
 
             # Update project info with criteria stats
-            project_info.completed_criteria = completed_criteria
-            project_info.total_criteria = total_criteria
+            # Note: achieved_criteria not in KnowledgePackageInfo model
+            # Note: total_criteria not in KnowledgePackageInfo model
 
             # Calculate progress percentage
             if total_criteria > 0:
-                project_info.progress_percentage = int((completed_criteria / total_criteria) * 100)
+                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
             else:
-                project_info.progress_percentage = 0
+                project_info.completion_percentage = 0
 
             # Update metadata
             project_info.updated_at = datetime.utcnow()
@@ -574,7 +575,7 @@ class ProjectManager:
         return True, goal_name
 
     @staticmethod
-    async def get_project_criteria(context: ConversationContext) -> List[SuccessCriterion]:
+    async def get_project_criteria(context: ConversationContext) -> List[LearningOutcome]:
         """
         Gets the success criteria for the current conversation's project.
 
@@ -583,9 +584,9 @@ class ProjectManager:
             completed_only: If True, only return completed criteria
 
         Returns:
-            List of SuccessCriterion objects
+            List of LearningOutcome objects
         """
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return []
 
@@ -594,11 +595,11 @@ class ProjectManager:
         if not project:
             return []
 
-        goals = project.goals
+        goals = project.learning_objectives
         criteria = []
         for goal in goals:
             # Add success criteria from each goal
-            criteria.extend(goal.success_criteria)
+            criteria.extend(goal.learning_outcomes)
 
         return criteria
 
@@ -609,7 +610,7 @@ class ProjectManager:
         progress: Optional[int] = None,
         status_message: Optional[str] = None,
         next_actions: Optional[List[str]] = None,
-    ) -> Optional[ProjectInfo]:
+    ) -> Optional[KnowledgePackageInfo]:
         """
         Updates the project info with state, progress, status message, and next actions.
 
@@ -624,7 +625,7 @@ class ProjectManager:
             Tuple of (success, project_info)
         """
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             logger.error("Cannot update project info: no project associated with this conversation")
             return None
@@ -642,18 +643,16 @@ class ProjectManager:
 
         # Apply updates
         if state:
-            project_info.state = ProjectState(state)
+            project_info.transfer_state = KnowledgeTransferState(state)
 
         if status_message:
-            project_info.status_message = status_message
+            project_info.transfer_notes = status_message
 
         if progress is not None:
-            project_info.progress_percentage = progress
+            project_info.completion_percentage = progress
 
         if next_actions:
-            if not hasattr(project_info, "next_actions"):
-                project_info.next_actions = []
-            project_info.next_actions = next_actions
+            project_info.next_learning_actions = next_actions
 
         # Update metadata
         project_info.updated_at = datetime.utcnow()
@@ -668,7 +667,7 @@ class ProjectManager:
 
         # Log the update
         event_type = LogEntryType.STATUS_CHANGED
-        message = f"Updated project status to {project_info.state.value}"
+        message = f"Updated project status to {project_info.transfer_state.value}"
         if progress is not None:
             message += f" ({progress}% complete)"
 
@@ -678,7 +677,7 @@ class ProjectManager:
             entry_type=event_type.value,
             message=message,
             metadata={
-                "state": project_info.state.value,
+                "state": project_info.transfer_state.value,
                 "status_message": status_message,
                 "progress": progress,
             },
@@ -689,7 +688,7 @@ class ProjectManager:
             context=context,
             project_id=project_id,
             update_type="project_info",
-            message=f"Project status updated: {project_info.state.value}",
+            message=f"KnowledgePackage status updated: {project_info.transfer_state.value}",
         )
 
         return project_info
@@ -699,7 +698,7 @@ class ProjectManager:
         context: ConversationContext,
         state: Optional[str] = None,
         status_message: Optional[str] = None,
-    ) -> Tuple[bool, Optional[ProjectInfo]]:
+    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
         """
         Updates the project state and status message.
 
@@ -713,7 +712,7 @@ class ProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot update project state: no project associated with this conversation")
                 return False, None
@@ -731,10 +730,10 @@ class ProjectManager:
 
             # Apply updates
             if state:
-                project_info.state = ProjectState(state)
+                project_info.transfer_state = KnowledgeTransferState(state)
 
             if status_message:
-                project_info.status_message = status_message
+                project_info.transfer_notes = status_message
 
             # Update metadata
             project_info.updated_at = datetime.utcnow()
@@ -744,7 +743,7 @@ class ProjectManager:
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = f"Updated project state to {project_info.state.value}"
+            message = f"Updated project state to {project_info.transfer_state.value}"
 
             await ProjectStorage.log_project_event(
                 context=context,
@@ -752,7 +751,7 @@ class ProjectManager:
                 entry_type=event_type.value,
                 message=message,
                 metadata={
-                    "state": project_info.state.value,
+                    "state": project_info.transfer_state.value,
                     "status_message": status_message,
                 },
             )
@@ -762,7 +761,7 @@ class ProjectManager:
                 context=context,
                 project_id=project_id,
                 update_type="project_state",
-                message=f"Project state updated: {project_info.state.value}",
+                message=f"KnowledgePackage state updated: {project_info.transfer_state.value}",
             )
 
             return True, project_info
@@ -776,7 +775,7 @@ class ProjectManager:
         context: ConversationContext,
     ) -> List[InformationRequest]:
         """Gets all information requests for the current conversation's project."""
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return []
 
@@ -805,7 +804,7 @@ class ProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot create information request: no project associated with this conversation")
                 return False, None
@@ -881,7 +880,7 @@ class ProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot resolve information request: no project associated with this conversation")
                 return False, None
@@ -987,31 +986,34 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def get_project_log(context: ConversationContext) -> Optional[ProjectLog]:
+    async def get_project_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
         """Gets the project log for the current conversation's project."""
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
         return ProjectStorage.read_project_log(project_id)
 
     @staticmethod
-    async def get_project(context: ConversationContext) -> Optional[Project]:
+    async def get_project(context: ConversationContext) -> Optional[KnowledgePackage]:
         """Gets the project information for the current conversation's project."""
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
-        project = Project(
+        project = KnowledgePackage(
             info=ProjectStorage.read_project_info(project_id),
             brief=ProjectStorage.read_project_brief(project_id),
-            whiteboard=ProjectStorage.read_project_whiteboard(project_id),
+            learning_objectives=[],  # TODO: Add storage method for learning objectives
+            digest=ProjectStorage.read_project_whiteboard(project_id),
             requests=ProjectStorage.get_all_information_requests(project_id),
             log=ProjectStorage.read_project_log(project_id),
         )
         return project
 
     @staticmethod
-    async def get_project_info(context: ConversationContext, project_id: Optional[str] = None) -> Optional[ProjectInfo]:
+    async def get_project_info(
+        context: ConversationContext, project_id: Optional[str] = None
+    ) -> Optional[KnowledgePackageInfo]:
         """
         Gets the project information including share URL and team conversation details.
 
@@ -1020,12 +1022,12 @@ class ProjectManager:
             project_id: Optional project ID (if not provided, will be retrieved from context)
 
         Returns:
-            ProjectInfo object or None if not found
+            KnowledgePackageInfo object or None if not found
         """
         try:
             # Get project ID if not provided
             if not project_id:
-                project_id = await ProjectManager.get_project_id(context)
+                project_id = await KnowledgeTransferManager.get_project_id(context)
                 if not project_id:
                     return None
 
@@ -1040,9 +1042,9 @@ class ProjectManager:
     @staticmethod
     async def get_project_whiteboard(
         context: ConversationContext,
-    ) -> Optional[ProjectWhiteboard]:
+    ) -> Optional[KnowledgeDigest]:
         """Gets the project whiteboard for the current conversation's project."""
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
@@ -1054,7 +1056,7 @@ class ProjectManager:
         content: str,
         is_auto_generated: bool = True,
         send_notification: bool = False,  # Add parameter to control notifications
-    ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
+    ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
         Updates the project whiteboard content.
 
@@ -1069,7 +1071,7 @@ class ProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
@@ -1084,7 +1086,7 @@ class ProjectManager:
             is_new = False
 
             if not whiteboard:
-                whiteboard = ProjectWhiteboard(
+                whiteboard = KnowledgeDigest(
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
@@ -1123,7 +1125,7 @@ class ProjectManager:
                     context=context,
                     project_id=project_id,
                     update_type="project_whiteboard",
-                    message="Project whiteboard updated",
+                    message="KnowledgePackage whiteboard updated",
                 )
             else:
                 # Just refresh the UI without sending notifications
@@ -1138,7 +1140,7 @@ class ProjectManager:
     @staticmethod
     async def auto_update_whiteboard(
         context: ConversationContext,
-    ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
+    ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
         Automatically updates the whiteboard by analyzing chat history.
 
@@ -1159,7 +1161,7 @@ class ProjectManager:
             chat_history = messages.messages
 
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None
@@ -1223,7 +1225,7 @@ class ProjectManager:
 
             # Update the whiteboard with the extracted content
             # Use send_notification=False to avoid sending notifications for automatic updates
-            return await ProjectManager.update_whiteboard(
+            return await KnowledgeTransferManager.update_whiteboard(
                 context=context,
                 content=whiteboard_content,
                 is_auto_generated=True,
@@ -1238,7 +1240,7 @@ class ProjectManager:
     async def complete_project(
         context: ConversationContext,
         summary: Optional[str] = None,
-    ) -> Tuple[bool, Optional[ProjectInfo]]:
+    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
         """
         Completes a project and updates the project state.
 
@@ -1251,22 +1253,22 @@ class ProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ProjectManager.get_project_id(context)
+            project_id = await KnowledgeTransferManager.get_project_id(context)
             if not project_id:
                 logger.error("Cannot complete project: no project associated with this conversation")
                 return False, None
 
             # Get role - only Coordinator can complete a project
-            role = await ProjectManager.get_project_role(context)
+            role = await KnowledgeTransferManager.get_project_role(context)
             if role != ConversationRole.COORDINATOR:
                 logger.error("Only Coordinator can complete a project")
                 return False, None
 
             # Update project state to completed
-            status_message = summary if summary else "Project completed successfully"
-            success, project_info = await ProjectManager.update_project_state(
+            status_message = summary if summary else "KnowledgePackage completed successfully"
+            success, project_info = await KnowledgeTransferManager.update_project_state(
                 context=context,
-                state=ProjectState.COMPLETED.value,
+                state=KnowledgeTransferState.COMPLETED.value,
                 status_message=status_message,
             )
 
@@ -1278,7 +1280,7 @@ class ProjectManager:
                 context=context,
                 project_id=project_id,
                 entry_type=LogEntryType.PROJECT_COMPLETED.value,
-                message=f"Project completed: {status_message}",
+                message=f"KnowledgePackage completed: {status_message}",
             )
 
             # Notify linked conversations with emphasis

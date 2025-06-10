@@ -111,14 +111,14 @@ class PromptConfig(BaseModel):
         str,
         Field(
             title="Information Request Detection Prompt",
-            description="The prompt used to detect information requests in project assistant mode.",
+            description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
         UISchema(widget="textarea"),
     ] = load_text_include("project_information_request_detection.txt")
 
     whiteboard_prompt: Annotated[
         str,
-        Field(title="Whiteboard Prompt", description="The prompt used to generate whiteboard content."),
+        Field(title="Knowledge Digest Prompt", description="The prompt used to generate knowledge digest content."),
         UISchema(widget="textarea"),
     ] = load_text_include("whiteboard_prompt.txt")
 
@@ -236,7 +236,7 @@ class AssistantConfigModel(BaseModel):
         bool,
         Field(
             title="Track Progress",
-            description="Track project progress with goals, criteria completion, and overall project state.",
+            description="Track knowledge transfer progress with learning objectives, outcome completion, and overall transfer state.",
         ),
     ] = True
 
@@ -252,7 +252,7 @@ class AssistantConfigModel(BaseModel):
         CoordinatorConfig,
         Field(
             title="Coordinator Configuration",
-            description="Configuration for project coordinators.",
+            description="Configuration for knowledge transfer coordinators.",
         ),
     ] = CoordinatorConfig()
 
@@ -260,7 +260,7 @@ class AssistantConfigModel(BaseModel):
         TeamConfig,
         Field(
             title="Team Configuration",
-            description="Configuration for project team members.",
+            description="Configuration for knowledge transfer team members.",
         ),
     ] = TeamConfig()
 

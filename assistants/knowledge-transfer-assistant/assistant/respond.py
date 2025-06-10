@@ -31,7 +31,7 @@ from .common import detect_assistant_role
 from .config import assistant_config
 from .data import RequestStatus
 from .logging import logger
-from .manager import ProjectManager
+from .manager import KnowledgeTransferManager
 from .storage import ProjectStorage
 from .storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
@@ -71,7 +71,7 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    project_id = await ProjectManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_project_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
@@ -165,18 +165,18 @@ async def respond_to_conversation(
 
     # Project goals
     project = ProjectStorage.read_project(project_id)
-    if project and project.goals:
+    if project and project.learning_objectives:
         goals_text = ""
-        for i, goal in enumerate(project.goals):
+        for i, goal in enumerate(project.learning_objectives):
             # Count completed criteria
-            completed = sum(1 for c in goal.success_criteria if c.completed)
-            total = len(goal.success_criteria)
+            completed = sum(1 for c in goal.learning_outcomes if c.achieved)
+            total = len(goal.learning_outcomes)
 
             project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-            if goal.success_criteria:
+            if goal.learning_outcomes:
                 goals_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for criterion in goal.success_criteria:
-                    check = "✅" if criterion.completed else "⬜"
+                for criterion in goal.learning_outcomes:
+                    check = "✅" if criterion.achieved else "⬜"
                     goals_text += f"   {check} {criterion.description}\n"
         prompt.contexts.append(
             Context(

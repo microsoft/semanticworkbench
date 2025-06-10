@@ -16,7 +16,7 @@ from .storage import ProjectStorageManager
 from .storage_models import ConversationRole
 
 
-class ConversationProjectManager:
+class ConversationKnowledgePackageManager:
     """Manages the association between conversations and projects."""
 
     class ConversationRoleInfo(BaseModel):
@@ -38,7 +38,7 @@ class ConversationProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ConversationProjectManager.get_associated_project_id(context)
+            project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
             if not project_id:
                 return []
 
@@ -71,7 +71,7 @@ class ConversationProjectManager:
         """
         Sets the role of a conversation in a project.
         """
-        role_data = ConversationProjectManager.ConversationRoleInfo(
+        role_data = ConversationKnowledgePackageManager.ConversationRoleInfo(
             project_id=project_id, role=role, conversation_id=str(context.id)
         )
         role_path = ProjectStorageManager.get_conversation_role_file_path(context)
@@ -83,7 +83,7 @@ class ConversationProjectManager:
         Gets the role of a conversation in a project.
         """
         role_path = ProjectStorageManager.get_conversation_role_file_path(context)
-        role_data = read_model(role_path, ConversationProjectManager.ConversationRoleInfo)
+        role_data = read_model(role_path, ConversationKnowledgePackageManager.ConversationRoleInfo)
 
         if role_data:
             return role_data.role
@@ -99,7 +99,7 @@ class ConversationProjectManager:
 
         try:
             # 1. Store the project association in the conversation's storage directory
-            project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
+            project_data = ConversationKnowledgePackageManager.ProjectAssociation(project_id=project_id)
             project_path = ProjectStorageManager.get_conversation_project_file_path(context)
             logger.debug(f"Writing project association to {project_path}")
             write_model(project_path, project_data)
@@ -123,7 +123,7 @@ class ConversationProjectManager:
         Gets the project ID associated with a conversation.
         """
         project_path = ProjectStorageManager.get_conversation_project_file_path(context)
-        project_data = read_model(project_path, ConversationProjectManager.ProjectAssociation)
+        project_data = read_model(project_path, ConversationKnowledgePackageManager.ProjectAssociation)
 
         if project_data:
             return project_data.project_id

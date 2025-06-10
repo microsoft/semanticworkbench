@@ -1,17 +1,23 @@
 """
-Tests for the ProjectManager functionality.
+Tests for the KnowledgeTransferManager functionality.
 """
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from assistant.data import Project, ProjectGoal, ProjectInfo, ProjectState, SuccessCriterion
-from assistant.manager import ProjectManager
+from assistant.data import (
+    KnowledgePackage,
+    LearningObjective,
+    KnowledgePackageInfo,
+    KnowledgeTransferState,
+    LearningOutcome,
+)
+from assistant.manager import KnowledgeTransferManager
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
-class TestProjectManager:
-    """Test the ProjectManager class."""
+class TestKnowledgeTransferManager:
+    """Test the KnowledgeTransferManager class."""
 
     @pytest.fixture
     def context(self):
@@ -24,7 +30,7 @@ class TestProjectManager:
     # DISABLED: delete_project_goal functionality has been removed from the codebase
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal(self, context, monkeypatch):
-        """Test the delete_project_goal method in ProjectManager."""
+        """Test the delete_project_goal method in KnowledgeTransferManager."""
         # Setup test data
         project_id = "test-project-id"
         goal_index = 1
@@ -32,35 +38,34 @@ class TestProjectManager:
         goal_description = "Test Description"
 
         # Create a test project with multiple goals
-        test_project = Project(
+        test_project = KnowledgePackage(
             info=None,
             brief=None,
-            goals=[
-                ProjectGoal(name="Goal 1", description="Description 1", priority=1, success_criteria=[]),
-                ProjectGoal(
+            learning_objectives=[
+                LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),
+                LearningObjective(
                     name=goal_name,
                     description=goal_description,
                     priority=2,
-                    success_criteria=[
-                        SuccessCriterion(description="Criterion 1"),
-                        SuccessCriterion(description="Criterion 2", completed=True),
+                    learning_outcomes=[
+                        LearningOutcome(description="Criterion 1"),
+                        LearningOutcome(description="Criterion 2", achieved=True),
                     ],
                 ),
-                ProjectGoal(name="Goal 3", description="Description 3", priority=3, success_criteria=[]),
+                LearningObjective(name="Goal 3", description="Description 3", priority=3, learning_outcomes=[]),
             ],
-            whiteboard=None,
+            digest=None,
             requests=[],
+            log=None,
         )
 
         # Create test project info
-        test_project_info = ProjectInfo(
-            project_id=project_id,
+        test_project_info = KnowledgePackageInfo(
+            package_id=project_id,
             coordinator_conversation_id="test-coordinator-id",
-            completed_criteria=1,
-            total_criteria=2,
-            progress_percentage=50,
+            completion_percentage=50,
             version=1,
-            state=ProjectState.PLANNING,
+            transfer_state=KnowledgeTransferState.ORGANIZING,
         )
 
         # Mock get_project_id
@@ -68,25 +73,21 @@ class TestProjectManager:
             return project_id
 
         monkeypatch.setattr(
-            "assistant.manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.manager.KnowledgeTransferManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
         )
 
         # Mock require_current_user
         async def mock_require_current_user(*args, **kwargs):
             return "test-user-id"
 
-        monkeypatch.setattr(
-            "assistant.manager.require_current_user", AsyncMock(side_effect=mock_require_current_user)
-        )
+        monkeypatch.setattr("assistant.manager.require_current_user", AsyncMock(side_effect=mock_require_current_user))
 
         # Mock read_project
         def mock_read_project(proj_id):
             assert proj_id == project_id
             return test_project
 
-        monkeypatch.setattr(
-            "assistant.storage.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project)
-        )
+        monkeypatch.setattr("assistant.storage.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project))
 
         # Mock read_project_info
         def mock_read_project_info(proj_id):
@@ -106,9 +107,9 @@ class TestProjectManager:
             nonlocal write_project_called
             assert proj_id == project_id
             # Verify goal was removed
-            assert len(project.goals) == 2
-            assert project.goals[0].name == "Goal 1"
-            assert project.goals[1].name == "Goal 3"
+            assert len(project.learning_objectives) == 2
+            assert project.learning_objectives[0].name == "Goal 1"
+            assert project.learning_objectives[1].name == "Goal 3"
             write_project_called = True
 
         monkeypatch.setattr(
@@ -120,9 +121,9 @@ class TestProjectManager:
             nonlocal write_project_info_called
             assert proj_id == project_id
             # Verify project info was updated
-            assert project_info.completed_criteria == 0  # Completed criterion was in the deleted goal
+            assert project_info.achieved_criteria == 0  # Completed criterion was in the deleted goal
             assert project_info.total_criteria == 0  # All criteria were in the deleted goal
-            assert project_info.progress_percentage == 0
+            assert project_info.completion_percentage == 0
             assert project_info.version == 2  # Incremented
             write_project_info_called = True
 
@@ -167,7 +168,7 @@ class TestProjectManager:
         )
 
         # Call the method being tested
-        success, goal_name_result = await ProjectManager.delete_project_goal(context, goal_index)
+        success, goal_name_result = await KnowledgeTransferManager.delete_project_goal(context, goal_index)
 
         # Verify the result
         assert success is True
@@ -189,15 +190,16 @@ class TestProjectManager:
         goal_index = 5  # Out of range
 
         # Create a test project with fewer goals than the index
-        test_project = Project(
+        test_project = KnowledgePackage(
             info=None,
             brief=None,
-            goals=[
-                ProjectGoal(name="Goal 1", description="Description 1", priority=1, success_criteria=[]),
-                ProjectGoal(name="Goal 2", description="Description 2", priority=2, success_criteria=[]),
+            learning_objectives=[
+                LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),
+                LearningObjective(name="Goal 2", description="Description 2", priority=2, learning_outcomes=[]),
             ],
-            whiteboard=None,
+            digest=None,
             requests=[],
+            log=None,
         )
 
         # Mock get_project_id
@@ -205,7 +207,8 @@ class TestProjectManager:
             return project_id
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.project_manager.KnowledgeTransferManager.get_project_id",
+            AsyncMock(side_effect=mock_get_project_id),
         )
 
         # Mock require_current_user
@@ -226,7 +229,7 @@ class TestProjectManager:
         )
 
         # Call the method being tested with an invalid index
-        success, error_message = await ProjectManager.delete_project_goal(context, goal_index)
+        success, error_message = await KnowledgeTransferManager.delete_project_goal(context, goal_index)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False
@@ -243,11 +246,12 @@ class TestProjectManager:
             return None
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.project_manager.KnowledgeTransferManager.get_project_id",
+            AsyncMock(side_effect=mock_get_project_id),
         )
 
         # Call the method being tested
-        success, error_message = await ProjectManager.delete_project_goal(context, 1)
+        success, error_message = await KnowledgeTransferManager.delete_project_goal(context, 1)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

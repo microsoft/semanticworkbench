@@ -38,10 +38,10 @@ class ProjectNotifier:
         """
         # Import ConversationClientManager locally to avoid circular imports
         from .conversation_clients import ConversationClientManager
-        from .conversation_project_link import ConversationProjectManager
+        from .conversation_project_link import ConversationKnowledgePackageManager
 
         # Get conversation IDs in the same project
-        linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
+        linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
         current_conversation_id = str(context.id)
 
         # Get the shareable team conversation ID from project info
@@ -165,7 +165,7 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
     """
     # Import ConversationClientManager locally to avoid circular imports
     from .conversation_clients import ConversationClientManager
-    from .conversation_project_link import ConversationProjectManager
+    from .conversation_project_link import ConversationKnowledgePackageManager
 
     try:
         # First update the current conversation's UI
@@ -195,7 +195,7 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
                 logger.warning(f"Error sending state event to Coordinator: {e}")
 
         # Get all team conversation clients and update them
-        linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
+        linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
         current_id = str(context.id)
 
         for conv_id in linked_conversations:

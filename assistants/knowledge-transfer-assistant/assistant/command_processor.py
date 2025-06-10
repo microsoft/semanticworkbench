@@ -16,12 +16,12 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import (
     RequestPriority,
     RequestStatus,
 )
-from .manager import ProjectManager
+from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
 from .storage import ProjectStorage
 from .storage_models import ConversationRole
@@ -185,7 +185,7 @@ command_registry = CommandRegistry()
 async def handle_help_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """Handle the help command."""
     # Get the conversation's role
-    from .conversation_project_link import ConversationProjectManager
+    from .conversation_project_link import ConversationKnowledgePackageManager
 
     # First check conversation metadata
     conversation = await context.get_conversation()
@@ -195,14 +195,14 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
     metadata_role = metadata.get("project_role")
 
     # First check if project ID exists - if it does, setup should be considered complete
-    project_id = await ProjectManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_project_id(context)
     if project_id:
         # If we have a project ID, we should never show the setup instructions
         setup_complete = True
 
         # If metadata doesn't reflect this, try to get actual role
         if not metadata.get("setup_complete", False):
-            role = await ConversationProjectManager.get_conversation_role(context)
+            role = await ConversationKnowledgePackageManager.get_conversation_role(context)
             if role:
                 metadata_role = role.value
             else:
@@ -378,14 +378,14 @@ Type `/help` to see all available commands for your role.
 async def handle_create_brief_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
 ) -> None:
-    """Handle the create-brief command."""
+    """Handle the create-knowledge-brief command."""
     # Parse the command
-    content = message.content.strip()[len("/create-brief") :].strip()
+    content = message.content.strip()[len("/create-knowledge-brief") :].strip()
 
     if not content or "|" not in content:
         await context.send_messages(
             NewConversationMessage(
-                content="Please provide a brief title and description in the format: `/create-brief Title|Description here`",
+                content="Please provide a knowledge brief title and description in the format: `/create-knowledge-brief Title|Description here`",
                 message_type=MessageType.notice,
             )
         )
@@ -401,7 +401,9 @@ async def handle_create_brief_command(
             raise ValueError("Both name and description are required")
 
         # Create the brief without sending a notification (we'll send our own)
-        briefing = await ProjectManager.update_project_brief(context, title, description, send_notification=False)
+        briefing = await KnowledgeTransferManager.update_project_brief(
+            context, title, description, send_notification=False
+        )
 
         if briefing:
             await context.send_messages(
@@ -428,40 +430,40 @@ async def handle_create_brief_command(
 
 
 async def handle_add_goal_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
-    """Handle the add-goal command."""
+    """Handle the add-learning-objective command."""
     # Parse the command
-    content = message.content.strip()[len("/add-goal") :].strip()
+    content = message.content.strip()[len("/add-learning-objective") :].strip()
 
     if not content or "|" not in content:
         await context.send_messages(
             NewConversationMessage(
-                content="Please provide a goal name, description, and success criteria in the format: `/add-goal Goal Name|Goal description|Success criteria 1;Success criteria 2`",
+                content="Please provide an objective name, description, and learning outcomes in the format: `/add-learning-objective Objective Name|Objective description|Learning outcome 1;Learning outcome 2`",
                 message_type=MessageType.notice,
             )
         )
         return
 
-    # Extract goal details
+    # Extract learning objective details
     try:
         parts = content.split("|")
 
         if len(parts) < 2:
-            raise ValueError("Goal name and description are required")
+            raise ValueError("Objective name and description are required")
 
-        goal_name = parts[0].strip()
-        goal_description = parts[1].strip()
+        objective_name = parts[0].strip()
+        objective_description = parts[1].strip()
 
-        # Parse success criteria if provided
-        success_criteria = []
+        # Parse learning outcomes if provided
+        learning_outcomes = []
         if len(parts) > 2 and parts[2].strip():
-            criteria_list = parts[2].strip().split(";")
-            success_criteria = [c.strip() for c in criteria_list if c.strip()]
+            outcomes_list = parts[2].strip().split(";")
+            learning_outcomes = [o.strip() for o in outcomes_list if o.strip()]
 
-        if not goal_name or not goal_description:
-            raise ValueError("Both goal name and description are required")
+        if not objective_name or not objective_description:
+            raise ValueError("Both objective name and description are required")
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_associated_project_id(context)
+        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -471,47 +473,47 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             )
             return
 
-        # Use the dedicated method to add a goal to the project
-        goal = await ProjectManager.add_project_goal(
+        # Use the dedicated method to add a learning objective to the knowledge package
+        objective = await KnowledgeTransferManager.add_project_goal(
             context=context,
-            goal_name=goal_name,
-            goal_description=goal_description,
-            success_criteria=success_criteria,
+            goal_name=objective_name,
+            goal_description=objective_description,
+            success_criteria=learning_outcomes,
         )
 
-        if goal:
+        if objective:
             # Notify all linked conversations about the update
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="briefing",
-                message=f"Goal added to project: {goal_name}",
+                message=f"Learning objective added to knowledge package: {objective_name}",
             )
 
-            # Build success criteria message
-            criteria_msg = ""
-            if success_criteria:
-                criteria_list = "\n".join([f"- {c}" for c in success_criteria])
-                criteria_msg = f"\n\nSuccess Criteria:\n{criteria_list}"
+            # Build learning outcomes message
+            outcomes_msg = ""
+            if learning_outcomes:
+                outcomes_list = "\n".join([f"- {o}" for o in learning_outcomes])
+                outcomes_msg = f"\n\nLearning Outcomes:\n{outcomes_list}"
 
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Goal '{goal_name}' added successfully.{criteria_msg}",
+                    content=f"Learning objective '{objective_name}' added successfully.{outcomes_msg}",
                     message_type=MessageType.chat,
                 )
             )
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to add new goal. Please try again.",
+                    content="Failed to add new learning objective. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
     except Exception as e:
-        logger.exception(f"Error adding goal: {e}")
+        logger.exception(f"Error adding learning objective: {e}")
         await context.send_messages(
             NewConversationMessage(
-                content=f"Error adding goal: {str(e)}",
+                content=f"Error adding learning objective: {str(e)}",
                 message_type=MessageType.notice,
             )
         )
@@ -554,7 +556,7 @@ async def handle_request_info_command(
         priority = priority_map.get(priority_str, RequestPriority.MEDIUM)
 
         # Create the information request
-        success, request = await ProjectManager.create_information_request(
+        success, request = await KnowledgeTransferManager.create_information_request(
             context=context, title=title, description=description, priority=priority
         )
 
@@ -617,7 +619,7 @@ async def handle_update_status_command(
                 progress = None
 
         # Update the project status
-        success, status_obj = await ProjectManager.update_project_state(
+        success, status_obj = await KnowledgeTransferManager.update_project_state(
             context=context, state=status, status_message=status_message
         )
 
@@ -683,7 +685,7 @@ async def handle_resolve_request_command(
             )
 
             # Get information requests
-            requests = await ProjectManager.get_information_requests(context)
+            requests = await KnowledgeTransferManager.get_information_requests(context)
 
             # Filter for active requests
             active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED]
@@ -714,7 +716,7 @@ async def handle_resolve_request_command(
             return
 
         # Resolve the information request
-        success, info_request = await ProjectManager.resolve_information_request(
+        success, info_request = await KnowledgeTransferManager.resolve_information_request(
             context=context, request_id=request_id, resolution=resolution
         )
 
@@ -753,7 +755,7 @@ async def handle_resolve_request_command(
 async def handle_project_info_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
 ) -> None:
-    """Handle the project-info command."""
+    """Handle the knowledge-info command."""
     # Parse the command
     content = " ".join(args).strip().lower()
 
@@ -761,10 +763,10 @@ async def handle_project_info_command(
         # Determine which information to show
         info_type = content if content else "all"
 
-        if info_type not in ["all", "brief", "whiteboard", "status", "requests"]:
+        if info_type not in ["all", "brief", "digest", "status", "requests"]:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Please specify what information you want to see: `/project-info [brief|whiteboard|status|requests]`",
+                    content="Please specify what information you want to see: `/knowledge-info [brief|digest|status|requests]`",
                     message_type=MessageType.notice,
                 )
             )
@@ -774,10 +776,10 @@ async def handle_project_info_command(
         output = []
 
         # Always show project ID at the top for easy access
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if project_id:
             # Check if Coordinator or Team
-            role = await ProjectManager.get_project_role(context)
+            role = await KnowledgeTransferManager.get_project_role(context)
             if role == ConversationRole.COORDINATOR:
                 # For Coordinator, make it prominent with instructions
                 output.append(f"## Project ID: `{project_id}`")
@@ -788,7 +790,7 @@ async def handle_project_info_command(
 
         # Get brief if requested
         if info_type in ["all", "brief"]:
-            briefing = await ProjectManager.get_project_brief(context)
+            briefing = await KnowledgeTransferManager.get_project_brief(context)
 
             if briefing:
                 # Format briefing information
@@ -798,57 +800,57 @@ async def handle_project_info_command(
                 # Get project to access goals
                 if project_id:
                     project = ProjectStorage.read_project(project_id)
-                    if project and project.goals:
-                        output.append("\n### Goals:\n")
+                    if project and project.learning_objectives:
+                        output.append("\n### Learning Objectives:\n")
 
-                        for i, goal in enumerate(project.goals):
-                            # Count completed criteria
-                            completed = sum(1 for c in goal.success_criteria if c.completed)
-                            total = len(goal.success_criteria)
+                        for i, goal in enumerate(project.learning_objectives):
+                            # Count achieved outcomes
+                            achieved = sum(1 for c in goal.learning_outcomes if c.achieved)
+                            total = len(goal.learning_outcomes)
 
                             output.append(f"{i + 1}. **{goal.name}** - {goal.description}")
 
-                            if goal.success_criteria:
-                                output.append(f"   Progress: {completed}/{total} criteria complete")
-                                output.append("   Success Criteria:")
+                            if goal.learning_outcomes:
+                                output.append(f"   Progress: {achieved}/{total} outcomes achieved")
+                                output.append("   Learning Outcomes:")
 
-                                for j, criterion in enumerate(goal.success_criteria):
-                                    status = "✅" if criterion.completed else "⬜"
+                                for j, criterion in enumerate(goal.learning_outcomes):
+                                    status = "✅" if criterion.achieved else "⬜"
                                     output.append(f"   {status} {criterion.description}")
 
                             output.append("")
 
-        # Get project whiteboard if requested
-        if info_type in ["all", "whiteboard"]:
-            whiteboard = await ProjectManager.get_project_whiteboard(context)
+        # Get knowledge digest if requested
+        if info_type in ["all", "digest"]:
+            digest = await KnowledgeTransferManager.get_project_whiteboard(context)
 
-            if whiteboard and whiteboard.content:
-                output.append("\n## Project Whiteboard\n")
-                output.append(whiteboard.content)
+            if digest and digest.content:
+                output.append("\n## Knowledge Digest\n")
+                output.append(digest.content)
                 output.append("")
 
-                if whiteboard.is_auto_generated:
-                    output.append("*This whiteboard content is automatically updated by the assistant.*")
+                if digest.is_auto_generated:
+                    output.append("*This knowledge digest is automatically updated by the assistant.*")
                 else:
-                    output.append("*This whiteboard content has been manually edited.*")
+                    output.append("*This knowledge digest has been manually edited.*")
 
                 output.append("")
-            elif info_type == "whiteboard":
-                output.append("\n## Project Whiteboard\n")
+            elif info_type == "digest":
+                output.append("\n## Knowledge Digest\n")
                 output.append(
-                    "*No whiteboard content available yet. Content will be automatically generated as the project progresses.*"
+                    "*No digest content available yet. Content will be automatically generated as the knowledge transfer progresses.*"
                 )
 
         # Get project status if requested
         if info_type in ["all", "status"]:
-            project_info = await ProjectManager.get_project_info(context)
+            project_info = await KnowledgeTransferManager.get_project_info(context)
 
             if project_info:
                 output.append("\n## Project Status\n")
-                output.append(f"**Current Status**: {project_info.state.value}")
+                output.append(f"**Current Status**: {project_info.transfer_state.value}")
 
-                if project_info.status_message:
-                    output.append(f"**Status Message**: {project_info.status_message}")
+                if project_info.transfer_notes:
+                    output.append(f"**Transfer Notes**: {project_info.transfer_notes}")
 
                 # Success criteria status can be calculated from the brief if needed later
             elif info_type == "status":
@@ -857,7 +859,7 @@ async def handle_project_info_command(
 
         # Get information requests if requested
         if info_type in ["all", "requests"]:
-            requests = await ProjectManager.get_information_requests(context)
+            requests = await KnowledgeTransferManager.get_information_requests(context)
 
             if requests:
                 output.append("\n## Information Requests\n")
@@ -931,7 +933,7 @@ async def handle_list_participants_command(
     """Handle the list-participants command."""
     try:
         # Get project ID
-        project_id = await ConversationProjectManager.get_associated_project_id(context)
+        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -942,7 +944,7 @@ async def handle_list_participants_command(
             return
 
         # Get all linked conversations
-        linked_conversation_ids = await ConversationProjectManager.get_linked_conversations(context)
+        linked_conversation_ids = await ConversationKnowledgePackageManager.get_linked_conversations(context)
 
         if not linked_conversation_ids:
             await context.send_messages(
@@ -1001,7 +1003,7 @@ async def handle_sync_files_command(
     """
     try:
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -1046,11 +1048,11 @@ command_registry.register_command(
 )
 
 command_registry.register_command(
-    "project-info",
+    "knowledge-info",
     handle_project_info_command,
-    "View project information",
-    "/project-info [brief|whiteboard|status|requests]",
-    "/project-info brief",
+    "View knowledge package information",
+    "/knowledge-info [brief|digest|status|requests]",
+    "/knowledge-info brief",
     None,  # Available to all roles
 )
 
@@ -1069,21 +1071,21 @@ command_registry.register_command(
 
 # Coordinator commands
 command_registry.register_command(
-    "create-brief",
+    "create-knowledge-brief",
     handle_create_brief_command,
-    "Create a brief",
-    "/create-brief Title|Description",
-    "/create-brief Website Redesign|We need to modernize our company website to improve user experience and conversions.",
-    ["coordinator"],  # Only Coordinator can create briefs
+    "Create a knowledge brief",
+    "/create-knowledge-brief Title|Description",
+    "/create-knowledge-brief React Patterns|Key React patterns and best practices for our development team.",
+    ["coordinator"],  # Only Coordinator can create knowledge briefs
 )
 
 command_registry.register_command(
-    "add-goal",
+    "add-learning-objective",
     handle_add_goal_command,
-    "Add a goal",
-    "/add-goal Goal Name|Goal description|Success criterion 1;Success criterion 2",
-    "/add-goal Redesign Homepage|Create a new responsive homepage|Design approved by stakeholders;Mobile compatibility verified",
-    ["coordinator"],  # Only Coordinator can add goals
+    "Add a learning objective",
+    "/add-learning-objective Objective Name|Objective description|Learning outcome 1;Learning outcome 2",
+    "/add-learning-objective React Hooks|Understand React hooks and their usage|Can explain useState and useEffect;Can implement custom hooks",
+    ["coordinator"],  # Only Coordinator can add learning objectives
 )
 
 

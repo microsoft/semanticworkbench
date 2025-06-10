@@ -38,6 +38,6 @@ class CoordinatorConversationMessage(BaseModel):
 class CoordinatorConversationStorage(BaseModel):
     """Model for storing a collection of Coordinator conversation messages."""
 
-    project_id: str
+    knowledge_package_id: str
     last_updated: datetime = Field(default_factory=datetime.utcnow)
     messages: List[CoordinatorConversationMessage] = Field(default_factory=list)

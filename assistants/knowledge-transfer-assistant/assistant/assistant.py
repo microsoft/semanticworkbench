@@ -37,11 +37,11 @@ from assistant.utils import (
 
 from .common import detect_assistant_role
 from .config import assistant_config
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
 from .files import ProjectFileManager
 from .logging import logger
-from .manager import ProjectManager
+from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
 from .state_inspector import ProjectInspectorStateProvider
 from .storage import ProjectStorage
@@ -151,7 +151,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 logger.error("No project ID found for shareable team conversation.")
                 return
 
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
             return
 
         case ConversationType.TEAM:
@@ -167,7 +167,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
 
             # Synchronize files.
             await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
@@ -198,18 +198,18 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
         case ConversationType.COORDINATOR:
             try:
-                project_id = await ProjectManager.create_project(context)
+                project_id = await KnowledgeTransferManager.create_project(context)
 
                 # A basic brief to start with.
 
-                await ProjectManager.update_project_brief(
+                await KnowledgeTransferManager.update_project_brief(
                     context=context,
                     title="Knowledge Brief",
                     description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_",
                 )
 
                 # Create a team conversation with a share URL
-                share_url = await ProjectManager.create_shareable_team_conversation(
+                share_url = await KnowledgeTransferManager.create_shareable_team_conversation(
                     context=context, project_id=project_id
                 )
 
@@ -242,7 +242,7 @@ async def on_message_created(
     }
 
     try:
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         metadata["debug"]["project_id"] = project_id
 
         # If this is a Coordinator conversation, store the message for Team access
@@ -283,7 +283,7 @@ async def on_message_created(
 
         # If the message is from a Coordinator, update the whiteboard in the background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            asyncio.create_task(ProjectManager.auto_update_whiteboard(context))
+            asyncio.create_task(KnowledgeTransferManager.auto_update_whiteboard(context))
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")
@@ -343,7 +343,7 @@ async def on_file_created(
     1. Use as-is without copying to project storage
     """
     try:
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id or not file.filename:
             logger.warning(
                 f"No project ID found or missing filename: project_id={project_id}, filename={file.filename}"
@@ -419,7 +419,7 @@ async def on_file_updated(
 ) -> None:
     try:
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id or not file.filename:
             return
 
@@ -483,7 +483,7 @@ async def on_file_deleted(
 ) -> None:
     try:
         # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
+        project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id or not file.filename:
             return
 
@@ -549,7 +549,7 @@ async def on_participant_joined(
         if role != ConversationRole.TEAM:
             return
 
-        project_id = await ConversationProjectManager.get_associated_project_id(context)
+        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
         if not project_id:
             return
 

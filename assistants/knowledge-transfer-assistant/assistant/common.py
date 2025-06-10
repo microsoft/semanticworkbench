@@ -9,7 +9,7 @@ from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
 from .logging import logger
 from .storage import ProjectStorage
@@ -66,7 +66,7 @@ async def log_project_action(
         related_entity_id: Optional ID of a related entity (e.g., request ID)
         additional_metadata: Optional additional metadata to include in the log
     """
-    project_id = await ConversationProjectManager.get_associated_project_id(context)
+    project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
     if not project_id:
         return
 

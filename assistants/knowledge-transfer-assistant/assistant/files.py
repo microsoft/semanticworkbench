@@ -18,7 +18,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .common import detect_assistant_role
 from .conversation_clients import ConversationClientManager
-from .conversation_project_link import ConversationProjectManager
+from .conversation_project_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
 from .logging import logger
 from .storage import ProjectStorage, ProjectStorageManager, read_model, write_model
@@ -416,7 +416,7 @@ class ProjectFileManager:
         """
         try:
             # Get linked conversations
-            linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
+            linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
 
             # Filter for team conversations
             team_conversations = []
@@ -424,7 +424,7 @@ class ProjectFileManager:
                 # Check if this is a team conversation
                 temp_context = await ProjectFileManager.create_temporary_context(context, conv_id)
                 if temp_context:
-                    role = await ConversationProjectManager.get_conversation_role(temp_context)
+                    role = await ConversationKnowledgePackageManager.get_conversation_role(temp_context)
                     if role == ConversationRole.TEAM:
                         team_conversations.append(conv_id)
 
