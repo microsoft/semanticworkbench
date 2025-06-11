@@ -16,13 +16,13 @@ from semantic_workbench_assistant.storage import read_model, write_model
 # Import inside functions to avoid circular imports
 from .data import (
     InformationRequest,
-    LogEntry,
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
     KnowledgePackageInfo,
-    LogEntryType,
     KnowledgePackageLog,
+    LogEntry,
+    LogEntryType,
 )
 from .storage_models import CoordinatorConversationMessage, CoordinatorConversationStorage
 from .utils import get_current_user
@@ -81,7 +81,7 @@ class ProjectStorageManager:
         return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
 
     @staticmethod
-    def get_project_whiteboard_path(project_id: str) -> pathlib.Path:
+    def get_knowledge_digest_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project whiteboard file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_WHITEBOARD_FILE
@@ -177,9 +177,9 @@ class ProjectStorage:
         return path
 
     @staticmethod
-    def read_project_whiteboard(project_id: str) -> Optional[KnowledgeDigest]:
+    def read_knowledge_digest(project_id: str) -> Optional[KnowledgeDigest]:
         """Reads the project whiteboard."""
-        path = ProjectStorageManager.get_project_whiteboard_path(project_id)
+        path = ProjectStorageManager.get_knowledge_digest_path(project_id)
         return read_model(path, KnowledgeDigest)
 
     @staticmethod
@@ -242,7 +242,7 @@ class ProjectStorage:
     @staticmethod
     def write_project_whiteboard(project_id: str, whiteboard: KnowledgeDigest) -> pathlib.Path:
         """Writes the project whiteboard."""
-        path = ProjectStorageManager.get_project_whiteboard_path(project_id)
+        path = ProjectStorageManager.get_knowledge_digest_path(project_id)
         write_model(path, whiteboard)
         return path
 

@@ -186,7 +186,7 @@ async def respond_to_conversation(
         )
 
     # Whiteboard
-    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+    whiteboard = ProjectStorage.read_knowledge_digest(project_id)
     if whiteboard and whiteboard.content:
         prompt.contexts.append(Context("Assistant Whiteboard", whiteboard.content, "The assistant's whiteboard"))
 

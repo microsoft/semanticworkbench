@@ -11,7 +11,7 @@ import uuid
 from typing import Any, TypeVar
 
 from assistant.conversation_project_link import ConversationKnowledgePackageManager
-from assistant.data import KnowledgePackage, KnowledgeBrief, LearningObjective, LearningOutcome
+from assistant.data import KnowledgeBrief, KnowledgePackage, LearningObjective, LearningOutcome
 from assistant.manager import KnowledgeTransferManager
 from assistant.storage import ProjectStorage, ProjectStorageManager
 from assistant.storage_models import ConversationRole
@@ -145,7 +145,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             context: Any = self.context
 
             # Get the brief using the KnowledgeTransferManager
-            brief = await KnowledgeTransferManager.get_project_brief(context)
+            brief = await KnowledgeTransferManager.get_knowledge_brief(context)
             project = ProjectStorage.read_project(self.project_id)
 
             # Verify the brief was loaded correctly

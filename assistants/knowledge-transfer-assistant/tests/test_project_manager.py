@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from assistant.data import (
     KnowledgePackage,
-    LearningObjective,
     KnowledgePackageInfo,
     KnowledgeTransferState,
+    LearningObjective,
     LearningOutcome,
 )
 from assistant.manager import KnowledgeTransferManager
@@ -168,7 +168,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, goal_name_result = await KnowledgeTransferManager.delete_project_goal(context, goal_index)
+        success, goal_name_result = await KnowledgeTransferManager.delete_learning_objective(context, goal_index)
 
         # Verify the result
         assert success is True
@@ -229,7 +229,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested with an invalid index
-        success, error_message = await KnowledgeTransferManager.delete_project_goal(context, goal_index)
+        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, goal_index)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False
@@ -251,7 +251,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, error_message = await KnowledgeTransferManager.delete_project_goal(context, 1)
+        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, 1)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

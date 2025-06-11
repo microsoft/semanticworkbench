@@ -225,7 +225,7 @@ class ProjectTools:
             return "No project associated with this conversation. Please create a project first."
 
         # Create a new project brief using KnowledgeTransferManager
-        brief = await KnowledgeTransferManager.update_project_brief(
+        brief = await KnowledgeTransferManager.update_knowledge_brief(
             context=self.context,
             title=title,
             description=description,
@@ -541,7 +541,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             logger.exception(f"Error deleting information request: {e}")
             return f"Error deleting information request: {str(e)}. Please try again later."
 
-    async def add_project_goal(self, goal_name: str, goal_description: str, learning_outcomes: List[str]) -> str:
+    async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
         """
         Add a learning objective to the knowledge brief with measurable learning outcomes.
 
@@ -555,8 +555,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - When users ask to add or define learning objectives or knowledge areas
 
         Args:
-            goal_name: A concise, clear name for the learning objective (e.g., "Understanding User Authentication")
-            goal_description: A detailed description explaining what knowledge needs to be understood
+            objective_name: A concise, clear name for the learning objective (e.g., "Understanding User Authentication")
+            description: A detailed description explaining what knowledge needs to be understood
             learning_outcomes: List of specific, measurable outcomes that indicate when the objective is achieved
                              (e.g., ["Can explain authentication flow", "Can implement password security"])
 
@@ -573,7 +573,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No project associated with this conversation. Please create a project brief first."
 
         # Get existing project brief
-        brief = await KnowledgeTransferManager.get_project_brief(self.context)
+        brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
             return "No project brief found. Please create one first with create_project_brief."
 
@@ -582,13 +582,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if len(learning_outcomes) > 0:
             criteria_str = "|" + ";".join(learning_outcomes)
 
-        command_content = f"/add-goal {goal_name}|{goal_description}{criteria_str}"
+        command_content = f"/add-goal {objective_name}|{description}{criteria_str}"
 
         return await invoke_command_handler(
             context=self.context,
             command_content=command_content,
             handler_func=handle_add_goal_command,
-            success_message=f"Learning objective '{goal_name}' added to knowledge brief successfully.",
+            success_message=f"Learning objective '{objective_name}' added to knowledge brief successfully.",
             error_prefix="Error adding learning objective",
         )
 
@@ -622,9 +622,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No knowledge package associated with this conversation."
 
         # Call the KnowledgeTransferManager method to delete the learning objective
-        success, result = await KnowledgeTransferManager.delete_project_goal(
+        success, result = await KnowledgeTransferManager.delete_learning_objective(
             context=self.context,
-            goal_index=goal_index,
+            objective_index=goal_index,
         )
 
         if success:
@@ -673,7 +673,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No project associated with this conversation. Unable to mark criterion as completed."
 
         # Get existing project brief
-        brief = await KnowledgeTransferManager.get_project_brief(self.context)
+        brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
             return "No project brief found."
 
@@ -828,11 +828,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Get project ID
         project_id = await KnowledgeTransferManager.get_project_id(self.context)
         if not project_id:
-            return "No knowledge package associated with this conversation. Unable to mark package as ready for transfer."
+            return (
+                "No knowledge package associated with this conversation. Unable to mark package as ready for transfer."
+            )
 
         # Get existing knowledge brief, digest, and package
         brief = ProjectStorage.read_project_brief(project_id)
-        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+        whiteboard = ProjectStorage.read_knowledge_digest(project_id)
         project = ProjectStorage.read_project(project_id)
 
         if not brief:
@@ -1125,7 +1127,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # For team, check if all criteria are completed for project completion
-        criteria = await KnowledgeTransferManager.get_project_criteria(self.context)
+        criteria = await KnowledgeTransferManager.get_learning_outcomes(self.context)
         incomplete_criteria = [criterion for criterion in criteria if not criterion.achieved]
 
         if self.role is ConversationRole.TEAM and not incomplete_criteria:

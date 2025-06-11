@@ -12,17 +12,17 @@ from datetime import datetime
 from assistant.conversation_project_link import ConversationKnowledgePackageManager
 from assistant.data import (
     InformationRequest,
-    LogEntry,
-    LogEntryType,
-    KnowledgePackage,
     KnowledgeBrief,
-    LearningObjective,
+    KnowledgeDigest,
+    KnowledgePackage,
     KnowledgePackageInfo,
     KnowledgePackageLog,
-    KnowledgeDigest,
+    LearningObjective,
+    LearningOutcome,
+    LogEntry,
+    LogEntryType,
     RequestPriority,
     RequestStatus,
-    LearningOutcome,
 )
 from assistant.storage import ProjectStorage, ProjectStorageManager
 from assistant.storage_models import (
@@ -358,7 +358,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         ProjectStorage.write_project_whiteboard(self.project_id, whiteboard)
 
         # Read whiteboard
-        read_whiteboard = ProjectStorage.read_project_whiteboard(self.project_id)
+        read_whiteboard = ProjectStorage.read_knowledge_digest(self.project_id)
 
         # Verify whiteboard was saved correctly
         self.assertIsNotNone(read_whiteboard, "Should load the whiteboard")

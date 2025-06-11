@@ -401,7 +401,7 @@ async def handle_create_brief_command(
             raise ValueError("Both name and description are required")
 
         # Create the brief without sending a notification (we'll send our own)
-        briefing = await KnowledgeTransferManager.update_project_brief(
+        briefing = await KnowledgeTransferManager.update_knowledge_brief(
             context, title, description, send_notification=False
         )
 
@@ -474,11 +474,11 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             return
 
         # Use the dedicated method to add a learning objective to the knowledge package
-        objective = await KnowledgeTransferManager.add_project_goal(
+        objective = await KnowledgeTransferManager.add_learning_objective(
             context=context,
-            goal_name=objective_name,
-            goal_description=objective_description,
-            success_criteria=learning_outcomes,
+            objective_name=objective_name,
+            description=objective_description,
+            outcomes=learning_outcomes,
         )
 
         if objective:
@@ -790,7 +790,7 @@ async def handle_project_info_command(
 
         # Get brief if requested
         if info_type in ["all", "brief"]:
-            briefing = await KnowledgeTransferManager.get_project_brief(context)
+            briefing = await KnowledgeTransferManager.get_knowledge_brief(context)
 
             if briefing:
                 # Format briefing information
@@ -822,7 +822,7 @@ async def handle_project_info_command(
 
         # Get knowledge digest if requested
         if info_type in ["all", "digest"]:
-            digest = await KnowledgeTransferManager.get_project_whiteboard(context)
+            digest = await KnowledgeTransferManager.get_knowledge_digest(context)
 
             if digest and digest.content:
                 output.append("\n## Knowledge Digest\n")

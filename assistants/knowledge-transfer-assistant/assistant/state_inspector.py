@@ -65,7 +65,7 @@ class ProjectInspectorStateProvider:
             )
 
         # Get knowledge transfer information
-        brief = await KnowledgeTransferManager.get_project_brief(context)
+        brief = await KnowledgeTransferManager.get_knowledge_brief(context)
         project_info = await KnowledgeTransferManager.get_project_info(context)
 
         if conversation_role == ConversationRole.COORDINATOR:

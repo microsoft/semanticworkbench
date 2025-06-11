@@ -202,7 +202,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
                 # A basic brief to start with.
 
-                await KnowledgeTransferManager.update_project_brief(
+                await KnowledgeTransferManager.update_knowledge_brief(
                     context=context,
                     title="Knowledge Brief",
                     description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_",
@@ -283,7 +283,7 @@ async def on_message_created(
 
         # If the message is from a Coordinator, update the whiteboard in the background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            asyncio.create_task(KnowledgeTransferManager.auto_update_whiteboard(context))
+            asyncio.create_task(KnowledgeTransferManager.auto_update_knowledge_digest(context))
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")

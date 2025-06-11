@@ -63,7 +63,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         project_data["goals"] = project_brief_text
 
     # Whiteboard
-    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+    whiteboard = ProjectStorage.read_knowledge_digest(project_id)
     if whiteboard and whiteboard.content:
         whiteboard_text = dedent(f"""
             ### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE

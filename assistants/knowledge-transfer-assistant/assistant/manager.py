@@ -29,11 +29,11 @@ from .data import (
     KnowledgeDigest,
     KnowledgePackage,
     KnowledgePackageInfo,
+    KnowledgePackageLog,
     KnowledgeTransferState,
     LearningObjective,
     LearningOutcome,
     LogEntryType,
-    KnowledgePackageLog,
     RequestPriority,
     RequestStatus,
 )
@@ -271,108 +271,29 @@ class KnowledgeTransferManager:
             return None
 
     @staticmethod
-    async def get_project_brief(context: ConversationContext) -> Optional[KnowledgeBrief]:
-        """
-        Gets the project brief for the current conversation's project.
-
-        The project brief contains the core information about the project:
-        name, description, goals, and success criteria. This is the central
-        document that defines what the project is trying to accomplish.
-
-        Args:
-            context: Current conversation context
-
-        Returns:
-            The KnowledgeBrief object if found, None if the conversation is not
-            part of a project or if no brief has been created yet
-        """
+    async def get_project_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
+        """Gets the project log for the current conversation's project."""
         project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
-        return ProjectStorage.read_project_brief(project_id)
+        return ProjectStorage.read_project_log(project_id)
 
     @staticmethod
-    async def update_project_brief(
-        context: ConversationContext,
-        title: str,
-        description: str,
-        timeline: Optional[str] = None,
-        additional_context: Optional[str] = None,
-        send_notification: bool = True,
-    ) -> Optional[KnowledgeBrief]:
-        """
-        Creates or updates a project brief for the current project.
-
-        The project brief is the primary document that defines the project for team members.
-
-        Goals should be managed separately through add_project_goal and are not handled by this method.
-
-        Args:
-            context: A reference to the conversation context object
-            title: Short, descriptive name for the project
-            description: Comprehensive description of the project's purpose
-            timeline: Optional information about project timeline/deadlines
-            additional_context: Optional additional information relevant to the project
-            send_notification: Whether to send a notification about the brief update (default: True)
-
-        Returns:
-            The updated KnowledgeBrief object if successful, None otherwise
-        """
-        # Get project ID
+    async def get_project(context: ConversationContext) -> Optional[KnowledgePackage]:
+        """Gets the project information for the current conversation's project."""
         project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
-            logger.error("Cannot update brief: no project associated with this conversation")
-            return
-        # Get user information
-        current_user_id = await require_current_user(context, "update brief")
-        if not current_user_id:
-            return
-
-        # Create the project brief
-        brief = KnowledgeBrief(
-            title=title,
-            description=description,
-            timeline=timeline,
-            additional_context=additional_context,
-            created_by=current_user_id,
-            updated_by=current_user_id,
-            conversation_id=str(context.id),
+            return None
+        project = KnowledgePackage(
+            info=ProjectStorage.read_project_info(project_id),
+            brief=ProjectStorage.read_project_brief(project_id),
+            learning_objectives=[],  # TODO: Add storage method for learning objectives
+            digest=ProjectStorage.read_knowledge_digest(project_id),
+            requests=ProjectStorage.get_all_information_requests(project_id),
+            log=ProjectStorage.read_project_log(project_id),
         )
-
-        # Save the brief
-        ProjectStorage.write_project_brief(project_id, brief)
-
-        # Check if this is a creation or an update
-        existing_brief = ProjectStorage.read_project_brief(project_id)
-        if existing_brief:
-            # This is an update
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.BRIEFING_UPDATED.value,
-                message=f"Updated brief: {title}",
-            )
-        else:
-            # This is a creation
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.BRIEFING_CREATED.value,
-                message=f"Created brief: {title}",
-            )
-
-        # Only notify if send_notification is True
-        if send_notification:
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Brief created: {title}",
-            )
-
-        return brief
+        return project
 
     @staticmethod
     async def get_project_state(
@@ -391,217 +312,110 @@ class KnowledgeTransferManager:
         return project_info.transfer_state
 
     @staticmethod
-    async def add_project_goal(
+    async def update_project_state(
         context: ConversationContext,
-        goal_name: str,
-        goal_description: str,
-        success_criteria: Optional[List[str]] = None,
-        priority: int = 1,
-    ) -> Optional[LearningObjective]:
+        state: Optional[str] = None,
+        status_message: Optional[str] = None,
+    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
         """
-        Adds a goal to the project.
+        Updates the project state and status message.
 
         Args:
             context: Current conversation context
-            goal_name: Name of the goal
-            goal_description: Description of the goal
-            success_criteria: List of success criteria strings (optional)
-            priority: Priority of the goal (default: 1)
+            state: Optional project state
+            status_message: Optional status message
 
         Returns:
-            The created LearningObjective if successful, None otherwise
+            Tuple of (success, project_info)
         """
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
-            logger.error("Cannot add goal: no project associated with this conversation")
-            return None
+        try:
+            # Get project ID
+            project_id = await KnowledgeTransferManager.get_project_id(context)
+            if not project_id:
+                logger.error("Cannot update project state: no project associated with this conversation")
+                return False, None
 
-        # Get user information
-        current_user_id = await require_current_user(context, "add goal")
-        if not current_user_id:
-            return None
+            # Get user information
+            current_user_id = await require_current_user(context, "update project state")
+            if not current_user_id:
+                return False, None
 
-        # Create success criteria objects if provided
-        criterion_objects = []
-        if success_criteria:
-            for criterion in success_criteria:
-                criterion_objects.append(LearningOutcome(description=criterion))
+            # Get existing project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            if not project_info:
+                logger.error(f"Cannot update project state: no project info found for {project_id}")
+                return False, None
 
-        # Create the new goal
-        new_goal = LearningObjective(
-            name=goal_name,
-            description=goal_description,
-            priority=priority,
-            learning_outcomes=criterion_objects,
-        )
+            # Apply updates
+            if state:
+                project_info.transfer_state = KnowledgeTransferState(state)
 
-        # Get the existing project
-        project = ProjectStorage.read_project(project_id)
-        if not project:
-            # Create a new project if it doesn't exist
-            project = KnowledgePackage(
-                info=None,
-                brief=None,
-                learning_objectives=[new_goal],
-                digest=None,
-                requests=[],
-                log=None,
-            )
-        else:
-            # Add the goal to the existing project
-            project.learning_objectives.append(new_goal)
-
-        # Save the updated project
-        ProjectStorage.write_project(project_id, project)
-
-        # Log the goal addition
-        await ProjectStorage.log_project_event(
-            context=context,
-            project_id=project_id,
-            entry_type=LogEntryType.GOAL_ADDED.value,
-            message=f"Added goal: {goal_name}",
-        )
-
-        # Notify linked conversations
-        await ProjectNotifier.notify_project_update(
-            context=context,
-            project_id=project_id,
-            update_type="goal",
-            message=f"Goal added: {goal_name}",
-        )
-
-        return new_goal
-
-    @staticmethod
-    async def delete_project_goal(
-        context: ConversationContext,
-        goal_index: int,
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Deletes a goal from the project.
-
-        Args:
-            context: Current conversation context
-            goal_index: The index of the goal to delete (0-based)
-
-        Returns:
-            Tuple of (success, goal_name_or_error_message)
-        """
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
-            logger.error("Cannot delete goal: no project associated with this conversation")
-            return False, "No project associated with this conversation."
-
-        # Get user information
-        current_user_id = await require_current_user(context, "delete goal")
-        if not current_user_id:
-            return False, "Could not identify current user."
-
-        # Get the existing project
-        project = ProjectStorage.read_project(project_id)
-        if not project or not project.learning_objectives:
-            return False, "No project goals found."
-
-        # Validate index
-        if goal_index < 0 or goal_index >= len(project.learning_objectives):
-            return (
-                False,
-                f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} goals.",
-            )
-
-        # Get the goal to delete
-        goal = project.learning_objectives[goal_index]
-        goal_name = goal.name
-
-        # Remove the goal from the list
-        project.learning_objectives.pop(goal_index)
-
-        # Save the updated project
-        ProjectStorage.write_project(project_id, project)
-
-        # Log the goal deletion
-        await ProjectStorage.log_project_event(
-            context=context,
-            project_id=project_id,
-            entry_type=LogEntryType.GOAL_DELETED.value,
-            message=f"Deleted goal: {goal_name}",
-        )
-
-        # Notify linked conversations
-        await ProjectNotifier.notify_project_update(
-            context=context,
-            project_id=project_id,
-            update_type="goal",
-            message=f"Goal deleted: {goal_name}",
-        )
-
-        # Update project info with new criteria counts
-        project_info = ProjectStorage.read_project_info(project_id)
-        if project_info:
-            # Count all completed criteria
-            completed_criteria = 0
-            total_criteria = 0
-
-            # Get the updated project to access goals
-            updated_project = ProjectStorage.read_project(project_id)
-            if updated_project and updated_project.learning_objectives:
-                for g in updated_project.learning_objectives:
-                    total_criteria += len(g.learning_outcomes)
-                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
-
-            # Update project info with criteria stats
-            # Note: achieved_criteria not in KnowledgePackageInfo model
-            # Note: total_criteria not in KnowledgePackageInfo model
-
-            # Calculate progress percentage
-            if total_criteria > 0:
-                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
-            else:
-                project_info.completion_percentage = 0
+            if status_message:
+                project_info.transfer_notes = status_message
 
             # Update metadata
             project_info.updated_at = datetime.utcnow()
-            project_info.updated_by = current_user_id
-            project_info.version += 1
 
-            # Save the updated project info
+            # Save the project info
             ProjectStorage.write_project_info(project_id, project_info)
 
-        # Update all project UI inspectors
-        await ProjectStorage.refresh_all_project_uis(context, project_id)
+            # Log the update
+            event_type = LogEntryType.STATUS_CHANGED
+            message = f"Updated project state to {project_info.transfer_state.value}"
 
-        return True, goal_name
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=event_type.value,
+                message=message,
+                metadata={
+                    "state": project_info.transfer_state.value,
+                    "status_message": status_message,
+                },
+            )
+
+            # Notify linked conversations
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="project_state",
+                message=f"KnowledgePackage state updated: {project_info.transfer_state.value}",
+            )
+
+            return True, project_info
+
+        except Exception as e:
+            logger.exception(f"Error updating project state: {e}")
+            return False, None
 
     @staticmethod
-    async def get_project_criteria(context: ConversationContext) -> List[LearningOutcome]:
+    async def get_project_info(
+        context: ConversationContext, project_id: Optional[str] = None
+    ) -> Optional[KnowledgePackageInfo]:
         """
-        Gets the success criteria for the current conversation's project.
+        Gets the project information including share URL and team conversation details.
 
         Args:
             context: Current conversation context
-            completed_only: If True, only return completed criteria
+            project_id: Optional project ID (if not provided, will be retrieved from context)
 
         Returns:
-            List of LearningOutcome objects
+            KnowledgePackageInfo object or None if not found
         """
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
-            return []
+        try:
+            # Get project ID if not provided
+            if not project_id:
+                project_id = await KnowledgeTransferManager.get_project_id(context)
+                if not project_id:
+                    return None
 
-        # Get the project which contains goals and success criteria
-        project = ProjectStorage.read_project(project_id)
-        if not project:
-            return []
+            # Read project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            return project_info
 
-        goals = project.learning_objectives
-        criteria = []
-        for goal in goals:
-            # Add success criteria from each goal
-            criteria.extend(goal.learning_outcomes)
-
-        return criteria
+        except Exception as e:
+            logger.exception(f"Error getting project info: {e}")
+            return None
 
     @staticmethod
     async def update_project_info(
@@ -694,81 +508,319 @@ class KnowledgeTransferManager:
         return project_info
 
     @staticmethod
-    async def update_project_state(
-        context: ConversationContext,
-        state: Optional[str] = None,
-        status_message: Optional[str] = None,
-    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
+    async def get_knowledge_brief(context: ConversationContext) -> Optional[KnowledgeBrief]:
         """
-        Updates the project state and status message.
+        Gets the brief for the current conversation's knowledge share.
+
+        The brief contains the core information about the knowledge share:
+        name, description, goals, and success criteria. This is the central
+        document that defines what the knowledge share is trying to accomplish.
 
         Args:
             context: Current conversation context
-            state: Optional project state
-            status_message: Optional status message
 
         Returns:
-            Tuple of (success, project_info)
+            The KnowledgeBrief object if found, None if the conversation is not
+            part of a knowledge share or if no brief has been created yet
         """
-        try:
-            # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
-                logger.error("Cannot update project state: no project associated with this conversation")
-                return False, None
+        project_id = await KnowledgeTransferManager.get_project_id(context)
+        if not project_id:
+            return None
 
-            # Get user information
-            current_user_id = await require_current_user(context, "update project state")
-            if not current_user_id:
-                return False, None
+        return ProjectStorage.read_project_brief(project_id)
 
-            # Get existing project info
-            project_info = ProjectStorage.read_project_info(project_id)
-            if not project_info:
-                logger.error(f"Cannot update project state: no project info found for {project_id}")
-                return False, None
+    @staticmethod
+    async def update_knowledge_brief(
+        context: ConversationContext,
+        title: str,
+        description: str,
+        timeline: Optional[str] = None,
+        additional_context: Optional[str] = None,
+        send_notification: bool = True,
+    ) -> Optional[KnowledgeBrief]:
+        """
+        Creates or updates a knowledge brief for the current knowledge share.
 
-            # Apply updates
-            if state:
-                project_info.transfer_state = KnowledgeTransferState(state)
+        The brief is the primary document that defines the knowledge share for team members.
 
-            if status_message:
-                project_info.transfer_notes = status_message
+        Args:
+            context: A reference to the conversation context object
+            title: Short, descriptive name for the knowledge share
+            description: Comprehensive description of the knowledge share's purpose
+            timeline: Optional information about timeline/deadlines
+            additional_context: Optional additional relevant information
+            send_notification: Whether to send a notification about the brief update (default: True)
 
-            # Update metadata
-            project_info.updated_at = datetime.utcnow()
+        Returns:
+            The updated KnowledgeBrief object if successful, None otherwise
+        """
+        # Get project ID
+        project_id = await KnowledgeTransferManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot update brief: no project associated with this conversation")
+            return
+        # Get user information
+        current_user_id = await require_current_user(context, "update brief")
+        if not current_user_id:
+            return
 
-            # Save the project info
-            ProjectStorage.write_project_info(project_id, project_info)
+        # Create the project brief
+        brief = KnowledgeBrief(
+            title=title,
+            description=description,
+            timeline=timeline,
+            additional_context=additional_context,
+            created_by=current_user_id,
+            updated_by=current_user_id,
+            conversation_id=str(context.id),
+        )
 
-            # Log the update
-            event_type = LogEntryType.STATUS_CHANGED
-            message = f"Updated project state to {project_info.transfer_state.value}"
+        # Save the brief
+        ProjectStorage.write_project_brief(project_id, brief)
 
+        # Check if this is a creation or an update
+        existing_brief = ProjectStorage.read_project_brief(project_id)
+        if existing_brief:
+            # This is an update
             await ProjectStorage.log_project_event(
                 context=context,
                 project_id=project_id,
-                entry_type=event_type.value,
-                message=message,
-                metadata={
-                    "state": project_info.transfer_state.value,
-                    "status_message": status_message,
-                },
+                entry_type=LogEntryType.BRIEFING_UPDATED.value,
+                message=f"Updated brief: {title}",
+            )
+        else:
+            # This is a creation
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=LogEntryType.BRIEFING_CREATED.value,
+                message=f"Created brief: {title}",
             )
 
+        # Only notify if send_notification is True
+        if send_notification:
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
-                update_type="project_state",
-                message=f"KnowledgePackage state updated: {project_info.transfer_state.value}",
+                update_type="brief",
+                message=f"Brief created: {title}",
             )
 
-            return True, project_info
+        return brief
 
-        except Exception as e:
-            logger.exception(f"Error updating project state: {e}")
-            return False, None
+    @staticmethod
+    async def add_learning_objective(
+        context: ConversationContext,
+        objective_name: str,
+        description: str,
+        outcomes: Optional[List[str]] = None,
+        priority: int = 1,
+    ) -> Optional[LearningObjective]:
+        """
+        Adds a learning objective to the project.
+
+        Args:
+            context: Current conversation context
+            objective_name: Name of the learning objective
+            description: Description of the learning objective
+            outcomes: List of learning outcome strings (optional)
+            priority: Priority of the goal (default: 1)
+
+        Returns:
+            The created LearningObjective if successful, None otherwise
+        """
+        # Get project ID
+        project_id = await KnowledgeTransferManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot add goal: no project associated with this conversation")
+            return None
+
+        # Get user information
+        current_user_id = await require_current_user(context, "add goal")
+        if not current_user_id:
+            return None
+
+        # Create success criteria objects if provided
+        criterion_objects = []
+        if outcomes:
+            for criterion in outcomes:
+                criterion_objects.append(LearningOutcome(description=criterion))
+
+        # Create the new goal
+        new_goal = LearningObjective(
+            name=objective_name,
+            description=description,
+            priority=priority,
+            learning_outcomes=criterion_objects,
+        )
+
+        # Get the existing project
+        project = ProjectStorage.read_project(project_id)
+        if not project:
+            # Create a new project if it doesn't exist
+            project = KnowledgePackage(
+                info=None,
+                brief=None,
+                learning_objectives=[new_goal],
+                digest=None,
+                requests=[],
+                log=None,
+            )
+        else:
+            # Add the goal to the existing project
+            project.learning_objectives.append(new_goal)
+
+        # Save the updated project
+        ProjectStorage.write_project(project_id, project)
+
+        # Log the goal addition
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.GOAL_ADDED.value,
+            message=f"Added goal: {objective_name}",
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=context,
+            project_id=project_id,
+            update_type="goal",
+            message=f"Goal added: {objective_name}",
+        )
+
+        return new_goal
+
+    @staticmethod
+    async def delete_learning_objective(
+        context: ConversationContext,
+        objective_index: int,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Deletes a goal from the project.
+
+        Args:
+            context: Current conversation context
+            objective_index: The index of the learning objective to delete (0-based)
+
+        Returns:
+            Tuple of (success, objective_name_or_error_message)
+        """
+        # Get project ID
+        project_id = await KnowledgeTransferManager.get_project_id(context)
+        if not project_id:
+            logger.error("Cannot delete goal: no project associated with this conversation")
+            return False, "No project associated with this conversation."
+
+        # Get user information
+        current_user_id = await require_current_user(context, "delete goal")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        # Get the existing project
+        project = ProjectStorage.read_project(project_id)
+        if not project or not project.learning_objectives:
+            return False, "No project goals found."
+
+        # Validate index
+        if objective_index < 0 or objective_index >= len(project.learning_objectives):
+            return (
+                False,
+                f"Invalid goal index {objective_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} goals.",
+            )
+
+        # Get the goal to delete
+        goal = project.learning_objectives[objective_index]
+        goal_name = goal.name
+
+        # Remove the goal from the list
+        project.learning_objectives.pop(objective_index)
+
+        # Save the updated project
+        ProjectStorage.write_project(project_id, project)
+
+        # Log the goal deletion
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.GOAL_DELETED.value,
+            message=f"Deleted goal: {goal_name}",
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=context,
+            project_id=project_id,
+            update_type="goal",
+            message=f"Goal deleted: {goal_name}",
+        )
+
+        # Update project info with new criteria counts
+        project_info = ProjectStorage.read_project_info(project_id)
+        if project_info:
+            # Count all completed criteria
+            completed_criteria = 0
+            total_criteria = 0
+
+            # Get the updated project to access goals
+            updated_project = ProjectStorage.read_project(project_id)
+            if updated_project and updated_project.learning_objectives:
+                for g in updated_project.learning_objectives:
+                    total_criteria += len(g.learning_outcomes)
+                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
+
+            # Update project info with criteria stats
+            # Note: achieved_criteria not in KnowledgePackageInfo model
+            # Note: total_criteria not in KnowledgePackageInfo model
+
+            # Calculate progress percentage
+            if total_criteria > 0:
+                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
+            else:
+                project_info.completion_percentage = 0
+
+            # Update metadata
+            project_info.updated_at = datetime.utcnow()
+            project_info.updated_by = current_user_id
+            project_info.version += 1
+
+            # Save the updated project info
+            ProjectStorage.write_project_info(project_id, project_info)
+
+        # Update all project UI inspectors
+        await ProjectStorage.refresh_all_project_uis(context, project_id)
+
+        return True, goal_name
+
+    @staticmethod
+    async def get_learning_outcomes(context: ConversationContext) -> List[LearningOutcome]:
+        """
+        Gets the learning outcomes for the current knowledge share.
+
+        Args:
+            context: Current conversation context
+            completed_only: If True, only return completed criteria
+
+        Returns:
+            List of LearningOutcome objects
+        """
+        project_id = await KnowledgeTransferManager.get_project_id(context)
+        if not project_id:
+            return []
+
+        # Get the project which contains goals and success criteria
+        project = ProjectStorage.read_project(project_id)
+        if not project:
+            return []
+
+        objectives = project.learning_objectives
+        outcomes = []
+        for objective in objectives:
+            # Add success criteria from each goal
+            outcomes.extend(objective.learning_outcomes)
+
+        return outcomes
 
     @staticmethod
     async def get_information_requests(
@@ -986,79 +1038,25 @@ class KnowledgeTransferManager:
             return False, None
 
     @staticmethod
-    async def get_project_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
-        """Gets the project log for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
-            return None
-
-        return ProjectStorage.read_project_log(project_id)
-
-    @staticmethod
-    async def get_project(context: ConversationContext) -> Optional[KnowledgePackage]:
-        """Gets the project information for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
-            return None
-        project = KnowledgePackage(
-            info=ProjectStorage.read_project_info(project_id),
-            brief=ProjectStorage.read_project_brief(project_id),
-            learning_objectives=[],  # TODO: Add storage method for learning objectives
-            digest=ProjectStorage.read_project_whiteboard(project_id),
-            requests=ProjectStorage.get_all_information_requests(project_id),
-            log=ProjectStorage.read_project_log(project_id),
-        )
-        return project
-
-    @staticmethod
-    async def get_project_info(
-        context: ConversationContext, project_id: Optional[str] = None
-    ) -> Optional[KnowledgePackageInfo]:
-        """
-        Gets the project information including share URL and team conversation details.
-
-        Args:
-            context: Current conversation context
-            project_id: Optional project ID (if not provided, will be retrieved from context)
-
-        Returns:
-            KnowledgePackageInfo object or None if not found
-        """
-        try:
-            # Get project ID if not provided
-            if not project_id:
-                project_id = await KnowledgeTransferManager.get_project_id(context)
-                if not project_id:
-                    return None
-
-            # Read project info
-            project_info = ProjectStorage.read_project_info(project_id)
-            return project_info
-
-        except Exception as e:
-            logger.exception(f"Error getting project info: {e}")
-            return None
-
-    @staticmethod
-    async def get_project_whiteboard(
+    async def get_knowledge_digest(
         context: ConversationContext,
     ) -> Optional[KnowledgeDigest]:
-        """Gets the project whiteboard for the current conversation's project."""
+        """Gets the knowledge digest for the current conversation's knowledge share."""
         project_id = await KnowledgeTransferManager.get_project_id(context)
         if not project_id:
             return None
 
-        return ProjectStorage.read_project_whiteboard(project_id)
+        return ProjectStorage.read_knowledge_digest(project_id)
 
     @staticmethod
-    async def update_whiteboard(
+    async def update_knowledge_digest(
         context: ConversationContext,
         content: str,
         is_auto_generated: bool = True,
         send_notification: bool = False,  # Add parameter to control notifications
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
-        Updates the project whiteboard content.
+        Updates the knowledge digest content.
 
         Args:
             context: Current conversation context
@@ -1082,11 +1080,11 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Get existing whiteboard or create new one
-            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+            digest = ProjectStorage.read_knowledge_digest(project_id)
             is_new = False
 
-            if not whiteboard:
-                whiteboard = KnowledgeDigest(
+            if not digest:
+                digest = KnowledgeDigest(
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
@@ -1095,16 +1093,16 @@ class KnowledgeTransferManager:
                 is_new = True
 
             # Update the content
-            whiteboard.content = content
-            whiteboard.is_auto_generated = is_auto_generated
+            digest.content = content
+            digest.is_auto_generated = is_auto_generated
 
             # Update metadata
-            whiteboard.updated_at = datetime.utcnow()
-            whiteboard.updated_by = current_user_id
-            whiteboard.version += 1
+            digest.updated_at = datetime.utcnow()
+            digest.updated_by = current_user_id
+            digest.version += 1
 
             # Save the whiteboard
-            ProjectStorage.write_project_whiteboard(project_id, whiteboard)
+            ProjectStorage.write_project_whiteboard(project_id, digest)
 
             # Log the update
             event_type = LogEntryType.KB_UPDATE
@@ -1131,14 +1129,14 @@ class KnowledgeTransferManager:
                 # Just refresh the UI without sending notifications
                 await ProjectStorage.refresh_all_project_uis(context, project_id)
 
-            return True, whiteboard
+            return True, digest
 
         except Exception as e:
             logger.exception(f"Error updating whiteboard: {e}")
             return False, None
 
     @staticmethod
-    async def auto_update_whiteboard(
+    async def auto_update_knowledge_digest(
         context: ConversationContext,
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
@@ -1225,7 +1223,7 @@ class KnowledgeTransferManager:
 
             # Update the whiteboard with the extracted content
             # Use send_notification=False to avoid sending notifications for automatic updates
-            return await KnowledgeTransferManager.update_whiteboard(
+            return await KnowledgeTransferManager.update_knowledge_digest(
                 context=context,
                 content=whiteboard_content,
                 is_auto_generated=True,
