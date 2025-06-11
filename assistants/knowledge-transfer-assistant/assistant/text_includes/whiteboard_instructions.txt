@@ -1,12 +1,12 @@
-The whiteboard contains critical {{project_or_context}} information that has been automatically extracted from previous conversations.
+The whiteboard contains critical knowledge package information that has been automatically extracted from previous conversations.
 It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
 
 Key characteristics of this whiteboard:
 
-- It contains the most essential information about the {{project_or_context}} that should be readily available
-- It has been automatically curated to focus on high-value content relevant to the {{project_or_context}}
+- It contains the most essential information about the knowledge package that should be readily available
+- It has been automatically curated to focus on high-value content relevant to the knowledge package
 - It is maintained and updated as the conversation progresses
-- It should be treated as a trusted source of contextual information for this {{project_or_context}}
+- It should be treated as a trusted source of contextual information for this knowledge package
 
 When using the whiteboard:
 

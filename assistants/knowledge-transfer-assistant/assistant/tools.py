@@ -1,7 +1,7 @@
 """
-Project Assistant tool functions.
+Knowledge Transfer Assistant tool functions.
 
-This module defines tool functions for the Project Assistant that can be used
+This module defines tool functions for the Knowledge Transfer Assistant that can be used
 by the LLM during chat completions to proactively assist users.
 """
 
@@ -543,29 +543,29 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_project_goal(self, goal_name: str, goal_description: str, learning_outcomes: List[str]) -> str:
         """
-        Add a goal to the project brief with measurable success criteria.
+        Add a learning objective to the knowledge brief with measurable learning outcomes.
 
-        Project goals should be operational objectives that team members will need to complete.
-        Each goal must have clear, measurable success criteria that team members can mark as completed.
+        Learning objectives should define what knowledge areas learners need to understand.
+        Each objective must have clear, measurable learning outcomes that learners can mark as achieved.
 
         WHEN TO USE:
-        - When defining actionable goals that team members need to accomplish
-        - When breaking down project requirements into specific, achievable objectives
-        - After creating a project brief, before marking the project ready for working
-        - When users ask to add or define goals, objectives, or tasks for the project
+        - When defining what knowledge areas team members need to understand
+        - When breaking down knowledge requirements into specific, learnable objectives
+        - After creating a knowledge brief, before marking the transfer ready for learning
+        - When users ask to add or define learning objectives or knowledge areas
 
         Args:
-            goal_name: A concise, clear name for the goal (e.g., "Implement User Authentication")
-            goal_description: A detailed description explaining what needs to be accomplished
-            learning_outcomes: List of specific, measurable criteria that indicate when the goal is complete
-                             (e.g., ["User login form created", "Password reset functionality implemented"])
+            goal_name: A concise, clear name for the learning objective (e.g., "Understanding User Authentication")
+            goal_description: A detailed description explaining what knowledge needs to be understood
+            learning_outcomes: List of specific, measurable outcomes that indicate when the objective is achieved
+                             (e.g., ["Can explain authentication flow", "Can implement password security"])
 
         Returns:
             A message indicating success or failure
         """
 
         if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can add project goals."
+            return "Only Coordinator can add learning objectives."
 
         # Get project ID
         project_id = await KnowledgeTransferManager.get_project_id(self.context)
@@ -588,40 +588,40 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             context=self.context,
             command_content=command_content,
             handler_func=handle_add_goal_command,
-            success_message=f"Goal '{goal_name}' added to project brief successfully.",
-            error_prefix="Error adding goal",
+            success_message=f"Learning objective '{goal_name}' added to knowledge brief successfully.",
+            error_prefix="Error adding learning objective",
         )
 
     async def delete_project_goal(self, goal_index: int) -> str:
         """
-        Delete a goal from the project by index.
+        Delete a learning objective from the knowledge package by index.
 
         WHEN TO USE:
-        - When a user explicitly requests to remove or delete a specific project goal
-        - When goals need to be reorganized and redundant/obsolete goals removed
-        - When a goal was added by mistake or is no longer relevant to the project
-        - Only before marking the project as ready for working
+        - When a user explicitly requests to remove or delete a specific learning objective
+        - When objectives need to be reorganized and redundant/obsolete objectives removed
+        - When an objective was added by mistake or is no longer relevant to the knowledge transfer
+        - Only before marking the knowledge package as ready for transfer
 
-        NOTE: This action is irreversible and will remove all success criteria associated with the goal.
-        First use get_project_info() to see the list of goals and their indices before deletion.
+        NOTE: This action is irreversible and will remove all learning outcomes associated with the objective.
+        First use get_project_info() to see the list of objectives and their indices before deletion.
 
         Args:
-            goal_index: The index of the goal to delete (0-based integer). Use get_project_info() first to see the
-                       correct indices of goals. For example, to delete the first goal, use goal_index=0.
+            goal_index: The index of the learning objective to delete (0-based integer). Use get_project_info() first to see the
+                       correct indices of objectives. For example, to delete the first objective, use goal_index=0.
 
         Returns:
             A message indicating success or failure
         """
 
         if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can delete project goals."
+            return "Only Coordinator can delete learning objectives."
 
-        # Get project ID - validate project exists
+        # Get project ID - validate knowledge package exists
         project_id = await KnowledgeTransferManager.get_project_id(self.context)
         if not project_id:
-            return "No project associated with this conversation."
+            return "No knowledge package associated with this conversation."
 
-        # Call the KnowledgeTransferManager method to delete the goal
+        # Call the KnowledgeTransferManager method to delete the learning objective
         success, result = await KnowledgeTransferManager.delete_project_goal(
             context=self.context,
             goal_index=goal_index,
@@ -631,11 +631,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Notify the user about the successful deletion
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Goal '{result}' has been successfully deleted from the project.",
+                    content=f"Learning objective '{result}' has been successfully deleted from the knowledge package.",
                     message_type=MessageType.notice,
                 )
             )
-            return f"Goal '{result}' has been successfully deleted from the project."
+            return f"Learning objective '{result}' has been successfully deleted from the knowledge package."
         else:
             # Return the error message
             return f"Error deleting goal: {result}"
@@ -811,37 +811,37 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             )
         )
 
-        return f"Criterion '{criterion.description}' for goal '{goal.name}' marked as completed."
+        return f"Learning outcome '{criterion.description}' for objective '{goal.name}' marked as achieved."
 
     async def mark_project_ready_for_working(self) -> str:
         """
-        Mark the project as ready for working.
-        This is a milestone function that transitions from Planning Stage to Working Stage.
+        Mark the knowledge package as ready for transfer.
+        This is a milestone function that transitions from Organizing to Ready for Transfer state.
 
         Returns:
             A message indicating success or failure
         """
 
         if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can mark a project as ready for working."
+            return "Only Coordinator can mark a knowledge package as ready for transfer."
 
         # Get project ID
         project_id = await KnowledgeTransferManager.get_project_id(self.context)
         if not project_id:
-            return "No project associated with this conversation. Unable to mark project as ready for working."
+            return "No knowledge package associated with this conversation. Unable to mark package as ready for transfer."
 
-        # Get existing project brief, whiteboard, and project
+        # Get existing knowledge brief, digest, and package
         brief = ProjectStorage.read_project_brief(project_id)
         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
         project = ProjectStorage.read_project(project_id)
 
         if not brief:
-            return "No project brief found. Please create one before marking as ready for working."
+            return "No knowledge brief found. Please create one before marking as ready for transfer."
 
         if not project or not project.learning_objectives:
-            return "Project has no goals. Please add at least one goal before marking as ready for working."
+            return "Knowledge package has no learning objectives. Please add at least one objective before marking as ready for transfer."
 
-        # Check if at least one goal has success criteria
+        # Check if at least one objective has learning outcomes
         has_criteria = False
         for goal in project.learning_objectives:
             if goal.learning_outcomes:
@@ -849,13 +849,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 break
 
         if not has_criteria:
-            return "No success criteria defined. Please add at least one success criterion to a goal before marking as ready for working."
+            return "No learning outcomes defined. Please add at least one learning outcome to an objective before marking as ready for transfer."
 
-        # Check if whiteboard has content
+        # Check if digest has content
         if not whiteboard or not whiteboard.content:
-            return "Project whiteboard is empty. Content will be automatically generated as the project progresses."
+            return "Knowledge digest is empty. Content will be automatically generated as the transfer progresses."
 
-        # Get or create project info
+        # Get or create knowledge package info
         project_info = ProjectStorage.read_project_info(project_id)
 
         # Get current user information
@@ -871,7 +871,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Could not identify current user."
 
         if not project_info:
-            # Create new project info if it doesn't exist
+            # Create new knowledge package info if it doesn't exist
             project_info = KnowledgePackageInfo(
                 package_id=project_id,
                 coordinator_conversation_id=str(self.context.id),
@@ -880,16 +880,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 updated_at=datetime.utcnow(),
             )
 
-        # Update state to ready_for_working
+        # Update state to ready_for_transfer
         if isinstance(project_info, dict):
             # Handle the dict case for backward compatibility
             project_info["transfer_state"] = KnowledgeTransferState.READY_FOR_TRANSFER
-            project_info["transfer_notes"] = "Project is now ready for team operations"
+            project_info["transfer_notes"] = "Knowledge package is now ready for transfer"
             project_info["updated_at"] = datetime.utcnow()
         else:
             # Handle the KnowledgePackageInfo case
             project_info.transfer_state = KnowledgeTransferState.READY_FOR_TRANSFER
-            project_info.transfer_notes = "Project is now ready for team operations"
+            project_info.transfer_notes = "Knowledge package is now ready for transfer"
             project_info.updated_at = datetime.utcnow()
 
         # Save the updated project info
@@ -917,49 +917,49 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         await self.context.send_messages(
             NewConversationMessage(
-                content="🎯 Project has been marked as READY FOR WORKING. Team members have been notified and can now begin operations.",
+                content="🎯 Knowledge package has been marked as READY FOR TRANSFER. Team members have been notified and can now begin learning.",
                 message_type=MessageType.chat,
             )
         )
 
-        return "Project successfully marked as ready for team operations."
+        return "Knowledge package successfully marked as ready for transfer."
 
     async def report_project_completion(self) -> str:
         """
-        Report that the project is complete, concluding the project lifecycle.
+        Report that the knowledge transfer is complete, concluding the transfer lifecycle.
 
         WHEN TO USE:
-        - When all success criteria for all goals have been marked as completed
-        - When the user confirms the project deliverables are finished and ready
-        - When the project objectives have been fully achieved
-        - When it's time to formally conclude the project
+        - When all learning outcomes for all objectives have been marked as achieved
+        - When the user confirms the knowledge has been successfully learned
+        - When the learning objectives have been fully achieved
+        - When it's time to formally conclude the knowledge transfer
 
-        This is a significant milestone that indicates the project has successfully
-        completed all its goals. Before using this tool, verify that all success criteria
-        have been marked as completed using get_project_info().
+        This is a significant milestone that indicates the knowledge transfer has successfully
+        achieved all its learning objectives. Before using this tool, verify that all learning outcomes
+        have been marked as achieved using get_project_info().
 
         Returns:
             A message indicating success or failure
         """
 
         if self.role is not ConversationRole.TEAM:
-            return "Only Team members can report project completion."
+            return "Only Team members can report knowledge transfer completion."
 
         # Get project ID
         project_id = await KnowledgeTransferManager.get_project_id(self.context)
         if not project_id:
-            return "No project associated with this conversation. Unable to report project completion."
+            return "No knowledge package associated with this conversation. Unable to report transfer completion."
 
-        # Get existing project info
+        # Get existing knowledge package info
         project_info = ProjectStorage.read_project_info(project_id)
         if not project_info:
-            return "No project information found. Cannot complete project without project information."
+            return "No knowledge package information found. Cannot complete transfer without package information."
 
-        # Check if all criteria are completed
-        if getattr(project_info, "completed_criteria", 0) < getattr(project_info, "total_criteria", 0):
-            # Note: total_criteria and achieved_criteria not in KnowledgePackageInfo model
-            remaining = 0  # Placeholder
-            return f"Cannot complete project - {remaining} success criteria are still pending completion."
+        # Check if all outcomes are achieved
+        if getattr(project_info, "achieved_outcomes", 0) < getattr(project_info, "total_outcomes", 0):
+            # Note: total_outcomes and achieved_outcomes are in KnowledgePackageInfo model
+            remaining = getattr(project_info, "total_outcomes", 0) - getattr(project_info, "achieved_outcomes", 0)
+            return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."
 
         # Get current user information
         participants = await self.context.get_participants()

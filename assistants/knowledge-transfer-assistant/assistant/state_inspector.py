@@ -1,8 +1,8 @@
 """
-Project assistant inspector state provider.
+Knowledge Transfer assistant inspector state provider.
 
-This module provides the state inspector provider for the project assistant
-to display project information in the workbench UI's inspector panel.
+This module provides the state inspector provider for the knowledge transfer assistant
+to display knowledge transfer information in the workbench UI's inspector panel.
 """
 
 import logging
@@ -25,15 +25,15 @@ logger = logging.getLogger(__name__)
 
 class ProjectInspectorStateProvider:
     """
-    Inspector state provider for project information.
+    Inspector state provider for knowledge transfer information.
 
-    This provider displays project-specific information in the inspector panel
-    including project state, brief, goals, and information requests based on the
+    This provider displays knowledge transfer information in the inspector panel
+    including transfer state, brief, learning objectives, and information requests based on the
     user's role (Coordinator or Team).
 
     The content displayed is adapted based on the template configuration:
-    - Default: Shows brief, goals, criteria, and request status
-    - Context Transfer: Focuses on knowledge context without goals or progress tracking
+    - Default: Shows brief, learning objectives, outcomes, and request status
+    - Context Transfer: Focuses on knowledge context without objectives or progress tracking
     """
 
     # Default display name and description
@@ -48,7 +48,7 @@ class ProjectInspectorStateProvider:
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
-        Get project information for display in the inspector panel.
+        Get knowledge transfer information for display in the inspector panel.
         """
 
         # State variables that will determine the content to display.
@@ -61,10 +61,10 @@ class ProjectInspectorStateProvider:
         project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
         if not project_id:
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active project. Start a conversation to create one."}
+                data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
-        # Get project information
+        # Get knowledge transfer information
         brief = await KnowledgeTransferManager.get_project_brief(context)
         project_info = await KnowledgeTransferManager.get_project_info(context)
 
@@ -85,11 +85,11 @@ class ProjectInspectorStateProvider:
         project_info: Any,
         context: ConversationContext,
     ) -> str:
-        """Format project information as markdown for Coordinator role"""
+        """Format knowledge transfer information as markdown for Coordinator role"""
 
         lines: List[str] = []
 
-        # Get the project
+        # Get the knowledge package
         project = ProjectStorage.read_project(project_id)
 
         lines.append("**Role:** Coordinator")
@@ -129,19 +129,19 @@ class ProjectInspectorStateProvider:
                 lines.append(brief.additional_context)
                 lines.append("")
 
-        # Add goals section if available and progress tracking is enabled
+        # Add learning objectives section if available and progress tracking is enabled
         if project and project.learning_objectives:
-            lines.append("## Goals")
+            lines.append("## Learning Objectives")
             for goal in project.learning_objectives:
                 criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
                 criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")
                 lines.append(goal.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
+                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
                 if goal.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Success Criteria:")
+                    lines.append("#### Learning Outcomes:")
                     for criterion in goal.learning_outcomes:
                         status_emoji = "✅" if criterion.achieved else "⬜"
                         lines.append(f"- {status_emoji} {criterion.description}")
@@ -203,11 +203,11 @@ class ProjectInspectorStateProvider:
         project_info: Any,
         context: ConversationContext,
     ) -> str:
-        """Format project information as markdown for Team role"""
+        """Format knowledge transfer information as markdown for Team role"""
 
         lines: List[str] = []
 
-        # Get the project
+        # Get the knowledge package
         project = ProjectStorage.read_project(project_id)
 
         lines.append("**Role:** Team")
@@ -233,8 +233,8 @@ class ProjectInspectorStateProvider:
 
         lines.append("")
 
-        # Add project description and additional context if available
-        lines.append("## Brief")
+        # Add knowledge description and additional context if available
+        lines.append("## Knowledge Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -250,19 +250,19 @@ class ProjectInspectorStateProvider:
                 lines.append(brief.additional_context)
                 lines.append("")
 
-        # Add goals section with checkable criteria if progress tracking is enabled
+        # Add learning objectives section with checkable outcomes if progress tracking is enabled
         if project and project.learning_objectives:
-            lines.append("## Objectives")
+            lines.append("## Learning Objectives")
             for goal in project.learning_objectives:
                 criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
                 criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")
                 lines.append(goal.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
+                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
                 if goal.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Success Criteria:")
+                    lines.append("#### Learning Outcomes:")
                     for criterion in goal.learning_outcomes:
                         status_emoji = "✅" if criterion.achieved else "⬜"
                         completion_info = ""
