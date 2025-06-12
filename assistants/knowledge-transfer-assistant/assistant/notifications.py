@@ -11,14 +11,14 @@ from semantic_workbench_api_model.workbench_model import AssistantStateEvent, Me
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
-from .storage import ProjectStorage
+from .storage import ShareStorage
 
 
 class ProjectNotifier:
     """Handles notifications between conversations for project updates."""
 
     @staticmethod
-    async def send_notice_to_linked_conversations(context: ConversationContext, project_id: str, message: str) -> None:
+    async def send_notice_to_linked_conversations(context: ConversationContext, share_id: str, message: str) -> None:
         """
         Sends a notice message to all linked conversations except:
         1. The current conversation
@@ -33,12 +33,12 @@ class ProjectNotifier:
 
         Args:
             context: Current conversation context
-            project_id: ID of the project
+            share_id: ID of the project
             message: Notification message to send
         """
         # Import ConversationClientManager locally to avoid circular imports
         from .conversation_clients import ConversationClientManager
-        from .conversation_project_link import ConversationKnowledgePackageManager
+        from .conversation_share_link import ConversationKnowledgePackageManager
 
         # Get conversation IDs in the same project
         linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
@@ -48,7 +48,7 @@ class ProjectNotifier:
         # This is the conversation created by the coordinator for sharing,
         # not an actual user conversation
         shareable_conversation_id = None
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if project_info and project_info.team_conversation_id:
             shareable_conversation_id = project_info.team_conversation_id
 
@@ -69,7 +69,7 @@ class ProjectNotifier:
                             message_type=MessageType.notice,
                             metadata={
                                 "debug": {
-                                    "project_id": project_id,
+                                    "share_id": share_id,
                                     "message": message,
                                     "sender": str(context.id),
                                 }
@@ -83,7 +83,7 @@ class ProjectNotifier:
     @staticmethod
     async def notify_project_update(
         context: ConversationContext,
-        project_id: str,
+        share_id: str,
         update_type: str,
         message: str,
         data: Optional[Dict[str, Any]] = None,
@@ -103,7 +103,7 @@ class ProjectNotifier:
 
         Args:
             context: Current conversation context
-            project_id: ID of the project
+            share_id: ID of the project
             update_type: Type of update (e.g., 'brief', 'project_info', 'information_request', etc.)
             message: Notification message to display to users
             data: Optional additional data related to the update
@@ -113,11 +113,11 @@ class ProjectNotifier:
         # Only send notifications if explicitly requested
         if send_notification:
             # Notify all linked conversations with the same message
-            await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)
+            await ProjectNotifier.send_notice_to_linked_conversations(context, share_id, message)
 
         # Always refresh all project UI inspector panels to keep UI in sync
         # This will update the UI without sending notifications
-        await ProjectStorage.refresh_all_project_uis(context, project_id)
+        await ShareStorage.refresh_all_share_uis(context, share_id)
 
 
 async def refresh_current_ui(context: ConversationContext) -> None:
@@ -139,7 +139,7 @@ async def refresh_current_ui(context: ConversationContext) -> None:
     await context.send_conversation_state_event(state_event)
 
 
-async def refresh_all_project_uis(context: ConversationContext, project_id: str) -> None:
+async def refresh_all_project_uis(context: ConversationContext, share_id: str) -> None:
     """
     Refreshes the UI inspector panels of all conversations in a project except the
     shareable team conversation template.
@@ -161,11 +161,11 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
 
     Args:
         context: Current conversation context
-        project_id: The project ID
+        share_id: The project ID
     """
     # Import ConversationClientManager locally to avoid circular imports
     from .conversation_clients import ConversationClientManager
-    from .conversation_project_link import ConversationKnowledgePackageManager
+    from .conversation_share_link import ConversationKnowledgePackageManager
 
     try:
         # First update the current conversation's UI
@@ -173,7 +173,7 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
 
         # Get the shareable team conversation ID from project info to exclude it
         shareable_conversation_id = None
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if project_info and project_info.team_conversation_id:
             shareable_conversation_id = project_info.team_conversation_id
 
@@ -181,7 +181,7 @@ async def refresh_all_project_uis(context: ConversationContext, project_id: str)
         (
             coordinator_client,
             coordinator_conversation_id,
-        ) = await ConversationClientManager.get_coordinator_client_for_project(context, project_id)
+        ) = await ConversationClientManager.get_coordinator_client_for_project(context, share_id)
         if coordinator_client and coordinator_conversation_id:
             try:
                 state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)

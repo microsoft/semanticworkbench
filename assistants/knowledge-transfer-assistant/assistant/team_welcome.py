@@ -13,7 +13,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.manager import KnowledgeTransferManager
-from assistant.storage import ProjectStorage
+from assistant.storage import ShareStorage
 
 from .config import assistant_config
 from .logging import logger
@@ -29,14 +29,14 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Get project data
 
-    project_id = await KnowledgeTransferManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_share_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
     project_data: dict[str, str] = {}
 
     # Briefing
-    briefing = ProjectStorage.read_project_brief(project_id)
+    briefing = ShareStorage.read_share_brief(project_id)
     project_brief_text = ""
     if briefing:
         project_brief_text = dedent(f"""
@@ -47,7 +47,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         project_data["briefing"] = project_brief_text
 
     # Goals
-    project = ProjectStorage.read_project(project_id)
+    project = ShareStorage.read_share(project_id)
     if project and project.learning_objectives:
         project_brief_text += "\n#### PROJECT GOALS:\n\n"
         for i, goal in enumerate(project.learning_objectives):
@@ -63,7 +63,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         project_data["goals"] = project_brief_text
 
     # Whiteboard
-    whiteboard = ProjectStorage.read_knowledge_digest(project_id)
+    whiteboard = ShareStorage.read_knowledge_digest(project_id)
     if whiteboard and whiteboard.content:
         whiteboard_text = dedent(f"""
             ### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE

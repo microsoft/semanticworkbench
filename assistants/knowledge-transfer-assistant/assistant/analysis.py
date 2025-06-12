@@ -86,7 +86,7 @@ async def detect_information_request_needs(context: ConversationContext, message
         async with openai_client.create_client(config.service_config) as client:
             # Prepare messages array with system prompt and chat history
             messages: List[ChatCompletionMessageParam] = [
-                {"role": "system", "content": config.prompt_config.project_information_request_detection}
+                {"role": "system", "content": config.prompt_config.share_information_request_detection}
             ]
 
             # Add chat history if available

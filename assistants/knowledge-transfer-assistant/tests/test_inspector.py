@@ -25,7 +25,7 @@ async def test_inspector():
 
     # Mock conversation
     conversation = MagicMock()
-    conversation.metadata = {"setup_complete": True, "assistant_mode": "coordinator", "project_role": "coordinator"}
+    conversation.metadata = {"setup_complete": True, "assistant_mode": "coordinator", "share_role": "coordinator"}
     context.get_conversation.return_value = conversation
 
     # Create state event

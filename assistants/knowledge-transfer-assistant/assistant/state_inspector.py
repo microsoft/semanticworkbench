@@ -14,16 +14,16 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .common import detect_assistant_role
-from .conversation_project_link import ConversationKnowledgePackageManager
-from .data import RequestStatus
+from .conversation_share_link import ConversationKnowledgePackageManager
+from .data import KnowledgeTransferState, RequestStatus
 from .manager import KnowledgeTransferManager
-from .storage import ProjectStorage
+from .storage import ShareStorage
 from .storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectInspectorStateProvider:
+class ShareInspectorStateProvider:
     """
     Inspector state provider for knowledge transfer information.
 
@@ -57,32 +57,32 @@ class ProjectInspectorStateProvider:
         self.display_name = "Knowledge Overview"
         self.description = "Information about the knowledge space."
 
-        # Determine the conversation's role and project
-        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-        if not project_id:
+        # Determine the conversation's role and knowledge share
+        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
         # Get knowledge transfer information
         brief = await KnowledgeTransferManager.get_knowledge_brief(context)
-        project_info = await KnowledgeTransferManager.get_project_info(context)
+        share_info = await KnowledgeTransferManager.get_share_info(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_markdown(
-                project_id, conversation_role, brief, project_info, context
+                share_id, conversation_role, brief, share_info, context
             )
         else:
-            markdown = await self._format_team_markdown(project_id, conversation_role, brief, project_info, context)
+            markdown = await self._format_team_markdown(share_id, conversation_role, brief, share_info, context)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_markdown(
         self,
-        project_id: str,
+        share_id: str,
         role: ConversationRole,
         brief: Any,
-        project_info: Any,
+        share_info: Any,
         context: ConversationContext,
     ) -> str:
         """Format knowledge transfer information as markdown for Coordinator role"""
@@ -90,26 +90,27 @@ class ProjectInspectorStateProvider:
         lines: List[str] = []
 
         # Get the knowledge package
-        project = ProjectStorage.read_project(project_id)
+        share = ShareStorage.read_share(share_id)
 
         lines.append("**Role:** Coordinator")
 
-        # stage_label = "Planning Stage"
-        # if project_info and project_info.state:
-        #     if project_info.state.value == "planning":
-        #         stage_label = "Planning Stage"
-        #     elif project_info.state.value == "ready_for_working":
-        #         stage_label = "Ready for Working"
-        #     elif project_info.state.value == "in_progress":
-        #         stage_label = "Working Stage"
-        #     elif project_info.state.value == "achieved":
-        #         stage_label = "Completed Stage"
-        #     elif project_info.state.value == "aborted":
-        #         stage_label = "Aborted Stage"
-        # lines.append(f"**Status:** {stage_label}")
+        # Display knowledge transfer stage
+        stage_label = "📋 Organizing Knowledge"
+        if share_info and share_info.transfer_state:
+            if share_info.transfer_state == KnowledgeTransferState.ORGANIZING:
+                stage_label = "📋 Organizing Knowledge"
+            elif share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER:
+                stage_label = "🚀 Ready for Transfer"
+            elif share_info.transfer_state == KnowledgeTransferState.ACTIVE_TRANSFER:
+                stage_label = "⚡ Active Transfer"
+            elif share_info.transfer_state == KnowledgeTransferState.COMPLETED:
+                stage_label = "✅ Transfer Complete"
+            elif share_info.transfer_state == KnowledgeTransferState.ARCHIVED:
+                stage_label = "📦 Archived"
+        lines.append(f"**Stage:** {stage_label}")
 
-        if project_info and project_info.status_message:
-            lines.append(f"**Status Message:** {project_info.status_message}")
+        if share_info and share_info.transfer_notes:
+            lines.append(f"**Status Message:** {share_info.transfer_notes}")
 
         lines.append("")
 
@@ -130,9 +131,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add learning objectives section if available and progress tracking is enabled
-        if project and project.learning_objectives:
+        if share and share.learning_objectives:
             lines.append("## Learning Objectives")
-            for goal in project.learning_objectives:
+            for goal in share.learning_objectives:
                 criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
                 criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")
@@ -181,8 +182,8 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
         # Share URL section
-        project_info = await KnowledgeTransferManager.get_project_info(context, project_id)
-        share_url = project_info.share_url if project_info else None
+        share_info = await KnowledgeTransferManager.get_share_info(context, share_id)
+        share_url = share_info.share_url if share_info else None
         if share_url:
             lines.append("## Share")
             lines.append("")
@@ -197,10 +198,10 @@ class ProjectInspectorStateProvider:
 
     async def _format_team_markdown(
         self,
-        project_id: str,
+        share_id: str,
         role: ConversationRole,
         brief: Any,
-        project_info: Any,
+        share_info: Any,
         context: ConversationContext,
     ) -> str:
         """Format knowledge transfer information as markdown for Team role"""
@@ -208,28 +209,28 @@ class ProjectInspectorStateProvider:
         lines: List[str] = []
 
         # Get the knowledge package
-        project = ProjectStorage.read_project(project_id)
+        share = ShareStorage.read_share(share_id)
 
         lines.append("**Role:** Team")
 
-        # Determine stage based on project status
-        # stage_label = "Working Stage"
-        # if project_info and project_info.state:
-        #     if project_info.state.value == "planning":
-        #         stage_label = "Planning Stage"
-        #     elif project_info.state.value == "ready_for_working":
-        #         stage_label = "Working Stage"
-        #     elif project_info.state.value == "in_progress":
-        #         stage_label = "Working Stage"
-        #     elif project_info.state.value == "achieved":
-        #         stage_label = "Completed Stage"
-        #     elif project_info.state.value == "aborted":
-        #         stage_label = "Aborted Stage"
-        # lines.append(f"**Status:** {stage_label}")
+        # Display knowledge transfer stage for team members
+        stage_label = "📚 Learning Mode"
+        if share_info and share_info.transfer_state:
+            if share_info.transfer_state == KnowledgeTransferState.ORGANIZING:
+                stage_label = "⏳ Knowledge Being Organized"
+            elif share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER:
+                stage_label = "📚 Ready to Learn"
+            elif share_info.transfer_state == KnowledgeTransferState.ACTIVE_TRANSFER:
+                stage_label = "🎯 Active Learning"
+            elif share_info.transfer_state == KnowledgeTransferState.COMPLETED:
+                stage_label = "✅ Learning Complete"
+            elif share_info.transfer_state == KnowledgeTransferState.ARCHIVED:
+                stage_label = "📦 Archived"
+        lines.append(f"**Stage:** {stage_label}")
 
         # Add status message if available
-        if project_info and project_info.status_message:
-            lines.append(f"**Status Message:** {project_info.status_message}")
+        if share_info and share_info.transfer_notes:
+            lines.append(f"**Status Message:** {share_info.transfer_notes}")
 
         lines.append("")
 
@@ -251,9 +252,9 @@ class ProjectInspectorStateProvider:
                 lines.append("")
 
         # Add learning objectives section with checkable outcomes if progress tracking is enabled
-        if project and project.learning_objectives:
+        if share and share.learning_objectives:
             lines.append("## Learning Objectives")
-            for goal in project.learning_objectives:
+            for goal in share.learning_objectives:
                 criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
                 criteria_total = len(goal.learning_outcomes)
                 lines.append(f"### {goal.name}")

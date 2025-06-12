@@ -16,14 +16,14 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
     RequestPriority,
     RequestStatus,
 )
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .storage import ProjectStorage
+from .storage import ShareStorage
 from .storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
@@ -185,18 +185,18 @@ command_registry = CommandRegistry()
 async def handle_help_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """Handle the help command."""
     # Get the conversation's role
-    from .conversation_project_link import ConversationKnowledgePackageManager
+    from .conversation_share_link import ConversationKnowledgePackageManager
 
     # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
     setup_complete = metadata.get("setup_complete", False)
     assistant_mode = metadata.get("assistant_mode", "setup")
-    metadata_role = metadata.get("project_role")
+    metadata_role = metadata.get("share_role")
 
     # First check if project ID exists - if it does, setup should be considered complete
-    project_id = await KnowledgeTransferManager.get_project_id(context)
-    if project_id:
+    share_id = await KnowledgeTransferManager.get_share_id(context)
+    if share_id:
         # If we have a project ID, we should never show the setup instructions
         setup_complete = True
 
@@ -210,7 +210,7 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
                 metadata_role = "team"
 
     # Special handling for setup mode - only if we truly have no project
-    if not setup_complete and assistant_mode == "setup" and not project_id:
+    if not setup_complete and assistant_mode == "setup" and not share_id:
         # If a specific command is specified, show detailed help for that command
         if args:
             command_name = args[0]
@@ -248,12 +248,12 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
             return
 
         # Show setup-specific help
-        help_text = """## Project Assistant
+        help_text = """## Knowledge Share Assistant
 
-This assistant is automatically set up to help you with your project:
+This assistant is automatically set up to help you with your knowledge share:
 
-- As a Coordinator: This conversation is your personal conversation for managing the project
-- As a Team Member: This conversation is for collaborating on the project with others
+- As a Coordinator: This conversation is your personal conversation for managing the knowledge share
+- As a Team Member: This conversation is for collaborating on the knowledge share with others
 
 No setup commands needed! You're already good to go.
 
@@ -463,8 +463,8 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             raise ValueError("Both objective name and description are required")
 
         # Get project ID
-        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-        if not project_id:
+        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        if not share_id:
             await context.send_messages(
                 NewConversationMessage(
                     content="You are not associated with a project. Please create one first with `/create-brief`.",
@@ -485,7 +485,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             # Notify all linked conversations about the update
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="briefing",
                 message=f"Learning objective added to knowledge package: {objective_name}",
             )
@@ -619,7 +619,7 @@ async def handle_update_status_command(
                 progress = None
 
         # Update the project status
-        success, status_obj = await KnowledgeTransferManager.update_project_state(
+        success, status_obj = await KnowledgeTransferManager.update_share_state(
             context=context, state=status, status_message=status_message
         )
 
@@ -776,17 +776,17 @@ async def handle_project_info_command(
         output = []
 
         # Always show project ID at the top for easy access
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if share_id:
             # Check if Coordinator or Team
-            role = await KnowledgeTransferManager.get_project_role(context)
+            role = await KnowledgeTransferManager.get_share_role(context)
             if role == ConversationRole.COORDINATOR:
                 # For Coordinator, make it prominent with instructions
-                output.append(f"## Project ID: `{project_id}`")
-                output.append(f"_Share this ID with team members so they can join using_ `/join {project_id}`\n")
+                output.append(f"## Project ID: `{share_id}`")
+                output.append(f"_Share this ID with team members so they can join using_ `/join {share_id}`\n")
             else:
                 # For Team, just show the ID
-                output.append(f"## Project ID: `{project_id}`\n")
+                output.append(f"## Project ID: `{share_id}`\n")
 
         # Get brief if requested
         if info_type in ["all", "brief"]:
@@ -798,8 +798,8 @@ async def handle_project_info_command(
                 output.append(f"\n{briefing.description}\n")
 
                 # Get project to access goals
-                if project_id:
-                    project = ProjectStorage.read_project(project_id)
+                if share_id:
+                    project = ShareStorage.read_share(share_id)
                     if project and project.learning_objectives:
                         output.append("\n### Learning Objectives:\n")
 
@@ -843,7 +843,7 @@ async def handle_project_info_command(
 
         # Get project status if requested
         if info_type in ["all", "status"]:
-            project_info = await KnowledgeTransferManager.get_project_info(context)
+            project_info = await KnowledgeTransferManager.get_share_info(context)
 
             if project_info:
                 output.append("\n## Project Status\n")
@@ -933,8 +933,8 @@ async def handle_list_participants_command(
     """Handle the list-participants command."""
     try:
         # Get project ID
-        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-        if not project_id:
+        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        if not share_id:
             await context.send_messages(
                 NewConversationMessage(
                     content="You are not associated with a project.",
@@ -1003,8 +1003,8 @@ async def handle_sync_files_command(
     """
     try:
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             await context.send_messages(
                 NewConversationMessage(
                     content="You are not associated with a project. Please join a project first.",
@@ -1025,7 +1025,7 @@ async def handle_sync_files_command(
         )
 
         # Perform synchronization directly - this handles all error messaging
-        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
     except Exception as e:
         logger.exception(f"Error synchronizing files: {e}")

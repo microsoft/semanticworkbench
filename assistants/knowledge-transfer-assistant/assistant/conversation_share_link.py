@@ -12,7 +12,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model, write_model
 
 from .logging import logger
-from .storage import ProjectStorageManager
+from .storage import ShareStorageManager
 from .storage_models import ConversationRole
 
 
@@ -22,14 +22,14 @@ class ConversationKnowledgePackageManager:
     class ConversationRoleInfo(BaseModel):
         """Stores a conversation's role in a project."""
 
-        project_id: str
+        share_id: str
         role: ConversationRole
         conversation_id: str
 
     class ProjectAssociation(BaseModel):
         """Stores a conversation's project association."""
 
-        project_id: str
+        share_id: str
 
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
@@ -38,12 +38,12 @@ class ConversationKnowledgePackageManager:
         """
         try:
             # Get project ID
-            project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-            if not project_id:
+            share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+            if not share_id:
                 return []
 
             # Get the linked conversations directory
-            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
             if not linked_dir.exists():
                 return []
 
@@ -67,14 +67,14 @@ class ConversationKnowledgePackageManager:
             return []
 
     @staticmethod
-    async def set_conversation_role(context: ConversationContext, project_id: str, role: ConversationRole) -> None:
+    async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
         """
         Sets the role of a conversation in a project.
         """
         role_data = ConversationKnowledgePackageManager.ConversationRoleInfo(
-            project_id=project_id, role=role, conversation_id=str(context.id)
+            share_id=share_id, role=role, conversation_id=str(context.id)
         )
-        role_path = ProjectStorageManager.get_conversation_role_file_path(context)
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
         write_model(role_path, role_data)
 
     @staticmethod
@@ -82,7 +82,7 @@ class ConversationKnowledgePackageManager:
         """
         Gets the role of a conversation in a project.
         """
-        role_path = ProjectStorageManager.get_conversation_role_file_path(context)
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
         role_data = read_model(role_path, ConversationKnowledgePackageManager.ConversationRoleInfo)
 
         if role_data:
@@ -91,21 +91,21 @@ class ConversationKnowledgePackageManager:
         return None
 
     @staticmethod
-    async def associate_conversation_with_project(context: ConversationContext, project_id: str) -> None:
+    async def associate_conversation_with_share(context: ConversationContext, share_id: str) -> None:
         """
         Associates a conversation with a project.
         """
-        logger.debug(f"Associating conversation {context.id} with project {project_id}")
+        logger.debug(f"Associating conversation {context.id} with project {share_id}")
 
         try:
             # 1. Store the project association in the conversation's storage directory
-            project_data = ConversationKnowledgePackageManager.ProjectAssociation(project_id=project_id)
-            project_path = ProjectStorageManager.get_conversation_project_file_path(context)
+            project_data = ConversationKnowledgePackageManager.ProjectAssociation(share_id=share_id)
+            project_path = ShareStorageManager.get_conversation_share_file_path(context)
             logger.debug(f"Writing project association to {project_path}")
             write_model(project_path, project_data)
 
             # 2. Register this conversation in the project's linked_conversations directory
-            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
             logger.debug(f"Registering in linked_conversations directory: {linked_dir}")
             conversation_file = linked_dir / str(context.id)
 
@@ -118,14 +118,14 @@ class ConversationKnowledgePackageManager:
             raise
 
     @staticmethod
-    async def get_associated_project_id(context: ConversationContext) -> Optional[str]:
+    async def get_associated_share_id(context: ConversationContext) -> Optional[str]:
         """
         Gets the project ID associated with a conversation.
         """
-        project_path = ProjectStorageManager.get_conversation_project_file_path(context)
+        project_path = ShareStorageManager.get_conversation_share_file_path(context)
         project_data = read_model(project_path, ConversationKnowledgePackageManager.ProjectAssociation)
 
         if project_data:
-            return project_data.project_id
+            return project_data.share_id
 
         return None

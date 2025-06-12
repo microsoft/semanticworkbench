@@ -9,7 +9,7 @@ import unittest.mock
 import uuid
 from datetime import datetime
 
-from assistant.conversation_project_link import ConversationKnowledgePackageManager
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
 from assistant.data import (
     InformationRequest,
     KnowledgeBrief,
@@ -24,7 +24,7 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
-from assistant.storage import ProjectStorage, ProjectStorageManager
+from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.storage_models import (
     ConversationRole,
     CoordinatorConversationMessage,
@@ -35,7 +35,7 @@ from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import write_model
 
 
-class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
+class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     """Test the direct project storage functionality."""
 
     async def asyncSetUp(self):
@@ -49,12 +49,12 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         settings.storage.root = str(self.test_dir)
 
         # Create test IDs
-        self.project_id = str(uuid.uuid4())
+        self.share_id = str(uuid.uuid4())
         self.conversation_id = str(uuid.uuid4())
         self.user_id = "test-user-id"
 
         # Create project directory structure
-        self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
+        self.project_dir = ShareStorageManager.get_share_dir(self.share_id)
 
         # Set up directories for different conversation roles
         self.coordinator_dir = self.project_dir / ConversationRole.COORDINATOR.value
@@ -137,21 +137,21 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Write the project to storage
-        project_path = ProjectStorageManager.get_project_path(self.project_id)
+        project_path = ShareStorageManager.get_share_path(self.share_id)
         project_path.parent.mkdir(parents=True, exist_ok=True)
         write_model(project_path, project)
 
-        # Write brief to the proper path using ProjectStorage
-        brief_path = ProjectStorageManager.get_brief_path(self.project_id)
+        # Write brief to the proper path using ShareStorage
+        brief_path = ShareStorageManager.get_brief_path(self.share_id)
         brief_path.parent.mkdir(parents=True, exist_ok=True)
         write_model(brief_path, brief)
 
         # Create project info
         project_info = KnowledgePackageInfo(
-            package_id=self.project_id,
+            share_id=self.share_id,
             coordinator_conversation_id=self.conversation_id,
         )
-        project_info_path = ProjectStorageManager.get_project_info_path(self.project_id)
+        project_info_path = ShareStorageManager.get_share_info_path(self.share_id)
         write_model(project_info_path, project_info)
 
         # Create an information request
@@ -166,8 +166,8 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             conversation_id=self.conversation_id,
         )
 
-        # Write request to the proper path using ProjectStorage
-        request_path = ProjectStorageManager.get_information_request_path(self.project_id, request.request_id)
+        # Write request to the proper path using ShareStorage
+        request_path = ShareStorageManager.get_information_request_path(self.share_id, request.request_id)
         request_path.parent.mkdir(parents=True, exist_ok=True)
         write_model(request_path, request)
 
@@ -177,9 +177,9 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_project_brief(self):
         """Test reading a project brief."""
-        # Read the brief using ProjectStorage
-        brief = ProjectStorage.read_project_brief(self.project_id)
-        project = ProjectStorage.read_project(self.project_id)
+        # Read the brief using ShareStorage
+        brief = ShareStorage.read_share_brief(self.share_id)
+        project = ShareStorage.read_share(self.share_id)
 
         # Verify the brief was loaded correctly
         self.assertIsNotNone(brief, "Should load the brief")
@@ -196,12 +196,12 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     async def test_read_information_request(self):
         """Test reading an information request."""
         # First get all requests to find the request ID
-        requests = ProjectStorage.get_all_information_requests(self.project_id)
+        requests = ShareStorage.get_all_information_requests(self.share_id)
         self.assertEqual(len(requests), 1, "Should find one request")
         request_id = requests[0].request_id
 
-        # Read the request using ProjectStorage
-        request = ProjectStorage.read_information_request(self.project_id, request_id)
+        # Read the request using ShareStorage
+        request = ShareStorage.read_information_request(self.share_id, request_id)
 
         # Verify the request was loaded correctly
         self.assertIsNotNone(request, "Should load the request")
@@ -227,10 +227,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Write the log
-        ProjectStorage.write_project_log(self.project_id, log_entry)
+        ShareStorage.write_share_log(self.share_id, log_entry)
 
         # Read the log back
-        log = ProjectStorage.read_project_log(self.project_id)
+        log = ShareStorage.read_share_log(self.share_id)
 
         # Verify the log was saved and loaded correctly
         self.assertIsNotNone(log, "Should load the log")
@@ -269,20 +269,20 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         ]
 
         conv_storage = CoordinatorConversationStorage(
-            knowledge_package_id=self.project_id,
+            knowledge_share_id=self.share_id,
             messages=messages,
         )
 
         # Write to storage
-        ProjectStorage.write_coordinator_conversation(self.project_id, conv_storage)
+        ShareStorage.write_coordinator_conversation(self.share_id, conv_storage)
 
         # Read back
-        read_storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        read_storage = ShareStorage.read_coordinator_conversation(self.share_id)
 
         # Verify data was saved correctly
         self.assertIsNotNone(read_storage, "Should load the coordinator conversation")
         if read_storage:
-            self.assertEqual(read_storage.knowledge_package_id, self.project_id)
+            self.assertEqual(read_storage.knowledge_share_id, self.share_id)
             self.assertEqual(len(read_storage.messages), 2)
             self.assertEqual(read_storage.messages[0].content, "Test message 1")
             self.assertEqual(read_storage.messages[1].content, "Test message 2")
@@ -292,16 +292,16 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     async def test_append_coordinator_message(self):
         """Test appending a message to coordinator conversation storage."""
         # Start with empty storage
-        ProjectStorage.append_coordinator_message(
-            project_id=self.project_id,
+        ShareStorage.append_coordinator_message(
+            share_id=self.share_id,
             message_id=str(uuid.uuid4()),
             content="First message",
             sender_name="Test User",
         )
 
         # Append another message
-        ProjectStorage.append_coordinator_message(
-            project_id=self.project_id,
+        ShareStorage.append_coordinator_message(
+            share_id=self.share_id,
             message_id=str(uuid.uuid4()),
             content="Second message",
             sender_name="Test Assistant",
@@ -309,7 +309,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Read back
-        storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        storage = ShareStorage.read_coordinator_conversation(self.share_id)
 
         # Verify messages were added
         self.assertIsNotNone(storage, "Should create and load the coordinator conversation")
@@ -324,15 +324,15 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test that coordinator conversation storage limits to the most recent messages."""
         # Add more than 50 messages
         for i in range(60):
-            ProjectStorage.append_coordinator_message(
-                project_id=self.project_id,
+            ShareStorage.append_coordinator_message(
+                share_id=self.share_id,
                 message_id=str(uuid.uuid4()),
                 content=f"Message {i + 1}",
                 sender_name="Test User",
             )
 
         # Read back
-        storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        storage = ShareStorage.read_coordinator_conversation(self.share_id)
 
         # Verify only the most recent 50 messages are kept
         self.assertIsNotNone(storage, "Should load the coordinator conversation")
@@ -355,10 +355,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Write whiteboard
-        ProjectStorage.write_project_whiteboard(self.project_id, whiteboard)
+        ShareStorage.write_share_whiteboard(self.share_id, whiteboard)
 
         # Read whiteboard
-        read_whiteboard = ProjectStorage.read_knowledge_digest(self.project_id)
+        read_whiteboard = ShareStorage.read_knowledge_digest(self.share_id)
 
         # Verify whiteboard was saved correctly
         self.assertIsNotNone(read_whiteboard, "Should load the whiteboard")
@@ -369,7 +369,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
-        await ProjectStorage.refresh_current_ui(self.context)
+        await ShareStorage.refresh_current_ui(self.context)
 
         # Verify that send_conversation_state_event was called with correct parameters
         self.context.send_conversation_state_event.assert_called_once()
@@ -382,12 +382,12 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     async def test_project_info(self):
         """Test reading and writing project info."""
         # Read existing project info
-        project_info = ProjectStorage.read_project_info(self.project_id)
+        project_info = ShareStorage.read_share_info(self.share_id)
 
         # Verify it was loaded correctly
         self.assertIsNotNone(project_info, "Should load project info")
         if project_info:
-            self.assertEqual(project_info.package_id, self.project_id)
+            self.assertEqual(project_info.share_id, self.share_id)
             self.assertEqual(project_info.coordinator_conversation_id, self.conversation_id)
 
             # Update project info - these fields don't exist in KnowledgePackageInfo
@@ -397,10 +397,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             #     project_info.next_actions = ["Action 1", "Action 2"]
 
             # Write updated project info
-            # ProjectStorage.write_project_info(self.project_id, project_info)
+            # ShareStorage.write_share_info(self.share_id, project_info)
 
             # Read updated project info
-            # updated_info = ProjectStorage.read_project_info(self.project_id)
+            # updated_info = ShareStorage.read_share_info(self.share_id)
 
             # Verify updates were saved
             # self.assertIsNotNone(updated_info, "Should load updated project info")
@@ -413,7 +413,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     async def test_get_linked_conversations_dir(self):
         """Test getting linked conversations directory."""
         # Get linked conversations directory
-        linked_dir = ProjectStorageManager.get_linked_conversations_dir(self.project_id)
+        linked_dir = ShareStorageManager.get_linked_conversations_dir(self.share_id)
 
         # Verify directory exists
         self.assertTrue(linked_dir.exists(), "Linked conversations directory should exist")
@@ -421,13 +421,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_conversation_association(self):
         """Test conversation association with project."""
-        # Mock ConversationKnowledgePackageManager.associate_conversation_with_project
-        with unittest.mock.patch("assistant.conversation_project_link.write_model") as mock_write_model:
+        # Mock ConversationKnowledgePackageManager.associate_conversation_with_share
+        with unittest.mock.patch("assistant.conversation_share_link.write_model") as mock_write_model:
             # Mock conversation project path
-            conversation_project_file = ProjectStorageManager.get_conversation_project_file_path(self.context)
+            conversation_project_file = ShareStorageManager.get_conversation_share_file_path(self.context)
 
-            # Call associate_conversation_with_project
-            await ConversationKnowledgePackageManager.associate_conversation_with_project(self.context, self.project_id)
+            # Call associate_conversation_with_share
+            await ConversationKnowledgePackageManager.associate_conversation_with_share(self.context, self.share_id)
 
             # Verify write_model was called
             mock_write_model.assert_called_once()
@@ -437,7 +437,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(call_args[0], conversation_project_file)
 
             # Verify the ProjectAssociation object created
-            self.assertEqual(call_args[1].project_id, self.project_id)
+            self.assertEqual(call_args[1].share_id, self.share_id)
 
     async def test_log_project_event(self):
         """Test logging a project event."""
@@ -456,10 +456,10 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         log = KnowledgePackageLog(entries=[log_entry])
 
         # Write the log directly
-        ProjectStorage.write_project_log(self.project_id, log)
+        ShareStorage.write_share_log(self.share_id, log)
 
         # Read the log back
-        read_log = ProjectStorage.read_project_log(self.project_id)
+        read_log = ShareStorage.read_share_log(self.share_id)
         self.assertIsNotNone(read_log, "Should load the log")
         if read_log:
             # Find our test entry

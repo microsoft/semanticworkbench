@@ -24,7 +24,7 @@ from .command_processor import (
     handle_add_goal_command,
 )
 from .conversation_clients import ConversationClientManager
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
     KnowledgePackageInfo,
     KnowledgeTransferState,
@@ -35,7 +35,7 @@ from .data import (
 from .logging import logger
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .storage import ProjectStorage, ProjectStorageManager
+from .storage import ShareStorage, ShareStorageManager
 from .storage_models import ConversationRole
 
 
@@ -79,12 +79,12 @@ async def invoke_command_handler(
         return f"{error_prefix}: {str(e)}"
 
 
-class ProjectTools:
-    """Tools for the Project Assistant to use during chat completions."""
+class ShareTools:
+    """Tools for the Knowledge Transfer Assistant to use during chat completions."""
 
     def __init__(self, context: ConversationContext, role: ConversationRole):
         """
-        Initialize the project tools with the current conversation context.
+        Initialize the knowledge transfer tools with the current conversation context.
 
         Args:
             context: The conversation context
@@ -94,11 +94,11 @@ class ProjectTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
-        # self.tool_functions.add_function(
-        #     self.suggest_next_action,
-        #     "suggest_next_action",
-        #     "Suggest the next action the user should take based on project state",
-        # )
+        self.tool_functions.add_function(
+            self.suggest_next_action,
+            "suggest_next_action",
+            "Suggest the next action the user should take based on knowledge transfer state",
+        )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -114,21 +114,21 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            # self.tool_functions.add_function(
-            #     self.add_project_goal,
-            #     "add_project_goal",
-            #     "Add a goal to the project brief with optional success criteria",
-            # )
-            # self.tool_functions.add_function(
-            #     self.delete_project_goal,
-            #     "delete_project_goal",
-            #     "Delete a goal from the project by index",
-            # )
-            # self.tool_functions.add_function(
-            #     self.mark_project_ready_for_working,
-            #     "mark_project_ready_for_working",
-            #     "Mark the project as ready for working",
-            # )
+            self.tool_functions.add_function(
+                self.add_learning_objective,
+                "add_learning_objective",
+                "Add a learning objective to the knowledge brief with measurable learning outcomes",
+            )
+            self.tool_functions.add_function(
+                self.delete_learning_objective,
+                "delete_learning_objective",
+                "Delete a learning objective from the knowledge package by index",
+            )
+            self.tool_functions.add_function(
+                self.mark_knowledge_ready_for_transfer,
+                "mark_knowledge_ready_for_transfer",
+                "Mark the knowledge package as ready for transfer",
+            )
 
         else:
             # Team-specific tools
@@ -144,29 +144,33 @@ class ProjectTools:
                 "Delete an information request that is no longer needed",
             )
 
-            # self.tool_functions.add_function(
-            #     self.update_project_status,
-            #     "update_project_status",
-            #     "Update the status and progress of the project",
-            # )
-            # self.tool_functions.add_function(
-            #     self.report_project_completion, "report_project_completion", "Report that the project is complete"
-            # )
-            # self.tool_functions.add_function(
-            #     self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-            # )
+            self.tool_functions.add_function(
+                self.update_transfer_status,
+                "update_transfer_status",
+                "Update the status and progress of the knowledge transfer",
+            )
+            self.tool_functions.add_function(
+                self.report_transfer_completion,
+                "report_transfer_completion",
+                "Report that the knowledge transfer is complete",
+            )
+            self.tool_functions.add_function(
+                self.mark_learning_outcome_achieved,
+                "mark_learning_outcome_achieved",
+                "Mark a learning outcome as achieved",
+            )
 
-    async def update_project_status(
+    async def update_transfer_status(
         self,
         status: Literal["planning", "in_progress", "blocked", "completed", "aborted"],
         progress: Optional[int],
         status_message: Optional[str],
     ) -> str:
         """
-        Update the status and progress of the project.
+        Update the status and progress of the knowledge transfer.
 
         Args:
-            status: The project status. Must be one of: planning, in_progress, blocked, completed, aborted.
+            status: The transfer status. Must be one of: planning, in_progress, blocked, completed, aborted.
             progress: The progress percentage (0-100). If not provided, no progress will be updated.
             status_message: A custom status message. If not provided, no status message will be updated.
             next_actions: A list of next actions. If not provided, no next actions will be updated.
@@ -176,34 +180,34 @@ class ProjectTools:
         """
 
         if self.role is not ConversationRole.TEAM:
-            return "Only Team members can update project status."
+            return "Only Team members can update transfer status."
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Unable to update project status."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Unable to update transfer status."
 
-        # Update the project info using KnowledgeTransferManager
-        project_info = await KnowledgeTransferManager.update_project_info(
+        # Update the share info using KnowledgeTransferManager
+        share_info = await KnowledgeTransferManager.update_share_info(
             context=self.context,
             state=status,
             status_message=status_message,
         )
 
-        if project_info:
+        if share_info:
             # Format progress as percentage if available
             progress_text = f" ({progress}% complete)" if progress is not None else ""
 
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Project status updated to '{status}'{progress_text}. All project participants will see this update.",
+                    content=f"Transfer status updated to '{status}'{progress_text}. All knowledge transfer participants will see this update.",
                     message_type=MessageType.notice,
                     metadata={},  # Add empty metadata
                 )
             )
-            return f"Project status updated to '{status}'{progress_text}."
+            return f"Transfer status updated to '{status}'{progress_text}."
         else:
-            return "Failed to update project status. Please try again."
+            return "Failed to update transfer status. Please try again."
 
     async def update_brief(self, title: str, description: str) -> str:
         """
@@ -217,14 +221,14 @@ class ProjectTools:
             A message indicating success or failure
         """
         if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can create project briefs."
+            return "Only Coordinator can create knowledge briefs."
 
-        # First, make sure we have a project associated with this conversation
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Please create a project first."
+        # First, make sure we have a knowledge package associated with this conversation
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge package first."
 
-        # Create a new project brief using KnowledgeTransferManager
+        # Create a new knowledge brief using KnowledgeTransferManager
         brief = await KnowledgeTransferManager.update_knowledge_brief(
             context=self.context,
             title=title,
@@ -278,10 +282,10 @@ class ProjectTools:
             logger.warning(f"Team member attempted to use resolve_information_request: {request_id}")
             return error_message
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Unable to resolve information request."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Unable to resolve information request."
 
         # Resolve the information request using KnowledgeTransferManager
         success, information_request = await KnowledgeTransferManager.resolve_information_request(
@@ -331,10 +335,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can create information requests."
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Unable to create information request."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Unable to create information request."
 
         # Set default priority if not provided
         if priority is None:
@@ -380,22 +384,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.TEAM:
             return "This tool is only available to Team members."
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            logger.warning("No project ID found for this conversation")
-            return "No project associated with this conversation. Unable to delete information request."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            logger.warning("No share ID found for this conversation")
+            return "No knowledge package associated with this conversation. Unable to delete information request."
 
         try:
             cleaned_request_id = request_id.strip()
             cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
 
             # Read the information request
-            information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
+            information_request = ShareStorage.read_information_request(share_id, cleaned_request_id)
 
             if not information_request:
                 # Try to find it in all requests with improved matching algorithm
-                all_requests = ProjectStorage.get_all_information_requests(project_id)
+                all_requests = ShareStorage.get_all_information_requests(share_id)
                 matching_request = None
 
                 available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
@@ -451,7 +455,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     request_id = matching_request.request_id
                 else:
                     logger.warning(
-                        f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
+                        f"Failed deletion attempt - request ID '{request_id}' not found in project {share_id}"
                     )
                     if available_ids:
                         id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
@@ -484,9 +488,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             actual_request_id = information_request.request_id
 
             # Log the deletion in the project log
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=self.context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_DELETED.value,
                 message=f"Information request '{request_title}' was deleted by {current_username}",
                 related_entity_id=actual_request_id,
@@ -498,10 +502,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             )
 
             # Delete the information request - implementing deletion logic by removing the file
-            # Using ProjectStorage instead of direct path access
+            # Using ShareStorage instead of direct path access
             # Create information requests directory path and remove the specific file
 
-            request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
+            request_path = ShareStorageManager.get_information_request_path(share_id, actual_request_id)
             if request_path.exists():
                 request_path.unlink()  # Delete the file
 
@@ -509,7 +513,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             try:
                 # Get Coordinator conversation ID
 
-                coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR.value
+                coordinator_dir = ShareStorageManager.get_share_dir(share_id) / ConversationRole.COORDINATOR.value
                 if coordinator_dir.exists():
                     role_file = coordinator_dir / "conversation_role.json"
                     if role_file.exists():
@@ -533,7 +537,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 # Not critical, so we continue
 
             # Update all project UI inspectors
-            await ProjectStorage.refresh_all_project_uis(self.context, project_id)
+            await ShareStorage.refresh_all_share_uis(self.context, share_id)
 
             return f"Information request '{request_title}' has been successfully deleted."
 
@@ -567,15 +571,15 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can add learning objectives."
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Please create a project brief first."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        # Get existing project brief
+        # Get existing knowledge brief
         brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
-            return "No project brief found. Please create one first with create_project_brief."
+            return "No knowledge brief found. Please create one first with update_brief."
 
         # Use the formatted command processor from chat.py to leverage existing functionality
         criteria_str = ""
@@ -592,7 +596,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             error_prefix="Error adding learning objective",
         )
 
-    async def delete_project_goal(self, goal_index: int) -> str:
+    async def delete_learning_objective(self, goal_index: int) -> str:
         """
         Delete a learning objective from the knowledge package by index.
 
@@ -617,8 +621,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Only Coordinator can delete learning objectives."
 
         # Get project ID - validate knowledge package exists
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
             return "No knowledge package associated with this conversation."
 
         # Call the KnowledgeTransferManager method to delete the learning objective
@@ -640,25 +644,25 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Return the error message
             return f"Error deleting goal: {result}"
 
-    async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
+    async def mark_learning_outcome_achieved(self, goal_index: int, criterion_index: int) -> str:
         """
-        Mark a success criterion as completed for tracking project progress.
+        Mark a learning outcome as achieved for tracking knowledge transfer progress.
 
         WHEN TO USE:
-        - When the user reports completing a specific task or deliverable
-        - When evidence has been provided that a success criterion has been met
-        - When a milestone for one of the project goals has been achieved
-        - When tracking progress and updating the project status
+        - When the user reports completing a specific learning task or deliverable
+        - When evidence has been provided that a learning outcome has been met
+        - When a milestone for one of the learning objectives has been achieved
+        - When tracking progress and updating the transfer status
 
-        Each completed criterion moves the project closer to completion. When all criteria
-        are completed, the project can be marked as complete.
+        Each completed outcome moves the knowledge transfer closer to completion. When all outcomes
+        are achieved, the transfer can be marked as complete.
 
-        IMPORTANT: Always use get_project_info() first to see the current goals, criteria, and their indices
+        IMPORTANT: Always use get_share_info() first to see the current objectives, outcomes, and their indices
         before marking anything as complete.
 
         Args:
-            goal_index: The index of the goal (0-based integer) from get_project_info() output
-            criterion_index: The index of the criterion within the goal (0-based integer)
+            goal_index: The index of the objective (0-based integer) from get_share_info() output
+            criterion_index: The index of the outcome within the objective (0-based integer)
 
         Returns:
             A message indicating success or failure
@@ -667,37 +671,37 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can mark criteria as completed."
 
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Unable to mark criterion as completed."
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Unable to mark outcome as achieved."
 
-        # Get existing project brief
+        # Get existing knowledge brief
         brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
-            return "No project brief found."
+            return "No knowledge brief found."
 
         # Using 0-based indexing directly, no adjustment needed
 
-        # Get the project to access goals
-        project = ProjectStorage.read_project(project_id)
-        if not project or not project.learning_objectives:
-            return "No project goals found."
+        # Get the knowledge package to access objectives
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found."
 
         # Validate indices
-        if goal_index < 0 or goal_index >= len(project.learning_objectives):
-            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} goals."
+        if goal_index < 0 or goal_index >= len(knowledge_package.learning_objectives):
+            return f"Invalid objective index {goal_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
 
-        goal = project.learning_objectives[goal_index]
+        objective = knowledge_package.learning_objectives[goal_index]
 
-        if criterion_index < 0 or criterion_index >= len(goal.learning_outcomes):
-            return f"Invalid criterion index {criterion_index}. Valid indexes for goal '{goal.name}' are 0 to {len(goal.learning_outcomes) - 1}. Goal '{goal.name}' has {len(goal.learning_outcomes)} criteria."
+        if criterion_index < 0 or criterion_index >= len(objective.learning_outcomes):
+            return f"Invalid outcome index {criterion_index}. Valid indexes for objective '{objective.name}' are 0 to {len(objective.learning_outcomes) - 1}. Objective '{objective.name}' has {len(objective.learning_outcomes)} outcomes."
 
-        # Update the criterion
-        criterion = goal.learning_outcomes[criterion_index]
+        # Update the outcome
+        outcome = objective.learning_outcomes[criterion_index]
 
-        if criterion.achieved:
-            return f"Criterion '{criterion.description}' is already marked as completed."
+        if outcome.achieved:
+            return f"Outcome '{outcome.description}' is already marked as achieved."
 
         # Get current user information
         participants = await self.context.get_participants()
@@ -711,109 +715,109 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not current_user_id:
             return "Could not identify current user."
 
-        # Mark as completed
-        criterion.achieved = True
-        criterion.achieved_at = datetime.utcnow()
-        criterion.achieved_by = current_user_id
+        # Mark as achieved
+        outcome.achieved = True
+        outcome.achieved_at = datetime.utcnow()
+        outcome.achieved_by = current_user_id
 
-        # Save the updated project with the completed criterion
-        ProjectStorage.write_project(project_id, project)
+        # Save the updated knowledge package with the achieved outcome
+        ShareStorage.write_share(share_id, knowledge_package)
 
-        # Log the criterion completion
-        await ProjectStorage.log_project_event(
+        # Log the outcome achievement
+        await ShareStorage.log_share_event(
             context=self.context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=LogEntryType.CRITERION_COMPLETED.value,
-            message=f"Success criterion completed: {criterion.description}",
+            message=f"Learning outcome achieved: {outcome.description}",
             related_entity_id=None,
-            metadata={"goal_name": goal.name, "criterion_description": criterion.description},
+            metadata={"objective_name": objective.name, "outcome_description": outcome.description},
         )
 
-        # Update project info
-        project_info = ProjectStorage.read_project_info(project_id)
+        # Update share info
+        share_info = ShareStorage.read_share_info(share_id)
 
-        if project_info:
+        if share_info:
             # Count all completed criteria
             completed_criteria = 0
             total_criteria = 0
 
-            # Get the project to access goals
-            project = ProjectStorage.read_project(project_id)
-            if project and project.learning_objectives:
-                for g in project.learning_objectives:
-                    total_criteria += len(g.learning_outcomes)
-                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
+            # Get the knowledge package to access objectives
+            knowledge_package = ShareStorage.read_share(share_id)
+            if knowledge_package and knowledge_package.learning_objectives:
+                for objective in knowledge_package.learning_objectives:
+                    total_criteria += len(objective.learning_outcomes)
+                    completed_criteria += sum(1 for outcome in objective.learning_outcomes if outcome.achieved)
 
-            # Update project info with criteria stats
+            # Update share info with outcome stats
             # Note: completed_criteria and total_criteria not in KnowledgePackageInfo model
 
             # Calculate progress percentage
             if total_criteria > 0:
-                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
+                share_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
 
             # Update metadata
-            project_info.updated_at = datetime.utcnow()
-            project_info.updated_by = current_user_id
-            project_info.version += 1
+            share_info.updated_at = datetime.utcnow()
+            share_info.updated_by = current_user_id
+            share_info.version += 1
 
-            # Save the updated project info
-            ProjectStorage.write_project_info(project_id, project_info)
+            # Save the updated share info
+            ShareStorage.write_share_info(share_id, share_info)
 
             # Notify linked conversations with a message
             await ProjectNotifier.notify_project_update(
                 context=self.context,
-                project_id=project_id,
-                update_type="project_info",
-                message=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed.",
+                share_id=share_id,
+                update_type="share_info",
+                message=f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
             )
 
-            # Update all project UI inspectors
-            await ProjectStorage.refresh_all_project_uis(self.context, project_id)
+            # Update all share UI inspectors
+            await ShareStorage.refresh_all_share_uis(self.context, share_id)
 
-            # Check if all criteria are completed for project completion
-            # Count all completed criteria again to check for completion
+            # Check if all outcomes are achieved for transfer completion
+            # Count all achieved outcomes again to check for completion
             completed = 0
             total = 0
 
-            # Get the project to access goals
-            project = ProjectStorage.read_project(project_id)
-            if project and project.learning_objectives:
-                for g in project.learning_objectives:
-                    total += len(g.learning_outcomes)
-                    completed += sum(1 for c in g.learning_outcomes if c.achieved)
+            # Get the knowledge package to access objectives
+            knowledge_package = ShareStorage.read_share(share_id)
+            if knowledge_package and knowledge_package.learning_objectives:
+                for objective in knowledge_package.learning_objectives:
+                    total += len(objective.learning_outcomes)
+                    completed += sum(1 for outcome in objective.learning_outcomes if outcome.achieved)
 
             if completed == total and total > 0:
-                # Automatically complete the project
-                success, project_info = await KnowledgeTransferManager.complete_project(
+                # Automatically complete the transfer
+                success, share_info = await KnowledgeTransferManager.complete_project(
                     context=self.context,
-                    summary=f"All {total} success criteria have been completed! Project has been automatically marked as complete.",
+                    summary=f"All {total} learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
                 )
 
                 if success:
                     await self.context.send_messages(
                         NewConversationMessage(
-                            content="🎉 All success criteria have been completed! The project has been automatically marked as complete.",
+                            content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
                             message_type=MessageType.notice,
                         )
                     )
                 else:
                     await self.context.send_messages(
                         NewConversationMessage(
-                            content="🎉 All success criteria have been completed! Would you like me to formally complete the project?",
+                            content="🎉 All learning outcomes have been achieved! Would you like me to formally complete the knowledge transfer?",
                             message_type=MessageType.notice,
                         )
                     )
 
         await self.context.send_messages(
             NewConversationMessage(
-                content=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed.",
+                content=f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
                 message_type=MessageType.notice,
             )
         )
 
-        return f"Learning outcome '{criterion.description}' for objective '{goal.name}' marked as achieved."
+        return f"Learning outcome '{outcome.description}' for objective '{objective.name}' marked as achieved."
 
-    async def mark_project_ready_for_working(self) -> str:
+    async def mark_knowledge_ready_for_transfer(self) -> str:
         """
         Mark the knowledge package as ready for transfer.
         This is a milestone function that transitions from Organizing to Ready for Transfer state.
@@ -826,16 +830,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Only Coordinator can mark a knowledge package as ready for transfer."
 
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
             return (
                 "No knowledge package associated with this conversation. Unable to mark package as ready for transfer."
             )
 
         # Get existing knowledge brief, digest, and package
-        brief = ProjectStorage.read_project_brief(project_id)
-        whiteboard = ProjectStorage.read_knowledge_digest(project_id)
-        project = ProjectStorage.read_project(project_id)
+        brief = ShareStorage.read_share_brief(share_id)
+        whiteboard = ShareStorage.read_knowledge_digest(share_id)
+        project = ShareStorage.read_share(share_id)
 
         if not brief:
             return "No knowledge brief found. Please create one before marking as ready for transfer."
@@ -858,7 +862,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Knowledge digest is empty. Content will be automatically generated as the transfer progresses."
 
         # Get or create knowledge package info
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
 
         # Get current user information
         participants = await self.context.get_participants()
@@ -875,7 +879,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not project_info:
             # Create new knowledge package info if it doesn't exist
             project_info = KnowledgePackageInfo(
-                package_id=project_id,
+                share_id=share_id,
                 coordinator_conversation_id=str(self.context.id),
                 transfer_state=KnowledgeTransferState.ORGANIZING,
                 created_at=datetime.utcnow(),
@@ -895,12 +899,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             project_info.updated_at = datetime.utcnow()
 
         # Save the updated project info
-        ProjectStorage.write_project_info(project_id, project_info)
+        ShareStorage.write_share_info(share_id, project_info)
 
         # Log the milestone transition
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=self.context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=LogEntryType.MILESTONE_PASSED.value,
             message="Project marked as READY FOR WORKING",
             metadata={"milestone": "ready_for_working"},
@@ -909,13 +913,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Notify linked conversations with a message
         await ProjectNotifier.notify_project_update(
             context=self.context,
-            project_id=project_id,
+            share_id=share_id,
             update_type="project_info",
             message="🔔 **Project Milestone Reached**: Coordinator has marked the project as READY FOR WORKING. All project information is now available and you can begin team operations.",
         )
 
         # Update all project UI inspectors
-        await ProjectStorage.refresh_all_project_uis(self.context, project_id)
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -926,7 +930,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return "Knowledge package successfully marked as ready for transfer."
 
-    async def report_project_completion(self) -> str:
+    async def report_transfer_completion(self) -> str:
         """
         Report that the knowledge transfer is complete, concluding the transfer lifecycle.
 
@@ -948,12 +952,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Only Team members can report knowledge transfer completion."
 
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
             return "No knowledge package associated with this conversation. Unable to report transfer completion."
 
         # Get existing knowledge package info
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if not project_info:
             return "No knowledge package information found. Cannot complete transfer without package information."
 
@@ -991,13 +995,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         project_info.version += 1
 
         # Save the updated project info
-        ProjectStorage.write_project_info(project_id, project_info)
+        ShareStorage.write_share_info(share_id, project_info)
 
         # Log the milestone transition
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=self.context,
-            project_id=project_id,
-            entry_type=LogEntryType.PROJECT_COMPLETED.value,
+            share_id=share_id,
+            entry_type=LogEntryType.SHARE_COMPLETED.value,
             message="Project marked as COMPLETED",
             metadata={"milestone": "project_completed"},
         )
@@ -1005,13 +1009,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Notify linked conversations with a message
         await ProjectNotifier.notify_project_update(
             context=self.context,
-            project_id=project_id,
+            share_id=share_id,
             update_type="project_completed",
             message="🎉 **Project Complete**: Team has reported that all project objectives have been achieved. The project is now complete.",
         )
 
         # Update all project UI inspectors
-        await ProjectStorage.refresh_all_project_uis(self.context, project_id)
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -1020,41 +1024,41 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             )
         )
 
-        return "Project successfully marked as complete. All participants have been notified."
+        return "Knowledge transfer successfully marked as complete. All participants have been notified."
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """
-        Suggest the next action the user should take based on project state.
+        Suggest the next action the user should take based on knowledge transfer state.
 
         Returns:
             Dict with suggestion details
         """
-        # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(self.context)
-        if not project_id:
-            logger.warning("No project ID found for this conversation")
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            logger.warning("No share ID found for this conversation")
             return {
-                "suggestion": "no_project",
-                "reason": "No project associated with this conversation. Unable to suggest next action.",
+                "suggestion": "no_share",
+                "reason": "No knowledge package associated with this conversation. Unable to suggest next action.",
                 "priority": "low",
                 "function": None,
             }
 
-        project_info = ProjectStorage.read_project_info(project_id)
-        if not project_info:
+        share_info = ShareStorage.read_share_info(share_id)
+        if not share_info:
             return {
-                "suggestion": "no_project_info",
-                "reason": "No project information found. Unable to suggest next action.",
+                "suggestion": "no_share_info",
+                "reason": "No knowledge package information found. Unable to suggest next action.",
                 "priority": "low",
                 "function": None,
             }
 
-        # Get project state information
-        brief = ProjectStorage.read_project_brief(project_id)
-        project = ProjectStorage.read_project(project_id)
-        requests = ProjectStorage.get_all_information_requests(project_id)
+        # Get knowledge transfer state information
+        brief = ShareStorage.read_share_brief(share_id)
+        knowledge_package = ShareStorage.read_share(share_id)
+        requests = ShareStorage.get_all_information_requests(share_id)
 
-        # Check if project brief exists
+        # Check if knowledge brief exists
         if not brief:
             if self.role is ConversationRole.COORDINATOR:
                 return {
@@ -1072,8 +1076,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     "function": None,
                 }
 
-        # Check if goals exist
-        if not project or not project.learning_objectives:
+        # Check if objectives exist
+        if not knowledge_package or not knowledge_package.learning_objectives:
             if self.role is ConversationRole.COORDINATOR:
                 return {
                     "suggestion": "add_project_goal",
@@ -1090,24 +1094,24 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     "function": None,
                 }
 
-        # Check project info if project is ready for working
-        ready_for_working = project_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
+        # Check share info if knowledge package is ready for transfer
+        ready_for_transfer = share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
 
-        if not ready_for_working and self.role is ConversationRole.COORDINATOR:
-            # Check if it's ready to mark as ready for working
-            has_goals = bool(project and project.learning_objectives)
-            has_criteria = bool(
-                project
-                and project.learning_objectives
-                and any(bool(goal.learning_outcomes) for goal in project.learning_objectives)
+        if not ready_for_transfer and self.role is ConversationRole.COORDINATOR:
+            # Check if it's ready to mark as ready for transfer
+            has_objectives = bool(knowledge_package and knowledge_package.learning_objectives)
+            has_outcomes = bool(
+                knowledge_package
+                and knowledge_package.learning_objectives
+                and any(bool(objective.learning_outcomes) for objective in knowledge_package.learning_objectives)
             )
 
-            if has_goals and has_criteria:
+            if has_objectives and has_outcomes:
                 return {
-                    "suggestion": "mark_ready_for_working",
-                    "reason": "Project information is complete. Mark it as ready for team operations.",
+                    "suggestion": "mark_ready_for_transfer",
+                    "reason": "Knowledge package information is complete. Mark it as ready for transfer.",
                     "priority": "medium",
-                    "function": "mark_project_ready_for_working",
+                    "function": "mark_knowledge_ready_for_transfer",
                     "parameters": {},
                 }
 
@@ -1141,21 +1145,21 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # For team, suggest marking criteria as completed if any are pending
         if self.role is ConversationRole.TEAM and incomplete_criteria:
-            # Get the project to access goals
-            project = ProjectStorage.read_project(project_id)
-            if project and project.learning_objectives:
-                # Find the first uncompleted criterion
-                for goal_index, goal in enumerate(project.learning_objectives):
-                    for criterion_index, criterion in enumerate(goal.learning_outcomes):
-                        if not criterion.achieved:
+            # Get the knowledge package to access objectives
+            knowledge_package_check = ShareStorage.read_share(share_id)
+            if knowledge_package_check and knowledge_package_check.learning_objectives:
+                # Find the first unachieved outcome
+                for objective_index, objective in enumerate(knowledge_package_check.learning_objectives):
+                    for outcome_index, outcome in enumerate(objective.learning_outcomes):
+                        if not outcome.achieved:
                             return {
-                                "suggestion": "mark_criterion_completed",
-                                "reason": "Update progress by marking completed success criteria.",
+                                "suggestion": "mark_learning_outcome_achieved",
+                                "reason": "Update progress by marking achieved learning outcomes.",
                                 "priority": "low",
-                                "function": "mark_criterion_completed",
+                                "function": "mark_learning_outcome_achieved",
                                 "parameters": {
-                                    "goal_index": goal_index,  # 0-based indexing
-                                    "criterion_index": criterion_index,  # 0-based indexing
+                                    "goal_index": objective_index,  # 0-based indexing
+                                    "criterion_index": outcome_index,  # 0-based indexing
                                 },
                             }
 
@@ -1170,8 +1174,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         else:
             return {
                 "suggestion": "update_status",
-                "reason": "Continue team operations and update project progress as you make advancements.",
+                "reason": "Continue knowledge transfer operations and update progress as you make advancements.",
                 "priority": "low",
-                "function": "update_project_info",
+                "function": "update_transfer_status",
                 "parameters": {"status": "in_progress"},
             }

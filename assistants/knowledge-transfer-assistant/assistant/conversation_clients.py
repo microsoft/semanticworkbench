@@ -12,9 +12,9 @@ from semantic_workbench_api_model.workbench_service_client import ConversationAP
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .logging import logger
-from .storage import ProjectStorageManager
+from .storage import ShareStorageManager
 from .storage_models import ConversationRole
 
 
@@ -41,7 +41,7 @@ class ConversationClientManager:
         Gets a client for accessing the Coordinator conversation for a project.
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR
+        coordinator_dir = ShareStorageManager.get_share_dir(project_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 

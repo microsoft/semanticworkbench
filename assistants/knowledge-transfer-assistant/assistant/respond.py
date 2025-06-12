@@ -32,10 +32,10 @@ from .config import assistant_config
 from .data import RequestStatus
 from .logging import logger
 from .manager import KnowledgeTransferManager
-from .storage import ProjectStorage
+from .storage import ShareStorage
 from .storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
-from .tools import ProjectTools
+from .tools import ShareTools
 from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
@@ -71,7 +71,7 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    project_id = await KnowledgeTransferManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_share_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
@@ -131,7 +131,7 @@ async def respond_to_conversation(
     ###
 
     # Project info
-    project_info = ProjectStorage.read_project_info(project_id)
+    project_info = ShareStorage.read_share_info(project_id)
     if project_info:
         data = project_info.model_dump()
 
@@ -152,7 +152,7 @@ async def respond_to_conversation(
         prompt.contexts.append(Context("Knowledge Info", project_info_text))
 
     # Brief
-    briefing = ProjectStorage.read_project_brief(project_id)
+    briefing = ShareStorage.read_share_brief(project_id)
     project_brief_text = ""
     if briefing:
         project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.description}"
@@ -164,7 +164,7 @@ async def respond_to_conversation(
         )
 
     # Project goals
-    project = ProjectStorage.read_project(project_id)
+    project = ShareStorage.read_share(project_id)
     if project and project.learning_objectives:
         goals_text = ""
         for i, goal in enumerate(project.learning_objectives):
@@ -186,12 +186,12 @@ async def respond_to_conversation(
         )
 
     # Whiteboard
-    whiteboard = ProjectStorage.read_knowledge_digest(project_id)
+    whiteboard = ShareStorage.read_knowledge_digest(project_id)
     if whiteboard and whiteboard.content:
         prompt.contexts.append(Context("Assistant Whiteboard", whiteboard.content, "The assistant's whiteboard"))
 
     # Information requests
-    all_requests = ProjectStorage.get_all_information_requests(project_id)
+    all_requests = ShareStorage.get_all_information_requests(project_id)
     if role == ConversationRole.COORDINATOR:
         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
         if active_requests:
@@ -258,7 +258,7 @@ async def respond_to_conversation(
     ###
 
     # Get the coordinator conversation and add it as an attachment.
-    coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
+    coordinator_conversation = ShareStorage.read_coordinator_conversation(project_id)
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
@@ -489,7 +489,7 @@ async def respond_to_conversation(
                 "response_format": Output,
             }
 
-            project_tools = ProjectTools(context, role)
+            project_tools = ShareTools(context, role)
             response_start_time = time.time()
             completion_response, additional_messages = await complete_with_tool_calls(
                 async_client=client,

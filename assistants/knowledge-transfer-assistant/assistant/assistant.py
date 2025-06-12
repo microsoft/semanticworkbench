@@ -37,14 +37,14 @@ from assistant.utils import (
 
 from .common import detect_assistant_role
 from .config import assistant_config
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
 from .files import ProjectFileManager
 from .logging import logger
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .state_inspector import ProjectInspectorStateProvider
-from .storage import ProjectStorage
+from .state_inspector import ShareInspectorStateProvider
+from .storage import ShareStorage
 from .storage_models import ConversationRole
 
 service_id = "knowledge-transfer-assistant.made-exploration"
@@ -69,7 +69,7 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     capabilities={AssistantCapability.supports_conversation_files},
     inspector_state_providers={
-        "project_status": ProjectInspectorStateProvider(assistant_config),
+        "project_status": ShareInspectorStateProvider(assistant_config),
     },
     assistant_service_metadata={
         **dashboard_card.metadata(
@@ -123,11 +123,11 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
     conversation_type = ConversationType.COORDINATOR
 
-    # Coordinator conversations will not have a project_id or
+    # Coordinator conversations will not have a share_id or
     # is_team_conversation flag in the metadata. So, if they are there, we just
     # need to decide if it's a shareable template or a team conversation.
-    project_id = conversation_metadata.get("project_id")
-    if conversation_metadata.get("is_team_conversation", False) and project_id:
+    share_id = conversation_metadata.get("share_id")
+    if conversation_metadata.get("is_team_conversation", False) and share_id:
         # If this conversation was imported from another, it indicates it's from
         # share redemption.
         if conversation.imported_from_conversation_id:
@@ -147,15 +147,15 @@ async def on_conversation_created(context: ConversationContext) -> None:
     ##
     match conversation_type:
         case ConversationType.SHAREABLE_TEMPLATE:
-            if not project_id:
+            if not share_id:
                 logger.error("No project ID found for shareable team conversation.")
                 return
 
-            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
             return
 
         case ConversationType.TEAM:
-            if not project_id:
+            if not share_id:
                 logger.error("No project ID found for team conversation.")
                 return
 
@@ -167,10 +167,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
-            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
             # Synchronize files.
-            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
             # Generate a welcome message.
             welcome_message, debug = await generate_team_welcome_message(context)
@@ -198,7 +198,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
         case ConversationType.COORDINATOR:
             try:
-                project_id = await KnowledgeTransferManager.create_project(context)
+                share_id = await KnowledgeTransferManager.create_share(context)
 
                 # A basic brief to start with.
 
@@ -210,7 +210,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
                 # Create a team conversation with a share URL
                 share_url = await KnowledgeTransferManager.create_shareable_team_conversation(
-                    context=context, project_id=project_id
+                    context=context, share_id=share_id
                 )
 
                 welcome_message = config.coordinator_config.welcome_message.format(
@@ -242,15 +242,15 @@ async def on_message_created(
     }
 
     try:
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        metadata["debug"]["project_id"] = project_id
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        metadata["debug"]["share_id"] = share_id
 
         # If this is a Coordinator conversation, store the message for Team access
         async with context.set_status("jotting..."):
             role = await detect_assistant_role(context)
             if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
                 try:
-                    if project_id:
+                    if share_id:
                         # Get the sender's name
                         sender_name = "Coordinator"
                         if message.sender:
@@ -261,8 +261,8 @@ async def on_message_created(
                                     break
 
                         # Store the message for Team access
-                        ProjectStorage.append_coordinator_message(
-                            project_id=project_id,
+                        ShareStorage.append_coordinator_message(
+                            share_id=share_id,
                             message_id=str(message.id),
                             content=message.content,
                             sender_name=sender_name,
@@ -343,10 +343,10 @@ async def on_file_created(
     1. Use as-is without copying to project storage
     """
     try:
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id or not file.filename:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id or not file.filename:
             logger.warning(
-                f"No project ID found or missing filename: project_id={project_id}, filename={file.filename}"
+                f"No project ID found or missing filename: share_id={share_id}, filename={file.filename}"
             )
             return
 
@@ -361,7 +361,7 @@ async def on_file_created(
 
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 file=file,
                 is_coordinator_file=True,
             )
@@ -372,13 +372,13 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            team_conversations = await ProjectFileManager.get_team_conversations(context, share_id)
 
             if team_conversations:
                 for team_conv_id in team_conversations:
                     await ProjectFileManager.copy_file_to_conversation(
                         context=context,
-                        project_id=project_id,
+                        share_id=share_id,
                         filename=file.filename,
                         target_conversation_id=team_conv_id,
                     )
@@ -386,7 +386,7 @@ async def on_file_created(
             # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="file_created",
                 message=f"Coordinator shared a file: {file.filename}",
                 data={"filename": file.filename},
@@ -395,9 +395,9 @@ async def on_file_created(
         # Team files don't need special handling as they're already in the conversation
 
         # Log file creation to project log for all files
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type="file_shared",
             message=f"File shared: {file.filename}",
             metadata={
@@ -419,8 +419,8 @@ async def on_file_updated(
 ) -> None:
     try:
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id or not file.filename:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id or not file.filename:
             return
 
         role = await detect_assistant_role(context)
@@ -429,7 +429,7 @@ async def on_file_updated(
             # 1. Update in project storage
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 file=file,
                 is_coordinator_file=True,
             )
@@ -438,11 +438,11 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in project storage: {file.filename}")
                 return
 
-            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            team_conversations = await ProjectFileManager.get_team_conversations(context, share_id)
             for team_conv_id in team_conversations:
                 await ProjectFileManager.copy_file_to_conversation(
                     context=context,
-                    project_id=project_id,
+                    share_id=share_id,
                     filename=file.filename,
                     target_conversation_id=team_conv_id,
                 )
@@ -450,7 +450,7 @@ async def on_file_updated(
             # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="file_updated",
                 message=f"Coordinator updated a file: {file.filename}",
                 data={"filename": file.filename},
@@ -459,9 +459,9 @@ async def on_file_updated(
         # Team files don't need special handling
 
         # Log file update to project log for all files
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type="file_shared",
             message=f"File updated: {file.filename}",
             metadata={
@@ -483,8 +483,8 @@ async def on_file_deleted(
 ) -> None:
     try:
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id or not file.filename:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id or not file.filename:
             return
 
         role = await detect_assistant_role(context)
@@ -492,7 +492,7 @@ async def on_file_deleted(
             # For Coordinator files:
             # 1. Delete from project storage
             success = await ProjectFileManager.delete_file_from_project_storage(
-                context=context, project_id=project_id, filename=file.filename
+                context=context, share_id=share_id, filename=file.filename
             )
 
             if not success:
@@ -501,7 +501,7 @@ async def on_file_deleted(
             # 2. Update all UIs about the deletion but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="file_deleted",
                 message=f"Coordinator deleted a file: {file.filename}",
                 data={"filename": file.filename},
@@ -510,9 +510,9 @@ async def on_file_deleted(
         # Team files don't need special handling
 
         # Log file deletion to project log for all files
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type="file_deleted",
             message=f"File deleted: {file.filename}",
             metadata={
@@ -549,15 +549,15 @@ async def on_participant_joined(
         if role != ConversationRole.TEAM:
             return
 
-        project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-        if not project_id:
+        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        if not share_id:
             return
 
-        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
+        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=LogEntryType.PARTICIPANT_JOINED,
             message=f"Participant joined: {participant.name}",
             metadata={

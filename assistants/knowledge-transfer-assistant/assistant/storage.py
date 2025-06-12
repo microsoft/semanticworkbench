@@ -28,176 +28,176 @@ from .storage_models import CoordinatorConversationMessage, CoordinatorConversat
 from .utils import get_current_user
 
 
-class ProjectStorageManager:
+class ShareStorageManager:
     """Manages storage paths and access for project data."""
 
-    PROJECTS_ROOT = "projects"
+    SHARES_ROOT = "shares"
 
     # File names for project entities
-    PROJECT_INFO_FILE = "project.json"
-    PROJECT_BRIEF_FILE = "brief.json"
-    PROJECT_LOG_FILE = "log.json"
-    PROJECT_WHITEBOARD_FILE = "whiteboard.json"
+    SHARE_INFO_FILE = "share.json"
+    SHARE_BRIEF_FILE = "brief.json"
+    SHARE_LOG_FILE = "log.json"
+    SHARE_WHITEBOARD_FILE = "whiteboard.json"
     COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
-    PROJECT_FILE = "project_data.json"
+    SHARE_FILE = "share_data.json"
 
     @staticmethod
-    def get_projects_root() -> pathlib.Path:
+    def get_shares_root() -> pathlib.Path:
         """Gets the root path for all projects."""
-        return pathlib.Path(settings.storage.root) / ProjectStorageManager.PROJECTS_ROOT
+        return pathlib.Path(settings.storage.root) / ShareStorageManager.SHARES_ROOT
 
     @staticmethod
-    def get_project_dir(project_id: str) -> pathlib.Path:
+    def get_share_dir(share_id: str) -> pathlib.Path:
         """Gets the directory for a specific project."""
-        projects_root = ProjectStorageManager.get_projects_root()
-        project_dir = projects_root / project_id
-        project_dir.mkdir(parents=True, exist_ok=True)
-        return project_dir
+        shares_root = ShareStorageManager.get_shares_root()
+        share_dir = shares_root / share_id
+        share_dir.mkdir(parents=True, exist_ok=True)
+        return share_dir
 
     @staticmethod
-    def get_linked_conversations_dir(project_id: str) -> pathlib.Path:
+    def get_linked_conversations_dir(share_id: str) -> pathlib.Path:
         """Gets the directory that tracks linked conversations for a project."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        linked_dir = project_dir / "linked_conversations"
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        linked_dir = share_dir / "linked_conversations"
         linked_dir.mkdir(parents=True, exist_ok=True)
         return linked_dir
 
     @staticmethod
-    def get_project_info_path(project_id: str) -> pathlib.Path:
+    def get_share_info_path(share_id: str) -> pathlib.Path:
         """Gets the path to the project info file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_INFO_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.SHARE_INFO_FILE
 
     @staticmethod
-    def get_brief_path(project_id: str) -> pathlib.Path:
+    def get_brief_path(share_id: str) -> pathlib.Path:
         """Gets the path to the project brief file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_BRIEF_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.SHARE_BRIEF_FILE
 
     @staticmethod
-    def get_project_log_path(project_id: str) -> pathlib.Path:
+    def get_share_log_path(share_id: str) -> pathlib.Path:
         """Gets the path to the project log file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.SHARE_LOG_FILE
 
     @staticmethod
-    def get_knowledge_digest_path(project_id: str) -> pathlib.Path:
+    def get_knowledge_digest_path(share_id: str) -> pathlib.Path:
         """Gets the path to the project whiteboard file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_WHITEBOARD_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.SHARE_WHITEBOARD_FILE
 
     @staticmethod
-    def get_coordinator_conversation_path(project_id: str) -> pathlib.Path:
+    def get_coordinator_conversation_path(share_id: str) -> pathlib.Path:
         """Gets the path to the Coordinator conversation file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.COORDINATOR_CONVERSATION_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.COORDINATOR_CONVERSATION_FILE
 
     @staticmethod
-    def get_project_path(project_id: str) -> pathlib.Path:
+    def get_share_path(share_id: str) -> pathlib.Path:
         """Gets the path to the complete KnowledgePackage data file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_FILE
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        return share_dir / ShareStorageManager.SHARE_FILE
 
     @staticmethod
-    def get_information_requests_dir(project_id: str) -> pathlib.Path:
+    def get_information_requests_dir(share_id: str) -> pathlib.Path:
         """Gets the directory containing all information requests."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        requests_dir = project_dir / "requests"
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        requests_dir = share_dir / "requests"
         requests_dir.mkdir(parents=True, exist_ok=True)
         return requests_dir
 
     @staticmethod
-    def get_information_request_path(project_id: str, request_id: str) -> pathlib.Path:
+    def get_information_request_path(share_id: str, request_id: str) -> pathlib.Path:
         """Gets the path to an information request file."""
-        requests_dir = ProjectStorageManager.get_information_requests_dir(project_id)
+        requests_dir = ShareStorageManager.get_information_requests_dir(share_id)
         return requests_dir / f"{request_id}.json"
 
     @staticmethod
-    def project_exists(project_id: str) -> bool:
+    def share_exists(share_id: str) -> bool:
         """Checks if a project exists."""
-        project_dir = ProjectStorageManager.get_projects_root() / project_id
-        return project_dir.exists()
+        share_dir = ShareStorageManager.get_shares_root() / share_id
+        return share_dir.exists()
 
     @staticmethod
     def get_conversation_role_file_path(context: ConversationContext) -> pathlib.Path:
         """Gets the path to the file that stores a conversation's role in projects."""
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
-        return storage_dir / "project_role.json"
+        return storage_dir / "share_role.json"
 
     @staticmethod
-    def get_conversation_project_file_path(context: ConversationContext) -> pathlib.Path:
+    def get_conversation_share_file_path(context: ConversationContext) -> pathlib.Path:
         """Gets the path to the file that stores a conversation's project association."""
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
-        file_path = storage_dir / "project_association.json"
+        file_path = storage_dir / "share_association.json"
         return file_path
 
 
-class ProjectStorage:
+class ShareStorage:
     """Unified storage operations for project data."""
 
     @staticmethod
-    def read_project_info(project_id: str) -> Optional[KnowledgePackageInfo]:
+    def read_share_info(share_id: str) -> Optional[KnowledgePackageInfo]:
         """Reads the project info."""
-        path = ProjectStorageManager.get_project_info_path(project_id)
+        path = ShareStorageManager.get_share_info_path(share_id)
         return read_model(path, KnowledgePackageInfo)
 
     @staticmethod
-    def write_project_info(project_id: str, info: KnowledgePackageInfo) -> pathlib.Path:
+    def write_share_info(share_id: str, info: KnowledgePackageInfo) -> pathlib.Path:
         """Writes the project info."""
-        path = ProjectStorageManager.get_project_info_path(project_id)
+        path = ShareStorageManager.get_share_info_path(share_id)
         write_model(path, info)
         return path
 
     @staticmethod
-    def read_project_brief(project_id: str) -> Optional[KnowledgeBrief]:
+    def read_share_brief(share_id: str) -> Optional[KnowledgeBrief]:
         """Reads the project brief."""
-        path = ProjectStorageManager.get_brief_path(project_id)
+        path = ShareStorageManager.get_brief_path(share_id)
         return read_model(path, KnowledgeBrief)
 
     @staticmethod
-    def write_project_brief(project_id: str, brief: KnowledgeBrief) -> pathlib.Path:
+    def write_share_brief(share_id: str, brief: KnowledgeBrief) -> pathlib.Path:
         """Writes the project brief."""
-        path = ProjectStorageManager.get_brief_path(project_id)
+        path = ShareStorageManager.get_brief_path(share_id)
         write_model(path, brief)
         return path
 
     @staticmethod
-    def read_project_log(project_id: str) -> Optional[KnowledgePackageLog]:
+    def read_share_log(share_id: str) -> Optional[KnowledgePackageLog]:
         """Reads the project log."""
-        path = ProjectStorageManager.get_project_log_path(project_id)
+        path = ShareStorageManager.get_share_log_path(share_id)
         return read_model(path, KnowledgePackageLog)
 
     @staticmethod
-    def write_project_log(project_id: str, log: KnowledgePackageLog) -> pathlib.Path:
+    def write_share_log(share_id: str, log: KnowledgePackageLog) -> pathlib.Path:
         """Writes the project log."""
-        path = ProjectStorageManager.get_project_log_path(project_id)
+        path = ShareStorageManager.get_share_log_path(share_id)
         write_model(path, log)
         return path
 
     @staticmethod
-    def read_knowledge_digest(project_id: str) -> Optional[KnowledgeDigest]:
+    def read_knowledge_digest(share_id: str) -> Optional[KnowledgeDigest]:
         """Reads the project whiteboard."""
-        path = ProjectStorageManager.get_knowledge_digest_path(project_id)
+        path = ShareStorageManager.get_knowledge_digest_path(share_id)
         return read_model(path, KnowledgeDigest)
 
     @staticmethod
-    def read_coordinator_conversation(project_id: str) -> Optional[CoordinatorConversationStorage]:
+    def read_coordinator_conversation(share_id: str) -> Optional[CoordinatorConversationStorage]:
         """Reads the Coordinator conversation messages for a project."""
-        path = ProjectStorageManager.get_coordinator_conversation_path(project_id)
+        path = ShareStorageManager.get_coordinator_conversation_path(share_id)
         return read_model(path, CoordinatorConversationStorage)
 
     @staticmethod
-    def write_coordinator_conversation(project_id: str, conversation: CoordinatorConversationStorage) -> pathlib.Path:
+    def write_coordinator_conversation(share_id: str, conversation: CoordinatorConversationStorage) -> pathlib.Path:
         """Writes the Coordinator conversation messages to storage."""
-        path = ProjectStorageManager.get_coordinator_conversation_path(project_id)
+        path = ShareStorageManager.get_coordinator_conversation_path(share_id)
         write_model(path, conversation)
         return path
 
     @staticmethod
     def append_coordinator_message(
-        project_id: str,
+        share_id: str,
         message_id: str,
         content: str,
         sender_name: str,
@@ -208,7 +208,7 @@ class ProjectStorage:
         Appends a message to the Coordinator conversation storage.
 
         Args:
-            project_id: The ID of the project
+            share_id: The ID of the project
             message_id: The ID of the message
             content: The message content
             sender_name: The name of the sender
@@ -216,9 +216,9 @@ class ProjectStorage:
             timestamp: The timestamp of the message (defaults to now)
         """
         # Get existing conversation or create new one
-        conversation = ProjectStorage.read_coordinator_conversation(project_id)
+        conversation = ShareStorage.read_coordinator_conversation(share_id)
         if not conversation:
-            conversation = CoordinatorConversationStorage(knowledge_package_id=project_id)
+            conversation = CoordinatorConversationStorage(knowledge_share_id=share_id)
 
         # Create new message
         new_message = CoordinatorConversationMessage(
@@ -237,49 +237,49 @@ class ProjectStorage:
         conversation.last_updated = datetime.utcnow()
 
         # Save the updated conversation
-        ProjectStorage.write_coordinator_conversation(project_id, conversation)
+        ShareStorage.write_coordinator_conversation(share_id, conversation)
 
     @staticmethod
-    def write_project_whiteboard(project_id: str, whiteboard: KnowledgeDigest) -> pathlib.Path:
+    def write_share_whiteboard(share_id: str, whiteboard: KnowledgeDigest) -> pathlib.Path:
         """Writes the project whiteboard."""
-        path = ProjectStorageManager.get_knowledge_digest_path(project_id)
+        path = ShareStorageManager.get_knowledge_digest_path(share_id)
         write_model(path, whiteboard)
         return path
 
     @staticmethod
-    def read_information_request(project_id: str, request_id: str) -> Optional[InformationRequest]:
+    def read_information_request(share_id: str, request_id: str) -> Optional[InformationRequest]:
         """Reads an information request."""
-        path = ProjectStorageManager.get_information_request_path(project_id, request_id)
+        path = ShareStorageManager.get_information_request_path(share_id, request_id)
         return read_model(path, InformationRequest)
 
     @staticmethod
-    def write_information_request(project_id: str, request: InformationRequest) -> pathlib.Path:
+    def write_information_request(share_id: str, request: InformationRequest) -> pathlib.Path:
         """Writes an information request."""
         # Information requests must have an ID
         if not request.request_id:
             raise ValueError("Information request must have a request_id")
 
-        path = ProjectStorageManager.get_information_request_path(project_id, request.request_id)
+        path = ShareStorageManager.get_information_request_path(share_id, request.request_id)
         write_model(path, request)
         return path
 
     @staticmethod
-    def read_project(project_id: str) -> Optional[KnowledgePackage]:
+    def read_share(share_id: str) -> Optional[KnowledgePackage]:
         """Reads the complete KnowledgePackage data."""
-        path = ProjectStorageManager.get_project_path(project_id)
+        path = ShareStorageManager.get_share_path(share_id)
         return read_model(path, KnowledgePackage)
 
     @staticmethod
-    def write_project(project_id: str, project: KnowledgePackage) -> pathlib.Path:
+    def write_share(share_id: str, project: KnowledgePackage) -> pathlib.Path:
         """Writes the complete KnowledgePackage data."""
-        path = ProjectStorageManager.get_project_path(project_id)
+        path = ShareStorageManager.get_share_path(share_id)
         write_model(path, project)
         return path
 
     @staticmethod
-    def get_all_information_requests(project_id: str) -> List[InformationRequest]:
+    def get_all_information_requests(share_id: str) -> List[InformationRequest]:
         """Gets all information requests for a project."""
-        dir_path = ProjectStorageManager.get_information_requests_dir(project_id)
+        dir_path = ShareStorageManager.get_information_requests_dir(share_id)
         requests = []
 
         if not dir_path.exists():
@@ -306,7 +306,7 @@ class ProjectStorage:
         await refresh_current_ui(context)
 
     @staticmethod
-    async def refresh_all_project_uis(context: ConversationContext, project_id: str) -> None:
+    async def refresh_all_share_uis(context: ConversationContext, share_id: str) -> None:
         """
         Refreshes the UI inspector panels of all conversations in a project.
 
@@ -314,12 +314,12 @@ class ProjectStorage:
         """
         from .notifications import refresh_all_project_uis
 
-        await refresh_all_project_uis(context, project_id)
+        await refresh_all_project_uis(context, share_id)
 
     @staticmethod
-    async def log_project_event(
+    async def log_share_event(
         context: ConversationContext,
-        project_id: str,
+        share_id: str,
         entry_type: str,
         message: str,
         related_entity_id: Optional[str] = None,
@@ -330,7 +330,7 @@ class ProjectStorage:
 
         Args:
             context: Current conversation context
-            project_id: ID of the project
+            share_id: ID of the project
             entry_type: Type of log entry
             message: Log message
             related_entity_id: Optional ID of a related entity (e.g., information request)
@@ -359,7 +359,7 @@ class ProjectStorage:
         )
 
         # Get existing log or create a new one
-        log = ProjectStorage.read_project_log(project_id)
+        log = ShareStorage.read_share_log(share_id)
         if not log:
             log = KnowledgePackageLog(
                 entries=[],
@@ -369,5 +369,5 @@ class ProjectStorage:
         log.entries.append(entry)
 
         # Save the updated log
-        ProjectStorage.write_project_log(project_id, log)
+        ShareStorage.write_share_log(share_id, log)
         return True

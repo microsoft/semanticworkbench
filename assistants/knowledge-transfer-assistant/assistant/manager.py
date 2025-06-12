@@ -22,7 +22,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
     InformationRequest,
     KnowledgeBrief,
@@ -39,7 +39,7 @@ from .data import (
 )
 from .logging import logger
 from .notifications import ProjectNotifier
-from .storage import ProjectStorage, ProjectStorageManager
+from .storage import ShareStorage, ShareStorageManager
 from .storage_models import ConversationRole
 from .utils import get_current_user, require_current_user
 
@@ -61,7 +61,7 @@ class KnowledgeTransferManager:
     """
 
     @staticmethod
-    async def create_shareable_team_conversation(context: ConversationContext, project_id: str) -> str:
+    async def create_shareable_team_conversation(context: ConversationContext, share_id: str) -> str:
         """
         Creates a new shareable team conversation template.
 
@@ -76,7 +76,7 @@ class KnowledgeTransferManager:
 
         Args:
             context: Current conversation context
-            project_id: ID of the project
+            share_id: ID of the project
 
         Returns:
             share_url: URL for joining a team conversation
@@ -90,7 +90,7 @@ class KnowledgeTransferManager:
         new_conversation = NewConversation(
             metadata={
                 "is_team_conversation": True,
-                "project_id": project_id,
+                "share_id": share_id,
                 "setup_complete": True,
                 "project_role": "team",
                 "assistant_mode": "team",
@@ -107,7 +107,7 @@ class KnowledgeTransferManager:
             label="Join Team Conversation",
             conversation_permission=ConversationPermission.read,
             metadata={
-                "project_id": project_id,
+                "share_id": share_id,
                 "is_team_conversation": True,
                 "showDuplicateAction": True,
                 "show_duplicate_action": True,
@@ -120,19 +120,19 @@ class KnowledgeTransferManager:
         share_url = f"/conversation-share/{share.id}/redeem"
 
         # Store team conversation info in KnowledgePackageInfo
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if project_info:
             project_info.team_conversation_id = str(conversation.id)
             project_info.share_url = share_url
             project_info.updated_at = datetime.utcnow()
-            ProjectStorage.write_project_info(project_id, project_info)
+            ShareStorage.write_share_info(share_id, project_info)
         else:
-            raise ValueError(f"KnowledgePackage info not found for project ID: {project_id}")
+            raise ValueError(f"KnowledgePackage info not found for project ID: {share_id}")
 
         return share_url
 
     @staticmethod
-    async def create_project(context: ConversationContext) -> str:
+    async def create_share(context: ConversationContext) -> str:
         """
         Creates a new project and associates the current conversation with it.
 
@@ -150,42 +150,42 @@ class KnowledgeTransferManager:
             context: Current conversation context containing user/assistant information
 
         Returns:
-            Tuple of (success, project_id) where:
+            Tuple of (success, share_id) where:
             - success: Boolean indicating if the creation was successful
-            - project_id: If successful, the UUID of the newly created project
+            - share_id: If successful, the UUID of the newly created project
         """
 
         # Generate a unique project ID
-        project_id = str(uuid.uuid4())
+        share_id = str(uuid.uuid4())
 
         # Create the project directory structure first
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        project_dir = ShareStorageManager.get_share_dir(share_id)
         logger.debug(f"Created project directory: {project_dir}")
 
         # Create and save the initial project info
-        project_info = KnowledgePackageInfo(package_id=project_id, coordinator_conversation_id=str(context.id))
+        project_info = KnowledgePackageInfo(share_id=share_id, coordinator_conversation_id=str(context.id))
 
         # Save the project info
-        ProjectStorage.write_project_info(project_id, project_info)
+        ShareStorage.write_share_info(share_id, project_info)
         logger.debug(f"Created and saved project info: {project_info}")
 
         # Associate the conversation with the project
-        logger.debug(f"Associating conversation {context.id} with project {project_id}")
-        await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
+        logger.debug(f"Associating conversation {context.id} with project {share_id}")
+        await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
         # No need to set conversation role in project storage, as we use metadata
-        logger.debug(f"Conversation {context.id} is Coordinator for project {project_id}")
+        logger.debug(f"Conversation {context.id} is Coordinator for project {share_id}")
 
         # Ensure linked_conversations directory exists
-        linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+        linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
         logger.debug(f"Ensured linked_conversations directory exists: {linked_dir}")
 
-        return project_id
+        return share_id
 
     @staticmethod
-    async def join_project(
+    async def join_share(
         context: ConversationContext,
-        project_id: str,
+        share_id: str,
         role: ConversationRole = ConversationRole.TEAM,
     ) -> bool:
         """
@@ -193,7 +193,7 @@ class KnowledgeTransferManager:
 
         Args:
             context: Current conversation context
-            project_id: ID of the project to join
+            share_id: ID of the project to join
             role: Role for this conversation (COORDINATOR or TEAM)
 
         Returns:
@@ -201,16 +201,16 @@ class KnowledgeTransferManager:
         """
         try:
             # Check if project exists
-            if not ProjectStorageManager.project_exists(project_id):
-                logger.error(f"Cannot join project: project {project_id} does not exist")
+            if not ShareStorageManager.share_exists(share_id):
+                logger.error(f"Cannot join project: project {share_id} does not exist")
                 return False
 
             # Associate the conversation with the project
-            await ConversationKnowledgePackageManager.associate_conversation_with_project(context, project_id)
+            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
             # Role is set in metadata, not in storage
 
-            logger.info(f"Joined project {project_id} as {role.value}")
+            logger.info(f"Joined project {share_id} as {role.value}")
             return True
 
         except Exception as e:
@@ -218,7 +218,7 @@ class KnowledgeTransferManager:
             return False
 
     @staticmethod
-    async def get_project_id(context: ConversationContext) -> Optional[str]:
+    async def get_share_id(context: ConversationContext) -> Optional[str]:
         """
         Gets the project ID associated with the current conversation.
 
@@ -232,10 +232,10 @@ class KnowledgeTransferManager:
         Returns:
             The project ID string if the conversation is part of a project, None otherwise
         """
-        return await ConversationKnowledgePackageManager.get_associated_project_id(context)
+        return await ConversationKnowledgePackageManager.get_associated_share_id(context)
 
     @staticmethod
-    async def get_project_role(context: ConversationContext) -> Optional[ConversationRole]:
+    async def get_share_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
         Gets the role of the current conversation in its project.
 
@@ -271,48 +271,48 @@ class KnowledgeTransferManager:
             return None
 
     @staticmethod
-    async def get_project_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
+    async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
         """Gets the project log for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return None
 
-        return ProjectStorage.read_project_log(project_id)
+        return ShareStorage.read_share_log(share_id)
 
     @staticmethod
-    async def get_project(context: ConversationContext) -> Optional[KnowledgePackage]:
+    async def get_share(context: ConversationContext) -> Optional[KnowledgePackage]:
         """Gets the project information for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return None
         project = KnowledgePackage(
-            info=ProjectStorage.read_project_info(project_id),
-            brief=ProjectStorage.read_project_brief(project_id),
+            info=ShareStorage.read_share_info(share_id),
+            brief=ShareStorage.read_share_brief(share_id),
             learning_objectives=[],  # TODO: Add storage method for learning objectives
-            digest=ProjectStorage.read_knowledge_digest(project_id),
-            requests=ProjectStorage.get_all_information_requests(project_id),
-            log=ProjectStorage.read_project_log(project_id),
+            digest=ShareStorage.read_knowledge_digest(share_id),
+            requests=ShareStorage.get_all_information_requests(share_id),
+            log=ShareStorage.read_share_log(share_id),
         )
         return project
 
     @staticmethod
-    async def get_project_state(
+    async def get_share_state(
         context: ConversationContext,
     ) -> Optional[KnowledgeTransferState]:
         """Gets the project state for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return None
 
         # Get the project info which contains state information
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if not project_info:
             return None
 
         return project_info.transfer_state
 
     @staticmethod
-    async def update_project_state(
+    async def update_share_state(
         context: ConversationContext,
         state: Optional[str] = None,
         status_message: Optional[str] = None,
@@ -330,8 +330,8 @@ class KnowledgeTransferManager:
         """
         try:
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot update project state: no project associated with this conversation")
                 return False, None
 
@@ -341,9 +341,9 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Get existing project info
-            project_info = ProjectStorage.read_project_info(project_id)
+            project_info = ShareStorage.read_share_info(share_id)
             if not project_info:
-                logger.error(f"Cannot update project state: no project info found for {project_id}")
+                logger.error(f"Cannot update project state: no project info found for {share_id}")
                 return False, None
 
             # Apply updates
@@ -357,15 +357,15 @@ class KnowledgeTransferManager:
             project_info.updated_at = datetime.utcnow()
 
             # Save the project info
-            ProjectStorage.write_project_info(project_id, project_info)
+            ShareStorage.write_share_info(share_id, project_info)
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
             message = f"Updated project state to {project_info.transfer_state.value}"
 
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=event_type.value,
                 message=message,
                 metadata={
@@ -377,7 +377,7 @@ class KnowledgeTransferManager:
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="project_state",
                 message=f"KnowledgePackage state updated: {project_info.transfer_state.value}",
             )
@@ -389,28 +389,28 @@ class KnowledgeTransferManager:
             return False, None
 
     @staticmethod
-    async def get_project_info(
-        context: ConversationContext, project_id: Optional[str] = None
+    async def get_share_info(
+        context: ConversationContext, share_id: Optional[str] = None
     ) -> Optional[KnowledgePackageInfo]:
         """
         Gets the project information including share URL and team conversation details.
 
         Args:
             context: Current conversation context
-            project_id: Optional project ID (if not provided, will be retrieved from context)
+            share_id: Optional project ID (if not provided, will be retrieved from context)
 
         Returns:
             KnowledgePackageInfo object or None if not found
         """
         try:
             # Get project ID if not provided
-            if not project_id:
-                project_id = await KnowledgeTransferManager.get_project_id(context)
-                if not project_id:
+            if not share_id:
+                share_id = await KnowledgeTransferManager.get_share_id(context)
+                if not share_id:
                     return None
 
             # Read project info
-            project_info = ProjectStorage.read_project_info(project_id)
+            project_info = ShareStorage.read_share_info(share_id)
             return project_info
 
         except Exception as e:
@@ -418,7 +418,7 @@ class KnowledgeTransferManager:
             return None
 
     @staticmethod
-    async def update_project_info(
+    async def update_share_info(
         context: ConversationContext,
         state: Optional[str] = None,
         progress: Optional[int] = None,
@@ -439,8 +439,8 @@ class KnowledgeTransferManager:
             Tuple of (success, project_info)
         """
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             logger.error("Cannot update project info: no project associated with this conversation")
             return None
 
@@ -450,9 +450,9 @@ class KnowledgeTransferManager:
             return None
 
         # Get existing project info
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if not project_info:
-            logger.error(f"Cannot update project info: no project info found for {project_id}")
+            logger.error(f"Cannot update project info: no project info found for {share_id}")
             return None
 
         # Apply updates
@@ -477,7 +477,7 @@ class KnowledgeTransferManager:
             project_info.version += 1
 
         # Save the project info
-        ProjectStorage.write_project_info(project_id, project_info)
+        ShareStorage.write_share_info(share_id, project_info)
 
         # Log the update
         event_type = LogEntryType.STATUS_CHANGED
@@ -485,9 +485,9 @@ class KnowledgeTransferManager:
         if progress is not None:
             message += f" ({progress}% complete)"
 
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=event_type.value,
             message=message,
             metadata={
@@ -500,7 +500,7 @@ class KnowledgeTransferManager:
         # Notify linked conversations
         await ProjectNotifier.notify_project_update(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             update_type="project_info",
             message=f"KnowledgePackage status updated: {project_info.transfer_state.value}",
         )
@@ -523,11 +523,11 @@ class KnowledgeTransferManager:
             The KnowledgeBrief object if found, None if the conversation is not
             part of a knowledge share or if no brief has been created yet
         """
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return None
 
-        return ProjectStorage.read_project_brief(project_id)
+        return ShareStorage.read_share_brief(share_id)
 
     @staticmethod
     async def update_knowledge_brief(
@@ -555,8 +555,8 @@ class KnowledgeTransferManager:
             The updated KnowledgeBrief object if successful, None otherwise
         """
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             logger.error("Cannot update brief: no project associated with this conversation")
             return
         # Get user information
@@ -576,23 +576,23 @@ class KnowledgeTransferManager:
         )
 
         # Save the brief
-        ProjectStorage.write_project_brief(project_id, brief)
+        ShareStorage.write_share_brief(share_id, brief)
 
         # Check if this is a creation or an update
-        existing_brief = ProjectStorage.read_project_brief(project_id)
+        existing_brief = ShareStorage.read_share_brief(share_id)
         if existing_brief:
             # This is an update
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=LogEntryType.BRIEFING_UPDATED.value,
                 message=f"Updated brief: {title}",
             )
         else:
             # This is a creation
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=LogEntryType.BRIEFING_CREATED.value,
                 message=f"Created brief: {title}",
             )
@@ -602,7 +602,7 @@ class KnowledgeTransferManager:
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="brief",
                 message=f"Brief created: {title}",
             )
@@ -631,8 +631,8 @@ class KnowledgeTransferManager:
             The created LearningObjective if successful, None otherwise
         """
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             logger.error("Cannot add goal: no project associated with this conversation")
             return None
 
@@ -656,7 +656,7 @@ class KnowledgeTransferManager:
         )
 
         # Get the existing project
-        project = ProjectStorage.read_project(project_id)
+        project = ShareStorage.read_share(share_id)
         if not project:
             # Create a new project if it doesn't exist
             project = KnowledgePackage(
@@ -672,12 +672,12 @@ class KnowledgeTransferManager:
             project.learning_objectives.append(new_goal)
 
         # Save the updated project
-        ProjectStorage.write_project(project_id, project)
+        ShareStorage.write_share(share_id, project)
 
         # Log the goal addition
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=LogEntryType.GOAL_ADDED.value,
             message=f"Added goal: {objective_name}",
         )
@@ -685,7 +685,7 @@ class KnowledgeTransferManager:
         # Notify linked conversations
         await ProjectNotifier.notify_project_update(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             update_type="goal",
             message=f"Goal added: {objective_name}",
         )
@@ -708,8 +708,8 @@ class KnowledgeTransferManager:
             Tuple of (success, objective_name_or_error_message)
         """
         # Get project ID
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             logger.error("Cannot delete goal: no project associated with this conversation")
             return False, "No project associated with this conversation."
 
@@ -719,7 +719,7 @@ class KnowledgeTransferManager:
             return False, "Could not identify current user."
 
         # Get the existing project
-        project = ProjectStorage.read_project(project_id)
+        project = ShareStorage.read_share(share_id)
         if not project or not project.learning_objectives:
             return False, "No project goals found."
 
@@ -738,12 +738,12 @@ class KnowledgeTransferManager:
         project.learning_objectives.pop(objective_index)
 
         # Save the updated project
-        ProjectStorage.write_project(project_id, project)
+        ShareStorage.write_share(share_id, project)
 
         # Log the goal deletion
-        await ProjectStorage.log_project_event(
+        await ShareStorage.log_share_event(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             entry_type=LogEntryType.GOAL_DELETED.value,
             message=f"Deleted goal: {goal_name}",
         )
@@ -751,20 +751,20 @@ class KnowledgeTransferManager:
         # Notify linked conversations
         await ProjectNotifier.notify_project_update(
             context=context,
-            project_id=project_id,
+            share_id=share_id,
             update_type="goal",
             message=f"Goal deleted: {goal_name}",
         )
 
         # Update project info with new criteria counts
-        project_info = ProjectStorage.read_project_info(project_id)
+        project_info = ShareStorage.read_share_info(share_id)
         if project_info:
             # Count all completed criteria
             completed_criteria = 0
             total_criteria = 0
 
             # Get the updated project to access goals
-            updated_project = ProjectStorage.read_project(project_id)
+            updated_project = ShareStorage.read_share(share_id)
             if updated_project and updated_project.learning_objectives:
                 for g in updated_project.learning_objectives:
                     total_criteria += len(g.learning_outcomes)
@@ -786,10 +786,10 @@ class KnowledgeTransferManager:
             project_info.version += 1
 
             # Save the updated project info
-            ProjectStorage.write_project_info(project_id, project_info)
+            ShareStorage.write_share_info(share_id, project_info)
 
         # Update all project UI inspectors
-        await ProjectStorage.refresh_all_project_uis(context, project_id)
+        await ShareStorage.refresh_all_share_uis(context, share_id)
 
         return True, goal_name
 
@@ -805,12 +805,12 @@ class KnowledgeTransferManager:
         Returns:
             List of LearningOutcome objects
         """
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return []
 
         # Get the project which contains goals and success criteria
-        project = ProjectStorage.read_project(project_id)
+        project = ShareStorage.read_share(share_id)
         if not project:
             return []
 
@@ -827,11 +827,11 @@ class KnowledgeTransferManager:
         context: ConversationContext,
     ) -> List[InformationRequest]:
         """Gets all information requests for the current conversation's project."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return []
 
-        return ProjectStorage.get_all_information_requests(project_id)
+        return ShareStorage.get_all_information_requests(share_id)
 
     @staticmethod
     async def create_information_request(
@@ -856,8 +856,8 @@ class KnowledgeTransferManager:
         """
         try:
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot create information request: no project associated with this conversation")
                 return False, None
 
@@ -878,12 +878,12 @@ class KnowledgeTransferManager:
             )
 
             # Save the request
-            ProjectStorage.write_information_request(project_id, information_request)
+            ShareStorage.write_information_request(share_id, information_request)
 
             # Log the creation
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_CREATED.value,
                 message=f"Created information request: {title}",
                 related_entity_id=information_request.request_id,
@@ -899,13 +899,13 @@ class KnowledgeTransferManager:
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="information_request",
                 message=f"New information request: {title} (Priority: {priority.value})",
             )
 
             # Update all project UI inspectors
-            await ProjectStorage.refresh_all_project_uis(context, project_id)
+            await ShareStorage.refresh_all_share_uis(context, share_id)
 
             return True, information_request
 
@@ -932,8 +932,8 @@ class KnowledgeTransferManager:
         """
         try:
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot resolve information request: no project associated with this conversation")
                 return False, None
 
@@ -943,10 +943,10 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Get the information request
-            information_request = ProjectStorage.read_information_request(project_id, request_id)
+            information_request = ShareStorage.read_information_request(share_id, request_id)
             if not information_request:
                 # Try to find it in all requests
-                all_requests = ProjectStorage.get_all_information_requests(project_id)
+                all_requests = ShareStorage.get_all_information_requests(share_id)
                 for request in all_requests:
                     if request.request_id == request_id:
                         information_request = request
@@ -981,12 +981,12 @@ class KnowledgeTransferManager:
             information_request.version += 1
 
             # Save the updated request
-            ProjectStorage.write_information_request(project_id, information_request)
+            ShareStorage.write_information_request(share_id, information_request)
 
             # Log the resolution
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_RESOLVED.value,
                 message=f"Resolved information request: {information_request.title}",
                 related_entity_id=information_request.request_id,
@@ -1005,7 +1005,7 @@ class KnowledgeTransferManager:
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="information_request_resolved",
                 message=f"Information request resolved: {information_request.title}",
             )
@@ -1029,7 +1029,7 @@ class KnowledgeTransferManager:
                     logger.warning(f"Could not send notification to requestor: {e}")
 
             # Update all project UI inspectors
-            await ProjectStorage.refresh_all_project_uis(context, project_id)
+            await ShareStorage.refresh_all_share_uis(context, share_id)
 
             return True, information_request
 
@@ -1042,11 +1042,11 @@ class KnowledgeTransferManager:
         context: ConversationContext,
     ) -> Optional[KnowledgeDigest]:
         """Gets the knowledge digest for the current conversation's knowledge share."""
-        project_id = await KnowledgeTransferManager.get_project_id(context)
-        if not project_id:
+        share_id = await KnowledgeTransferManager.get_share_id(context)
+        if not share_id:
             return None
 
-        return ProjectStorage.read_knowledge_digest(project_id)
+        return ShareStorage.read_knowledge_digest(share_id)
 
     @staticmethod
     async def update_knowledge_digest(
@@ -1069,8 +1069,8 @@ class KnowledgeTransferManager:
         """
         try:
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
 
@@ -1080,7 +1080,7 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Get existing whiteboard or create new one
-            digest = ProjectStorage.read_knowledge_digest(project_id)
+            digest = ShareStorage.read_knowledge_digest(share_id)
             is_new = False
 
             if not digest:
@@ -1102,16 +1102,16 @@ class KnowledgeTransferManager:
             digest.version += 1
 
             # Save the whiteboard
-            ProjectStorage.write_project_whiteboard(project_id, digest)
+            ShareStorage.write_share_whiteboard(share_id, digest)
 
             # Log the update
             event_type = LogEntryType.KB_UPDATE
             update_type = "auto-generated" if is_auto_generated else "manual"
             message = f"{'Created' if is_new else 'Updated'} project whiteboard ({update_type})"
 
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 entry_type=event_type.value,
                 message=message,
             )
@@ -1121,13 +1121,13 @@ class KnowledgeTransferManager:
             if send_notification:
                 await ProjectNotifier.notify_project_update(
                     context=context,
-                    project_id=project_id,
+                    share_id=share_id,
                     update_type="project_whiteboard",
                     message="KnowledgePackage whiteboard updated",
                 )
             else:
                 # Just refresh the UI without sending notifications
-                await ProjectStorage.refresh_all_project_uis(context, project_id)
+                await ShareStorage.refresh_all_share_uis(context, share_id)
 
             return True, digest
 
@@ -1159,8 +1159,8 @@ class KnowledgeTransferManager:
             chat_history = messages.messages
 
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None
 
@@ -1251,20 +1251,20 @@ class KnowledgeTransferManager:
         """
         try:
             # Get project ID
-            project_id = await KnowledgeTransferManager.get_project_id(context)
-            if not project_id:
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
                 logger.error("Cannot complete project: no project associated with this conversation")
                 return False, None
 
             # Get role - only Coordinator can complete a project
-            role = await KnowledgeTransferManager.get_project_role(context)
+            role = await KnowledgeTransferManager.get_share_role(context)
             if role != ConversationRole.COORDINATOR:
                 logger.error("Only Coordinator can complete a project")
                 return False, None
 
             # Update project state to completed
             status_message = summary if summary else "KnowledgePackage completed successfully"
-            success, project_info = await KnowledgeTransferManager.update_project_state(
+            success, project_info = await KnowledgeTransferManager.update_share_state(
                 context=context,
                 state=KnowledgeTransferState.COMPLETED.value,
                 status_message=status_message,
@@ -1274,17 +1274,17 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Add completion entry to the log
-            await ProjectStorage.log_project_event(
+            await ShareStorage.log_share_event(
                 context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.PROJECT_COMPLETED.value,
+                share_id=share_id,
+                entry_type=LogEntryType.SHARE_COMPLETED.value,
                 message=f"KnowledgePackage completed: {status_message}",
             )
 
             # Notify linked conversations with emphasis
             await ProjectNotifier.notify_project_update(
                 context=context,
-                project_id=project_id,
+                share_id=share_id,
                 update_type="project_completed",
                 message=f"🎉 PROJECT COMPLETED: {status_message}",
             )

@@ -9,10 +9,10 @@ from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .conversation_project_link import ConversationKnowledgePackageManager
+from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
 from .logging import logger
-from .storage import ProjectStorage
+from .storage import ShareStorage
 from .storage_models import ConversationRole
 
 
@@ -22,7 +22,7 @@ async def detect_assistant_role(context: ConversationContext) -> ConversationRol
 
     This method examines the conversation metadata to determine the role
     of the current conversation in the project. The role is always stored
-    in the conversation metadata as "project_role".
+    in the conversation metadata as "share_role".
 
     Args:
         context: The conversation context to examine
@@ -66,13 +66,13 @@ async def log_project_action(
         related_entity_id: Optional ID of a related entity (e.g., request ID)
         additional_metadata: Optional additional metadata to include in the log
     """
-    project_id = await ConversationKnowledgePackageManager.get_associated_project_id(context)
-    if not project_id:
+    share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+    if not share_id:
         return
 
-    await ProjectStorage.log_project_event(
+    await ShareStorage.log_share_event(
         context=context,
-        project_id=project_id,
+        share_id=share_id,
         entry_type=entry_type.value,
         message=message,
         related_entity_id=related_entity_id,

@@ -61,7 +61,7 @@ class TestKnowledgeTransferManager:
 
         # Create test project info
         test_project_info = KnowledgePackageInfo(
-            package_id=project_id,
+            share_id=project_id,
             coordinator_conversation_id="test-coordinator-id",
             completion_percentage=50,
             version=1,
@@ -87,7 +87,7 @@ class TestKnowledgeTransferManager:
             assert proj_id == project_id
             return test_project
 
-        monkeypatch.setattr("assistant.storage.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project))
+        monkeypatch.setattr("assistant.storage.ShareStorage.read_project", MagicMock(side_effect=mock_read_project))
 
         # Mock read_project_info
         def mock_read_project_info(proj_id):
@@ -95,7 +95,7 @@ class TestKnowledgeTransferManager:
             return test_project_info
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.read_project_info", MagicMock(side_effect=mock_read_project_info)
+            "assistant.project_manager.ShareStorage.read_project_info", MagicMock(side_effect=mock_read_project_info)
         )
 
         # Track if write_project and write_project_info were called with correct arguments
@@ -113,7 +113,7 @@ class TestKnowledgeTransferManager:
             write_project_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.write_project", MagicMock(side_effect=mock_write_project)
+            "assistant.project_manager.ShareStorage.write_project", MagicMock(side_effect=mock_write_project)
         )
 
         # Mock write_project_info
@@ -128,7 +128,7 @@ class TestKnowledgeTransferManager:
             write_project_info_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.write_project_info",
+            "assistant.project_manager.ShareStorage.write_project_info",
             MagicMock(side_effect=mock_write_project_info),
         )
 
@@ -140,7 +140,7 @@ class TestKnowledgeTransferManager:
             log_event_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.log_project_event", AsyncMock(side_effect=mock_log_project_event)
+            "assistant.project_manager.ShareStorage.log_project_event", AsyncMock(side_effect=mock_log_project_event)
         )
 
         # Mock notify_project_update
@@ -163,7 +163,7 @@ class TestKnowledgeTransferManager:
             refresh_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.refresh_all_project_uis",
+            "assistant.project_manager.ShareStorage.refresh_all_project_uis",
             AsyncMock(side_effect=mock_refresh_all_project_uis),
         )
 
@@ -225,7 +225,7 @@ class TestKnowledgeTransferManager:
             return test_project
 
         monkeypatch.setattr(
-            "assistant.project_manager.ProjectStorage.read_project", MagicMock(side_effect=mock_read_project)
+            "assistant.project_manager.ShareStorage.read_project", MagicMock(side_effect=mock_read_project)
         )
 
         # Call the method being tested with an invalid index

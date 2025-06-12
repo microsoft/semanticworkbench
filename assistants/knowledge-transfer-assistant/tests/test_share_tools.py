@@ -1,5 +1,5 @@
 """
-Tests for the ProjectTools functionality.
+Tests for the ShareTools functionality.
 """
 
 import contextlib
@@ -9,13 +9,13 @@ import openai_client
 import pytest
 from assistant.analysis import detect_information_request_needs
 from assistant.storage_models import ConversationRole
-from assistant.tools import ProjectTools
+from assistant.tools import ShareTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 # Use pytest for all tests for consistency
-class TestProjectTools:
-    """Test the ProjectTools class."""
+class TestShareTools:
+    """Test the ShareTools class."""
 
     @pytest.fixture
     def context(self):
@@ -32,9 +32,9 @@ class TestProjectTools:
         return context
 
     def test_initialization(self, context):
-        """Test that ProjectTools initializes correctly."""
+        """Test that ShareTools initializes correctly."""
         # Test Coordinator role
-        coordinator_tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        coordinator_tools = ShareTools(context, ConversationRole.COORDINATOR)
         assert coordinator_tools.role == ConversationRole.COORDINATOR
         assert coordinator_tools.tool_functions is not None
 
@@ -47,7 +47,7 @@ class TestProjectTools:
         assert "delete_information_request" not in coordinator_tools.tool_functions.function_map
 
         # Test Team role
-        team_tools = ProjectTools(context, ConversationRole.TEAM)
+        team_tools = ShareTools(context, ConversationRole.TEAM)
         assert team_tools.role == ConversationRole.TEAM
         assert team_tools.tool_functions is not None
 
@@ -64,7 +64,7 @@ class TestProjectTools:
 
     @pytest.mark.asyncio
     async def test_project_tools_with_config(self, context, monkeypatch):
-        """Test the ProjectTools behavior with different configurations."""
+        """Test the ShareTools behavior with different configurations."""
         # Mock the assistant_config.get method
         mock_config = MagicMock()
         mock_config.track_progress = True
@@ -78,14 +78,14 @@ class TestProjectTools:
         monkeypatch.setattr("assistant.config.assistant_config", mock_assistant_config)
 
         # Test with track_progress set to True first
-        # Create a ProjectTools instance directly
-        tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        # Create a ShareTools instance directly
+        tools = ShareTools(context, ConversationRole.COORDINATOR)
 
         # Make sure basic tools are available
         assert "update_brief" in tools.tool_functions.function_map
 
         # For team role, check available functions
-        team_tools = ProjectTools(context, ConversationRole.TEAM)
+        team_tools = ShareTools(context, ConversationRole.TEAM)
         assert "create_information_request" in team_tools.tool_functions.function_map
 
         # Now test with track_progress set to False
@@ -97,7 +97,7 @@ class TestProjectTools:
         # Create our own implementation to check for track_progress
         async def check_tools_with_config(context, role):
             """Simple wrapper to test if tools are filtered based on track_progress."""
-            tools = ProjectTools(context, role)
+            tools = ShareTools(context, role)
 
             # If progress tracking is disabled, remove progress-related tools
             if not mock_config.track_progress:
@@ -209,8 +209,8 @@ class TestProjectTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal(self, context, monkeypatch):
         """Test the delete_project_goal functionality."""
-        # Create ProjectTools instance for Coordinator role
-        tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        # Create ShareTools instance for Coordinator role
+        tools = ShareTools(context, ConversationRole.COORDINATOR)
 
         # Setup mocks
         project_id = "test-project-id"
@@ -243,7 +243,7 @@ class TestProjectTools:
         )
 
         # Test the delete_project_goal function
-        result = await tools.delete_project_goal(goal_index)
+        result = await tools.delete_learning_objective(goal_index)
 
         # Verify the result
         assert f"Goal '{goal_name}' has been successfully deleted from the project." in result
@@ -259,11 +259,11 @@ class TestProjectTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal_wrong_role(self, context):
         """Test delete_project_goal with wrong role (Team instead of Coordinator)."""
-        # Create ProjectTools instance for Team role
-        tools = ProjectTools(context, ConversationRole.TEAM)
+        # Create ShareTools instance for Team role
+        tools = ShareTools(context, ConversationRole.TEAM)
 
         # Test the delete_project_goal function with Team role
-        result = await tools.delete_project_goal(1)
+        result = await tools.delete_learning_objective(1)
 
         # Verify that the operation is rejected
         assert "Only Coordinator can delete project goals." in result
@@ -274,8 +274,8 @@ class TestProjectTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal_error(self, context, monkeypatch):
         """Test delete_project_goal with error condition."""
-        # Create ProjectTools instance for Coordinator role
-        tools = ProjectTools(context, ConversationRole.COORDINATOR)
+        # Create ShareTools instance for Coordinator role
+        tools = ShareTools(context, ConversationRole.COORDINATOR)
 
         # Setup mocks
         error_message = "Invalid goal index"
@@ -299,7 +299,7 @@ class TestProjectTools:
         )
 
         # Test the delete_project_goal function
-        result = await tools.delete_project_goal(999)  # Using an invalid index
+        result = await tools.delete_learning_objective(999)  # Using an invalid index
 
         # Verify the error result
         assert f"Error deleting goal: {error_message}" in result

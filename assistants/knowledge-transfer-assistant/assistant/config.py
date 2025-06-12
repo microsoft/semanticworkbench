@@ -66,7 +66,7 @@ class PromptConfig(BaseModel):
                 "team_role",
                 "team_instructions",
                 "whiteboard_prompt",
-                "project_information_request_detection",
+                "share_information_request_detection",
             ],
         },
     )
@@ -107,14 +107,14 @@ class PromptConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = load_text_include("team_instructions.txt")
 
-    project_information_request_detection: Annotated[
+    share_information_request_detection: Annotated[
         str,
         Field(
             title="Information Request Detection Prompt",
             description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("project_information_request_detection.txt")
+    ] = load_text_include("share_information_request_detection.txt")
 
     whiteboard_prompt: Annotated[
         str,

@@ -94,10 +94,10 @@ class LogEntryType(str, Enum):
     PARTICIPANT_JOINED = "participant_joined"
     PARTICIPANT_LEFT = "participant_left"
 
-    # Project lifecycle events
-    PROJECT_STARTED = "project_started"
-    PROJECT_COMPLETED = "project_completed"
-    PROJECT_ABORTED = "project_aborted"
+    # Share lifecycle events
+    SHARE_STARTED = "share_started"
+    SHARE_COMPLETED = "share_completed"
+    SHARE_ABORTED = "share_aborted"
 
     # Miscellaneous events
     MILESTONE_PASSED = "milestone_passed"
@@ -307,17 +307,17 @@ class KnowledgePackageInfo(BaseModel):
     for knowledge package identification, state, and team collaboration settings.
     """
 
-    package_id: str  # Unique identifier for the knowledge package
+    share_id: str  # Unique identifier for the knowledge package
+    coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
     transfer_state: KnowledgeTransferState = (
         KnowledgeTransferState.ORGANIZING
     )  # Current knowledge transfer lifecycle state
-    coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
+    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     team_conversation_id: Optional[str] = None  # ID of the team conversation
     share_url: Optional[str] = None  # Shareable URL for inviting team members
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: Optional[str] = None  # User ID who last updated the package info
-    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     completion_percentage: Optional[int] = None  # Current learning completion percentage (0-100)
     next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
     version: int = 1  # Version counter for tracking changes
