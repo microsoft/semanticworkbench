@@ -318,7 +318,6 @@ Type `/help` to see all available commands for your role.
 
     # Group commands by category
     project_commands = []
-    whiteboard_commands = []
     request_commands = []
     team_commands = []
     status_commands = []
@@ -327,10 +326,8 @@ Type `/help` to see all available commands for your role.
     for name, cmd in available_commands.items():
         command_entry = f"- `/{name}`: {cmd['description']}"
 
-        if "create-brief" in name or "add-goal" in name:
+        if "create-brief" in name or "add-learning-objective" in name:
             project_commands.append(command_entry)
-        elif "whiteboard" in name:
-            whiteboard_commands.append(command_entry)
         elif "request" in name:
             request_commands.append(command_entry)
         elif "invite" in name or "join" in name or "list-participants" in name:
@@ -343,9 +340,6 @@ Type `/help` to see all available commands for your role.
     # Add sections to help text if they have commands
     if project_commands:
         help_text += "### Project Configuration\n" + "\n".join(project_commands) + "\n\n"
-
-    if whiteboard_commands:
-        help_text += "### Whiteboard Management\n" + "\n".join(whiteboard_commands) + "\n\n"
 
     if team_commands:
         help_text += "### Team Management\n" + "\n".join(team_commands) + "\n\n"
@@ -365,7 +359,7 @@ Type `/help` to see all available commands for your role.
             "As a Coordinator, you are responsible for defining the project and responding to team member requests."
         )
     else:
-        help_text += "As a Team member, you can access project information, request information, and report progress on project goals."
+        help_text += "As a Team member, you can access knowledge package information, request information, and report progress on learning outcomes."
 
     await context.send_messages(
         NewConversationMessage(
@@ -429,7 +423,9 @@ async def handle_create_brief_command(
         )
 
 
-async def handle_add_goal_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
+async def handle_add_learning_objective_command(
+    context: ConversationContext, message: ConversationMessage, args: List[str]
+) -> None:
     """Handle the add-learning-objective command."""
     # Parse the command
     content = message.content.strip()[len("/add-learning-objective") :].strip()
@@ -797,24 +793,24 @@ async def handle_project_info_command(
                 output.append(f"## Brief: {briefing.title}")
                 output.append(f"\n{briefing.description}\n")
 
-                # Get project to access goals
+                # Get learning objectives
                 if share_id:
-                    project = ShareStorage.read_share(share_id)
-                    if project and project.learning_objectives:
+                    share = ShareStorage.read_share(share_id)
+                    if share and share.learning_objectives:
                         output.append("\n### Learning Objectives:\n")
 
-                        for i, goal in enumerate(project.learning_objectives):
+                        for i, objective in enumerate(share.learning_objectives):
                             # Count achieved outcomes
-                            achieved = sum(1 for c in goal.learning_outcomes if c.achieved)
-                            total = len(goal.learning_outcomes)
+                            achieved = sum(1 for c in objective.learning_outcomes if c.achieved)
+                            total = len(objective.learning_outcomes)
 
-                            output.append(f"{i + 1}. **{goal.name}** - {goal.description}")
+                            output.append(f"{i + 1}. **{objective.name}** - {objective.description}")
 
-                            if goal.learning_outcomes:
+                            if objective.learning_outcomes:
                                 output.append(f"   Progress: {achieved}/{total} outcomes achieved")
                                 output.append("   Learning Outcomes:")
 
-                                for j, criterion in enumerate(goal.learning_outcomes):
+                                for j, criterion in enumerate(objective.learning_outcomes):
                                     status = "✅" if criterion.achieved else "⬜"
                                     output.append(f"   {status} {criterion.description}")
 
@@ -1081,7 +1077,7 @@ command_registry.register_command(
 
 command_registry.register_command(
     "add-learning-objective",
-    handle_add_goal_command,
+    handle_add_learning_objective_command,
     "Add a learning objective",
     "/add-learning-objective Objective Name|Objective description|Learning outcome 1;Learning outcome 2",
     "/add-learning-objective React Hooks|Understand React hooks and their usage|Can explain useState and useEffect;Can implement custom hooks",

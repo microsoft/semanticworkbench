@@ -152,7 +152,7 @@ async def respond_to_conversation(
         prompt.contexts.append(Context("Knowledge Info", project_info_text))
 
     # Brief
-    briefing = ShareStorage.read_share_brief(project_id)
+    briefing = ShareStorage.read_knowledge_brief(project_id)
     project_brief_text = ""
     if briefing:
         project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.description}"
@@ -163,32 +163,34 @@ async def respond_to_conversation(
             )
         )
 
-    # Project goals
-    project = ShareStorage.read_share(project_id)
-    if project and project.learning_objectives:
-        goals_text = ""
-        for i, goal in enumerate(project.learning_objectives):
+    # Learning objectives
+    share = ShareStorage.read_share(project_id)
+    if share and share.learning_objectives:
+        learning_objectives_text = ""
+        for i, objective in enumerate(share.learning_objectives):
             # Count completed criteria
-            completed = sum(1 for c in goal.learning_outcomes if c.achieved)
-            total = len(goal.learning_outcomes)
+            completed = sum(1 for c in objective.learning_outcomes if c.achieved)
+            total = len(objective.learning_outcomes)
 
-            project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-            if goal.learning_outcomes:
-                goals_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for criterion in goal.learning_outcomes:
+            project_brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            if objective.learning_outcomes:
+                learning_objectives_text += f"   Progress: {completed}/{total} criteria complete\n"
+                for criterion in objective.learning_outcomes:
                     check = "✅" if criterion.achieved else "⬜"
-                    goals_text += f"   {check} {criterion.description}\n"
+                    learning_objectives_text += f"   {check} {criterion.description}\n"
         prompt.contexts.append(
             Context(
-                "Project Goals",
-                goals_text,
+                "Learning Objectives",
+                learning_objectives_text,
             )
         )
 
-    # Whiteboard
-    whiteboard = ShareStorage.read_knowledge_digest(project_id)
-    if whiteboard and whiteboard.content:
-        prompt.contexts.append(Context("Assistant Whiteboard", whiteboard.content, "The assistant's whiteboard"))
+    # Knowledge digest
+    knowledge_digest = ShareStorage.read_knowledge_digest(project_id)
+    if knowledge_digest and knowledge_digest.content:
+        prompt.contexts.append(
+            Context("Knowledge digest", knowledge_digest.content, "The assistant-maintained knowledge digest.")
+        )
 
     # Information requests
     all_requests = ShareStorage.get_all_information_requests(project_id)
@@ -231,9 +233,6 @@ async def respond_to_conversation(
             information_requests_info = ""
             for req in my_requests:
                 information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-            information_requests_info += (
-                '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
-            )
         else:
             information_requests_info = "No active information requests."
 

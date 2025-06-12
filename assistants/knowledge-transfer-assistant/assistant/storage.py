@@ -151,13 +151,13 @@ class ShareStorage:
         return path
 
     @staticmethod
-    def read_share_brief(share_id: str) -> Optional[KnowledgeBrief]:
+    def read_knowledge_brief(share_id: str) -> Optional[KnowledgeBrief]:
         """Reads the project brief."""
         path = ShareStorageManager.get_brief_path(share_id)
         return read_model(path, KnowledgeBrief)
 
     @staticmethod
-    def write_share_brief(share_id: str, brief: KnowledgeBrief) -> pathlib.Path:
+    def write_knowledge_brief(share_id: str, brief: KnowledgeBrief) -> pathlib.Path:
         """Writes the project brief."""
         path = ShareStorageManager.get_brief_path(share_id)
         write_model(path, brief)

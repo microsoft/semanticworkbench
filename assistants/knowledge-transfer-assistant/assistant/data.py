@@ -73,22 +73,21 @@ class LogEntryType(str, Enum):
     BRIEFING_CREATED = "briefing_created"
     BRIEFING_UPDATED = "briefing_updated"
 
-    # Goal-related events
-    GOAL_ADDED = "goal_added"
-    GOAL_DELETED = "goal_deleted"
-
-    # Information request deletion event
-    REQUEST_DELETED = "request_deleted"
+    # Learning Objective-related events
+    LEARNING_OBJECTIVE_ADDED = "learning_objective_added"
+    LEARNING_OBJECTIVE_DELETED = "learning_objective_deleted"
+    LEARNING_OBJECTIVE_UPDATED = "learning_objective_updated"
 
     # Information request lifecycle events
     REQUEST_CREATED = "request_created"
     REQUEST_UPDATED = "request_updated"
-    REQUEST_RESOLVED = "request_resolved"
+    REQUEST_DELETED = "request_deleted"
 
     # Project state and progress events
     STATUS_CHANGED = "status_changed"
-    GOAL_COMPLETED = "goal_completed"
-    CRITERION_COMPLETED = "criterion_completed"
+    OUTCOME_ATTAINED = "outcome_attained"
+    REQUEST_RESOLVED = "request_resolved"
+    LEARNING_OBJECTIVE_ACCOMPLISHED = "learning_objective_accomplished"
 
     # Participant events
     PARTICIPANT_JOINED = "participant_joined"
@@ -100,12 +99,15 @@ class LogEntryType(str, Enum):
     SHARE_ABORTED = "share_aborted"
 
     # Miscellaneous events
-    MILESTONE_PASSED = "milestone_passed"
-    INFORMATION_UPDATE = "information_update"
+    SHARE_INFORMATION_UPDATE = "share_information_update"
     FILE_SHARED = "file_shared"
     FILE_DELETED = "file_deleted"
-    KB_UPDATE = "kb_update"
+    KNOWLEDGE_DIGEST_UPDATE = "knowledge_digest_update"
     CUSTOM = "custom"
+
+    # Backward compatibility for old log entries
+    KB_UPDATE = "kb_update"  # Legacy alias for KNOWLEDGE_DIGEST_UPDATE
+    GOAL_ADDED = "goal_added"  # Legacy alias for LEARNING_OBJECTIVE_ADDED
 
 
 class BaseEntity(BaseModel):
@@ -236,8 +238,8 @@ class InformationRequest(BaseEntity):
     priority: RequestPriority = RequestPriority.MEDIUM  # Urgency level of the request
     status: RequestStatus = RequestStatus.NEW  # Current status in the request lifecycle
 
-    # Reference to the related goal(s) if applicable
-    related_goal_ids: List[str] = Field(default_factory=list)  # IDs of project goals this request relates to
+    # Reference to the related learning objective(s) if applicable
+    related_objective_ids: List[str] = Field(default_factory=list)  # IDs of learning objectives this request relates to
 
     # Resolution information
     resolution: Optional[str] = None  # The answer or solution provided by the Coordinator
@@ -272,7 +274,7 @@ class LogEntry(BaseModel):
 
     # Optional additional context for the entry
     related_entity_id: Optional[str] = None  # ID of related entity (e.g., information request ID)
-    entity_type: Optional[str] = None  # Type of related entity (e.g., "information_request", "goal")
+    entity_type: Optional[str] = None  # Type of related entity (e.g., "information_request", "learning_objective")
     metadata: Optional[Dict] = None  # Additional structured data about the event
 
 

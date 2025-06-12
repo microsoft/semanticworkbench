@@ -178,7 +178,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_read_project_brief(self):
         """Test reading a project brief."""
         # Read the brief using ShareStorage
-        brief = ShareStorage.read_share_brief(self.share_id)
+        brief = ShareStorage.read_knowledge_brief(self.share_id)
         project = ShareStorage.read_share(self.share_id)
 
         # Verify the brief was loaded correctly
@@ -218,7 +218,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
                 LogEntry(
                     id=str(uuid.uuid4()),
                     timestamp=datetime.utcnow(),
-                    entry_type=LogEntryType.INFORMATION_UPDATE,
+                    entry_type=LogEntryType.SHARE_INFORMATION_UPDATE,
                     message="Test log entry",
                     user_id=self.user_id,
                     user_name="Test User",
@@ -236,7 +236,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(log, "Should load the log")
         if log:  # Type checking guard
             self.assertEqual(len(log.entries), 1)
-            self.assertEqual(log.entries[0].entry_type, LogEntryType.INFORMATION_UPDATE)
+            self.assertEqual(log.entries[0].entry_type, LogEntryType.SHARE_INFORMATION_UPDATE)
             self.assertEqual(log.entries[0].message, "Test log entry")
 
     async def test_project_directory_structure(self):
@@ -444,7 +444,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create a test log entry directly
         log_entry = LogEntry(
-            entry_type=LogEntryType.INFORMATION_UPDATE,
+            entry_type=LogEntryType.SHARE_INFORMATION_UPDATE,
             message="Test direct log entry",
             user_id=self.user_id,
             user_name="Test User",
@@ -467,7 +467,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             for entry in read_log.entries:
                 if entry.message == "Test direct log entry":
                     found_entry = True
-                    self.assertEqual(entry.entry_type, LogEntryType.INFORMATION_UPDATE)
+                    self.assertEqual(entry.entry_type, LogEntryType.SHARE_INFORMATION_UPDATE)
                     self.assertEqual(entry.user_id, self.user_id)
                     self.assertEqual(entry.user_name, "Test User")
                     self.assertEqual(entry.related_entity_id, "test-entity-id")

@@ -33,7 +33,7 @@ class TestKnowledgeTransferManager:
         """Test the delete_project_goal method in KnowledgeTransferManager."""
         # Setup test data
         project_id = "test-project-id"
-        goal_index = 1
+        objective_index = 1
         goal_name = "Test Goal"
         goal_description = "Test Description"
 
@@ -168,7 +168,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, goal_name_result = await KnowledgeTransferManager.delete_learning_objective(context, goal_index)
+        success, goal_name_result = await KnowledgeTransferManager.delete_learning_objective(context, objective_index)
 
         # Verify the result
         assert success is True
@@ -187,7 +187,7 @@ class TestKnowledgeTransferManager:
         """Test deleting a goal with an invalid index."""
         # Setup
         project_id = "test-project-id"
-        goal_index = 5  # Out of range
+        objective_index = 5  # Out of range
 
         # Create a test project with fewer goals than the index
         test_project = KnowledgePackage(
@@ -229,7 +229,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested with an invalid index
-        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, goal_index)
+        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, objective_index)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

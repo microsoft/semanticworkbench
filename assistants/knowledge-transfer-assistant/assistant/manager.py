@@ -144,7 +144,7 @@ class KnowledgeTransferManager:
         5. Logs the project creation event
 
         After creating a project, the Coordinator should proceed to create a project brief
-        with specific goals and success criteria.
+        with specific learning objectives and success criteria.
 
         Args:
             context: Current conversation context containing user/assistant information
@@ -287,7 +287,7 @@ class KnowledgeTransferManager:
             return None
         project = KnowledgePackage(
             info=ShareStorage.read_share_info(share_id),
-            brief=ShareStorage.read_share_brief(share_id),
+            brief=ShareStorage.read_knowledge_brief(share_id),
             learning_objectives=[],  # TODO: Add storage method for learning objectives
             digest=ShareStorage.read_knowledge_digest(share_id),
             requests=ShareStorage.get_all_information_requests(share_id),
@@ -513,7 +513,7 @@ class KnowledgeTransferManager:
         Gets the brief for the current conversation's knowledge share.
 
         The brief contains the core information about the knowledge share:
-        name, description, goals, and success criteria. This is the central
+        name, description, learning objectives, and success criteria. This is the central
         document that defines what the knowledge share is trying to accomplish.
 
         Args:
@@ -527,7 +527,7 @@ class KnowledgeTransferManager:
         if not share_id:
             return None
 
-        return ShareStorage.read_share_brief(share_id)
+        return ShareStorage.read_knowledge_brief(share_id)
 
     @staticmethod
     async def update_knowledge_brief(
@@ -576,10 +576,10 @@ class KnowledgeTransferManager:
         )
 
         # Save the brief
-        ShareStorage.write_share_brief(share_id, brief)
+        ShareStorage.write_knowledge_brief(share_id, brief)
 
         # Check if this is a creation or an update
-        existing_brief = ShareStorage.read_share_brief(share_id)
+        existing_brief = ShareStorage.read_knowledge_brief(share_id)
         if existing_brief:
             # This is an update
             await ShareStorage.log_share_event(
@@ -625,7 +625,7 @@ class KnowledgeTransferManager:
             objective_name: Name of the learning objective
             description: Description of the learning objective
             outcomes: List of learning outcome strings (optional)
-            priority: Priority of the goal (default: 1)
+            priority: Priority of the learning objective (default: 1)
 
         Returns:
             The created LearningObjective if successful, None otherwise
@@ -633,11 +633,11 @@ class KnowledgeTransferManager:
         # Get project ID
         share_id = await KnowledgeTransferManager.get_share_id(context)
         if not share_id:
-            logger.error("Cannot add goal: no project associated with this conversation")
+            logger.error("Cannot add learning objective: no project associated with this conversation")
             return None
 
         # Get user information
-        current_user_id = await require_current_user(context, "add goal")
+        current_user_id = await require_current_user(context, "add learning objective")
         if not current_user_id:
             return None
 
@@ -647,8 +647,8 @@ class KnowledgeTransferManager:
             for criterion in outcomes:
                 criterion_objects.append(LearningOutcome(description=criterion))
 
-        # Create the new goal
-        new_goal = LearningObjective(
+        # Create the new learning objective
+        new_learning_objective = LearningObjective(
             name=objective_name,
             description=description,
             priority=priority,
@@ -662,35 +662,35 @@ class KnowledgeTransferManager:
             project = KnowledgePackage(
                 info=None,
                 brief=None,
-                learning_objectives=[new_goal],
+                learning_objectives=[new_learning_objective],
                 digest=None,
                 requests=[],
                 log=None,
             )
         else:
-            # Add the goal to the existing project
-            project.learning_objectives.append(new_goal)
+            # Add the learning objective to the existing project
+            project.learning_objectives.append(new_learning_objective)
 
         # Save the updated project
         ShareStorage.write_share(share_id, project)
 
-        # Log the goal addition
+        # Log the learning objective addition
         await ShareStorage.log_share_event(
             context=context,
             share_id=share_id,
-            entry_type=LogEntryType.GOAL_ADDED.value,
-            message=f"Added goal: {objective_name}",
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_ADDED.value,
+            message=f"Added learning objective: {objective_name}",
         )
 
         # Notify linked conversations
         await ProjectNotifier.notify_project_update(
             context=context,
             share_id=share_id,
-            update_type="goal",
-            message=f"Goal added: {objective_name}",
+            update_type="learning objective",
+            message=f"learning objective added: {objective_name}",
         )
 
-        return new_goal
+        return new_learning_objective
 
     @staticmethod
     async def delete_learning_objective(
@@ -698,7 +698,7 @@ class KnowledgeTransferManager:
         objective_index: int,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Deletes a goal from the project.
+        Deletes a learning objective from the project.
 
         Args:
             context: Current conversation context
@@ -710,50 +710,50 @@ class KnowledgeTransferManager:
         # Get project ID
         share_id = await KnowledgeTransferManager.get_share_id(context)
         if not share_id:
-            logger.error("Cannot delete goal: no project associated with this conversation")
+            logger.error("Cannot delete learning objective: no project associated with this conversation")
             return False, "No project associated with this conversation."
 
         # Get user information
-        current_user_id = await require_current_user(context, "delete goal")
+        current_user_id = await require_current_user(context, "delete learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
         # Get the existing project
         project = ShareStorage.read_share(share_id)
         if not project or not project.learning_objectives:
-            return False, "No project goals found."
+            return False, "No project learning objectives found."
 
         # Validate index
         if objective_index < 0 or objective_index >= len(project.learning_objectives):
             return (
                 False,
-                f"Invalid goal index {objective_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} goals.",
+                f"Invalid learning objective index {objective_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} learning objectives.",
             )
 
-        # Get the goal to delete
-        goal = project.learning_objectives[objective_index]
-        goal_name = goal.name
+        # Get the learning objective to delete
+        learning_objective = project.learning_objectives[objective_index]
+        learning_objective_name = learning_objective.name
 
-        # Remove the goal from the list
+        # Remove the learning objective from the list
         project.learning_objectives.pop(objective_index)
 
         # Save the updated project
         ShareStorage.write_share(share_id, project)
 
-        # Log the goal deletion
+        # Log the learning objective deletion
         await ShareStorage.log_share_event(
             context=context,
             share_id=share_id,
-            entry_type=LogEntryType.GOAL_DELETED.value,
-            message=f"Deleted goal: {goal_name}",
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_DELETED.value,
+            message=f"Deleted learning objective: {learning_objective_name}",
         )
 
         # Notify linked conversations
         await ProjectNotifier.notify_project_update(
             context=context,
             share_id=share_id,
-            update_type="goal",
-            message=f"Goal deleted: {goal_name}",
+            update_type="learning objective",
+            message=f"learning objective deleted: {learning_objective_name}",
         )
 
         # Update project info with new criteria counts
@@ -763,7 +763,7 @@ class KnowledgeTransferManager:
             completed_criteria = 0
             total_criteria = 0
 
-            # Get the updated project to access goals
+            # Get the updated project to access learning objectives
             updated_project = ShareStorage.read_share(share_id)
             if updated_project and updated_project.learning_objectives:
                 for g in updated_project.learning_objectives:
@@ -791,7 +791,7 @@ class KnowledgeTransferManager:
         # Update all project UI inspectors
         await ShareStorage.refresh_all_share_uis(context, share_id)
 
-        return True, goal_name
+        return True, learning_objective_name
 
     @staticmethod
     async def get_learning_outcomes(context: ConversationContext) -> List[LearningOutcome]:
@@ -809,7 +809,7 @@ class KnowledgeTransferManager:
         if not share_id:
             return []
 
-        # Get the project which contains goals and success criteria
+        # Get the project which contains learning objectives and success criteria
         project = ShareStorage.read_share(share_id)
         if not project:
             return []
@@ -817,7 +817,7 @@ class KnowledgeTransferManager:
         objectives = project.learning_objectives
         outcomes = []
         for objective in objectives:
-            # Add success criteria from each goal
+            # Add success criteria from each learning objective
             outcomes.extend(objective.learning_outcomes)
 
         return outcomes
@@ -839,7 +839,7 @@ class KnowledgeTransferManager:
         title: str,
         description: str,
         priority: RequestPriority = RequestPriority.MEDIUM,
-        related_goal_ids: Optional[List[str]] = None,
+        related_objective_ids: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[InformationRequest]]:
         """
         Creates a new information request.
@@ -849,7 +849,7 @@ class KnowledgeTransferManager:
             title: Title of the request
             description: Description of the request
             priority: Priority level
-            related_goal_ids: Optional list of related goal IDs
+            related_objective_ids: Optional list of related learning objective IDs
 
         Returns:
             Tuple of (success, information_request)
@@ -871,7 +871,7 @@ class KnowledgeTransferManager:
                 title=title,
                 description=description,
                 priority=priority,
-                related_goal_ids=related_goal_ids or [],
+                related_objective_ids=related_objective_ids or [],
                 created_by=current_user_id,
                 updated_by=current_user_id,
                 conversation_id=str(context.id),
@@ -1105,7 +1105,7 @@ class KnowledgeTransferManager:
             ShareStorage.write_share_whiteboard(share_id, digest)
 
             # Log the update
-            event_type = LogEntryType.KB_UPDATE
+            event_type = LogEntryType.KNOWLEDGE_DIGEST_UPDATE
             update_type = "auto-generated" if is_auto_generated else "manual"
             message = f"{'Created' if is_new else 'Updated'} project whiteboard ({update_type})"
 

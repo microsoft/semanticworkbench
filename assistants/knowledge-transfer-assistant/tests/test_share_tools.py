@@ -214,7 +214,7 @@ class TestShareTools:
 
         # Setup mocks
         project_id = "test-project-id"
-        goal_index = 1
+        objective_index = 1
         goal_name = "Test Goal"
 
         # Mock KnowledgeTransferManager.get_project_id
@@ -243,7 +243,7 @@ class TestShareTools:
         )
 
         # Test the delete_project_goal function
-        result = await tools.delete_learning_objective(goal_index)
+        result = await tools.delete_learning_objective(objective_index)
 
         # Verify the result
         assert f"Goal '{goal_name}' has been successfully deleted from the project." in result

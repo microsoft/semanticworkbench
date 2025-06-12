@@ -69,9 +69,7 @@ class ShareInspectorStateProvider:
         share_info = await KnowledgeTransferManager.get_share_info(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_markdown(
-                share_id, conversation_role, brief, share_info, context
-            )
+            markdown = await self._format_coordinator_markdown(share_id, conversation_role, brief, share_info, context)
         else:
             markdown = await self._format_team_markdown(share_id, conversation_role, brief, share_info, context)
 
@@ -133,17 +131,17 @@ class ShareInspectorStateProvider:
         # Add learning objectives section if available and progress tracking is enabled
         if share and share.learning_objectives:
             lines.append("## Learning Objectives")
-            for goal in share.learning_objectives:
-                criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
-                criteria_total = len(goal.learning_outcomes)
-                lines.append(f"### {goal.name}")
-                lines.append(goal.description)
+            for objective in share.learning_objectives:
+                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
+                criteria_total = len(objective.learning_outcomes)
+                lines.append(f"### {objective.name}")
+                lines.append(objective.description)
                 lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
-                if goal.learning_outcomes:
+                if objective.learning_outcomes:
                     lines.append("")
                     lines.append("#### Learning Outcomes:")
-                    for criterion in goal.learning_outcomes:
+                    for criterion in objective.learning_outcomes:
                         status_emoji = "✅" if criterion.achieved else "⬜"
                         lines.append(f"- {status_emoji} {criterion.description}")
                 lines.append("")
@@ -254,17 +252,17 @@ class ShareInspectorStateProvider:
         # Add learning objectives section with checkable outcomes if progress tracking is enabled
         if share and share.learning_objectives:
             lines.append("## Learning Objectives")
-            for goal in share.learning_objectives:
-                criteria_complete = sum(1 for c in goal.learning_outcomes if c.achieved)
-                criteria_total = len(goal.learning_outcomes)
-                lines.append(f"### {goal.name}")
-                lines.append(goal.description)
+            for objective in share.learning_objectives:
+                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
+                criteria_total = len(objective.learning_outcomes)
+                lines.append(f"### {objective.name}")
+                lines.append(objective.description)
                 lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
-                if goal.learning_outcomes:
+                if objective.learning_outcomes:
                     lines.append("")
                     lines.append("#### Learning Outcomes:")
-                    for criterion in goal.learning_outcomes:
+                    for criterion in objective.learning_outcomes:
                         status_emoji = "✅" if criterion.achieved else "⬜"
                         completion_info = ""
                         if criterion.achieved and hasattr(criterion, "achieved_at") and criterion.achieved_at:

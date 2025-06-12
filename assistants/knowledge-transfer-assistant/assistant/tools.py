@@ -6,7 +6,7 @@ by the LLM during chat completions to proactively assist users.
 """
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Callable, List, Literal, Optional
 from uuid import UUID
 
 from openai_client.tools import ToolFunctions
@@ -21,7 +21,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
 from .command_processor import (
-    handle_add_goal_command,
+    handle_add_learning_objective_command,
 )
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
@@ -37,6 +37,7 @@ from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
 from .storage import ShareStorage, ShareStorageManager
 from .storage_models import ConversationRole
+from .utils import require_current_user
 
 
 async def invoke_command_handler(
@@ -118,6 +119,11 @@ class ShareTools:
                 self.add_learning_objective,
                 "add_learning_objective",
                 "Add a learning objective to the knowledge brief with measurable learning outcomes",
+            )
+            self.tool_functions.add_function(
+                self.update_learning_objective,
+                "update_learning_objective",
+                "Update an existing learning objective's name, description, or learning outcomes",
             )
             self.tool_functions.add_function(
                 self.delete_learning_objective,
@@ -313,7 +319,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         WHEN TO USE:
         - When you need specific information or clarification from the Coordinator
-        - When encountering a blocker that prevents progress on a goal
+        - When encountering a blocker that prevents progress on a learning objective
         - When requesting additional resources or documentation
         - When you need a decision from the project Coordinator
         - When a user expressly asks for information or help with something unclear
@@ -586,17 +592,131 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if len(learning_outcomes) > 0:
             criteria_str = "|" + ";".join(learning_outcomes)
 
-        command_content = f"/add-goal {objective_name}|{description}{criteria_str}"
+        command_content = f"/add-learning-objective {objective_name}|{description}{criteria_str}"
 
         return await invoke_command_handler(
             context=self.context,
             command_content=command_content,
-            handler_func=handle_add_goal_command,
+            handler_func=handle_add_learning_objective_command,
             success_message=f"Learning objective '{objective_name}' added to knowledge brief successfully.",
             error_prefix="Error adding learning objective",
         )
 
-    async def delete_learning_objective(self, goal_index: int) -> str:
+    async def update_learning_objective(
+        self,
+        objective_index: int,
+        objective_name: str,
+        description: str,
+        learning_outcomes: List[str],
+    ) -> str:
+        """
+        Update an existing learning objective's name, description, or learning outcomes.
+
+        WHEN TO USE:
+        - When refining the scope or clarity of an existing learning objective
+        - When adding, removing, or modifying learning outcomes for an objective
+        - When updating the description to better reflect the knowledge area
+        - When reorganizing objectives to improve knowledge transfer structure
+
+        Args:
+            objective_index: The index of the learning objective to update (0-based integer)
+            objective_name: New name for the objective (empty string to keep current name)
+            description: New description (empty string to keep current description)
+            learning_outcomes: New list of learning outcomes (empty list to keep current outcomes)
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can update learning objectives."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found. Please add objectives before updating them."
+
+        # Validate index
+        if objective_index < 0 or objective_index >= len(knowledge_package.learning_objectives):
+            return f"Invalid objective index {objective_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
+
+        # Get the objective to update
+        objective = knowledge_package.learning_objectives[objective_index]
+        original_name = objective.name
+
+        # Update fields if provided (empty string/list means no change)
+        if objective_name.strip():
+            objective.name = objective_name.strip()
+
+        if description.strip():
+            objective.description = description.strip()
+
+        if learning_outcomes:
+            # Convert learning outcomes to LearningOutcome objects
+            from .data import LearningOutcome
+
+            objective.learning_outcomes = [
+                LearningOutcome(description=outcome.strip()) for outcome in learning_outcomes if outcome.strip()
+            ]
+
+        # Get user information for logging
+        current_user_id = await require_current_user(self.context, "update learning objective")
+        if not current_user_id:
+            return "Could not identify current user."
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+
+        # Log the objective update
+        changes_made = []
+        if objective_name.strip():
+            changes_made.append(f"name: '{original_name}' → '{objective_name.strip()}'")
+        if description.strip():
+            changes_made.append("description updated")
+        if learning_outcomes:
+            filtered_outcomes = [o for o in learning_outcomes if o.strip()]
+            changes_made.append(f"learning outcomes updated ({len(filtered_outcomes)} outcomes)")
+
+        changes_text = ", ".join(changes_made) if changes_made else "no changes specified"
+
+        await ShareStorage.log_share_event(
+            context=self.context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Updated learning objective '{objective.name}': {changes_text}",
+            metadata={
+                "objective_index": objective_index,
+                "objective_name": objective.name,
+                "changes": changes_text,
+            },
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=self.context,
+            share_id=share_id,
+            update_type="learning_objective",
+            message=f"Learning objective '{objective.name}' has been updated",
+        )
+
+        # Update all share UI inspectors
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+
+        # Send notification to current conversation
+        await self.context.send_messages(
+            NewConversationMessage(
+                content=f"Learning objective '{objective.name}' has been successfully updated: {changes_text}.",
+                message_type=MessageType.notice,
+            )
+        )
+
+        return f"Learning objective '{objective.name}' has been successfully updated: {changes_text}."
+
+    async def delete_learning_objective(self, objective_index: int) -> str:
         """
         Delete a learning objective from the knowledge package by index.
 
@@ -610,8 +730,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         First use get_project_info() to see the list of objectives and their indices before deletion.
 
         Args:
-            goal_index: The index of the learning objective to delete (0-based integer). Use get_project_info() first to see the
-                       correct indices of objectives. For example, to delete the first objective, use goal_index=0.
+            objective_index: The index of the learning objective to delete (0-based integer). Use get_project_info() first to see the
+                       correct indices of objectives. For example, to delete the first objective, use objective_index=0.
 
         Returns:
             A message indicating success or failure
@@ -628,7 +748,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Call the KnowledgeTransferManager method to delete the learning objective
         success, result = await KnowledgeTransferManager.delete_learning_objective(
             context=self.context,
-            objective_index=goal_index,
+            objective_index=objective_index,
         )
 
         if success:
@@ -642,9 +762,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return f"Learning objective '{result}' has been successfully deleted from the knowledge package."
         else:
             # Return the error message
-            return f"Error deleting goal: {result}"
+            return f"Error deleting learning objective: {result}"
 
-    async def mark_learning_outcome_achieved(self, goal_index: int, criterion_index: int) -> str:
+    async def mark_learning_outcome_achieved(self, objective_index: int, criterion_index: int) -> str:
         """
         Mark a learning outcome as achieved for tracking knowledge transfer progress.
 
@@ -661,7 +781,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         before marking anything as complete.
 
         Args:
-            goal_index: The index of the objective (0-based integer) from get_share_info() output
+            objective_index: The index of the objective (0-based integer) from get_share_info() output
             criterion_index: The index of the outcome within the objective (0-based integer)
 
         Returns:
@@ -689,10 +809,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No learning objectives found."
 
         # Validate indices
-        if goal_index < 0 or goal_index >= len(knowledge_package.learning_objectives):
-            return f"Invalid objective index {goal_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
+        if objective_index < 0 or objective_index >= len(knowledge_package.learning_objectives):
+            return f"Invalid objective index {objective_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
 
-        objective = knowledge_package.learning_objectives[goal_index]
+        objective = knowledge_package.learning_objectives[objective_index]
 
         if criterion_index < 0 or criterion_index >= len(objective.learning_outcomes):
             return f"Invalid outcome index {criterion_index}. Valid indexes for objective '{objective.name}' are 0 to {len(objective.learning_outcomes) - 1}. Objective '{objective.name}' has {len(objective.learning_outcomes)} outcomes."
@@ -727,7 +847,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         await ShareStorage.log_share_event(
             context=self.context,
             share_id=share_id,
-            entry_type=LogEntryType.CRITERION_COMPLETED.value,
+            entry_type=LogEntryType.OUTCOME_ATTAINED.value,
             message=f"Learning outcome achieved: {outcome.description}",
             related_entity_id=None,
             metadata={"objective_name": objective.name, "outcome_description": outcome.description},
@@ -837,7 +957,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             )
 
         # Get existing knowledge brief, digest, and package
-        brief = ShareStorage.read_share_brief(share_id)
+        brief = ShareStorage.read_knowledge_brief(share_id)
         whiteboard = ShareStorage.read_knowledge_digest(share_id)
         project = ShareStorage.read_share(share_id)
 
@@ -849,8 +969,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Check if at least one objective has learning outcomes
         has_criteria = False
-        for goal in project.learning_objectives:
-            if goal.learning_outcomes:
+        for objective in project.learning_objectives:
+            if objective.learning_outcomes:
                 has_criteria = True
                 break
 
@@ -905,7 +1025,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         await ShareStorage.log_share_event(
             context=self.context,
             share_id=share_id,
-            entry_type=LogEntryType.MILESTONE_PASSED.value,
+            entry_type=LogEntryType.STATUS_CHANGED.value,
             message="Project marked as READY FOR WORKING",
             metadata={"milestone": "ready_for_working"},
         )
@@ -1026,73 +1146,43 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return "Knowledge transfer successfully marked as complete. All participants have been notified."
 
-    async def suggest_next_action(self) -> Dict[str, Any]:
+    async def suggest_next_action(self) -> str:
         """
         Suggest the next action the user should take based on knowledge transfer state.
 
         Returns:
-            Dict with suggestion details
+            A suggestion message based on the current state of the knowledge transfer process.
         """
         # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             logger.warning("No share ID found for this conversation")
-            return {
-                "suggestion": "no_share",
-                "reason": "No knowledge package associated with this conversation. Unable to suggest next action.",
-                "priority": "low",
-                "function": None,
-            }
+            return "No knowledge package associated with this conversation. Unable to suggest next action."
 
         share_info = ShareStorage.read_share_info(share_id)
         if not share_info:
-            return {
-                "suggestion": "no_share_info",
-                "reason": "No knowledge package information found. Unable to suggest next action.",
-                "priority": "low",
-                "function": None,
-            }
+            return "No knowledge package information found. Unable to suggest next action."
 
         # Get knowledge transfer state information
-        brief = ShareStorage.read_share_brief(share_id)
+        brief = ShareStorage.read_knowledge_brief(share_id)
         knowledge_package = ShareStorage.read_share(share_id)
         requests = ShareStorage.get_all_information_requests(share_id)
 
         # Check if knowledge brief exists
         if not brief:
             if self.role is ConversationRole.COORDINATOR:
-                return {
-                    "suggestion": "create_project_brief",
-                    "reason": "No project brief found. Start by creating one.",
-                    "priority": "high",
-                    "function": "create_project_brief",
-                    "parameters": {"name": "", "description": ""},
-                }
+                return "No knowledge brief found. Start by creating one."
             else:
-                return {
-                    "suggestion": "wait_for_coordinator",
-                    "reason": "No project brief found. The Coordinator needs to create one before you can proceed.",
-                    "priority": "medium",
-                    "function": None,
-                }
+                return "No knowledge brief found. The Coordinator needs to create one before you can proceed."
 
         # Check if objectives exist
         if not knowledge_package or not knowledge_package.learning_objectives:
             if self.role is ConversationRole.COORDINATOR:
-                return {
-                    "suggestion": "add_project_goal",
-                    "reason": "Project has no goals. Add at least one goal with success criteria.",
-                    "priority": "high",
-                    "function": "add_project_goal",
-                    "parameters": {"goal_name": "", "goal_description": "", "learning_outcomes": []},
-                }
+                return (
+                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
+                )
             else:
-                return {
-                    "suggestion": "wait_for_goals",
-                    "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
-                    "priority": "medium",
-                    "function": None,
-                }
+                return "There are no learning objectives defined in the knowledge package. Feel free to explore by asking reviewing the knowledge package and asking questions."
 
         # Check share info if knowledge package is ready for transfer
         ready_for_transfer = share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
@@ -1107,75 +1197,35 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             )
 
             if has_objectives and has_outcomes:
-                return {
-                    "suggestion": "mark_ready_for_transfer",
-                    "reason": "Knowledge package information is complete. Mark it as ready for transfer.",
-                    "priority": "medium",
-                    "function": "mark_knowledge_ready_for_transfer",
-                    "parameters": {},
-                }
+                return "Knowledge package information is complete. Mark it as ready for transfer."
 
         # Check for unresolved information requests for Coordinator
         if self.role is ConversationRole.COORDINATOR:
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
             if active_requests:
                 request = active_requests[0]  # Get the first unresolved request
-                return {
-                    "suggestion": "resolve_information_request",
-                    "reason": f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'.",
-                    "priority": "high"
-                    if request.priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]
-                    else "medium",
-                    "function": "resolve_information_request",
-                    "parameters": {"request_id": request.request_id, "resolution": ""},
-                }
+                return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
 
         # For team, check if all criteria are completed for project completion
         criteria = await KnowledgeTransferManager.get_learning_outcomes(self.context)
         incomplete_criteria = [criterion for criterion in criteria if not criterion.achieved]
 
         if self.role is ConversationRole.TEAM and not incomplete_criteria:
-            return {
-                "suggestion": "report_project_completion",
-                "reason": "All success criteria have been completed. Report project completion.",
-                "priority": "medium",
-                "function": "report_project_completion",
-                "parameters": {},
-            }
+            return "All outcomes have been achieved. Report knowledge transfer completion."
 
         # For team, suggest marking criteria as completed if any are pending
         if self.role is ConversationRole.TEAM and incomplete_criteria:
             # Get the knowledge package to access objectives
             knowledge_package_check = ShareStorage.read_share(share_id)
             if knowledge_package_check and knowledge_package_check.learning_objectives:
-                # Find the first unachieved outcome
+                # Find the first un-achieved outcome
                 for objective_index, objective in enumerate(knowledge_package_check.learning_objectives):
                     for outcome_index, outcome in enumerate(objective.learning_outcomes):
                         if not outcome.achieved:
-                            return {
-                                "suggestion": "mark_learning_outcome_achieved",
-                                "reason": "Update progress by marking achieved learning outcomes.",
-                                "priority": "low",
-                                "function": "mark_learning_outcome_achieved",
-                                "parameters": {
-                                    "goal_index": objective_index,  # 0-based indexing
-                                    "criterion_index": outcome_index,  # 0-based indexing
-                                },
-                            }
+                            return "Update progress by marking achieved learning outcomes."
 
         # Default suggestions based on role
         if self.role is ConversationRole.COORDINATOR:
-            return {
-                "suggestion": "monitor_progress",
-                "reason": "Monitor team operations and respond to any new information requests.",
-                "priority": "low",
-                "function": None,
-            }
+            return "Monitor team operations and respond to any new information requests."
         else:
-            return {
-                "suggestion": "update_status",
-                "reason": "Continue knowledge transfer operations and update progress as you make advancements.",
-                "priority": "low",
-                "function": "update_transfer_status",
-                "parameters": {"status": "in_progress"},
-            }
+            return "Continue knowledge transfer operations and update progress as you make advancements."
