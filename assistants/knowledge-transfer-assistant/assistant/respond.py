@@ -297,7 +297,7 @@ async def respond_to_conversation(
     ### ATTACHMENTS
     ###
 
-    # TODO: A better pattern here might be to keep the attachements as user
+    # TODO: A better pattern here might be to keep the attachments as user
     # in the proper flow of the conversation rather than as .
 
     # Generate the attachment messages.

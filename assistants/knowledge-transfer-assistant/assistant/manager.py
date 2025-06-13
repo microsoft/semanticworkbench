@@ -120,12 +120,12 @@ class KnowledgeTransferManager:
         share_url = f"/conversation-share/{share.id}/redeem"
 
         # Store team conversation info in KnowledgePackageInfo
-        project_info = ShareStorage.read_share_info(share_id)
-        if project_info:
-            project_info.team_conversation_id = str(conversation.id)
-            project_info.share_url = share_url
-            project_info.updated_at = datetime.utcnow()
-            ShareStorage.write_share_info(share_id, project_info)
+        share_info = ShareStorage.read_share_info(share_id)
+        if share_info:
+            share_info.team_conversation_id = str(conversation.id)
+            share_info.share_url = share_url
+            share_info.updated_at = datetime.utcnow()
+            ShareStorage.write_share_info(share_id, share_info)
         else:
             raise ValueError(f"KnowledgePackage info not found for project ID: {share_id}")
 
