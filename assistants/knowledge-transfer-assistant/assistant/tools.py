@@ -100,6 +100,11 @@ class ShareTools:
             "suggest_next_action",
             "Suggest the next action the user should take based on knowledge transfer state",
         )
+        self.tool_functions.add_function(
+            self.update_transfer_status,
+            "update_transfer_status",
+            "Update the status and progress of the knowledge transfer",
+        )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -149,12 +154,6 @@ class ShareTools:
                 "delete_information_request",
                 "Delete an information request that is no longer needed",
             )
-
-            self.tool_functions.add_function(
-                self.update_transfer_status,
-                "update_transfer_status",
-                "Update the status and progress of the knowledge transfer",
-            )
             self.tool_functions.add_function(
                 self.report_transfer_completion,
                 "report_transfer_completion",
@@ -168,7 +167,7 @@ class ShareTools:
 
     async def update_transfer_status(
         self,
-        status: Literal["planning", "in_progress", "blocked", "completed", "aborted"],
+        status: Literal["planning", "in_progress", "blocked", "completed"],
         progress: Optional[int],
         status_message: Optional[str],
     ) -> str:
