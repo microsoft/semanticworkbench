@@ -3,6 +3,7 @@ import logging
 import math
 import re
 from fractions import Fraction
+from functools import lru_cache
 from io import BytesIO
 from typing import Any, Iterable, Sequence
 
@@ -51,12 +52,23 @@ def resolve_model_name(model: str) -> str:
         raise NotImplementedError(f"num_tokens_from_messages() is not implemented for model {model}.")
 
 
-def get_encoding_for_model(model: str) -> tiktoken.Encoding:
+@lru_cache(maxsize=16)
+def _get_cached_encoding(resolved_model: str) -> tiktoken.Encoding:
+    """Cache tiktoken encodings to avoid slow initialization on repeated calls."""
     try:
-        return tiktoken.encoding_for_model(resolve_model_name(model))
+        return tiktoken.encoding_for_model(resolved_model)
     except KeyError:
-        logger.warning(f"model {model} not found. Using cl100k_base encoding.")
-        return tiktoken.get_encoding("cl100k_base")
+        if resolved_model.startswith(("gpt-4o", "o")):
+            logger.warning(f"model {resolved_model} not found. Using o200k_base encoding.")
+            return tiktoken.get_encoding("o200k_base")
+        else:
+            logger.warning(f"model {resolved_model} not found. Using cl100k_base encoding.")
+            return tiktoken.get_encoding("cl100k_base")
+
+
+def get_encoding_for_model(model: str) -> tiktoken.Encoding:
+    """Get tiktoken encoding for a model, with caching for performance."""
+    return _get_cached_encoding(resolve_model_name(model))
 
 
 def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> int:
@@ -209,11 +221,7 @@ def num_tokens_from_tools(
             f"num_tokens_from_tools_and_messages() is not implemented for model {specific_model}."
         )
 
-    try:
-        encoding = tiktoken.encoding_for_model(specific_model)
-    except KeyError:
-        logger.warning("model %s not found. Using o200k_base encoding.", specific_model)
-        encoding = tiktoken.get_encoding("o200k_base")
+    encoding = _get_cached_encoding(specific_model)
 
     token_count = 0
     for f in tools:
