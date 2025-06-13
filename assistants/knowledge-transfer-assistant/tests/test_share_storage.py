@@ -15,7 +15,6 @@ from assistant.data import (
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
-    KnowledgePackageInfo,
     KnowledgePackageLog,
     LearningObjective,
     LearningOutcome,
@@ -32,7 +31,6 @@ from assistant.storage_models import (
 )
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant import settings
-from semantic_workbench_assistant.storage import write_model
 
 
 class TestShareStorage(unittest.IsolatedAsyncioTestCase):
@@ -128,31 +126,17 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             conversation_id=self.conversation_id,
         )
 
-        # Create a KnowledgePackage with the goal
+        # Create a KnowledgePackage with the goal and brief
         project = KnowledgePackage(
-            info=None,
+            share_id=self.share_id,
+            coordinator_conversation_id=self.conversation_id,
             brief=brief,
             learning_objectives=[test_goal],
             digest=None,
         )
 
-        # Write the project to storage
-        project_path = ShareStorageManager.get_share_path(self.share_id)
-        project_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(project_path, project)
-
-        # Write brief to the proper path using ShareStorage
-        brief_path = ShareStorageManager.get_brief_path(self.share_id)
-        brief_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(brief_path, brief)
-
-        # Create project info
-        project_info = KnowledgePackageInfo(
-            share_id=self.share_id,
-            coordinator_conversation_id=self.conversation_id,
-        )
-        project_info_path = ShareStorageManager.get_share_info_path(self.share_id)
-        write_model(project_info_path, project_info)
+        # Write the project to storage (this now includes the brief and learning objectives)
+        ShareStorage.write_share(self.share_id, project)
 
         # Create an information request
         request = InformationRequest(
@@ -166,10 +150,8 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             conversation_id=self.conversation_id,
         )
 
-        # Write request to the proper path using ShareStorage
-        request_path = ShareStorageManager.get_information_request_path(self.share_id, request.request_id)
-        request_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(request_path, request)
+        # Write request using ShareStorage (this will add it to the main share file)
+        ShareStorage.write_information_request(self.share_id, request)
 
         # Create context directories
         context_dir = self.test_dir / f"context_{self.conversation_id}"
@@ -343,28 +325,28 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             # Last message should be the 60th message
             self.assertEqual(storage.messages[49].content, "Message 60")
 
-    async def test_project_whiteboard(self):
-        """Test reading and writing project whiteboard."""
-        # Create whiteboard
-        whiteboard = KnowledgeDigest(
-            content="# Test Whiteboard\n\nThis is a test whiteboard.",
+    async def test_knowledge_digest(self):
+        """Test reading and writing knowledge digest."""
+        # Create knowledge digest
+        digest = KnowledgeDigest(
+            content="# Test Knowledge Digest\n\nThis is a test knowledge digest.",
             is_auto_generated=True,
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
         )
 
-        # Write whiteboard
-        ShareStorage.write_share_whiteboard(self.share_id, whiteboard)
+        # Write knowledge digest (this will add it to the main share file)
+        ShareStorage.write_knowledge_digest(self.share_id, digest)
 
-        # Read whiteboard
-        read_whiteboard = ShareStorage.read_knowledge_digest(self.share_id)
+        # Read knowledge digest
+        read_digest = ShareStorage.read_knowledge_digest(self.share_id)
 
-        # Verify whiteboard was saved correctly
-        self.assertIsNotNone(read_whiteboard, "Should load the whiteboard")
-        if read_whiteboard:
-            self.assertEqual(read_whiteboard.content, "# Test Whiteboard\n\nThis is a test whiteboard.")
-            self.assertTrue(read_whiteboard.is_auto_generated)
+        # Verify knowledge digest was saved correctly
+        self.assertIsNotNone(read_digest, "Should load the knowledge digest")
+        if read_digest:
+            self.assertEqual(read_digest.content, "# Test Knowledge Digest\n\nThis is a test knowledge digest.")
+            self.assertTrue(read_digest.is_auto_generated)
 
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
@@ -379,36 +361,33 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(called_event.event, "updated")
         self.assertIsNone(called_event.state)
 
-    async def test_project_info(self):
-        """Test reading and writing project info."""
-        # Read existing project info
-        project_info = ShareStorage.read_share_info(self.share_id)
+    async def test_knowledge_package_info(self):
+        """Test reading and writing knowledge package info."""
+        # Read existing knowledge package
+        package = ShareStorage.read_share_info(self.share_id)
 
         # Verify it was loaded correctly
-        self.assertIsNotNone(project_info, "Should load project info")
-        if project_info:
-            self.assertEqual(project_info.share_id, self.share_id)
-            self.assertEqual(project_info.coordinator_conversation_id, self.conversation_id)
+        self.assertIsNotNone(package, "Should load knowledge package")
+        if package:
+            self.assertEqual(package.share_id, self.share_id)
 
-            # Update project info - these fields don't exist in KnowledgePackageInfo
-            # if project_info:
-            #     project_info.transfer_notes = "Test status message"
-            #     project_info.completion_percentage = 50
-            #     project_info.next_actions = ["Action 1", "Action 2"]
+            # Update knowledge package info
+            package.transfer_notes = "Test status message"
+            package.completion_percentage = 50
+            package.next_learning_actions = ["Action 1", "Action 2"]
 
-            # Write updated project info
-            # ShareStorage.write_share_info(self.share_id, project_info)
+            # Write updated knowledge package
+            ShareStorage.write_share_info(self.share_id, package)
 
-            # Read updated project info
-            # updated_info = ShareStorage.read_share_info(self.share_id)
+            # Read updated knowledge package
+            updated_package = ShareStorage.read_share_info(self.share_id)
 
             # Verify updates were saved
-            # self.assertIsNotNone(updated_info, "Should load updated project info")
-            # if updated_info:
-            #     self.assertEqual(updated_info.transfer_notes, "Test status message")
-            #     self.assertEqual(updated_info.completion_percentage, 50)
-            #     self.assertEqual(updated_info.next_actions, ["Action 1", "Action 2"])
-            pass
+            self.assertIsNotNone(updated_package, "Should load updated knowledge package")
+            if updated_package:
+                self.assertEqual(updated_package.transfer_notes, "Test status message")
+                self.assertEqual(updated_package.completion_percentage, 50)
+                self.assertEqual(updated_package.next_learning_actions, ["Action 1", "Action 2"])
 
     async def test_get_linked_conversations_dir(self):
         """Test getting linked conversations directory."""

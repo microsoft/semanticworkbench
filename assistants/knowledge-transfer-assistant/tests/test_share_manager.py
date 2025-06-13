@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from assistant.data import (
     KnowledgePackage,
-    KnowledgePackageInfo,
     KnowledgeTransferState,
     LearningObjective,
     LearningOutcome,
@@ -39,7 +38,7 @@ class TestKnowledgeTransferManager:
 
         # Create a test project with multiple goals
         test_project = KnowledgePackage(
-            info=None,
+            share_id=project_id,
             brief=None,
             learning_objectives=[
                 LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),
@@ -59,14 +58,11 @@ class TestKnowledgeTransferManager:
             log=None,
         )
 
-        # Create test project info
-        test_project_info = KnowledgePackageInfo(
-            share_id=project_id,
-            coordinator_conversation_id="test-coordinator-id",
-            completion_percentage=50,
-            version=1,
-            transfer_state=KnowledgeTransferState.ORGANIZING,
-        )
+        # Set additional fields on the test project
+        test_project.coordinator_conversation_id = "test-coordinator-id"
+        test_project.completion_percentage = 50
+        test_project.version = 1
+        test_project.transfer_state = KnowledgeTransferState.ORGANIZING
 
         # Mock get_project_id
         async def mock_get_project_id(*args, **kwargs):
@@ -89,13 +85,13 @@ class TestKnowledgeTransferManager:
 
         monkeypatch.setattr("assistant.storage.ShareStorage.read_project", MagicMock(side_effect=mock_read_project))
 
-        # Mock read_project_info
-        def mock_read_project_info(proj_id):
+        # Mock read_share_info (now returns the same project)
+        def mock_read_share_info(proj_id):
             assert proj_id == project_id
-            return test_project_info
+            return test_project
 
         monkeypatch.setattr(
-            "assistant.project_manager.ShareStorage.read_project_info", MagicMock(side_effect=mock_read_project_info)
+            "assistant.storage.ShareStorage.read_share_info", MagicMock(side_effect=mock_read_share_info)
         )
 
         # Track if write_project and write_project_info were called with correct arguments
@@ -116,20 +112,20 @@ class TestKnowledgeTransferManager:
             "assistant.project_manager.ShareStorage.write_project", MagicMock(side_effect=mock_write_project)
         )
 
-        # Mock write_project_info
-        def mock_write_project_info(proj_id, project_info):
+        # Mock write_share_info (now same as write_share)
+        def mock_write_share_info(proj_id, package):
             nonlocal write_project_info_called
             assert proj_id == project_id
-            # Verify project info was updated
-            assert project_info.achieved_criteria == 0  # Completed criterion was in the deleted goal
-            assert project_info.total_criteria == 0  # All criteria were in the deleted goal
-            assert project_info.completion_percentage == 0
-            assert project_info.version == 2  # Incremented
+            # Verify package was updated
+            assert package.achieved_outcomes == 0  # Completed criterion was in the deleted goal
+            assert package.total_outcomes == 0  # All criteria were in the deleted goal
+            assert package.completion_percentage == 0
+            assert package.version == 2  # Incremented
             write_project_info_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ShareStorage.write_project_info",
-            MagicMock(side_effect=mock_write_project_info),
+            "assistant.storage.ShareStorage.write_share_info",
+            MagicMock(side_effect=mock_write_share_info),
         )
 
         # Mock log_project_event
@@ -191,7 +187,7 @@ class TestKnowledgeTransferManager:
 
         # Create a test project with fewer goals than the index
         test_project = KnowledgePackage(
-            info=None,
+            share_id=project_id,
             brief=None,
             learning_objectives=[
                 LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),

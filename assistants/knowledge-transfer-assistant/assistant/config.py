@@ -65,7 +65,7 @@ class PromptConfig(BaseModel):
                 "coordinator_instructions",
                 "team_role",
                 "team_instructions",
-                "whiteboard_prompt",
+                "knowledge_digest_prompt",
                 "share_information_request_detection",
             ],
         },
@@ -116,11 +116,11 @@ class PromptConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = load_text_include("share_information_request_detection.txt")
 
-    whiteboard_prompt: Annotated[
+    knowledge_digest_prompt: Annotated[
         str,
         Field(title="Knowledge Digest Prompt", description="The prompt used to generate knowledge digest content."),
         UISchema(widget="textarea"),
-    ] = load_text_include("whiteboard_prompt.txt")
+    ] = load_text_include("knowledge_digest_prompt.txt")
 
     welcome_message_generation: Annotated[
         str,

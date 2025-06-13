@@ -121,16 +121,14 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create a project with the goal
         project = KnowledgePackage(
-            info=None,
+            share_id="test-share-id",
             brief=brief,
             learning_objectives=[test_goal],
             digest=None,
         )
 
-        # Write the project to storage
-        project_path = ShareStorageManager.get_share_path(self.share_id)
-        project_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(project_path, project)
+        # Write the project to storage using ShareStorage to ensure proper consolidated format
+        ShareStorage.write_share(self.share_id, project)
 
         # Write to the project's shared directory using the correct path
         brief_path = ShareStorageManager.get_brief_path(self.share_id)

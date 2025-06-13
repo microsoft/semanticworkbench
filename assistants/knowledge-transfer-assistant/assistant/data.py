@@ -300,32 +300,6 @@ class KnowledgePackageLog(BaseModel):
     entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
-class KnowledgePackageInfo(BaseModel):
-    """
-    Core information about a knowledge package.
-
-    This model stores essential knowledge package metadata that doesn't fit into other
-    specific models like brief or digest. It's the central reference point
-    for knowledge package identification, state, and team collaboration settings.
-    """
-
-    share_id: str  # Unique identifier for the knowledge package
-    coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
-    transfer_state: KnowledgeTransferState = (
-        KnowledgeTransferState.ORGANIZING
-    )  # Current knowledge transfer lifecycle state
-    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
-    team_conversation_id: Optional[str] = None  # ID of the team conversation
-    share_url: Optional[str] = None  # Shareable URL for inviting team members
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: Optional[str] = None  # User ID who last updated the package info
-    completion_percentage: Optional[int] = None  # Current learning completion percentage (0-100)
-    next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
-    version: int = 1  # Version counter for tracking changes
-    achieved_outcomes: int = 0  # Count of achieved learning outcomes
-    total_outcomes: int = 0  # Total count of learning outcomes
-    transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
 
 
 class KnowledgePackage(BaseModel):
@@ -336,9 +310,33 @@ class KnowledgePackage(BaseModel):
     This model encapsulates all the components that make up a knowledge transfer package,
     providing a single point of access to all relevant information for Coordinators and Team members.
     It serves as the main interface for interacting with the knowledge transfer data.
+    
+    All fields from the former KnowledgePackageInfo have been flattened into this model
+    for simpler data management.
     """
 
-    info: Optional[KnowledgePackageInfo]
+    # Core package identification and state (formerly from KnowledgePackageInfo)
+    share_id: str  # Unique identifier for the knowledge package
+    coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
+    transfer_state: KnowledgeTransferState = (
+        KnowledgeTransferState.ORGANIZING
+    )  # Current knowledge transfer lifecycle state
+    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
+    team_conversation_id: Optional[str] = None  # ID of the team conversation
+    share_url: Optional[str] = None  # Shareable URL for inviting team members
+    completion_percentage: Optional[int] = None  # Current learning completion percentage (0-100)
+    next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
+    achieved_outcomes: int = 0  # Count of achieved learning outcomes
+    total_outcomes: int = 0  # Total count of learning outcomes
+    transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
+    
+    # Metadata fields (formerly from KnowledgePackageInfo)
+    version: int = 1  # Version counter for tracking changes
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: Optional[str] = None  # User ID who last updated the package
+
+    # Package components
     brief: Optional[KnowledgeBrief]
     learning_objectives: List[LearningObjective] = Field(default_factory=list)
     requests: List[InformationRequest] = Field(default_factory=list)

@@ -26,7 +26,7 @@ from .command_processor import (
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
-    KnowledgePackageInfo,
+    KnowledgePackage,
     KnowledgeTransferState,
     LogEntryType,
     RequestPriority,
@@ -506,13 +506,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 },
             )
 
-            # Delete the information request - implementing deletion logic by removing the file
-            # Using ShareStorage instead of direct path access
-            # Create information requests directory path and remove the specific file
-
-            request_path = ShareStorageManager.get_information_request_path(share_id, actual_request_id)
-            if request_path.exists():
-                request_path.unlink()  # Delete the file
+            # Delete the information request from the main share data
+            package = ShareStorage.read_share(share_id)
+            if package and package.requests:
+                # Remove the request from the list
+                package.requests = [req for req in package.requests if req.request_id != actual_request_id]
+                # Save the updated package
+                ShareStorage.write_share(share_id, package)
 
             # Notify Coordinator about the deletion
             try:
@@ -852,35 +852,34 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             metadata={"objective_name": objective.name, "outcome_description": outcome.description},
         )
 
-        # Update share info
-        share_info = ShareStorage.read_share_info(share_id)
+        # Update knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
 
-        if share_info:
+        if knowledge_package:
             # Count all completed criteria
             completed_criteria = 0
             total_criteria = 0
 
-            # Get the knowledge package to access objectives
-            knowledge_package = ShareStorage.read_share(share_id)
-            if knowledge_package and knowledge_package.learning_objectives:
+            if knowledge_package.learning_objectives:
                 for objective in knowledge_package.learning_objectives:
                     total_criteria += len(objective.learning_outcomes)
                     completed_criteria += sum(1 for outcome in objective.learning_outcomes if outcome.achieved)
 
-            # Update share info with outcome stats
-            # Note: completed_criteria and total_criteria not in KnowledgePackageInfo model
+            # Update knowledge package with outcome stats
+            knowledge_package.achieved_outcomes = completed_criteria
+            knowledge_package.total_outcomes = total_criteria
 
             # Calculate progress percentage
             if total_criteria > 0:
-                share_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
+                knowledge_package.completion_percentage = int((completed_criteria / total_criteria) * 100)
 
             # Update metadata
-            share_info.updated_at = datetime.utcnow()
-            share_info.updated_by = current_user_id
-            share_info.version += 1
+            knowledge_package.updated_at = datetime.utcnow()
+            knowledge_package.updated_by = current_user_id
+            knowledge_package.version += 1
 
-            # Save the updated share info
-            ShareStorage.write_share_info(share_id, share_info)
+            # Save the updated knowledge package
+            ShareStorage.write_share(share_id, knowledge_package)
 
             # Notify linked conversations with a message
             await ProjectNotifier.notify_project_update(
@@ -980,8 +979,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not whiteboard or not whiteboard.content:
             return "Knowledge digest is empty. Content will be automatically generated as the transfer progresses."
 
-        # Get or create knowledge package info
-        project_info = ShareStorage.read_share_info(share_id)
+        # Get or create knowledge package
+        package = ShareStorage.read_share(share_id)
 
         # Get current user information
         participants = await self.context.get_participants()
@@ -995,30 +994,25 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not current_user_id:
             return "Could not identify current user."
 
-        if not project_info:
-            # Create new knowledge package info if it doesn't exist
-            project_info = KnowledgePackageInfo(
+        if not package:
+            # Create new knowledge package if it doesn't exist
+            package = KnowledgePackage(
                 share_id=share_id,
                 coordinator_conversation_id=str(self.context.id),
                 transfer_state=KnowledgeTransferState.ORGANIZING,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
+                brief=None,
+                digest=None,
             )
 
         # Update state to ready_for_transfer
-        if isinstance(project_info, dict):
-            # Handle the dict case for backward compatibility
-            project_info["transfer_state"] = KnowledgeTransferState.READY_FOR_TRANSFER
-            project_info["transfer_notes"] = "Knowledge package is now ready for transfer"
-            project_info["updated_at"] = datetime.utcnow()
-        else:
-            # Handle the KnowledgePackageInfo case
-            project_info.transfer_state = KnowledgeTransferState.READY_FOR_TRANSFER
-            project_info.transfer_notes = "Knowledge package is now ready for transfer"
-            project_info.updated_at = datetime.utcnow()
+        package.transfer_state = KnowledgeTransferState.READY_FOR_TRANSFER
+        package.transfer_notes = "Knowledge package is now ready for transfer"
+        package.updated_at = datetime.utcnow()
 
-        # Save the updated project info
-        ShareStorage.write_share_info(share_id, project_info)
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, package)
 
         # Log the milestone transition
         await ShareStorage.log_share_event(
@@ -1075,15 +1069,14 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not share_id:
             return "No knowledge package associated with this conversation. Unable to report transfer completion."
 
-        # Get existing knowledge package info
-        project_info = ShareStorage.read_share_info(share_id)
-        if not project_info:
-            return "No knowledge package information found. Cannot complete transfer without package information."
+        # Get existing knowledge package
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return "No knowledge package found. Cannot complete transfer without package information."
 
         # Check if all outcomes are achieved
-        if getattr(project_info, "achieved_outcomes", 0) < getattr(project_info, "total_outcomes", 0):
-            # Note: total_outcomes and achieved_outcomes are in KnowledgePackageInfo model
-            remaining = getattr(project_info, "total_outcomes", 0) - getattr(project_info, "achieved_outcomes", 0)
+        if package.achieved_outcomes < package.total_outcomes:
+            remaining = package.total_outcomes - package.achieved_outcomes
             return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."
 
         # Get current user information
@@ -1098,23 +1091,18 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not current_user_id:
             return "Could not identify current user."
 
-        # Update project info to completed
-        project_info.transfer_state = KnowledgeTransferState.COMPLETED
-        project_info.completion_percentage = 100
-        project_info.transfer_notes = "Project is now complete"
-
-        # Add lifecycle metadata
-        # Note: lifecycle field doesn't exist in KnowledgePackageInfo
-
-        # Lifecycle tracking would need to be implemented elsewhere
+        # Update knowledge package to completed
+        package.transfer_state = KnowledgeTransferState.COMPLETED
+        package.completion_percentage = 100
+        package.transfer_notes = "Project is now complete"
 
         # Update metadata
-        project_info.updated_at = datetime.utcnow()
-        project_info.updated_by = current_user_id
-        project_info.version += 1
+        package.updated_at = datetime.utcnow()
+        package.updated_by = current_user_id
+        package.version += 1
 
-        # Save the updated project info
-        ShareStorage.write_share_info(share_id, project_info)
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, package)
 
         # Log the milestone transition
         await ShareStorage.log_share_event(
@@ -1158,9 +1146,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             logger.warning("No share ID found for this conversation")
             return "No knowledge package associated with this conversation. Unable to suggest next action."
 
-        share_info = ShareStorage.read_share_info(share_id)
-        if not share_info:
-            return "No knowledge package information found. Unable to suggest next action."
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return "No knowledge package found. Unable to suggest next action."
 
         # Get knowledge transfer state information
         brief = ShareStorage.read_knowledge_brief(share_id)
@@ -1183,8 +1171,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             else:
                 return "There are no learning objectives defined in the knowledge package. Feel free to explore by asking reviewing the knowledge package and asking questions."
 
-        # Check share info if knowledge package is ready for transfer
-        ready_for_transfer = share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
+        # Check if knowledge package is ready for transfer
+        ready_for_transfer = package.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
 
         if not ready_for_transfer and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for transfer

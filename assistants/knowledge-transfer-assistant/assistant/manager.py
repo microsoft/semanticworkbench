@@ -28,7 +28,6 @@ from .data import (
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
-    KnowledgePackageInfo,
     KnowledgePackageLog,
     KnowledgeTransferState,
     LearningObjective,
@@ -140,7 +139,7 @@ class KnowledgeTransferManager:
         1. Generates a unique project ID
         2. Associates the current conversation with that project
         3. Sets the current conversation as Coordinator for the project
-        4. Creates empty project data structures (brief, whiteboard, etc.)
+        4. Creates empty project data structures (brief, knowledge digest, etc.)
         5. Logs the project creation event
 
         After creating a project, the Coordinator should proceed to create a project brief
@@ -162,12 +161,17 @@ class KnowledgeTransferManager:
         project_dir = ShareStorageManager.get_share_dir(share_id)
         logger.debug(f"Created project directory: {project_dir}")
 
-        # Create and save the initial project info
-        project_info = KnowledgePackageInfo(share_id=share_id, coordinator_conversation_id=str(context.id))
+        # Create and save the initial knowledge package
+        knowledge_package = KnowledgePackage(
+            share_id=share_id,
+            coordinator_conversation_id=str(context.id),
+            brief=None,
+            digest=None,
+        )
 
-        # Save the project info
-        ShareStorage.write_share_info(share_id, project_info)
-        logger.debug(f"Created and saved project info: {project_info}")
+        # Save the knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+        logger.debug(f"Created and saved knowledge package: {knowledge_package}")
 
         # Associate the conversation with the project
         logger.debug(f"Associating conversation {context.id} with project {share_id}")
@@ -285,14 +289,14 @@ class KnowledgeTransferManager:
         share_id = await KnowledgeTransferManager.get_share_id(context)
         if not share_id:
             return None
-        project = KnowledgePackage(
-            info=ShareStorage.read_share_info(share_id),
-            brief=ShareStorage.read_knowledge_brief(share_id),
-            learning_objectives=[],  # TODO: Add storage method for learning objectives
-            digest=ShareStorage.read_knowledge_digest(share_id),
-            requests=ShareStorage.get_all_information_requests(share_id),
-            log=ShareStorage.read_share_log(share_id),
-        )
+        project = ShareStorage.read_share(share_id)
+        if project:
+            # Load the separate log file if not already loaded
+            if not project.log:
+                project.log = ShareStorage.read_share_log(share_id)
+        else:
+            # Create a new package if it doesn't exist, but this should be rare in get_share
+            return None
         return project
 
     @staticmethod
@@ -316,7 +320,7 @@ class KnowledgeTransferManager:
         context: ConversationContext,
         state: Optional[str] = None,
         status_message: Optional[str] = None,
-    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
+    ) -> Tuple[bool, Optional[KnowledgePackage]]:
         """
         Updates the project state and status message.
 
@@ -391,7 +395,7 @@ class KnowledgeTransferManager:
     @staticmethod
     async def get_share_info(
         context: ConversationContext, share_id: Optional[str] = None
-    ) -> Optional[KnowledgePackageInfo]:
+    ) -> Optional[KnowledgePackage]:
         """
         Gets the project information including share URL and team conversation details.
 
@@ -424,7 +428,7 @@ class KnowledgeTransferManager:
         progress: Optional[int] = None,
         status_message: Optional[str] = None,
         next_actions: Optional[List[str]] = None,
-    ) -> Optional[KnowledgePackageInfo]:
+    ) -> Optional[KnowledgePackage]:
         """
         Updates the project info with state, progress, status message, and next actions.
 
@@ -660,7 +664,7 @@ class KnowledgeTransferManager:
         if not project:
             # Create a new project if it doesn't exist
             project = KnowledgePackage(
-                info=None,
+                share_id=share_id,
                 brief=None,
                 learning_objectives=[new_learning_objective],
                 digest=None,
@@ -1071,15 +1075,15 @@ class KnowledgeTransferManager:
             # Get project ID
             share_id = await KnowledgeTransferManager.get_share_id(context)
             if not share_id:
-                logger.error("Cannot update whiteboard: no project associated with this conversation")
+                logger.error("Cannot update knowledge digest: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(context, "update whiteboard")
+            current_user_id = await require_current_user(context, "update knowledge digest")
             if not current_user_id:
                 return False, None
 
-            # Get existing whiteboard or create new one
+            # Get existing knowledge digest or create new one
             digest = ShareStorage.read_knowledge_digest(share_id)
             is_new = False
 
@@ -1101,13 +1105,13 @@ class KnowledgeTransferManager:
             digest.updated_by = current_user_id
             digest.version += 1
 
-            # Save the whiteboard
-            ShareStorage.write_share_whiteboard(share_id, digest)
+            # Save the knowledge digest
+            ShareStorage.write_knowledge_digest(share_id, digest)
 
             # Log the update
             event_type = LogEntryType.KNOWLEDGE_DIGEST_UPDATE
             update_type = "auto-generated" if is_auto_generated else "manual"
-            message = f"{'Created' if is_new else 'Updated'} project whiteboard ({update_type})"
+            message = f"{'Created' if is_new else 'Updated'} knowledge digest ({update_type})"
 
             await ShareStorage.log_share_event(
                 context=context,
@@ -1122,8 +1126,8 @@ class KnowledgeTransferManager:
                 await ProjectNotifier.notify_project_update(
                     context=context,
                     share_id=share_id,
-                    update_type="project_whiteboard",
-                    message="KnowledgePackage whiteboard updated",
+                    update_type="knowledge_digest",
+                    message="KnowledgePackage knowledge digest updated",
                 )
             else:
                 # Just refresh the UI without sending notifications
@@ -1132,7 +1136,7 @@ class KnowledgeTransferManager:
             return True, digest
 
         except Exception as e:
-            logger.exception(f"Error updating whiteboard: {e}")
+            logger.exception(f"Error updating knowledge digest: {e}")
             return False, None
 
     @staticmethod
@@ -1140,12 +1144,12 @@ class KnowledgeTransferManager:
         context: ConversationContext,
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
-        Automatically updates the whiteboard by analyzing chat history.
+        Automatically updates the knowledge digest by analyzing chat history.
 
         This method:
         1. Retrieves recent conversation messages
         2. Sends them to the LLM with a prompt to extract important info
-        3. Updates the whiteboard with the extracted content
+        3. Updates the knowledge digest with the extracted content
 
         Args:
             context: Current conversation context
@@ -1161,17 +1165,17 @@ class KnowledgeTransferManager:
             # Get project ID
             share_id = await KnowledgeTransferManager.get_share_id(context)
             if not share_id:
-                logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
+                logger.error("Cannot auto-update knowledge digest: no project associated with this conversation")
                 return False, None
 
             # Get user information for storage purposes
-            current_user_id = await require_current_user(context, "auto-update whiteboard")
+            current_user_id = await require_current_user(context, "auto-update knowledge digest")
             if not current_user_id:
                 return False, None
 
             # Skip if no messages to analyze
             if not chat_history:
-                logger.warning("No chat history to analyze for whiteboard update")
+                logger.warning("No chat history to analyze for knowledge digest update")
                 return False, None
 
             # Format the chat history for the prompt
@@ -1185,60 +1189,60 @@ class KnowledgeTransferManager:
             # Get config for the LLM call
             config = await assistant_config.get(context.assistant)
 
-            # Construct the whiteboard prompt with the chat history
-            whiteboard_prompt = f"""
-            {config.prompt_config.whiteboard_prompt}
+            # Construct the knowledge digest prompt with the chat history
+            digest_prompt = f"""
+            {config.prompt_config.knowledge_digest_prompt}
 
             <CHAT_HISTORY>
             {chat_history_text}
             </CHAT_HISTORY>
             """
 
-            # Create a completion with the whiteboard prompt
+            # Create a completion with the knowledge digest prompt
             async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
-                    messages=[{"role": "user", "content": whiteboard_prompt}],
-                    max_tokens=2500,  # Limiting to 2500 tokens to keep whiteboard content manageable
+                    messages=[{"role": "user", "content": digest_prompt}],
+                    max_tokens=2500,  # Limiting to 2500 tokens to keep digest content manageable
                 )
 
                 # Extract the content from the completion
                 content = completion.choices[0].message.content or ""
 
-                # Extract just the whiteboard content
-                whiteboard_content = ""
+                # Extract just the knowledge digest content
+                digest_content = ""
 
-                # Look for content between <WHITEBOARD> tags
-                match = re.search(r"<WHITEBOARD>(.*?)</WHITEBOARD>", content, re.DOTALL)
+                # Look for content between <KNOWLEDGE_DIGEST> tags
+                match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
                 if match:
-                    whiteboard_content = match.group(1).strip()
+                    digest_content = match.group(1).strip()
                 else:
                     # If no tags, use the whole content
-                    whiteboard_content = content.strip()
+                    digest_content = content.strip()
 
             # Only update if we have content
-            if not whiteboard_content:
-                logger.warning("No content extracted from whiteboard LLM analysis")
+            if not digest_content:
+                logger.warning("No content extracted from knowledge digest LLM analysis")
                 return False, None
 
-            # Update the whiteboard with the extracted content
+            # Update the knowledge digest with the extracted content
             # Use send_notification=False to avoid sending notifications for automatic updates
             return await KnowledgeTransferManager.update_knowledge_digest(
                 context=context,
-                content=whiteboard_content,
+                content=digest_content,
                 is_auto_generated=True,
                 send_notification=False,
             )
 
         except Exception as e:
-            logger.exception(f"Error auto-updating whiteboard: {e}")
+            logger.exception(f"Error auto-updating knowledge digest: {e}")
             return False, None
 
     @staticmethod
     async def complete_project(
         context: ConversationContext,
         summary: Optional[str] = None,
-    ) -> Tuple[bool, Optional[KnowledgePackageInfo]]:
+    ) -> Tuple[bool, Optional[KnowledgePackage]]:
         """
         Completes a project and updates the project state.
 

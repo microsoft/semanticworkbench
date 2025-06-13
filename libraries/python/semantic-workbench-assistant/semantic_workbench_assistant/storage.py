@@ -15,20 +15,26 @@ class FileStorageSettings(BaseSettings):
     root: str = ".data/files"
 
 
-def write_model(file_path: os.PathLike, value: BaseModel, serialization_context: dict[str, Any] | None = None) -> None:
+def write_model(
+    file_path: os.PathLike,
+    value: BaseModel,
+    serialization_context: dict[str, Any] | None = None,
+) -> None:
     """Write a pydantic model to a file."""
     path = pathlib.Path(file_path)
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
 
-    data_json = value.model_dump_json(context=serialization_context)
+    data_json = value.model_dump_json(context=serialization_context, indent=2)
     path.write_text(data_json, encoding="utf-8")
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def read_model(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
+def read_model(
+    file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None
+) -> ModelT | None:
     """Read a pydantic model from a file."""
     path = pathlib.Path(file_path)
 

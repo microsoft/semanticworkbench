@@ -90,11 +90,11 @@ async def respond_to_conversation(
         role_specific_instructions = config.prompt_config.team_instructions
     instructions = Instructions(role_specific_instructions)
 
-    # Add whiteboard instructions.
+    # Add knowledge digest instructions.
     instructions.add_subsection(
         Instructions(
-            load_text_include("whiteboard_instructions.txt"),
-            "Assistant Whiteboard",
+            load_text_include("knowledge_digest_instructions.txt"),
+            "Assistant's Knowledge Digest",
         )
     )
 
@@ -459,7 +459,7 @@ async def respond_to_conversation(
         Attributes:
             citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
             excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
-            next_step_suggestion: Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.
+            next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
         """
 
         citations: list[str] = Field(
@@ -472,7 +472,7 @@ async def respond_to_conversation(
             description="The response from the assistant.",
         )
         next_step_suggestion: str = Field(
-            description="Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
+            description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
         )
 
         model_config = {

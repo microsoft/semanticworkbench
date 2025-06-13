@@ -19,7 +19,6 @@ from .data import (
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
-    KnowledgePackageInfo,
     KnowledgePackageLog,
     LogEntry,
     LogEntryType,
@@ -34,12 +33,14 @@ class ShareStorageManager:
     SHARES_ROOT = "shares"
 
     # File names for project entities
-    SHARE_INFO_FILE = "share.json"
-    SHARE_BRIEF_FILE = "brief.json"
-    SHARE_LOG_FILE = "log.json"
-    SHARE_WHITEBOARD_FILE = "whiteboard.json"
-    COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
-    SHARE_FILE = "share_data.json"
+    SHARE_INFO_FILE = "share.json"  # Legacy file, kept for backward compatibility
+    SHARE_LOG_FILE = "log.json"  # Separate log file
+    COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"  # Separate conversation file
+    SHARE_FILE = "share_data.json"  # Main consolidated data file
+    
+    # Deprecated file names (no longer used but kept for reference)
+    SHARE_BRIEF_FILE = "brief.json"  # Now stored in SHARE_FILE
+    SHARE_KNOWLEDGE_DIGEST_FILE = "knowledge_digest.json"  # Now stored in SHARE_FILE
 
     @staticmethod
     def get_shares_root() -> pathlib.Path:
@@ -70,7 +71,7 @@ class ShareStorageManager:
 
     @staticmethod
     def get_brief_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the project brief file."""
+        """Gets the path to the project brief file (deprecated - brief now stored in main share file)."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_BRIEF_FILE
 
@@ -82,9 +83,9 @@ class ShareStorageManager:
 
     @staticmethod
     def get_knowledge_digest_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the project whiteboard file."""
+        """Gets the path to the knowledge digest file (deprecated - digest now stored in main share file)."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
-        return share_dir / ShareStorageManager.SHARE_WHITEBOARD_FILE
+        return share_dir / ShareStorageManager.SHARE_KNOWLEDGE_DIGEST_FILE
 
     @staticmethod
     def get_coordinator_conversation_path(share_id: str) -> pathlib.Path:
@@ -100,7 +101,7 @@ class ShareStorageManager:
 
     @staticmethod
     def get_information_requests_dir(share_id: str) -> pathlib.Path:
-        """Gets the directory containing all information requests."""
+        """Gets the directory containing all information requests (deprecated - requests now stored in main share file)."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
         requests_dir = share_dir / "requests"
         requests_dir.mkdir(parents=True, exist_ok=True)
@@ -108,7 +109,7 @@ class ShareStorageManager:
 
     @staticmethod
     def get_information_request_path(share_id: str, request_id: str) -> pathlib.Path:
-        """Gets the path to an information request file."""
+        """Gets the path to an information request file (deprecated - requests now stored in main share file)."""
         requests_dir = ShareStorageManager.get_information_requests_dir(share_id)
         return requests_dir / f"{request_id}.json"
 
@@ -138,30 +139,36 @@ class ShareStorage:
     """Unified storage operations for project data."""
 
     @staticmethod
-    def read_share_info(share_id: str) -> Optional[KnowledgePackageInfo]:
-        """Reads the project info."""
-        path = ShareStorageManager.get_share_info_path(share_id)
-        return read_model(path, KnowledgePackageInfo)
+    def read_share_info(share_id: str) -> Optional[KnowledgePackage]:
+        """Reads the knowledge package (deprecated, use read_share instead)."""
+        return ShareStorage.read_share(share_id)
 
     @staticmethod
-    def write_share_info(share_id: str, info: KnowledgePackageInfo) -> pathlib.Path:
-        """Writes the project info."""
-        path = ShareStorageManager.get_share_info_path(share_id)
-        write_model(path, info)
-        return path
+    def write_share_info(share_id: str, package: KnowledgePackage) -> pathlib.Path:
+        """Writes the knowledge package (deprecated, use write_share instead)."""
+        return ShareStorage.write_share(share_id, package)
 
     @staticmethod
     def read_knowledge_brief(share_id: str) -> Optional[KnowledgeBrief]:
-        """Reads the project brief."""
-        path = ShareStorageManager.get_brief_path(share_id)
-        return read_model(path, KnowledgeBrief)
+        """Reads the knowledge brief from the main share data."""
+        package = ShareStorage.read_share(share_id)
+        return package.brief if package else None
 
     @staticmethod
     def write_knowledge_brief(share_id: str, brief: KnowledgeBrief) -> pathlib.Path:
-        """Writes the project brief."""
-        path = ShareStorageManager.get_brief_path(share_id)
-        write_model(path, brief)
-        return path
+        """Writes the knowledge brief to the main share data."""
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            # Create a new package if it doesn't exist
+            package = KnowledgePackage(
+                share_id=share_id,
+                brief=brief,
+                digest=None,
+            )
+        else:
+            package.brief = brief
+        
+        return ShareStorage.write_share(share_id, package)
 
     @staticmethod
     def read_share_log(share_id: str) -> Optional[KnowledgePackageLog]:
@@ -178,9 +185,9 @@ class ShareStorage:
 
     @staticmethod
     def read_knowledge_digest(share_id: str) -> Optional[KnowledgeDigest]:
-        """Reads the project whiteboard."""
-        path = ShareStorageManager.get_knowledge_digest_path(share_id)
-        return read_model(path, KnowledgeDigest)
+        """Reads the knowledge digest from the main share data."""
+        package = ShareStorage.read_share(share_id)
+        return package.digest if package else None
 
     @staticmethod
     def read_coordinator_conversation(share_id: str) -> Optional[CoordinatorConversationStorage]:
@@ -240,28 +247,71 @@ class ShareStorage:
         ShareStorage.write_coordinator_conversation(share_id, conversation)
 
     @staticmethod
-    def write_share_whiteboard(share_id: str, whiteboard: KnowledgeDigest) -> pathlib.Path:
-        """Writes the project whiteboard."""
-        path = ShareStorageManager.get_knowledge_digest_path(share_id)
-        write_model(path, whiteboard)
-        return path
+    def write_share_whiteboard(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
+        """Writes the knowledge digest (deprecated method name for backward compatibility)."""
+        return ShareStorage.write_knowledge_digest(share_id, digest)
+
+    @staticmethod
+    def write_knowledge_digest(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
+        """Writes the knowledge digest to the main share data."""
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            # Create a new package if it doesn't exist
+            package = KnowledgePackage(
+                share_id=share_id,
+                brief=None,
+                digest=digest,
+            )
+        else:
+            package.digest = digest
+        
+        return ShareStorage.write_share(share_id, package)
 
     @staticmethod
     def read_information_request(share_id: str, request_id: str) -> Optional[InformationRequest]:
-        """Reads an information request."""
-        path = ShareStorageManager.get_information_request_path(share_id, request_id)
-        return read_model(path, InformationRequest)
+        """Reads an information request from the main share data."""
+        package = ShareStorage.read_share(share_id)
+        if not package or not package.requests:
+            return None
+        
+        for request in package.requests:
+            if request.request_id == request_id:
+                return request
+        
+        return None
 
     @staticmethod
     def write_information_request(share_id: str, request: InformationRequest) -> pathlib.Path:
-        """Writes an information request."""
+        """Writes an information request to the main share data."""
         # Information requests must have an ID
         if not request.request_id:
             raise ValueError("Information request must have a request_id")
 
-        path = ShareStorageManager.get_information_request_path(share_id, request.request_id)
-        write_model(path, request)
-        return path
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            # Create a new package if it doesn't exist
+            package = KnowledgePackage(
+                share_id=share_id,
+                brief=None,
+                digest=None,
+                requests=[request],
+            )
+        else:
+            # Update existing request or add new one
+            existing_requests = package.requests or []
+            updated = False
+            for i, existing_request in enumerate(existing_requests):
+                if existing_request.request_id == request.request_id:
+                    existing_requests[i] = request
+                    updated = True
+                    break
+            
+            if not updated:
+                existing_requests.append(request)
+            
+            package.requests = existing_requests
+        
+        return ShareStorage.write_share(share_id, package)
 
     @staticmethod
     def read_share(share_id: str) -> Optional[KnowledgePackage]:
@@ -278,19 +328,13 @@ class ShareStorage:
 
     @staticmethod
     def get_all_information_requests(share_id: str) -> List[InformationRequest]:
-        """Gets all information requests for a project."""
-        dir_path = ShareStorageManager.get_information_requests_dir(share_id)
-        requests = []
-
-        if not dir_path.exists():
-            return requests
-
-        for file_path in dir_path.glob("*.json"):
-            request = read_model(file_path, InformationRequest)
-            if request:
-                requests.append(request)
-
+        """Gets all information requests from the main share data."""
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return []
+        
         # Sort by updated_at timestamp, newest first
+        requests = package.requests or []
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
 
