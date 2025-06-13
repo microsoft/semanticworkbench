@@ -52,6 +52,32 @@ def format_message(participants: ConversationParticipantList, message: Conversat
     return f"[{participant_name} - {message_datetime}]: {message.content}"
 
 
+class TeamOutput(BaseModel):
+    """
+    Attributes:
+        citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
+        excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
+        next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
+    """
+
+    citations: list[str] = Field(
+        description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
+    )
+    excerpt: str | None = Field(
+        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.",
+    )
+    response: str = Field(
+        description="The response from the assistant.",
+    )
+    next_step_suggestion: str = Field(
+        description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
+    )
+
+    model_config = {
+        "extra": "forbid"  # This sets additionalProperties=false in the schema
+    }
+
+
 async def respond_to_conversation(
     context: ConversationContext,
     new_message: ConversationMessage,
@@ -123,8 +149,9 @@ async def respond_to_conversation(
         role=assistant_role,
         instructions=instructions,
         context_strategy=ContextStrategy.MULTI,
-        output_format="Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.",
     )
+    if role == ConversationRole.TEAM:
+        prompt.output_format = "Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information."
 
     ###
     ### Context
@@ -242,6 +269,18 @@ async def respond_to_conversation(
                 information_requests_info,
             )
         )
+
+    # Add next action suggestions for coordinator
+    if role == ConversationRole.COORDINATOR:
+        next_action_suggestion = await KnowledgeTransferManager.get_coordinator_next_action_suggestion(context)
+        if next_action_suggestion:
+            prompt.contexts.append(
+                Context(
+                    "Suggested Next Actions",
+                    next_action_suggestion,
+                    "Actions the coordinator should consider taking based on the current knowledge transfer state.",
+                )
+            )
 
     # Calculate token count for all system messages so far.
     completion_messages = prompt.messages()
@@ -454,39 +493,17 @@ async def respond_to_conversation(
     ## MAKE THE LLM CALL
     ##
 
-    class Output(BaseModel):
-        """
-        Attributes:
-            citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
-            excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
-            next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
-        """
-
-        citations: list[str] = Field(
-            description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
-        )
-        excerpt: str | None = Field(
-            description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.",
-        )
-        response: str = Field(
-            description="The response from the assistant.",
-        )
-        next_step_suggestion: str = Field(
-            description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
-        )
-
-        model_config = {
-            "extra": "forbid"  # This sets additionalProperties=false in the schema
-        }
-
     async with openai_client.create_client(config.service_config) as client:
         try:
             completion_args = {
                 "messages": completion_messages,
                 "model": model,
                 "max_tokens": config.request_config.response_tokens,
-                "response_format": Output,
             }
+
+            if role == ConversationRole.TEAM:
+                # For team role, we use the TeamOutput model to ensure the response is structured correctly.
+                completion_args["response_format"] = TeamOutput
 
             project_tools = ShareTools(context, role)
             response_start_time = time.time()
@@ -559,20 +576,24 @@ async def respond_to_conversation(
     # Prepare response and citations.
     response_parts: list[str] = []
     try:
-        output_model = Output.model_validate_json(content)
-        if output_model.response:
-            response_parts.append(output_model.response)
+        if role == ConversationRole.TEAM:
+            output_model = TeamOutput.model_validate_json(content)
+            if output_model.response:
+                response_parts.append(output_model.response)
 
-        if role == ConversationRole.TEAM and output_model.excerpt:
-            output_model.excerpt = output_model.excerpt.strip().strip('"')
-            response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
+            if output_model.excerpt:
+                output_model.excerpt = output_model.excerpt.strip().strip('"')
+                response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
 
-        if role == ConversationRole.TEAM and output_model.next_step_suggestion:
-            response_parts.append(output_model.next_step_suggestion)
+            if output_model.next_step_suggestion:
+                response_parts.append(output_model.next_step_suggestion)
 
-        if role == ConversationRole.TEAM and output_model.citations:
-            citations = ", ".join(output_model.citations)
-            response_parts.append(f"Sources: _{citations}_")
+            if output_model.citations:
+                citations = ", ".join(output_model.citations)
+                response_parts.append(f"Sources: _{citations}_")
+        else:
+            # For coordinator role, we just use the content as is.
+            response_parts.append(content)
 
     except Exception as e:
         logger.exception(f"exception occurred parsing json response: {e}")

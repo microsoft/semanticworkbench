@@ -96,11 +96,6 @@ class ShareTools:
         self.tool_functions = ToolFunctions()
 
         self.tool_functions.add_function(
-            self.suggest_next_action,
-            "suggest_next_action",
-            "Suggest the next action the user should take based on knowledge transfer state",
-        )
-        self.tool_functions.add_function(
             self.update_transfer_status,
             "update_transfer_status",
             "Update the status and progress of the knowledge transfer",
@@ -1133,86 +1128,3 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return "Knowledge transfer successfully marked as complete. All participants have been notified."
 
-    async def suggest_next_action(self) -> str:
-        """
-        Suggest the next action the user should take based on knowledge transfer state.
-
-        Returns:
-            A suggestion message based on the current state of the knowledge transfer process.
-        """
-        # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            logger.warning("No share ID found for this conversation")
-            return "No knowledge package associated with this conversation. Unable to suggest next action."
-
-        package = ShareStorage.read_share(share_id)
-        if not package:
-            return "No knowledge package found. Unable to suggest next action."
-
-        # Get knowledge transfer state information
-        brief = ShareStorage.read_knowledge_brief(share_id)
-        knowledge_package = ShareStorage.read_share(share_id)
-        requests = ShareStorage.get_all_information_requests(share_id)
-
-        # Check if knowledge brief exists
-        if not brief:
-            if self.role is ConversationRole.COORDINATOR:
-                return "No knowledge brief found. Start by creating one."
-            else:
-                return "No knowledge brief found. The Coordinator needs to create one before you can proceed."
-
-        # Check if objectives exist
-        if not knowledge_package or not knowledge_package.learning_objectives:
-            if self.role is ConversationRole.COORDINATOR:
-                return (
-                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
-                )
-            else:
-                return "There are no learning objectives defined in the knowledge package. Feel free to explore by asking reviewing the knowledge package and asking questions."
-
-        # Check if knowledge package is ready for transfer
-        ready_for_transfer = package.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
-
-        if not ready_for_transfer and self.role is ConversationRole.COORDINATOR:
-            # Check if it's ready to mark as ready for transfer
-            has_objectives = bool(knowledge_package and knowledge_package.learning_objectives)
-            has_outcomes = bool(
-                knowledge_package
-                and knowledge_package.learning_objectives
-                and any(bool(objective.learning_outcomes) for objective in knowledge_package.learning_objectives)
-            )
-
-            if has_objectives and has_outcomes:
-                return "Knowledge package information is complete. Mark it as ready for transfer."
-
-        # Check for unresolved information requests for Coordinator
-        if self.role is ConversationRole.COORDINATOR:
-            active_requests = [r for r in requests if r.status == RequestStatus.NEW]
-            if active_requests:
-                request = active_requests[0]  # Get the first unresolved request
-                return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
-
-        # For team, check if all criteria are completed for project completion
-        criteria = await KnowledgeTransferManager.get_learning_outcomes(self.context)
-        incomplete_criteria = [criterion for criterion in criteria if not criterion.achieved]
-
-        if self.role is ConversationRole.TEAM and not incomplete_criteria:
-            return "All outcomes have been achieved. Report knowledge transfer completion."
-
-        # For team, suggest marking criteria as completed if any are pending
-        if self.role is ConversationRole.TEAM and incomplete_criteria:
-            # Get the knowledge package to access objectives
-            knowledge_package_check = ShareStorage.read_share(share_id)
-            if knowledge_package_check and knowledge_package_check.learning_objectives:
-                # Find the first un-achieved outcome
-                for objective_index, objective in enumerate(knowledge_package_check.learning_objectives):
-                    for outcome_index, outcome in enumerate(objective.learning_outcomes):
-                        if not outcome.achieved:
-                            return "Update progress by marking achieved learning outcomes."
-
-        # Default suggestions based on role
-        if self.role is ConversationRole.COORDINATOR:
-            return "Monitor team operations and respond to any new information requests."
-        else:
-            return "Continue knowledge transfer operations and update progress as you make advancements."

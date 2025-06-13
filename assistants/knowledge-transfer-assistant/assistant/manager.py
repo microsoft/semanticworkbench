@@ -1298,3 +1298,69 @@ class KnowledgeTransferManager:
         except Exception as e:
             logger.exception(f"Error completing project: {e}")
             return False, None
+
+    @staticmethod
+    async def get_coordinator_next_action_suggestion(context: ConversationContext) -> Optional[str]:
+        """
+        Generate next action suggestions for the coordinator based on knowledge transfer state.
+        
+        This function provides contextual suggestions to help coordinators understand what
+        actions they should take next based on the current state of the knowledge transfer process.
+        
+        Args:
+            context: Current conversation context
+            
+        Returns:
+            A suggestion message or None if no suggestions are available
+        """
+        try:
+            # Get share ID
+            share_id = await KnowledgeTransferManager.get_share_id(context)
+            if not share_id:
+                logger.warning("No share ID found for this conversation")
+                return None
+
+            package = ShareStorage.read_share(share_id)
+            if not package:
+                return None
+
+            # Get knowledge transfer state information
+            brief = ShareStorage.read_knowledge_brief(share_id)
+            knowledge_package = ShareStorage.read_share(share_id)
+            requests = ShareStorage.get_all_information_requests(share_id)
+
+            # Check if knowledge brief exists
+            if not brief:
+                return "No knowledge brief found. Start by creating one."
+
+            # Check if objectives exist
+            if not knowledge_package or not knowledge_package.learning_objectives:
+                return "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
+
+            # Check if knowledge package is ready for transfer
+            ready_for_transfer = package.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
+
+            if not ready_for_transfer:
+                # Check if it's ready to mark as ready for transfer
+                has_objectives = bool(knowledge_package and knowledge_package.learning_objectives)
+                has_outcomes = bool(
+                    knowledge_package
+                    and knowledge_package.learning_objectives
+                    and any(bool(objective.learning_outcomes) for objective in knowledge_package.learning_objectives)
+                )
+
+                if has_objectives and has_outcomes:
+                    return "Knowledge package information is complete. Mark it as ready for transfer."
+
+            # Check for unresolved information requests
+            active_requests = [r for r in requests if r.status == RequestStatus.NEW]
+            if active_requests:
+                request = active_requests[0]  # Get the first unresolved request
+                return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
+
+            # Default suggestion for coordinators
+            return "Monitor team operations and respond to any new information requests."
+
+        except Exception as e:
+            logger.exception(f"Error getting coordinator next action suggestion: {e}")
+            return None
