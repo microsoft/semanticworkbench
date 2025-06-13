@@ -27,7 +27,6 @@ from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
     KnowledgePackage,
-    KnowledgeTransferState,
     LogEntryType,
     RequestPriority,
     RequestStatus,
@@ -190,7 +189,6 @@ class ShareTools:
         # Update the share info using KnowledgeTransferManager
         share_info = await KnowledgeTransferManager.update_share_info(
             context=self.context,
-            state=status,
             status_message=status_message,
         )
 
@@ -994,15 +992,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             package = KnowledgePackage(
                 share_id=share_id,
                 coordinator_conversation_id=str(self.context.id),
-                transfer_state=KnowledgeTransferState.ORGANIZING,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
                 brief=None,
                 digest=None,
             )
 
-        # Update state to ready_for_transfer
-        package.transfer_state = KnowledgeTransferState.READY_FOR_TRANSFER
+        # Update transfer notes
         package.transfer_notes = "Knowledge package is now ready for transfer"
         package.updated_at = datetime.utcnow()
 
@@ -1087,7 +1083,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Could not identify current user."
 
         # Update knowledge package to completed
-        package.transfer_state = KnowledgeTransferState.COMPLETED
         package.completion_percentage = 100
         package.transfer_notes = "Project is now complete"
 

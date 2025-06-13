@@ -190,6 +190,16 @@ async def respond_to_conversation(
             )
         )
 
+    # Audience (for coordinators to understand target audience)
+    if role == ConversationRole.COORDINATOR and project_info and project_info.audience:
+        prompt.contexts.append(
+            Context(
+                "Target Audience",
+                project_info.audience,
+                "Description of the intended audience and their existing knowledge level for this knowledge transfer."
+            )
+        )
+
     # Learning objectives
     share = ShareStorage.read_share(project_id)
     if share and share.learning_objectives:

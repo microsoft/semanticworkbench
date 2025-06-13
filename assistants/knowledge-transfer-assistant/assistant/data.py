@@ -300,8 +300,6 @@ class KnowledgePackageLog(BaseModel):
     entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
-
-
 class KnowledgePackage(BaseModel):
     """
     A comprehensive representation of a knowledge package, including its brief, digest,
@@ -310,7 +308,7 @@ class KnowledgePackage(BaseModel):
     This model encapsulates all the components that make up a knowledge transfer package,
     providing a single point of access to all relevant information for Coordinators and Team members.
     It serves as the main interface for interacting with the knowledge transfer data.
-    
+
     All fields from the former KnowledgePackageInfo have been flattened into this model
     for simpler data management.
     """
@@ -318,9 +316,6 @@ class KnowledgePackage(BaseModel):
     # Core package identification and state (formerly from KnowledgePackageInfo)
     share_id: str  # Unique identifier for the knowledge package
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
-    transfer_state: KnowledgeTransferState = (
-        KnowledgeTransferState.ORGANIZING
-    )  # Current knowledge transfer lifecycle state
     transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     team_conversation_id: Optional[str] = None  # ID of the team conversation
     share_url: Optional[str] = None  # Shareable URL for inviting team members
@@ -329,7 +324,9 @@ class KnowledgePackage(BaseModel):
     achieved_outcomes: int = 0  # Count of achieved learning outcomes
     total_outcomes: int = 0  # Total count of learning outcomes
     transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
-    
+    audience: Optional[str] = None  # Description of the intended audience and their existing knowledge level
+    archived: bool = False  # Whether this knowledge package has been archived
+
     # Metadata fields (formerly from KnowledgePackageInfo)
     version: int = 1  # Version counter for tracking changes
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -342,3 +339,61 @@ class KnowledgePackage(BaseModel):
     requests: List[InformationRequest] = Field(default_factory=list)
     digest: Optional[KnowledgeDigest]
     log: Optional[KnowledgePackageLog] = Field(default_factory=lambda: KnowledgePackageLog())
+
+    def is_ready_for_transfer(self) -> bool:
+        """
+        Determine if this knowledge package is ready for transfer to team members.
+
+        A package is ready when it has:
+        - An audience
+        - A knowledge brief
+        - Learning objectives with outcomes
+        - Optionally an audience definition (encouraged but not required)
+
+        Returns:
+            bool: True if ready for transfer, False otherwise
+        """
+        return (
+            self.audience is not None
+            and self.brief is not None
+            and bool(self.learning_objectives)
+            and any(bool(obj.learning_outcomes) for obj in self.learning_objectives)
+        )
+
+    def get_stage_label(self, for_coordinator: bool = True) -> str:
+        """
+        Get a human-readable stage label based on current package state.
+
+        Args:
+            for_coordinator: Whether to return coordinator-focused or team-focused labels
+
+        Returns:
+            str: Stage label with emoji
+        """
+        if self.archived:
+            return "📦 Archived"
+
+        if for_coordinator:
+            # Coordinator perspective
+            if not self.brief:
+                return "📋 Creating Brief"
+            elif not self.audience:
+                return "🎯 Defining Audience"
+            elif not self.learning_objectives:
+                return "📚 Adding Objectives"
+            elif not self.is_ready_for_transfer():
+                return "📋 Organizing Knowledge"
+            elif all(outcome.achieved for obj in self.learning_objectives for outcome in obj.learning_outcomes):
+                return "✅ Transfer Complete"
+            else:
+                return "🚀 Ready for Transfer"
+        else:
+            # Team perspective
+            if self.archived:
+                return "📦 Archived"
+            elif not self.is_ready_for_transfer():
+                return "⏳ Knowledge Being Organized"
+            elif all(outcome.achieved for obj in self.learning_objectives for outcome in obj.learning_outcomes):
+                return "✅ Learning Complete"
+            else:
+                return "🎯 Active Learning"

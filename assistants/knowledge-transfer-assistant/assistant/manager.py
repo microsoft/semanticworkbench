@@ -29,7 +29,6 @@ from .data import (
     KnowledgeDigest,
     KnowledgePackage,
     KnowledgePackageLog,
-    KnowledgeTransferState,
     LearningObjective,
     LearningOutcome,
     LogEntryType,
@@ -300,33 +299,15 @@ class KnowledgeTransferManager:
         return project
 
     @staticmethod
-    async def get_share_state(
-        context: ConversationContext,
-    ) -> Optional[KnowledgeTransferState]:
-        """Gets the project state for the current conversation's project."""
-        share_id = await KnowledgeTransferManager.get_share_id(context)
-        if not share_id:
-            return None
-
-        # Get the project info which contains state information
-        project_info = ShareStorage.read_share_info(share_id)
-        if not project_info:
-            return None
-
-        return project_info.transfer_state
-
-    @staticmethod
     async def update_share_state(
         context: ConversationContext,
-        state: Optional[str] = None,
         status_message: Optional[str] = None,
     ) -> Tuple[bool, Optional[KnowledgePackage]]:
         """
-        Updates the project state and status message.
+        Updates the project status message.
 
         Args:
             context: Current conversation context
-            state: Optional project state
             status_message: Optional status message
 
         Returns:
@@ -351,9 +332,6 @@ class KnowledgeTransferManager:
                 return False, None
 
             # Apply updates
-            if state:
-                project_info.transfer_state = KnowledgeTransferState(state)
-
             if status_message:
                 project_info.transfer_notes = status_message
 
@@ -365,7 +343,9 @@ class KnowledgeTransferManager:
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = f"Updated project state to {project_info.transfer_state.value}"
+            message = f"Updated project status"
+            if status_message:
+                message += f": {status_message}"
 
             await ShareStorage.log_share_event(
                 context=context,
@@ -373,7 +353,6 @@ class KnowledgeTransferManager:
                 entry_type=event_type.value,
                 message=message,
                 metadata={
-                    "state": project_info.transfer_state.value,
                     "status_message": status_message,
                 },
             )
@@ -383,7 +362,7 @@ class KnowledgeTransferManager:
                 context=context,
                 share_id=share_id,
                 update_type="project_state",
-                message=f"KnowledgePackage state updated: {project_info.transfer_state.value}",
+                message=f"KnowledgePackage status updated",
             )
 
             return True, project_info
@@ -424,17 +403,15 @@ class KnowledgeTransferManager:
     @staticmethod
     async def update_share_info(
         context: ConversationContext,
-        state: Optional[str] = None,
         progress: Optional[int] = None,
         status_message: Optional[str] = None,
         next_actions: Optional[List[str]] = None,
     ) -> Optional[KnowledgePackage]:
         """
-        Updates the project info with state, progress, status message, and next actions.
+        Updates the project info with progress, status message, and next actions.
 
         Args:
             context: Current conversation context
-            state: Optional project state
             progress: Optional progress percentage (0-100)
             status_message: Optional status message
             next_actions: Optional list of next actions
@@ -460,9 +437,6 @@ class KnowledgeTransferManager:
             return None
 
         # Apply updates
-        if state:
-            project_info.transfer_state = KnowledgeTransferState(state)
-
         if status_message:
             project_info.transfer_notes = status_message
 
@@ -485,9 +459,11 @@ class KnowledgeTransferManager:
 
         # Log the update
         event_type = LogEntryType.STATUS_CHANGED
-        message = f"Updated project status to {project_info.transfer_state.value}"
+        message = f"Updated project status"
         if progress is not None:
             message += f" ({progress}% complete)"
+        if status_message:
+            message += f": {status_message}"
 
         await ShareStorage.log_share_event(
             context=context,
@@ -495,7 +471,6 @@ class KnowledgeTransferManager:
             entry_type=event_type.value,
             message=message,
             metadata={
-                "state": project_info.transfer_state.value,
                 "status_message": status_message,
                 "progress": progress,
             },
@@ -506,7 +481,7 @@ class KnowledgeTransferManager:
             context=context,
             share_id=share_id,
             update_type="project_info",
-            message=f"KnowledgePackage status updated: {project_info.transfer_state.value}",
+            message=f"KnowledgePackage status updated",
         )
 
         return project_info
@@ -1270,7 +1245,6 @@ class KnowledgeTransferManager:
             status_message = summary if summary else "KnowledgePackage completed successfully"
             success, project_info = await KnowledgeTransferManager.update_share_state(
                 context=context,
-                state=KnowledgeTransferState.COMPLETED.value,
                 status_message=status_message,
             )
 
@@ -1303,13 +1277,13 @@ class KnowledgeTransferManager:
     async def get_coordinator_next_action_suggestion(context: ConversationContext) -> Optional[str]:
         """
         Generate next action suggestions for the coordinator based on knowledge transfer state.
-        
+
         This function provides contextual suggestions to help coordinators understand what
         actions they should take next based on the current state of the knowledge transfer process.
-        
+
         Args:
             context: Current conversation context
-            
+
         Returns:
             A suggestion message or None if no suggestions are available
         """
@@ -1329,37 +1303,32 @@ class KnowledgeTransferManager:
             knowledge_package = ShareStorage.read_share(share_id)
             requests = ShareStorage.get_all_information_requests(share_id)
 
-            # Check if knowledge brief exists
-            if not brief:
-                return "No knowledge brief found. Start by creating one."
-
-            # Check if objectives exist
-            if not knowledge_package or not knowledge_package.learning_objectives:
-                return "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
-
-            # Check if knowledge package is ready for transfer
-            ready_for_transfer = package.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER
-
-            if not ready_for_transfer:
-                # Check if it's ready to mark as ready for transfer
-                has_objectives = bool(knowledge_package and knowledge_package.learning_objectives)
-                has_outcomes = bool(
-                    knowledge_package
-                    and knowledge_package.learning_objectives
-                    and any(bool(objective.learning_outcomes) for objective in knowledge_package.learning_objectives)
-                )
-
-                if has_objectives and has_outcomes:
-                    return "Knowledge package information is complete. Mark it as ready for transfer."
-
-            # Check for unresolved information requests
+            # Handling unresolved information requests is the first order of business.
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
             if active_requests:
                 request = active_requests[0]  # Get the first unresolved request
                 return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
 
+            # Check if audience is defined.
+            if not package.audience:
+                return "Consider defining the target audience for this knowledge transfer. Understanding who will receive this knowledge and their existing expertise level will help ensure appropriate content depth and coverage."
+
+            # Check if knowledge brief exists.
+            if not brief:
+                return "No knowledge brief found. Start by creating one."
+
+            # Check if objectives exist
+            if not knowledge_package or not knowledge_package.learning_objectives:
+                return (
+                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
+                )
+
+            # Check if knowledge package is ready for transfer
+            if not package.is_ready_for_transfer():
+                return "Knowledge package information is complete. Mark it as ready for transfer."
+
             # Default suggestion for coordinators
-            return "Monitor team operations and respond to any new information requests."
+            return "Monitor team operations and respond to any new information requests. Feel free to anything in the knowledge package."
 
         except Exception as e:
             logger.exception(f"Error getting coordinator next action suggestion: {e}")

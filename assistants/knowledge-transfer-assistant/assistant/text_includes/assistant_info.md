@@ -8,50 +8,28 @@ The Knowledge Transfer Assistant helps teams share knowledge efficiently between
 
 - **Dual-role knowledge sharing**: Different interfaces for the knowledge coordinator and team members.
 - **Centralized knowledge space**: Automatically organized information repository.
-- **Auto-updating whiteboard**: Dynamic capture of key information from coordinator conversations.
+- **Auto-updating knowledge digest**: Dynamic capture of key information about the knowledge package from coordinator conversations.
 - **Information requests**: Team members can request specific information from coordinators.
 - **File sharing**: Automatic synchronization of uploaded files across team conversations.
-- **Coordinator conversation access**: Team members can view recent coordinator conversations for knowledge.
 
 ## How to Use the Knowledge Transfer Assistant
 
 ### For Knowledge Coordinators
 
 1. **Create the knowledge space**: Start by creating a space with a title and description.
-2. **Build the knowledge base**: Share information, upload relevant files, and answer questions.
-3. **Share with team**: Generate an invitation link to share with team members who need access.
-4. **Respond to requests**: Address information requests from team members as they arise.
-5. **Update information**: Continue to refine and expand the knowledge base as needed.
+2. **Define the audience**: Who you are sharing to impacts the knowledge gathered.
+3. **Build the knowledge package**: Share information, upload relevant files, and answer questions.
+4. Optionally, **Define knowledge objectives and outcomes**: If you want to make sure your audience learns specific things, you can specify what they are.
+5. **Share with team**: Generate an invitation link to share with team members who need access.
+6. **Respond to requests**: Address information requests from team members as they arise.
+7. **Update information**: Continue to refine and expand the knowledge base as needed.
 
 ### For Team Members
 
 1. **Join a knowledge space**: Use the invitation link provided by the coordinator to join.
-2. **Explore shared knowledge**: Review the whiteboard and uploaded files.
-3. **Request information**: Create requests when you need additional details or clarification.
-4. **View coordinator conversations**: Access recent coordinator discussions for additional context.
-5. **Upload relevant files**: Share files that will be automatically available to all participants.
-
-## Knowledge Transfer Workflow
-
-1. **Coordinator Knowledge Capture**:
-
-   - Create and populate the knowledge space with critical information
-   - Upload relevant files and documents
-   - The whiteboard automatically updates with key information
-   - Generate invitation link for team members
-
-2. **Team Exploration**:
-
-   - Join the knowledge space using invitation link
-   - Review whiteboard content and uploads
-   - Ask questions about unclear information
-   - Create formal information requests for missing details
-
-3. **Continuous Knowledge Exchange**:
-   - Coordinator responds to information requests
-   - Team members continue to explore and ask questions
-   - Both sides contribute to the shared knowledge repository
-   - Information accumulates in the whiteboard for future reference
+2. **Explore shared knowledge**: Review the knowledge brief, learning objectives, and uploaded files.
+3. **Meet knowledge outcomes**: Make sure you learned what was intended to be transferred.
+4. **Request information**: Create requests when you need additional details or clarification.
 
 ## Common Use Cases
 

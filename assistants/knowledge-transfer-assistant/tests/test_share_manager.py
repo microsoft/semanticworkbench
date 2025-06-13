@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from assistant.data import (
     KnowledgePackage,
-    KnowledgeTransferState,
     LearningObjective,
     LearningOutcome,
 )
@@ -62,7 +61,7 @@ class TestKnowledgeTransferManager:
         test_project.coordinator_conversation_id = "test-coordinator-id"
         test_project.completion_percentage = 50
         test_project.version = 1
-        test_project.transfer_state = KnowledgeTransferState.ORGANIZING
+        # transfer_state has been removed - no longer needed
 
         # Mock get_project_id
         async def mock_get_project_id(*args, **kwargs):

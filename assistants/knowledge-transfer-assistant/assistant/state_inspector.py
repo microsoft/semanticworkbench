@@ -15,7 +15,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .common import detect_assistant_role
 from .conversation_share_link import ConversationKnowledgePackageManager
-from .data import KnowledgeTransferState, RequestStatus
+from .data import RequestStatus
 from .manager import KnowledgeTransferManager
 from .storage import ShareStorage
 from .storage_models import ConversationRole
@@ -94,17 +94,8 @@ class ShareInspectorStateProvider:
 
         # Display knowledge transfer stage
         stage_label = "📋 Organizing Knowledge"
-        if share_info and share_info.transfer_state:
-            if share_info.transfer_state == KnowledgeTransferState.ORGANIZING:
-                stage_label = "📋 Organizing Knowledge"
-            elif share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER:
-                stage_label = "🚀 Ready for Transfer"
-            elif share_info.transfer_state == KnowledgeTransferState.ACTIVE_TRANSFER:
-                stage_label = "⚡ Active Transfer"
-            elif share_info.transfer_state == KnowledgeTransferState.COMPLETED:
-                stage_label = "✅ Transfer Complete"
-            elif share_info.transfer_state == KnowledgeTransferState.ARCHIVED:
-                stage_label = "📦 Archived"
+        if share_info:
+            stage_label = share_info.get_stage_label(for_coordinator=True)
         lines.append(f"**Stage:** {stage_label}")
 
         if share_info and share_info.transfer_notes:
@@ -213,17 +204,8 @@ class ShareInspectorStateProvider:
 
         # Display knowledge transfer stage for team members
         stage_label = "📚 Learning Mode"
-        if share_info and share_info.transfer_state:
-            if share_info.transfer_state == KnowledgeTransferState.ORGANIZING:
-                stage_label = "⏳ Knowledge Being Organized"
-            elif share_info.transfer_state == KnowledgeTransferState.READY_FOR_TRANSFER:
-                stage_label = "📚 Ready to Learn"
-            elif share_info.transfer_state == KnowledgeTransferState.ACTIVE_TRANSFER:
-                stage_label = "🎯 Active Learning"
-            elif share_info.transfer_state == KnowledgeTransferState.COMPLETED:
-                stage_label = "✅ Learning Complete"
-            elif share_info.transfer_state == KnowledgeTransferState.ARCHIVED:
-                stage_label = "📦 Archived"
+        if share_info:
+            stage_label = share_info.get_stage_label(for_coordinator=False)
         lines.append(f"**Stage:** {stage_label}")
 
         # Add status message if available

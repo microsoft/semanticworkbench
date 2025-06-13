@@ -616,7 +616,7 @@ async def handle_update_status_command(
 
         # Update the project status
         success, status_obj = await KnowledgeTransferManager.update_share_state(
-            context=context, state=status, status_message=status_message
+            context=context, status_message=status_message
         )
 
         if success and status_obj:
@@ -843,7 +843,8 @@ async def handle_project_info_command(
 
             if project_info:
                 output.append("\n## Project Status\n")
-                output.append(f"**Current Status**: {project_info.transfer_state.value}")
+                stage_label = project_info.get_stage_label(for_coordinator=True)
+                output.append(f"**Current Stage**: {stage_label}")
 
                 if project_info.transfer_notes:
                     output.append(f"**Transfer Notes**: {project_info.transfer_notes}")
