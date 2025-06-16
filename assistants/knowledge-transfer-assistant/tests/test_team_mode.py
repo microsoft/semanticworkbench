@@ -105,7 +105,8 @@ class ProjectDashboard(BaseArtifact):
         self, state=None, progress_percentage=0, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
     ):
         super().__init__(artifact_type=ArtifactType.PROJECT_DASHBOARD, **kwargs)
-        self.transfer_state = state or ProjectState.PLANNING
+        # transfer_state field removed - using derived state logic instead
+        self.state = state or ProjectState.PLANNING
         self.completion_percentage = progress_percentage
         self.active_requests = active_requests or []
         self.achieved_criteria = completed_criteria
@@ -337,7 +338,7 @@ class TestTeamConversationHandler:
         assert dashboard is not None
         assert dashboard.completion_percentage == 50
         assert dashboard.transfer_notes == "Making progress in the team"
-        assert dashboard.transfer_state == ProjectState.IN_PROGRESS
+        assert dashboard.state == ProjectState.IN_PROGRESS
 
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
@@ -379,7 +380,7 @@ class TestTeamConversationHandler:
         assert success is True
         assert "KnowledgePackage has been marked as completed" in message
         assert dashboard is not None
-        assert dashboard.transfer_state == ProjectState.COMPLETED
+        assert dashboard.state == ProjectState.COMPLETED
         assert dashboard.completion_percentage == 100
         assert (
             dashboard.transfer_notes == "KnowledgePackage has been successfully completed with all objectives achieved."

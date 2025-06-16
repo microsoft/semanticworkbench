@@ -343,7 +343,7 @@ class KnowledgeTransferManager:
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = f"Updated project status"
+            message = "Updated project status"
             if status_message:
                 message += f": {status_message}"
 
@@ -362,7 +362,7 @@ class KnowledgeTransferManager:
                 context=context,
                 share_id=share_id,
                 update_type="project_state",
-                message=f"KnowledgePackage status updated",
+                message="KnowledgePackage status updated",
             )
 
             return True, project_info
@@ -459,7 +459,7 @@ class KnowledgeTransferManager:
 
         # Log the update
         event_type = LogEntryType.STATUS_CHANGED
-        message = f"Updated project status"
+        message = "Updated project status"
         if progress is not None:
             message += f" ({progress}% complete)"
         if status_message:
@@ -481,7 +481,7 @@ class KnowledgeTransferManager:
             context=context,
             share_id=share_id,
             update_type="project_info",
-            message=f"KnowledgePackage status updated",
+            message="KnowledgePackage status updated",
         )
 
         return project_info
@@ -1317,10 +1317,10 @@ class KnowledgeTransferManager:
             if not brief:
                 return "No knowledge brief found. Start by creating one."
 
-            # Check if objectives exist
-            if not knowledge_package or not knowledge_package.learning_objectives:
+            # Check if learning objectives are needed and exist
+            if package.is_intended_to_accomplish_outcomes and (not knowledge_package or not knowledge_package.learning_objectives):
                 return (
-                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes."
+                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes, or indicate this package is for general exploration."
                 )
 
             # Check if knowledge package is ready for transfer

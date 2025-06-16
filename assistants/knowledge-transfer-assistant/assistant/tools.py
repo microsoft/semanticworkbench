@@ -6,7 +6,7 @@ by the LLM during chat completions to proactively assist users.
 """
 
 from datetime import datetime
-from typing import Callable, List, Literal, Optional
+from typing import Callable, List, Literal
 from uuid import UUID
 
 from openai_client.tools import ToolFunctions
@@ -26,10 +26,8 @@ from .command_processor import (
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
-    KnowledgePackage,
     LogEntryType,
     RequestPriority,
-    RequestStatus,
 )
 from .logging import logger
 from .manager import KnowledgeTransferManager
@@ -94,11 +92,6 @@ class ShareTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
-        self.tool_functions.add_function(
-            self.update_transfer_status,
-            "update_transfer_status",
-            "Update the status and progress of the knowledge transfer",
-        )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -112,6 +105,12 @@ class ShareTools:
                 self.resolve_information_request,
                 "resolve_information_request",
                 "Resolve an information request with information",
+            )
+
+            self.tool_functions.add_function(
+                self.update_audience,
+                "update_audience",
+                "Update the target audience description for this knowledge package",
             )
 
             self.tool_functions.add_function(
@@ -130,9 +129,9 @@ class ShareTools:
                 "Delete a learning objective from the knowledge package by index",
             )
             self.tool_functions.add_function(
-                self.mark_knowledge_ready_for_transfer,
-                "mark_knowledge_ready_for_transfer",
-                "Mark the knowledge package as ready for transfer",
+                self.set_learning_intention,
+                "set_learning_intention",
+                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration",
             )
 
         else:
@@ -159,53 +158,6 @@ class ShareTools:
                 "Mark a learning outcome as achieved",
             )
 
-    async def update_transfer_status(
-        self,
-        status: Literal["planning", "in_progress", "blocked", "completed"],
-        progress: Optional[int],
-        status_message: Optional[str],
-    ) -> str:
-        """
-        Update the status and progress of the knowledge transfer.
-
-        Args:
-            status: The transfer status. Must be one of: planning, in_progress, blocked, completed, aborted.
-            progress: The progress percentage (0-100). If not provided, no progress will be updated.
-            status_message: A custom status message. If not provided, no status message will be updated.
-            next_actions: A list of next actions. If not provided, no next actions will be updated.
-
-        Returns:
-            A message indicating success or failure
-        """
-
-        if self.role is not ConversationRole.TEAM:
-            return "Only Team members can update transfer status."
-
-        # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation. Unable to update transfer status."
-
-        # Update the share info using KnowledgeTransferManager
-        share_info = await KnowledgeTransferManager.update_share_info(
-            context=self.context,
-            status_message=status_message,
-        )
-
-        if share_info:
-            # Format progress as percentage if available
-            progress_text = f" ({progress}% complete)" if progress is not None else ""
-
-            await self.context.send_messages(
-                NewConversationMessage(
-                    content=f"Transfer status updated to '{status}'{progress_text}. All knowledge transfer participants will see this update.",
-                    message_type=MessageType.notice,
-                    metadata={},  # Add empty metadata
-                )
-            )
-            return f"Transfer status updated to '{status}'{progress_text}."
-        else:
-            return "Failed to update transfer status. Please try again."
 
     async def update_brief(self, title: str, description: str) -> str:
         """
@@ -928,111 +880,81 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return f"Learning outcome '{outcome.description}' for objective '{objective.name}' marked as achieved."
 
-    async def mark_knowledge_ready_for_transfer(self) -> str:
+    async def set_learning_intention(self, is_for_specific_outcomes: bool) -> str:
         """
-        Mark the knowledge package as ready for transfer.
-        This is a milestone function that transitions from Organizing to Ready for Transfer state.
-
+        Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.
+        
+        When is_for_specific_outcomes is True, the package will require learning objectives with outcomes.
+        When is_for_specific_outcomes is False, the package is for general knowledge exploration.
+        
+        Args:
+            is_for_specific_outcomes: True if this package should have learning objectives and outcomes,
+                                    False if this is for general exploration
+        
         Returns:
             A message indicating success or failure
         """
-
         if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can mark a knowledge package as ready for transfer."
+            return "Only Coordinator can set learning intention."
 
-        # Get project ID
+        # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
-            return (
-                "No knowledge package associated with this conversation. Unable to mark package as ready for transfer."
-            )
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        # Get existing knowledge brief, digest, and package
-        brief = ShareStorage.read_knowledge_brief(share_id)
-        whiteboard = ShareStorage.read_knowledge_digest(share_id)
-        project = ShareStorage.read_share(share_id)
-
-        if not brief:
-            return "No knowledge brief found. Please create one before marking as ready for transfer."
-
-        if not project or not project.learning_objectives:
-            return "Knowledge package has no learning objectives. Please add at least one objective before marking as ready for transfer."
-
-        # Check if at least one objective has learning outcomes
-        has_criteria = False
-        for objective in project.learning_objectives:
-            if objective.learning_outcomes:
-                has_criteria = True
-                break
-
-        if not has_criteria:
-            return "No learning outcomes defined. Please add at least one learning outcome to an objective before marking as ready for transfer."
-
-        # Check if digest has content
-        if not whiteboard or not whiteboard.content:
-            return "Knowledge digest is empty. Content will be automatically generated as the transfer progresses."
-
-        # Get or create knowledge package
+        # Get existing knowledge package
         package = ShareStorage.read_share(share_id)
-
-        # Get current user information
-        participants = await self.context.get_participants()
-        current_user_id = None
-
-        for participant in participants.participants:
-            if participant.role == "user":
-                current_user_id = participant.id
-                break
-
-        if not current_user_id:
-            return "Could not identify current user."
-
         if not package:
-            # Create new knowledge package if it doesn't exist
-            package = KnowledgePackage(
-                share_id=share_id,
-                coordinator_conversation_id=str(self.context.id),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                brief=None,
-                digest=None,
-            )
+            return "No knowledge package found. Please create a knowledge brief first."
 
-        # Update transfer notes
-        package.transfer_notes = "Knowledge package is now ready for transfer"
+        # Update the intention
+        package.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
         package.updated_at = datetime.utcnow()
 
-        # Save the updated knowledge package
+        # Save the updated package
         ShareStorage.write_share(share_id, package)
 
-        # Log the milestone transition
-        await ShareStorage.log_share_event(
-            context=self.context,
-            share_id=share_id,
-            entry_type=LogEntryType.STATUS_CHANGED.value,
-            message="Project marked as READY FOR WORKING",
-            metadata={"milestone": "ready_for_working"},
-        )
+        # Provide appropriate guidance based on the choice
+        if is_for_specific_outcomes:
+            guidance = "This knowledge package is now set for specific learning outcomes. You'll need to add learning objectives with measurable outcomes."
+        else:
+            guidance = "This knowledge package is now set for general exploration. No specific learning objectives are required."
 
-        # Notify linked conversations with a message
-        await ProjectNotifier.notify_project_update(
-            context=self.context,
-            share_id=share_id,
-            update_type="project_info",
-            message="🔔 **Project Milestone Reached**: Coordinator has marked the project as READY FOR WORKING. All project information is now available and you can begin team operations.",
-        )
+        return f"Learning intention updated successfully. {guidance}"
 
-        # Update all project UI inspectors
-        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+    async def update_audience(self, audience_description: str) -> str:
+        """
+        Update the target audience description for this knowledge package.
+        
+        Args:
+            audience_description: Description of the intended audience and their existing knowledge level
+        
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can update the audience description."
 
-        await self.context.send_messages(
-            NewConversationMessage(
-                content="🎯 Knowledge package has been marked as READY FOR TRANSFER. Team members have been notified and can now begin learning.",
-                message_type=MessageType.chat,
-            )
-        )
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        return "Knowledge package successfully marked as ready for transfer."
+        # Get existing knowledge package
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return "No knowledge package found. Please create a knowledge brief first."
+
+        # Update the audience
+        package.audience = audience_description.strip()
+        package.updated_at = datetime.utcnow()
+
+        # Save the updated package
+        ShareStorage.write_share(share_id, package)
+
+        return f"Target audience updated successfully: {audience_description}"
+
+
 
     async def report_transfer_completion(self) -> str:
         """

@@ -326,6 +326,7 @@ class KnowledgePackage(BaseModel):
     transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
     audience: Optional[str] = None  # Description of the intended audience and their existing knowledge level
     archived: bool = False  # Whether this knowledge package has been archived
+    is_intended_to_accomplish_outcomes: bool = True  # Whether this package is intended for specific learning outcomes vs general exploration
 
     # Metadata fields (formerly from KnowledgePackageInfo)
     version: int = 1  # Version counter for tracking changes
@@ -343,21 +344,33 @@ class KnowledgePackage(BaseModel):
     def is_ready_for_transfer(self) -> bool:
         """
         Determine if this knowledge package is ready for transfer to team members.
-
+        
         A package is ready when it has:
-        - An audience
         - A knowledge brief
-        - Learning objectives with outcomes
-        - Optionally an audience definition (encouraged but not required)
-
+        - An audience definition
+        - Either:
+          - Learning objectives with outcomes (if is_intended_to_accomplish_outcomes is True), OR
+          - No learning objectives needed (if is_intended_to_accomplish_outcomes is False)
+        
         Returns:
             bool: True if ready for transfer, False otherwise
         """
-        return (
+        has_basic_requirements = (
+            self.brief is not None and
             self.audience is not None
-            and self.brief is not None
-            and bool(self.learning_objectives)
-            and any(bool(obj.learning_outcomes) for obj in self.learning_objectives)
+        )
+        
+        if not has_basic_requirements:
+            return False
+            
+        # If this package is intended for general exploration (no specific outcomes)
+        if not self.is_intended_to_accomplish_outcomes:
+            return True
+            
+        # If this package is intended for specific learning outcomes
+        return (
+            bool(self.learning_objectives) and
+            any(bool(obj.learning_outcomes) for obj in self.learning_objectives)
         )
 
     def get_stage_label(self, for_coordinator: bool = True) -> str:
@@ -375,15 +388,15 @@ class KnowledgePackage(BaseModel):
 
         if for_coordinator:
             # Coordinator perspective
-            if not self.brief:
-                return "📋 Creating Brief"
-            elif not self.audience:
+            if not self.audience:
                 return "🎯 Defining Audience"
-            elif not self.learning_objectives:
+            elif not self.brief:
+                return "📋 Creating Brief"
+            elif self.is_intended_to_accomplish_outcomes and not self.learning_objectives:
                 return "📚 Adding Objectives"
             elif not self.is_ready_for_transfer():
                 return "📋 Organizing Knowledge"
-            elif all(outcome.achieved for obj in self.learning_objectives for outcome in obj.learning_outcomes):
+            elif self.is_intended_to_accomplish_outcomes and all(outcome.achieved for obj in self.learning_objectives for outcome in obj.learning_outcomes):
                 return "✅ Transfer Complete"
             else:
                 return "🚀 Ready for Transfer"
@@ -393,6 +406,8 @@ class KnowledgePackage(BaseModel):
                 return "📦 Archived"
             elif not self.is_ready_for_transfer():
                 return "⏳ Knowledge Being Organized"
+            elif not self.is_intended_to_accomplish_outcomes:
+                return "🔍 Exploring Knowledge"
             elif all(outcome.achieved for obj in self.learning_objectives for outcome in obj.learning_outcomes):
                 return "✅ Learning Complete"
             else:

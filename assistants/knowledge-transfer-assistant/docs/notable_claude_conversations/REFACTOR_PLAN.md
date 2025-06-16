@@ -5,7 +5,7 @@
 This document outlines a comprehensive refactoring plan to migrate remaining project assistant artifacts to be more aligned with the Knowledge Transfer Assistant's specific Jobs to be Done (JTBD). The goal is to transform project management concepts into knowledge transfer concepts that support three primary user roles:
 
 1. **Producer** (Coordinator): Offload knowledge from their head/docs into a system to share
-2. **Learner** (Team member): Go from unfamiliar to well-informed without needing a human tutor  
+2. **Learner** (Team member): Go from unfamiliar to well-informed without needing a human tutor
 3. **Explorer** (Team member): Gain clarity and insights by exploring a defined knowledge space
 
 ## Conceptual Mappings
@@ -34,7 +34,7 @@ Before diving into specific refactors, here are the key conceptual mappings from
 class KnowledgeTransferState(str, Enum):
     ORGANIZING = "organizing"      # Producer is capturing and organizing knowledge
     READY_FOR_TRANSFER = "ready_for_transfer"  # Knowledge is ready for consumers
-    ACTIVE_TRANSFER = "active_transfer"        # Consumers are actively learning/exploring  
+    ACTIVE_TRANSFER = "active_transfer"        # Consumers are actively learning/exploring
     COMPLETED = "completed"        # Transfer objectives achieved
     ARCHIVED = "archived"         # Knowledge package archived
 
@@ -46,7 +46,7 @@ class LearningObjective(BaseModel):
     priority: int = 1
     learning_outcomes: List[LearningOutcome] = Field(default_factory=list)
 
-# Replace SuccessCriterion with LearningOutcome  
+# Replace SuccessCriterion with LearningOutcome
 class LearningOutcome(BaseModel):
     id: str
     description: str              # Specific, measurable outcome
@@ -56,7 +56,7 @@ class LearningOutcome(BaseModel):
 
 # Replace ProjectInfo with KnowledgePackageInfo
 class KnowledgePackageInfo(BaseModel):
-    package_id: str               # Unique identifier for the knowledge package
+    share_id: str               # Unique identifier for the knowledge package
     transfer_state: KnowledgeTransferState = KnowledgeTransferState.ORGANIZING
     coordinator_conversation_id: Optional[str] = None    # ID of the coordinator's conversation
     team_conversation_id: Optional[str] = None    # ID of the team conversation
@@ -137,16 +137,19 @@ class TransferLog(BaseModel):
 **Proposed Refactor**:
 
 **Coordinator Commands**:
+
 - `/create-brief` → `/create-knowledge-brief` (rename existing)
 - `/add-goal` → `/add-learning-objective` (rename existing)
 - `/resolve-request` → Keep as-is (information request terminology works fine)
 
 **Team Commands**:
+
 - `/request-info` → Keep as-is (requesting information works fine)
 - `/update-status` → Keep as-is (status updates are still relevant)
 - `/sync-files` → Keep as-is (file sync functionality unchanged)
 
 **Shared Commands**:
+
 - `/project-info` → `/knowledge-info` (rename existing)
 - `/list-participants` → Keep as-is (participants terminology works fine)
 
@@ -155,16 +158,18 @@ class TransferLog(BaseModel):
 **Current State**: Mixed project and knowledge transfer terminology
 
 **Proposed Refactor**:
+
 - Update prompt configuration field names to use "knowledge" instead of "project"
 - Update welcome messages to emphasize knowledge transfer value proposition
 - Rename configuration sections to align with knowledge transfer roles
 - Update default messages to focus on learning and exploration rather than task execution
 
-### 4. Storage Models (`assistant/storage_models.py`) - **MEDIUM**  
+### 4. Storage Models (`assistant/storage_models.py`) - **MEDIUM**
 
 **Current State**: Project-centric storage concepts
 
 **Proposed Refactor**:
+
 ```python
 # Keep ConversationRole as COORDINATOR/TEAM for now
 class ConversationRole(str, Enum):
@@ -177,7 +182,7 @@ class CoordinatorConversationMessage(BaseModel):
 
 class CoordinatorConversationStorage(BaseModel):
     """Model for storing Coordinator conversation messages."""
-    knowledge_package_id: str  # Renamed from project_id
+    knowledge_share_id: str  # Renamed from project_id
     # ... rest of structure
 ```
 
@@ -186,6 +191,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: ProjectManager class with project-focused methods
 
 **Proposed Refactor**:
+
 - Rename `ProjectManager` to `KnowledgeTransferManager`
 - Update method names:
   - `create_project_brief` → `create_knowledge_brief`
@@ -200,6 +206,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Many files use "project" in names or internal references
 
 **Proposed Refactor**:
+
 - Consider renaming core files to use "knowledge" terminology where appropriate
 - Update internal variable names from "project_*" to "knowledge_*" or "transfer_*"
 - Update function and class names to align with knowledge transfer domain
@@ -211,6 +218,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Text includes are already properly aligned with knowledge transfer
 
 **Proposed Actions**:
+
 - **Verify remaining files** use consistent knowledge transfer terminology
 - **No major changes needed** - files already focus on knowledge transfer concepts
 
@@ -219,6 +227,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Likely uses project terminology in dashboard
 
 **Proposed Refactor**:
+
 - Update dashboard labels and metrics to focus on knowledge transfer progress
 - Show learning objectives progress instead of project goals
 - Display knowledge gaps instead of project blockers
@@ -229,6 +238,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Tool functions likely use project terminology
 
 **Proposed Refactor**:
+
 - Rename LLM tool functions to use knowledge transfer concepts
 - Update tool descriptions and prompts to focus on knowledge transfer actions
 - Ensure tools support the Producer/Learner/Explorer workflow
@@ -240,6 +250,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Notification messages likely use project language
 
 **Proposed Refactor**:
+
 - Update notification messages to use knowledge transfer terminology
 - Ensure notifications emphasize learning and knowledge exploration
 
@@ -248,6 +259,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Various documentation may still reference project concepts
 
 **Proposed Actions**:
+
 - Update `README.md` to focus on knowledge transfer use cases
 - Update `CLAUDE.md` to emphasize knowledge transfer architecture
 - Update any other documentation to align with JTBD
@@ -257,6 +269,7 @@ class CoordinatorConversationStorage(BaseModel):
 **Current State**: Tests likely use project terminology and concepts
 
 **Proposed Actions**:
+
 - Update test names and assertions to use knowledge transfer concepts
 - Ensure tests validate knowledge transfer workflows rather than project management
 - Update mock data to reflect knowledge transfer scenarios
@@ -264,23 +277,27 @@ class CoordinatorConversationStorage(BaseModel):
 ## Implementation Strategy
 
 ### Phase 1: Core Data Models (High Impact)
+
 1. Refactor `data.py` with new knowledge transfer models
 2. Update `manager.py` to use new models
 3. Update storage integration points
 
-### Phase 2: User Interface (High Visibility)  
+### Phase 2: User Interface (High Visibility)
+
 1. Refactor command system in `command_processor.py`
 2. Update configuration in `config.py`
 3. Clean up text includes
 
 ### Phase 3: Supporting Systems (Medium Impact)
+
 1. Update state inspector and tools
 2. Refactor storage models
 3. Update notifications
 
 ### Phase 4: Polish and Documentation (Low Risk)
+
 1. File naming and organization
-2. Documentation updates  
+2. Documentation updates
 3. Test updates
 
 ## Success Criteria

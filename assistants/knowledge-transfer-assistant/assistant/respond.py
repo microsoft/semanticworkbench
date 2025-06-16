@@ -192,10 +192,14 @@ async def respond_to_conversation(
 
     # Audience (for coordinators to understand target audience)
     if role == ConversationRole.COORDINATOR and project_info and project_info.audience:
+        audience_context = project_info.audience
+        if not project_info.is_intended_to_accomplish_outcomes:
+            audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
+        
         prompt.contexts.append(
             Context(
                 "Target Audience",
-                project_info.audience,
+                audience_context,
                 "Description of the intended audience and their existing knowledge level for this knowledge transfer."
             )
         )
