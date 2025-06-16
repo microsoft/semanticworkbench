@@ -16,9 +16,9 @@ The Knowledge Transfer Assistant helps teams share knowledge efficiently between
 
 ### For Knowledge Coordinators
 
-1. **Create the knowledge space**: Start by creating a space with a title and description.
-2. **Define the audience**: Who you are sharing to impacts the knowledge gathered.
-3. **Build the knowledge package**: Share information, upload relevant files, and answer questions.
+1. **Define the audience**: Who you are sharing to impacts the knowledge gathered.
+2. **Build the knowledge package**: Share information, upload relevant files, and answer questions.
+3. **Create the knowledge brief**: Create a knowledge brief that will be used to introduce team members to the content of the shared knowledge.
 4. Optionally, **Define knowledge objectives and outcomes**: If you want to make sure your audience learns specific things, you can specify what they are.
 5. **Share with team**: Generate an invitation link to share with team members who need access.
 6. **Respond to requests**: Address information requests from team members as they arise.
@@ -28,7 +28,7 @@ The Knowledge Transfer Assistant helps teams share knowledge efficiently between
 
 1. **Join a knowledge space**: Use the invitation link provided by the coordinator to join.
 2. **Explore shared knowledge**: Review the knowledge brief, learning objectives, and uploaded files.
-3. **Meet knowledge outcomes**: Make sure you learned what was intended to be transferred.
+3. **Meet learning objectives and outcomes**: Make sure you learned what was intended to be transferred.
 4. **Request information**: Create requests when you need additional details or clarification.
 
 ## Common Use Cases
