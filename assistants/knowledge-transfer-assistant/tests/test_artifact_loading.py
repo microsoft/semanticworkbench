@@ -16,7 +16,6 @@ from assistant.manager import KnowledgeTransferManager
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.storage_models import ConversationRole
 from semantic_workbench_assistant import settings
-from semantic_workbench_assistant.storage import read_model, write_model
 
 # Type variable for better type annotations
 T = TypeVar("T")
@@ -130,10 +129,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Write the project to storage using ShareStorage to ensure proper consolidated format
         ShareStorage.write_share(self.share_id, project)
 
-        # Write to the project's shared directory using the correct path
-        brief_path = ShareStorageManager.get_brief_path(self.share_id)
-        brief_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(brief_path, brief)
+        # Brief is now stored as part of the consolidated project data
 
     async def test_get_project_brief(self) -> None:
         """Test that get_project_brief correctly loads the brief from storage"""
@@ -160,23 +156,20 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_direct_storage_access(self) -> None:
         """Test direct access to project storage"""
-        # Test basic storage operations
-        brief_path = ShareStorageManager.get_brief_path(self.share_id)
-
-        # Read the brief directly using read_model
-        brief = read_model(brief_path, KnowledgeBrief)
+        # Test basic storage operations with consolidated storage
+        brief = ShareStorage.read_knowledge_brief(self.share_id)
 
         # Verify we got the correct brief
         self.assertIsNotNone(brief, "Should load the brief directly")
         if brief:  # Type checking guard
             self.assertEqual(brief.title, self.title)
 
-            # Test updating the brief
+            # Test updating the brief using consolidated storage
             brief.title = "Updated KnowledgePackageTitle"
-            write_model(brief_path, brief)
+            ShareStorage.write_knowledge_brief(self.share_id, brief)
 
             # Read it back to verify the update
-            updated_brief = read_model(brief_path, KnowledgeBrief)
+            updated_brief = ShareStorage.read_knowledge_brief(self.share_id)
             if updated_brief:  # Type checking guard
                 self.assertEqual(updated_brief.title, "Updated KnowledgePackageTitle")
 

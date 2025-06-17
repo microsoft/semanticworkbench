@@ -39,7 +39,7 @@ from .common import detect_assistant_role
 from .config import assistant_config
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import LogEntryType
-from .files import ProjectFileManager
+from .files import ShareManager
 from .logging import logger
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
@@ -170,7 +170,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
             # Synchronize files.
-            await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+            await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
             # Generate a welcome message.
             welcome_message, debug = await generate_team_welcome_message(context)
@@ -345,9 +345,7 @@ async def on_file_created(
     try:
         share_id = await KnowledgeTransferManager.get_share_id(context)
         if not share_id or not file.filename:
-            logger.warning(
-                f"No project ID found or missing filename: share_id={share_id}, filename={file.filename}"
-            )
+            logger.warning(f"No project ID found or missing filename: share_id={share_id}, filename={file.filename}")
             return
 
         role = await detect_assistant_role(context)
@@ -359,7 +357,7 @@ async def on_file_created(
             # For Coordinator files:
             # 1. Store in project storage (marked as coordinator file)
 
-            success = await ProjectFileManager.copy_file_to_project_storage(
+            success = await ShareManager.copy_file_to_project_storage(
                 context=context,
                 share_id=share_id,
                 file=file,
@@ -372,11 +370,11 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ProjectFileManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareManager.get_team_conversations(context, share_id)
 
             if team_conversations:
                 for team_conv_id in team_conversations:
-                    await ProjectFileManager.copy_file_to_conversation(
+                    await ShareManager.copy_file_to_conversation(
                         context=context,
                         share_id=share_id,
                         filename=file.filename,
@@ -427,7 +425,7 @@ async def on_file_updated(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in project storage
-            success = await ProjectFileManager.copy_file_to_project_storage(
+            success = await ShareManager.copy_file_to_project_storage(
                 context=context,
                 share_id=share_id,
                 file=file,
@@ -438,9 +436,9 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in project storage: {file.filename}")
                 return
 
-            team_conversations = await ProjectFileManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareManager.get_team_conversations(context, share_id)
             for team_conv_id in team_conversations:
-                await ProjectFileManager.copy_file_to_conversation(
+                await ShareManager.copy_file_to_conversation(
                     context=context,
                     share_id=share_id,
                     filename=file.filename,
@@ -491,7 +489,7 @@ async def on_file_deleted(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from project storage
-            success = await ProjectFileManager.delete_file_from_project_storage(
+            success = await ShareManager.delete_file_from_knowledge_share_storage(
                 context=context, share_id=share_id, filename=file.filename
             )
 
@@ -553,7 +551,7 @@ async def on_participant_joined(
         if not share_id:
             return
 
-        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+        await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
         await ShareStorage.log_share_event(
             context=context,

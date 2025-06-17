@@ -33,14 +33,9 @@ class ShareStorageManager:
     SHARES_ROOT = "shares"
 
     # File names for project entities
-    SHARE_INFO_FILE = "share.json"  # Legacy file, kept for backward compatibility
-    SHARE_LOG_FILE = "log.json"  # Separate log file
-    COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"  # Separate conversation file
+    SHARE_LOG_FILE = "log.json"
+    COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
     SHARE_FILE = "share_data.json"  # Main consolidated data file
-    
-    # Deprecated file names (no longer used but kept for reference)
-    SHARE_BRIEF_FILE = "brief.json"  # Now stored in SHARE_FILE
-    SHARE_KNOWLEDGE_DIGEST_FILE = "knowledge_digest.json"  # Now stored in SHARE_FILE
 
     @staticmethod
     def get_shares_root() -> pathlib.Path:
@@ -63,17 +58,6 @@ class ShareStorageManager:
         linked_dir.mkdir(parents=True, exist_ok=True)
         return linked_dir
 
-    @staticmethod
-    def get_share_info_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the project info file."""
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        return share_dir / ShareStorageManager.SHARE_INFO_FILE
-
-    @staticmethod
-    def get_brief_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the project brief file (deprecated - brief now stored in main share file)."""
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        return share_dir / ShareStorageManager.SHARE_BRIEF_FILE
 
     @staticmethod
     def get_share_log_path(share_id: str) -> pathlib.Path:
@@ -81,11 +65,6 @@ class ShareStorageManager:
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_LOG_FILE
 
-    @staticmethod
-    def get_knowledge_digest_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the knowledge digest file (deprecated - digest now stored in main share file)."""
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        return share_dir / ShareStorageManager.SHARE_KNOWLEDGE_DIGEST_FILE
 
     @staticmethod
     def get_coordinator_conversation_path(share_id: str) -> pathlib.Path:
@@ -99,19 +78,6 @@ class ShareStorageManager:
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_FILE
 
-    @staticmethod
-    def get_information_requests_dir(share_id: str) -> pathlib.Path:
-        """Gets the directory containing all information requests (deprecated - requests now stored in main share file)."""
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        requests_dir = share_dir / "requests"
-        requests_dir.mkdir(parents=True, exist_ok=True)
-        return requests_dir
-
-    @staticmethod
-    def get_information_request_path(share_id: str, request_id: str) -> pathlib.Path:
-        """Gets the path to an information request file (deprecated - requests now stored in main share file)."""
-        requests_dir = ShareStorageManager.get_information_requests_dir(share_id)
-        return requests_dir / f"{request_id}.json"
 
     @staticmethod
     def share_exists(share_id: str) -> bool:
@@ -140,12 +106,12 @@ class ShareStorage:
 
     @staticmethod
     def read_share_info(share_id: str) -> Optional[KnowledgePackage]:
-        """Reads the knowledge package (deprecated, use read_share instead)."""
+        """Reads the knowledge package (alias for read_share)."""
         return ShareStorage.read_share(share_id)
 
     @staticmethod
     def write_share_info(share_id: str, package: KnowledgePackage) -> pathlib.Path:
-        """Writes the knowledge package (deprecated, use write_share instead)."""
+        """Writes the knowledge package (alias for write_share)."""
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
@@ -246,10 +212,6 @@ class ShareStorage:
         # Save the updated conversation
         ShareStorage.write_coordinator_conversation(share_id, conversation)
 
-    @staticmethod
-    def write_share_whiteboard(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
-        """Writes the knowledge digest (deprecated method name for backward compatibility)."""
-        return ShareStorage.write_knowledge_digest(share_id, digest)
 
     @staticmethod
     def write_knowledge_digest(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
@@ -338,16 +300,6 @@ class ShareStorage:
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
 
-    @staticmethod
-    async def refresh_current_ui(context: ConversationContext) -> None:
-        """
-        Refreshes only the current conversation's UI inspector panel.
-
-        This function is now a wrapper that calls the implementation in project_notifications.py.
-        """
-        from .notifications import refresh_current_ui
-
-        await refresh_current_ui(context)
 
     @staticmethod
     async def refresh_all_share_uis(context: ConversationContext, share_id: str) -> None:

@@ -23,6 +23,7 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
+from assistant.notifications import refresh_current_ui
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.storage_models import (
     ConversationRole,
@@ -351,7 +352,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
-        await ShareStorage.refresh_current_ui(self.context)
+        await refresh_current_ui(self.context)
 
         # Verify that send_conversation_state_event was called with correct parameters
         self.context.send_conversation_state_event.assert_called_once()

@@ -1011,7 +1011,7 @@ async def handle_sync_files_command(
             return
 
         # Import the file manager
-        from .files import ProjectFileManager
+        from .files import ShareManager
 
         # Start sync with a simple message
         await context.send_messages(
@@ -1022,7 +1022,7 @@ async def handle_sync_files_command(
         )
 
         # Perform synchronization directly - this handles all error messaging
-        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+        await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
     except Exception as e:
         logger.exception(f"Error synchronizing files: {e}")
