@@ -52,6 +52,25 @@ def format_message(participants: ConversationParticipantList, message: Conversat
     return f"[{participant_name} - {message_datetime}]: {message.content}"
 
 
+class CoordinatorOutput(BaseModel):
+    """
+    Attributes:
+        response: The response from the assistant.
+        next_step_suggestion: Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.
+    """
+
+    response: str = Field(
+        description="The response from the assistant.",
+    )
+    next_step_suggestion: str = Field(
+        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.",
+    )
+
+    model_config = {
+        "extra": "forbid"  # This sets additionalProperties=false in the schema
+    }
+
+
 class TeamOutput(BaseModel):
     """
     Attributes:
@@ -195,12 +214,12 @@ async def respond_to_conversation(
         audience_context = project_info.audience
         if not project_info.is_intended_to_accomplish_outcomes:
             audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
-        
+
         prompt.contexts.append(
             Context(
                 "Target Audience",
                 audience_context,
-                "Description of the intended audience and their existing knowledge level for this knowledge transfer."
+                "Description of the intended audience and their existing knowledge level for this knowledge transfer.",
             )
         )
 
@@ -513,11 +532,8 @@ async def respond_to_conversation(
                 "messages": completion_messages,
                 "model": model,
                 "max_tokens": config.request_config.response_tokens,
+                "response_format": CoordinatorOutput if role == ConversationRole.COORDINATOR else TeamOutput,
             }
-
-            if role == ConversationRole.TEAM:
-                # For team role, we use the TeamOutput model to ensure the response is structured correctly.
-                completion_args["response_format"] = TeamOutput
 
             project_tools = ShareTools(context, role)
             response_start_time = time.time()
@@ -587,7 +603,7 @@ async def respond_to_conversation(
                 )
             return
 
-    # Prepare response and citations.
+    # Prepare response.
     response_parts: list[str] = []
     try:
         if role == ConversationRole.TEAM:
@@ -606,8 +622,11 @@ async def respond_to_conversation(
                 citations = ", ".join(output_model.citations)
                 response_parts.append(f"Sources: _{citations}_")
         else:
-            # For coordinator role, we just use the content as is.
-            response_parts.append(content)
+            output_model = CoordinatorOutput.model_validate_json(content)
+            if output_model.response:
+                response_parts.append(output_model.response)
+            if output_model.next_step_suggestion:
+                metadata["help"] = output_model.next_step_suggestion
 
     except Exception as e:
         logger.exception(f"exception occurred parsing json response: {e}")
