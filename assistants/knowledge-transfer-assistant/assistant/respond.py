@@ -63,7 +63,7 @@ class CoordinatorOutput(BaseModel):
         description="The response from the assistant.",
     )
     next_step_suggestion: str = Field(
-        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.",
+        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action.",
     )
 
     model_config = {
