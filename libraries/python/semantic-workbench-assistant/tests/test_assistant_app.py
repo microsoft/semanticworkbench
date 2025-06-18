@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import io
+import json
 import pathlib
 import random
 import shutil
@@ -471,7 +472,7 @@ async def test_assistant_with_config_provider(
 
             config_path = extract_path / "config.json"
             assert config_path.exists()
-            assert config_path.read_text() == '{"test_key":"new_value","secret_field":""}'
+            assert json.loads(config_path.read_text()) == json.loads('{"test_key":"new_value","secret_field":""}')
 
         config_provider_wrapper.reset_mock()
 
