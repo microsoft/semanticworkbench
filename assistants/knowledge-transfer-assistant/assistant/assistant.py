@@ -76,7 +76,7 @@ assistant = AssistantApp(
             dashboard_card.TemplateConfig(
                 enabled=True,
                 template_id=DEFAULT_TEMPLATE_ID,
-                background_color="rgb(159, 216, 159)",
+                background_color="rgb(198, 177, 222)",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon-knowledge-transfer.svg", "image/svg+xml"
                 ),
