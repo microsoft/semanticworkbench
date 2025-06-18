@@ -13,22 +13,6 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-class KnowledgeTransferState(str, Enum):
-    """
-    States for knowledge transfer progression.
-
-    The transfer state represents the current phase of the knowledge transfer lifecycle.
-    Knowledge transfer follows a standard flow: ORGANIZING -> READY_FOR_TRANSFER -> ACTIVE_TRANSFER -> COMPLETED.
-    ARCHIVED is a terminal state that can be reached from any other state if the knowledge package is archived.
-    """
-
-    ORGANIZING = "organizing"  # Initial state - Coordinator is capturing and organizing knowledge
-    READY_FOR_TRANSFER = "ready_for_transfer"  # Knowledge is organized and ready for team members to access
-    ACTIVE_TRANSFER = "active_transfer"  # Team members are actively learning and exploring the knowledge
-    COMPLETED = "completed"  # Learning objectives have been achieved and the transfer is complete
-    ARCHIVED = "archived"  # Knowledge package was archived or is no longer active
-
-
 class RequestPriority(str, Enum):
     """
     Priority levels for information requests.
@@ -60,54 +44,7 @@ class RequestStatus(str, Enum):
     DEFERRED = "deferred"  # Request handling has been postponed to a later time
 
 
-class LogEntryType(str, Enum):
-    """
-    Types of log entries in the project log.
 
-    These entry types categorize all events that can occur during a project.
-    Log entries provide a chronological history of actions and events in the project,
-    allowing both Coordinators and team members to track progress and changes.
-    """
-
-    # Brief-related events
-    BRIEFING_CREATED = "briefing_created"
-    BRIEFING_UPDATED = "briefing_updated"
-
-    # Learning Objective-related events
-    LEARNING_OBJECTIVE_ADDED = "learning_objective_added"
-    LEARNING_OBJECTIVE_DELETED = "learning_objective_deleted"
-    LEARNING_OBJECTIVE_UPDATED = "learning_objective_updated"
-
-    # Information request lifecycle events
-    REQUEST_CREATED = "request_created"
-    REQUEST_UPDATED = "request_updated"
-    REQUEST_DELETED = "request_deleted"
-
-    # Project state and progress events
-    STATUS_CHANGED = "status_changed"
-    OUTCOME_ATTAINED = "outcome_attained"
-    REQUEST_RESOLVED = "request_resolved"
-    LEARNING_OBJECTIVE_ACCOMPLISHED = "learning_objective_accomplished"
-
-    # Participant events
-    PARTICIPANT_JOINED = "participant_joined"
-    PARTICIPANT_LEFT = "participant_left"
-
-    # Share lifecycle events
-    SHARE_STARTED = "share_started"
-    SHARE_COMPLETED = "share_completed"
-    SHARE_ABORTED = "share_aborted"
-
-    # Miscellaneous events
-    SHARE_INFORMATION_UPDATE = "share_information_update"
-    FILE_SHARED = "file_shared"
-    FILE_DELETED = "file_deleted"
-    KNOWLEDGE_DIGEST_UPDATE = "knowledge_digest_update"
-    CUSTOM = "custom"
-
-    # Backward compatibility for old log entries
-    KB_UPDATE = "kb_update"  # Legacy alias for KNOWLEDGE_DIGEST_UPDATE
-    GOAL_ADDED = "goal_added"  # Legacy alias for LEARNING_OBJECTIVE_ADDED
 
 
 class BaseEntity(BaseModel):
@@ -249,6 +186,54 @@ class InformationRequest(BaseEntity):
     # Updates and comments on this request
     updates: List[Dict[str, Any]] = Field(default_factory=list)  # History of status updates and comments
 
+class LogEntryType(str, Enum):
+    """
+    Types of log entries in the project log.
+
+    These entry types categorize all events that can occur during a project.
+    Log entries provide a chronological history of actions and events in the project,
+    allowing both Coordinators and team members to track progress and changes.
+    """
+
+    # Brief-related events
+    BRIEFING_CREATED = "briefing_created"
+    BRIEFING_UPDATED = "briefing_updated"
+
+    # Learning Objective-related events
+    LEARNING_OBJECTIVE_ADDED = "learning_objective_added"
+    LEARNING_OBJECTIVE_DELETED = "learning_objective_deleted"
+    LEARNING_OBJECTIVE_UPDATED = "learning_objective_updated"
+
+    # Information request lifecycle events
+    REQUEST_CREATED = "request_created"
+    REQUEST_UPDATED = "request_updated"
+    REQUEST_DELETED = "request_deleted"
+
+    # Project state and progress events
+    STATUS_CHANGED = "status_changed"
+    OUTCOME_ATTAINED = "outcome_attained"
+    REQUEST_RESOLVED = "request_resolved"
+    LEARNING_OBJECTIVE_ACCOMPLISHED = "learning_objective_accomplished"
+
+    # Participant events
+    PARTICIPANT_JOINED = "participant_joined"
+    PARTICIPANT_LEFT = "participant_left"
+
+    # Share lifecycle events
+    SHARE_STARTED = "share_started"
+    SHARE_COMPLETED = "share_completed"
+    SHARE_ABORTED = "share_aborted"
+
+    # Miscellaneous events
+    SHARE_INFORMATION_UPDATE = "share_information_update"
+    FILE_SHARED = "file_shared"
+    FILE_DELETED = "file_deleted"
+    KNOWLEDGE_DIGEST_UPDATE = "knowledge_digest_update"
+    CUSTOM = "custom"
+
+    # Backward compatibility for old log entries
+    KB_UPDATE = "kb_update"  # Legacy alias for KNOWLEDGE_DIGEST_UPDATE
+    GOAL_ADDED = "goal_added"  # Legacy alias for LEARNING_OBJECTIVE_ADDED
 
 class LogEntry(BaseModel):
     """
@@ -344,14 +329,14 @@ class KnowledgePackage(BaseModel):
     def is_ready_for_transfer(self) -> bool:
         """
         Determine if this knowledge package is ready for transfer to team members.
-        
+
         A package is ready when it has:
         - A knowledge brief
         - An audience definition
         - Either:
           - Learning objectives with outcomes (if is_intended_to_accomplish_outcomes is True), OR
           - No learning objectives needed (if is_intended_to_accomplish_outcomes is False)
-        
+
         Returns:
             bool: True if ready for transfer, False otherwise
         """
@@ -359,14 +344,14 @@ class KnowledgePackage(BaseModel):
             self.brief is not None and
             self.audience is not None
         )
-        
+
         if not has_basic_requirements:
             return False
-            
+
         # If this package is intended for general exploration (no specific outcomes)
         if not self.is_intended_to_accomplish_outcomes:
             return True
-            
+
         # If this package is intended for specific learning outcomes
         return (
             bool(self.learning_objectives) and
