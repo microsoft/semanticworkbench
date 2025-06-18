@@ -12,8 +12,8 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.project_manager import ProjectManager
-from assistant.project_storage import ProjectStorage
+from assistant.manager import KnowledgeTransferManager
+from assistant.storage import ShareStorage
 
 from .config import assistant_config
 from .logging import logger
@@ -21,7 +21,7 @@ from .logging import logger
 
 async def generate_team_welcome_message(context: ConversationContext) -> tuple[str, dict[str, Any]]:
     """
-    Geneates a welcome message for the team based on the project information.
+    Generates a welcome message for the team based on the project information.
     """
     debug: Dict[str, Any] = {}
 
@@ -29,65 +29,65 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Get project data
 
-    project_id = await ProjectManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_share_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
     project_data: dict[str, str] = {}
 
     # Briefing
-    briefing = ProjectStorage.read_project_brief(project_id)
-    project_brief_text = ""
+    briefing = ShareStorage.read_knowledge_brief(project_id)
+    brief_text = ""
     if briefing:
-        project_brief_text = dedent(f"""
+        brief_text = dedent(f"""
             ### BRIEF
             **Title:** {briefing.title}
             **Description:** {briefing.description}
             """)
-        project_data["briefing"] = project_brief_text
+        project_data["briefing"] = brief_text
 
-    # Goals
-    project = ProjectStorage.read_project(project_id)
-    if project and project.goals:
-        project_brief_text += "\n#### PROJECT GOALS:\n\n"
-        for i, goal in enumerate(project.goals):
-            completed = sum(1 for c in goal.success_criteria if c.completed)
-            total = len(goal.success_criteria)
-            project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-            if goal.success_criteria:
-                project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for j, criterion in enumerate(goal.success_criteria):
-                    check = "✅" if criterion.completed else "⬜"
-                    project_brief_text += f"   {check} {criterion.description}\n"
-            project_brief_text += "\n"
-        project_data["goals"] = project_brief_text
+    # Learning Objectives
+    share = ShareStorage.read_share(project_id)
+    if share and share.learning_objectives:
+        brief_text += "\n#### LEARNING OBJECTIVES:\n\n"
+        for i, objective in enumerate(share.learning_objectives):
+            completed = sum(1 for c in objective.learning_outcomes if c.achieved)
+            total = len(objective.learning_outcomes)
+            brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            if objective.learning_outcomes:
+                brief_text += f"   Progress: {completed}/{total} criteria complete\n"
+                for j, criterion in enumerate(objective.learning_outcomes):
+                    check = "✅" if criterion.achieved else "⬜"
+                    brief_text += f"   {check} {criterion.description}\n"
+            brief_text += "\n"
+        project_data["learning_objectives"] = brief_text
 
     # Whiteboard
-    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-    if whiteboard and whiteboard.content:
-        whiteboard_text = dedent(f"""
-            ### ASSISTANT WHITEBOARD - KEY PROJECT KNOWLEDGE
-            The whiteboard contains critical project information that has been automatically extracted from previous conversations.
+    knowledge_digest = ShareStorage.read_knowledge_digest(project_id)
+    if knowledge_digest and knowledge_digest.content:
+        knowledge_digest_text = dedent(f"""
+            ### ASSISTANT KNOWLEDGE DIGEST - KEY PROJECT KNOWLEDGE
+            The knowledge digest contains critical project information that has been automatically extracted from previous conversations.
             It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
 
-            Key characteristics of this whiteboard:
+            Key characteristics of this knowledge digest:
             - It contains the most essential information about the project that should be readily available
             - It has been automatically curated to focus on high-value content relevant to the project
             - It is maintained and updated as the conversation progresses
             - It should be treated as a trusted source of contextual information for this project
 
-            When using the whiteboard:
+            When using the knowledge digest:
             - Prioritize this information when addressing questions or providing updates
             - Reference it to ensure consistency in your responses across the conversation
             - Use it to track important details that might otherwise be lost in the conversation history
 
-            WHITEBOARD CONTENT:
+            KNOWLEDGE DIGEST CONTENT:
             ```markdown
-            {whiteboard.content}
+            {knowledge_digest.content}
             ```
 
             """)
-        project_data["whiteboard"] = whiteboard_text
+        project_data["knowledge_digest"] = knowledge_digest_text
 
     try:
         # Chat completion

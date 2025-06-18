@@ -1,8 +1,8 @@
 """
-Project assistant inspector state provider.
+Knowledge Transfer assistant inspector state provider.
 
-This module provides the state inspector provider for the project assistant
-to display project information in the workbench UI's inspector panel.
+This module provides the state inspector provider for the knowledge transfer assistant
+to display knowledge transfer information in the workbench UI's inspector panel.
 """
 
 import logging
@@ -13,27 +13,27 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .conversation_project_link import ConversationProjectManager
-from .project_common import detect_assistant_role
-from .project_data import RequestStatus
-from .project_manager import ProjectManager
-from .project_storage import ProjectStorage
-from .project_storage_models import ConversationRole
+from .common import detect_assistant_role
+from .conversation_share_link import ConversationKnowledgePackageManager
+from .data import RequestStatus
+from .manager import KnowledgeTransferManager
+from .storage import ShareStorage
+from .storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectInspectorStateProvider:
+class ShareInspectorStateProvider:
     """
-    Inspector state provider for project information.
+    Inspector state provider for knowledge transfer information.
 
-    This provider displays project-specific information in the inspector panel
-    including project state, brief, goals, and information requests based on the
+    This provider displays knowledge transfer information in the inspector panel
+    including transfer state, brief, learning objectives, and information requests based on the
     user's role (Coordinator or Team).
 
     The content displayed is adapted based on the template configuration:
-    - Default: Shows brief, goals, criteria, and request status
-    - Context Transfer: Focuses on knowledge context without goals or progress tracking
+    - Default: Shows brief, learning objectives, outcomes, and request status
+    - Context Transfer: Focuses on knowledge context without objectives or progress tracking
     """
 
     # Default display name and description
@@ -48,69 +48,62 @@ class ProjectInspectorStateProvider:
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
-        Get project information for display in the inspector panel.
+        Get knowledge transfer information for display in the inspector panel.
         """
 
         # State variables that will determine the content to display.
         conversation_role = await detect_assistant_role(context)
 
-        # Determine the conversation's role and project
-        project_id = await ConversationProjectManager.get_associated_project_id(context)
-        if not project_id:
+        self.display_name = "Knowledge Overview"
+        self.description = "Information about the knowledge space."
+
+        # Determine the conversation's role and knowledge share
+        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        if not share_id:
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active project. Start a conversation to create one."}
+                data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
-        # Get project information
-        brief = await ProjectManager.get_project_brief(context)
-        project_info = await ProjectManager.get_project_info(context)
+        # Get knowledge transfer information
+        brief = await KnowledgeTransferManager.get_knowledge_brief(context)
+        share_info = await KnowledgeTransferManager.get_share_info(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_markdown(
-                project_id, conversation_role, brief, project_info, context
-            )
+            markdown = await self._format_coordinator_markdown(share_id, conversation_role, brief, share_info, context)
         else:
-            markdown = await self._format_team_markdown(project_id, conversation_role, brief, project_info, context)
+            markdown = await self._format_team_markdown(share_id, conversation_role, brief, share_info, context)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_markdown(
         self,
-        project_id: str,
+        share_id: str,
         role: ConversationRole,
         brief: Any,
-        project_info: Any,
+        share_info: Any,
         context: ConversationContext,
     ) -> str:
-        """Format project information as markdown for Coordinator role"""
+        """Format knowledge transfer information as markdown for Coordinator role"""
 
         lines: List[str] = []
 
-        # Get the project
-        project = ProjectStorage.read_project(project_id)
+        # Get the knowledge package
+        share = ShareStorage.read_share(share_id)
 
         lines.append("**Role:** Coordinator")
 
-        stage_label = "Planning Stage"
-        if project_info and project_info.state:
-            if project_info.state.value == "planning":
-                stage_label = "Planning Stage"
-            elif project_info.state.value == "ready_for_working":
-                stage_label = "Ready for Working"
-            elif project_info.state.value == "in_progress":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "completed":
-                stage_label = "Completed Stage"
-            elif project_info.state.value == "aborted":
-                stage_label = "Aborted Stage"
-        lines.append(f"**Status:** {stage_label}")
+        # Display knowledge transfer stage
+        stage_label = "📋 Organizing Knowledge"
+        if share_info:
+            stage_label = share_info.get_stage_label(for_coordinator=True)
+        lines.append(f"**Stage:** {stage_label}")
 
-        if project_info and project_info.status_message:
-            lines.append(f"**Status Message:** {project_info.status_message}")
+        if share_info and share_info.transfer_notes:
+            lines.append(f"**Status Message:** {share_info.transfer_notes}")
 
         lines.append("")
 
-        lines.append("Project Brief")
+        lines.append("## Knowledge Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -122,30 +115,30 @@ class ProjectInspectorStateProvider:
 
             # In context transfer mode, show additional context in a dedicated section
             if brief.additional_context:
-                lines.append("## Additional Context")
+                lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
-        # Add goals section if available and progress tracking is enabled
-        if project and project.goals:
-            lines.append("## Goals")
-            for goal in project.goals:
-                criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
-                criteria_total = len(goal.success_criteria)
-                lines.append(f"### {goal.name}")
-                lines.append(goal.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
+        # Add learning objectives section if available and progress tracking is enabled
+        if share and share.learning_objectives:
+            lines.append("## Learning Objectives")
+            for objective in share.learning_objectives:
+                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
+                criteria_total = len(objective.learning_outcomes)
+                lines.append(f"### {objective.name}")
+                lines.append(objective.description)
+                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
-                if goal.success_criteria:
+                if objective.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Success Criteria:")
-                    for criterion in goal.success_criteria:
-                        status_emoji = "✅" if criterion.completed else "⬜"
+                    lines.append("#### Learning Outcomes:")
+                    for criterion in objective.learning_outcomes:
+                        status_emoji = "✅" if criterion.achieved else "⬜"
                         lines.append(f"- {status_emoji} {criterion.description}")
                 lines.append("")
 
         # Add information requests section
-        requests = await ProjectManager.get_information_requests(context)
+        requests = await KnowledgeTransferManager.get_information_requests(context)
         # Filter out resolved requests
         requests = [req for req in requests if req.status != RequestStatus.RESOLVED]
         if requests:
@@ -178,8 +171,8 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
         # Share URL section
-        project_info = await ProjectManager.get_project_info(context, project_id)
-        share_url = project_info.share_url if project_info else None
+        share_info = await KnowledgeTransferManager.get_share_info(context, share_id)
+        share_url = share_info.share_url if share_info else None
         if share_url:
             lines.append("## Share")
             lines.append("")
@@ -194,44 +187,35 @@ class ProjectInspectorStateProvider:
 
     async def _format_team_markdown(
         self,
-        project_id: str,
+        share_id: str,
         role: ConversationRole,
         brief: Any,
-        project_info: Any,
+        share_info: Any,
         context: ConversationContext,
     ) -> str:
-        """Format project information as markdown for Team role"""
+        """Format knowledge transfer information as markdown for Team role"""
 
         lines: List[str] = []
 
-        # Get the project
-        project = ProjectStorage.read_project(project_id)
+        # Get the knowledge package
+        share = ShareStorage.read_share(share_id)
 
         lines.append("**Role:** Team")
 
-        # Determine stage based on project status
-        stage_label = "Working Stage"
-        if project_info and project_info.state:
-            if project_info.state.value == "planning":
-                stage_label = "Planning Stage"
-            elif project_info.state.value == "ready_for_working":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "in_progress":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "completed":
-                stage_label = "Completed Stage"
-            elif project_info.state.value == "aborted":
-                stage_label = "Aborted Stage"
-            lines.append(f"**Status:** {stage_label}")
+        # Display knowledge transfer stage for team members
+        stage_label = "📚 Learning Mode"
+        if share_info:
+            stage_label = share_info.get_stage_label(for_coordinator=False)
+        lines.append(f"**Stage:** {stage_label}")
 
         # Add status message if available
-        if project_info and project_info.status_message:
-            lines.append(f"**Status Message:** {project_info.status_message}")
+        if share_info and share_info.transfer_notes:
+            lines.append(f"**Status Message:** {share_info.transfer_notes}")
 
         lines.append("")
 
-        # Add project description and additional context if available
-        lines.append("## Brief")
+        # Add knowledge description and additional context if available
+        lines.append("## Knowledge Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -243,33 +227,33 @@ class ProjectInspectorStateProvider:
 
             # In context transfer mode, show additional context in a dedicated section
             if brief.additional_context:
-                lines.append("## Additional Context")
+                lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
-        # Add goals section with checkable criteria if progress tracking is enabled
-        if project and project.goals:
-            lines.append("## Objectives")
-            for goal in project.goals:
-                criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
-                criteria_total = len(goal.success_criteria)
-                lines.append(f"### {goal.name}")
-                lines.append(goal.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} criteria complete")
+        # Add learning objectives section with checkable outcomes if progress tracking is enabled
+        if share and share.learning_objectives:
+            lines.append("## Learning Objectives")
+            for objective in share.learning_objectives:
+                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
+                criteria_total = len(objective.learning_outcomes)
+                lines.append(f"### {objective.name}")
+                lines.append(objective.description)
+                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
-                if goal.success_criteria:
+                if objective.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Success Criteria:")
-                    for criterion in goal.success_criteria:
-                        status_emoji = "✅" if criterion.completed else "⬜"
+                    lines.append("#### Learning Outcomes:")
+                    for criterion in objective.learning_outcomes:
+                        status_emoji = "✅" if criterion.achieved else "⬜"
                         completion_info = ""
-                        if criterion.completed and hasattr(criterion, "completed_at") and criterion.completed_at:
-                            completion_info = f" (completed on {criterion.completed_at.strftime('%Y-%m-%d')})"
+                        if criterion.achieved and hasattr(criterion, "achieved_at") and criterion.achieved_at:
+                            completion_info = f" (achieved on {criterion.achieved_at.strftime('%Y-%m-%d')})"
                         lines.append(f"- {status_emoji} {criterion.description}{completion_info}")
                 lines.append("")
 
         # Add my information requests section
-        requests = await ProjectManager.get_information_requests(context)
+        requests = await KnowledgeTransferManager.get_information_requests(context)
         my_requests = [r for r in requests if r.conversation_id == str(context.id)]
         if my_requests:
             lines.append("## My Information Requests")

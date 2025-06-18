@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "assistants: knowledge-transfer-assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "consoleTitle": "${workspaceFolderBasename}",
+      "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}

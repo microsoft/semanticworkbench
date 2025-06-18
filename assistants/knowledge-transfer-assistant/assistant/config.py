@@ -4,9 +4,12 @@ import openai_client
 from assistant_extensions.attachments import AttachmentsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
+from semantic_workbench_assistant.assistant_app import (
+    BaseModelAssistantConfig,
+)
 from semantic_workbench_assistant.config import UISchema
 
-from ..utils import load_text_include
+from .utils import load_text_include
 
 
 class RequestConfig(BaseModel):
@@ -62,8 +65,8 @@ class PromptConfig(BaseModel):
                 "coordinator_instructions",
                 "team_role",
                 "team_instructions",
-                "whiteboard_prompt",
-                "project_information_request_detection",
+                "knowledge_digest_prompt",
+                "share_information_request_detection",
             ],
         },
     )
@@ -104,20 +107,20 @@ class PromptConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = load_text_include("team_instructions.txt")
 
-    project_information_request_detection: Annotated[
+    share_information_request_detection: Annotated[
         str,
         Field(
             title="Information Request Detection Prompt",
-            description="The prompt used to detect information requests in project assistant mode.",
+            description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("project_information_request_detection.txt")
+    ] = load_text_include("share_information_request_detection.txt")
 
-    whiteboard_prompt: Annotated[
+    knowledge_digest_prompt: Annotated[
         str,
-        Field(title="Whiteboard Prompt", description="The prompt used to generate whiteboard content."),
+        Field(title="Knowledge Digest Prompt", description="The prompt used to generate knowledge digest content."),
         UISchema(widget="textarea"),
-    ] = load_text_include("whiteboard_prompt.txt")
+    ] = load_text_include("knowledge_digest_prompt.txt")
 
     welcome_message_generation: Annotated[
         str,
@@ -144,38 +147,27 @@ class CoordinatorConfig(BaseModel):
             description="The message to display when a coordinator starts a new project. {share_url} will be replaced with the actual URL.",
         ),
         UISchema(widget="textarea"),
-    ] = """# Welcome to the Project Assistant
+    ] = """# Welcome to Knowledge Transfer
 
-This conversation is your personal conversation as the project coordinator.
+Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
 
-**To invite team members to your project, copy and share this link with them:**
-[Join Team Conversation]({share_url})
+- 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
+- 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
+- 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
+- 🔗 Create shareable experiences - I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace using this [Knowledge Transfer link]({share_url})
 
-I've created a brief for your project. Let's start by updating it with your project goals and details."""
+Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace.
 
-    prompt_for_files: Annotated[
-        str,
-        Field(
-            title="File Upload Prompt",
-            description="The message used to prompt project coordinators to upload relevant files.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "To begin building your project context, would you like to upload any relevant files like documents, images, or data that your team will need? You can drag and drop files directly into this conversation."
+In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will help them understand the content of your knowledge transfer. You can ask me to update it at any time.
 
-    list_participants_command: Annotated[
-        str,
-        Field(
-            title="List Participants Command",
-            description="The command project coordinators can use to list all participants (without the slash).",
-        ),
-    ] = "list-participants"
+What knowledge would you like to transfer today?"""
 
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(
         title="Team Member Configuration",
         json_schema_extra={
-            "required": ["default_welcome_message", "status_command"],
+            "required": ["default_welcome_message"],
         },
     )
 
@@ -188,19 +180,9 @@ class TeamConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
 
-    status_command: Annotated[
-        str,
-        Field(
-            title="Status Command",
-            description="The command project participants can use to check project status (without the slash).",
-        ),
-    ] = "project-status"
-
 
 # Base Assistant Configuration - shared by all templates
 class AssistantConfigModel(BaseModel):
-    project_or_context: Annotated[str, UISchema(widget="hidden")] = "project"
-    Project_or_Context: Annotated[str, UISchema(widget="hidden")] = "Project"
     enable_debug_output: Annotated[
         bool,
         Field(
@@ -254,7 +236,7 @@ class AssistantConfigModel(BaseModel):
         bool,
         Field(
             title="Track Progress",
-            description="Track project progress with goals, criteria completion, and overall project state.",
+            description="Track knowledge transfer progress with learning objectives, outcome completion, and overall transfer state.",
         ),
     ] = True
 
@@ -262,7 +244,7 @@ class AssistantConfigModel(BaseModel):
         bool,
         Field(
             title="Proactive Guidance",
-            description="Proactively guide project coordinators through context building.",
+            description="Proactively guide knowledge organizers through knowledge structuring.",
         ),
     ] = True
 
@@ -270,7 +252,7 @@ class AssistantConfigModel(BaseModel):
         CoordinatorConfig,
         Field(
             title="Coordinator Configuration",
-            description="Configuration for project coordinators.",
+            description="Configuration for knowledge transfer coordinators.",
         ),
     ] = CoordinatorConfig()
 
@@ -278,6 +260,9 @@ class AssistantConfigModel(BaseModel):
         TeamConfig,
         Field(
             title="Team Configuration",
-            description="Configuration for project team members.",
+            description="Configuration for knowledge transfer team members.",
         ),
     ] = TeamConfig()
+
+
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)

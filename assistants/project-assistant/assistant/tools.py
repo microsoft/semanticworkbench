@@ -37,7 +37,6 @@ from .project_manager import ProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
-from .utils import is_knowledge_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -96,12 +95,11 @@ class ProjectTools:
         self.tool_functions = ToolFunctions()
 
         # Register template-specific tools
-        if not is_knowledge_transfer_assistant(context):
-            self.tool_functions.add_function(
-                self.suggest_next_action,
-                "suggest_next_action",
-                "Suggest the next action the user should take based on project state",
-            )
+        self.tool_functions.add_function(
+            self.suggest_next_action,
+            "suggest_next_action",
+            "Suggest the next action the user should take based on project state",
+        )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -117,22 +115,21 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            if not is_knowledge_transfer_assistant(context):
-                self.tool_functions.add_function(
-                    self.add_project_goal,
-                    "add_project_goal",
-                    "Add a goal to the project brief with optional success criteria",
-                )
-                self.tool_functions.add_function(
-                    self.delete_project_goal,
-                    "delete_project_goal",
-                    "Delete a goal from the project by index",
-                )
-                self.tool_functions.add_function(
-                    self.mark_project_ready_for_working,
-                    "mark_project_ready_for_working",
-                    "Mark the project as ready for working",
-                )
+            self.tool_functions.add_function(
+                self.add_project_goal,
+                "add_project_goal",
+                "Add a goal to the project brief with optional success criteria",
+            )
+            self.tool_functions.add_function(
+                self.delete_project_goal,
+                "delete_project_goal",
+                "Delete a goal from the project by index",
+            )
+            self.tool_functions.add_function(
+                self.mark_project_ready_for_working,
+                "mark_project_ready_for_working",
+                "Mark the project as ready for working",
+            )
         else:
             # Team-specific tools
 
@@ -147,60 +144,17 @@ class ProjectTools:
                 "Delete an information request that is no longer needed",
             )
 
-            if not is_knowledge_transfer_assistant(context):
-                self.tool_functions.add_function(
-                    self.update_project_status,
-                    "update_project_status",
-                    "Update the status and progress of the project",
-                )
-                self.tool_functions.add_function(
-                    self.report_project_completion, "report_project_completion", "Report that the project is complete"
-                )
-                self.tool_functions.add_function(
-                    self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-                )
-
-    # async def get_context_info(self) -> Project | None:
-    #     """
-    #     Get information about the current project.
-
-    #     Args:
-    #         none
-
-    #     Returns:
-    #         Information about the project in a formatted string
-    #     """
-
-    #     project_id = await ProjectManager.get_project_id(self.context)
-    #     if not project_id:
-    #         return None
-
-    #     project = await ProjectManager.get_project(self.context)
-    #     if not project:
-    #         return None
-
-    #     return project
-
-    # async def get_project_info(self) -> Project | None:
-    #     """
-    #     Get information about the current project.
-
-    #     Args:
-    #         none
-
-    #     Returns:
-    #         Information about the project in a formatted string
-    #     """
-
-    #     project_id = await ProjectManager.get_project_id(self.context)
-    #     if not project_id:
-    #         return None
-
-    #     project = await ProjectManager.get_project(self.context)
-    #     if not project:
-    #         return None
-
-    #     return project
+            self.tool_functions.add_function(
+                self.update_project_status,
+                "update_project_status",
+                "Update the status and progress of the project",
+            )
+            self.tool_functions.add_function(
+                self.report_project_completion, "report_project_completion", "Report that the project is complete"
+            )
+            self.tool_functions.add_function(
+                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
+            )
 
     async def update_project_status(
         self,
@@ -1120,37 +1074,32 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if not is_knowledge_transfer_assistant(self.context):
-            if not project or not project.goals:
-                if self.role is ConversationRole.COORDINATOR:
-                    return {
-                        "suggestion": "add_project_goal",
-                        "reason": "Project has no goals. Add at least one goal with success criteria.",
-                        "priority": "high",
-                        "function": "add_project_goal",
-                        "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
-                    }
-                else:
-                    return {
-                        "suggestion": "wait_for_goals",
-                        "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
-                        "priority": "medium",
-                        "function": None,
-                    }
+        if not project or not project.goals:
+            if self.role is ConversationRole.COORDINATOR:
+                return {
+                    "suggestion": "add_project_goal",
+                    "reason": "Project has no goals. Add at least one goal with success criteria.",
+                    "priority": "high",
+                    "function": "add_project_goal",
+                    "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
+                }
+            else:
+                return {
+                    "suggestion": "wait_for_goals",
+                    "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
+                    "priority": "medium",
+                    "function": None,
+                }
 
         # Check project info if project is ready for working
         ready_for_working = project_info.state == ProjectState.READY_FOR_WORKING
 
         if not ready_for_working and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for working
-            if not is_knowledge_transfer_assistant(self.context):
-                has_goals = True
-                has_criteria = True
-            else:
-                has_goals = bool(project and project.goals)
-                has_criteria = bool(
-                    project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
-                )
+            has_goals = bool(project and project.goals)
+            has_criteria = bool(
+                project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
+            )
 
             if has_goals and has_criteria:
                 return {

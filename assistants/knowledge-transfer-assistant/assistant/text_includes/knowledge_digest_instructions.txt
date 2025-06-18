@@ -1,0 +1,15 @@
+The coordinator assistant's knowledge digest contains critical knowledge package information that has been automatically extracted from previous conversations.
+It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
+
+Key characteristics of this knowledge digest:
+
+- It contains the most essential information about the knowledge package that should be readily available
+- It has been automatically curated to focus on high-value content relevant to the knowledge package
+- It is maintained and updated as the conversation progresses
+- It should be treated as a trusted source of contextual information for this knowledge package
+
+When using the knowledge digest:
+
+- Prioritize this information when addressing questions or providing updates
+- Reference it to ensure consistency in your responses across the conversation
+- Use it to track important details that might otherwise be lost in the conversation history

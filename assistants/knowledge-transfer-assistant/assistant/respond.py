@@ -26,16 +26,16 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .analysis import detect_information_request_needs
+from .common import detect_assistant_role
 from .config import assistant_config
+from .data import RequestStatus
 from .logging import logger
-from .project_analysis import detect_information_request_needs
-from .project_common import detect_assistant_role
-from .project_data import RequestStatus
-from .project_manager import ProjectManager
-from .project_storage import ProjectStorage
-from .project_storage_models import ConversationRole, CoordinatorConversationMessage
-from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
-from .tools import ProjectTools
+from .manager import KnowledgeTransferManager
+from .storage import ShareStorage
+from .storage_models import ConversationRole, CoordinatorConversationMessage
+from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
+from .tools import ShareTools
 from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
@@ -50,6 +50,51 @@ def format_message(participants: ConversationParticipantList, message: Conversat
     participant_name = conversation_participant.name if conversation_participant else "unknown"
     message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     return f"[{participant_name} - {message_datetime}]: {message.content}"
+
+
+class CoordinatorOutput(BaseModel):
+    """
+    Attributes:
+        response: The response from the assistant.
+        next_step_suggestion: Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.
+    """
+
+    response: str = Field(
+        description="The response from the assistant.",
+    )
+    next_step_suggestion: str = Field(
+        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.",
+    )
+
+    model_config = {
+        "extra": "forbid"  # This sets additionalProperties=false in the schema
+    }
+
+
+class TeamOutput(BaseModel):
+    """
+    Attributes:
+        citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
+        excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
+        next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
+    """
+
+    citations: list[str] = Field(
+        description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
+    )
+    excerpt: str | None = Field(
+        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.",
+    )
+    response: str = Field(
+        description="The response from the assistant.",
+    )
+    next_step_suggestion: str = Field(
+        description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
+    )
+
+    model_config = {
+        "extra": "forbid"  # This sets additionalProperties=false in the schema
+    }
 
 
 async def respond_to_conversation(
@@ -71,7 +116,7 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    project_id = await ProjectManager.get_project_id(context)
+    project_id = await KnowledgeTransferManager.get_share_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
 
@@ -90,11 +135,11 @@ async def respond_to_conversation(
         role_specific_instructions = config.prompt_config.team_instructions
     instructions = Instructions(role_specific_instructions)
 
-    # Add whiteboard instructions.
+    # Add knowledge digest instructions.
     instructions.add_subsection(
         Instructions(
-            render(load_text_include("whiteboard_instructions.txt"), {"project_or_context": config.project_or_context}),
-            "Assistant Whiteboard",
+            load_text_include("knowledge_digest_instructions.txt"),
+            "Assistant's Knowledge Digest",
         )
     )
 
@@ -123,60 +168,92 @@ async def respond_to_conversation(
         role=assistant_role,
         instructions=instructions,
         context_strategy=ContextStrategy.MULTI,
-        output_format="Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.",
     )
+    if role == ConversationRole.TEAM:
+        prompt.output_format = "Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information."
 
     ###
     ### Context
     ###
 
     # Project info
-    project_info = ProjectStorage.read_project_info(project_id)
+    project_info = ShareStorage.read_share_info(project_id)
     if project_info:
+        data = project_info.model_dump()
+
+        # Delete fields that are not relevant to the knowledge transfer assistant.
+        # FIXME: Reintroduce these properly.
+        if "state" in data:
+            del data["state"]
+        if "progress_percentage" in data:
+            del data["progress_percentage"]
+        if "completed_criteria" in data:
+            del data["completed_criteria"]
+        if "total_criteria" in data:
+            del data["total_criteria"]
+        if "lifecycle" in data:
+            del data["lifecycle"]
+
         project_info_text = project_info.model_dump_json(indent=2)
-        prompt.contexts.append(Context(f"{config.Project_or_Context} Info", project_info_text))
+        prompt.contexts.append(Context("Knowledge Info", project_info_text))
 
     # Brief
-    briefing = ProjectStorage.read_project_brief(project_id)
+    briefing = ShareStorage.read_knowledge_brief(project_id)
     project_brief_text = ""
     if briefing:
         project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.description}"
         prompt.contexts.append(
             Context(
-                f"{config.Project_or_Context} Brief",
+                "Knowledge Brief",
                 project_brief_text,
             )
         )
 
-    # Project goals
-    project = ProjectStorage.read_project(project_id)
-    if project and project.goals:
-        goals_text = ""
-        for i, goal in enumerate(project.goals):
-            # Count completed criteria
-            completed = sum(1 for c in goal.success_criteria if c.completed)
-            total = len(goal.success_criteria)
+    # Audience (for coordinators to understand target audience)
+    if role == ConversationRole.COORDINATOR and project_info and project_info.audience:
+        audience_context = project_info.audience
+        if not project_info.is_intended_to_accomplish_outcomes:
+            audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
 
-            project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-            if goal.success_criteria:
-                goals_text += f"   Progress: {completed}/{total} criteria complete\n"
-                for criterion in goal.success_criteria:
-                    check = "✅" if criterion.completed else "⬜"
-                    goals_text += f"   {check} {criterion.description}\n"
         prompt.contexts.append(
             Context(
-                "Project Goals",
-                goals_text,
+                "Target Audience",
+                audience_context,
+                "Description of the intended audience and their existing knowledge level for this knowledge transfer.",
             )
         )
 
-    # Whiteboard
-    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-    if whiteboard and whiteboard.content:
-        prompt.contexts.append(Context("Assistant Whiteboard", whiteboard.content, "The assistant's whiteboard"))
+    # Learning objectives
+    share = ShareStorage.read_share(project_id)
+    if share and share.learning_objectives:
+        learning_objectives_text = ""
+        for i, objective in enumerate(share.learning_objectives):
+            # Count completed criteria
+            completed = sum(1 for c in objective.learning_outcomes if c.achieved)
+            total = len(objective.learning_outcomes)
+
+            project_brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            if objective.learning_outcomes:
+                learning_objectives_text += f"   Progress: {completed}/{total} criteria complete\n"
+                for criterion in objective.learning_outcomes:
+                    check = "✅" if criterion.achieved else "⬜"
+                    learning_objectives_text += f"   {check} {criterion.description}\n"
+        prompt.contexts.append(
+            Context(
+                "Learning Objectives",
+                learning_objectives_text,
+            )
+        )
+
+    # Knowledge digest
+    knowledge_digest = ShareStorage.read_knowledge_digest(project_id)
+    if knowledge_digest and knowledge_digest.content:
+        prompt.contexts.append(
+            Context("Knowledge digest", knowledge_digest.content, "The assistant-maintained knowledge digest.")
+        )
 
     # Information requests
-    all_requests = ProjectStorage.get_all_information_requests(project_id)
+    all_requests = ShareStorage.get_all_information_requests(project_id)
     if role == ConversationRole.COORDINATOR:
         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
         if active_requests:
@@ -216,9 +293,6 @@ async def respond_to_conversation(
             information_requests_info = ""
             for req in my_requests:
                 information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-            information_requests_info += (
-                '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
-            )
         else:
             information_requests_info = "No active information requests."
 
@@ -228,6 +302,18 @@ async def respond_to_conversation(
                 information_requests_info,
             )
         )
+
+    # Add next action suggestions for coordinator
+    if role == ConversationRole.COORDINATOR:
+        next_action_suggestion = await KnowledgeTransferManager.get_coordinator_next_action_suggestion(context)
+        if next_action_suggestion:
+            prompt.contexts.append(
+                Context(
+                    "Suggested Next Actions",
+                    next_action_suggestion,
+                    "Actions the coordinator should consider taking based on the current knowledge transfer state.",
+                )
+            )
 
     # Calculate token count for all system messages so far.
     completion_messages = prompt.messages()
@@ -243,7 +329,7 @@ async def respond_to_conversation(
     ###
 
     # Get the coordinator conversation and add it as an attachment.
-    coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
+    coordinator_conversation = ShareStorage.read_coordinator_conversation(project_id)
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
@@ -283,7 +369,7 @@ async def respond_to_conversation(
     ### ATTACHMENTS
     ###
 
-    # TODO: A better pattern here might be to keep the attachements as user
+    # TODO: A better pattern here might be to keep the attachments as user
     # in the proper flow of the conversation rather than as .
 
     # Generate the attachment messages.
@@ -420,7 +506,7 @@ async def respond_to_conversation(
 
             suggestion = (
                 f"**Potential _Information Request_ Detected**\n\n"
-                f"It appears that you might need information from the {config.project_or_context} coordinator. {reason}\n\n"
+                f"It appears that you might need information from the knowledge coordinator. {reason}\n\n"
                 f"Would you like me to create an information request?\n"
                 f"**Title:** {suggested_title}\n"
                 f"**Description:** {potential_description}\n"
@@ -440,41 +526,16 @@ async def respond_to_conversation(
     ## MAKE THE LLM CALL
     ##
 
-    class Output(BaseModel):
-        """
-        Attributes:
-            citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
-            excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.
-            next_step_suggestion: Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.
-        """
-
-        citations: list[str] = Field(
-            description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
-        )
-        excerpt: str | None = Field(
-            description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. If there is no relevant excerpt, this will be None.",
-        )
-        response: str = Field(
-            description="The response from the assistant.",
-        )
-        next_step_suggestion: str = Field(
-            description="Suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
-        )
-
-        model_config = {
-            "extra": "forbid"  # This sets additionalProperties=false in the schema
-        }
-
     async with openai_client.create_client(config.service_config) as client:
         try:
             completion_args = {
                 "messages": completion_messages,
                 "model": model,
                 "max_tokens": config.request_config.response_tokens,
-                "response_format": Output,
+                "response_format": CoordinatorOutput if role == ConversationRole.COORDINATOR else TeamOutput,
             }
 
-            project_tools = ProjectTools(context, role)
+            project_tools = ShareTools(context, role)
             response_start_time = time.time()
             completion_response, additional_messages = await complete_with_tool_calls(
                 async_client=client,
@@ -542,23 +603,30 @@ async def respond_to_conversation(
                 )
             return
 
-    # Prepare response and citations.
+    # Prepare response.
     response_parts: list[str] = []
     try:
-        output_model = Output.model_validate_json(content)
-        if output_model.response:
-            response_parts.append(output_model.response)
+        if role == ConversationRole.TEAM:
+            output_model = TeamOutput.model_validate_json(content)
+            if output_model.response:
+                response_parts.append(output_model.response)
 
-        if role == ConversationRole.TEAM and output_model.excerpt:
-            output_model.excerpt = output_model.excerpt.strip().strip('"')
-            response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
+            if output_model.excerpt:
+                output_model.excerpt = output_model.excerpt.strip().strip('"')
+                response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
 
-        if role == ConversationRole.TEAM and output_model.next_step_suggestion:
-            response_parts.append(output_model.next_step_suggestion)
+            if output_model.next_step_suggestion:
+                response_parts.append(output_model.next_step_suggestion)
 
-        if role == ConversationRole.TEAM and output_model.citations:
-            citations = ", ".join(output_model.citations)
-            response_parts.append(f"Sources: _{citations}_")
+            if output_model.citations:
+                citations = ", ".join(output_model.citations)
+                response_parts.append(f"Sources: _{citations}_")
+        else:
+            output_model = CoordinatorOutput.model_validate_json(content)
+            if output_model.response:
+                response_parts.append(output_model.response)
+            if output_model.next_step_suggestion:
+                metadata["help"] = output_model.next_step_suggestion
 
     except Exception as e:
         logger.exception(f"exception occurred parsing json response: {e}")
