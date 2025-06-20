@@ -22,6 +22,9 @@ from .storage_models import ConversationRole
 
 logger = logging.getLogger(__name__)
 
+# Default instructional text to show when no brief has been created
+DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
+
 
 class ShareInspectorStateProvider:
     """
@@ -105,19 +108,27 @@ class ShareInspectorStateProvider:
 
         lines.append("## Knowledge Brief")
 
-        title = brief.title if brief else "Untitled"
-        lines.append(f"### {title}")
-        lines.append("")
-
-        if brief and brief.description:
-            lines.append(brief.description)
+        if brief:
+            # Show actual brief content when it exists
+            title = brief.title
+            lines.append(f"### {title}")
             lines.append("")
+            
+            if brief.description:
+                lines.append(brief.description)
+                lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
             if brief.additional_context:
                 lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
+        else:
+            # Show instructional text when no brief has been created yet
+            lines.append("### Knowledge Brief")
+            lines.append("")
+            lines.append(DEFAULT_BRIEF_INSTRUCTION)
+            lines.append("")
 
         # Add learning objectives section if available and progress tracking is enabled
         if share and share.learning_objectives:
@@ -252,19 +263,27 @@ class ShareInspectorStateProvider:
         # Add knowledge description and additional context if available
         lines.append("## Knowledge Brief")
 
-        title = brief.title if brief else "Untitled"
-        lines.append(f"### {title}")
-        lines.append("")
-
-        if brief and brief.description:
-            lines.append(brief.description)
+        if brief:
+            # Show actual brief content when it exists
+            title = brief.title
+            lines.append(f"### {title}")
             lines.append("")
+            
+            if brief.description:
+                lines.append(brief.description)
+                lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
             if brief.additional_context:
                 lines.append("## Additional Knowledge Context")
                 lines.append(brief.additional_context)
                 lines.append("")
+        else:
+            # Show message for team members when no brief has been created yet
+            lines.append("### Knowledge Brief")
+            lines.append("")
+            lines.append("_The coordinator is still setting up the knowledge brief. Check back soon!_")
+            lines.append("")
 
         # Add learning objectives section with checkable outcomes if progress tracking is enabled
         if share and share.learning_objectives:
