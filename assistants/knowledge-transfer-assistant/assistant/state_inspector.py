@@ -163,20 +163,6 @@ class ShareInspectorStateProvider:
                         lines.append(f"- {status_emoji} {criterion.description}{achievement_info}")
                 lines.append("")
 
-        # Add team conversations section
-        if share and share.team_conversations:
-            lines.append("## Team Conversations")
-            lines.append(f"**Active team members:** {len(share.team_conversations)}")
-            lines.append("")
-
-            for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = share.get_completion_for_conversation(conv_id)
-                progress_pct = int((achieved / total * 100)) if total > 0 else 0
-                lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
-                lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")
-                lines.append(f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}")
-                lines.append("")
-
         # Add information requests section
         requests = await KnowledgeTransferManager.get_information_requests(context)
         # Filter out resolved requests
@@ -222,6 +208,20 @@ class ShareInspectorStateProvider:
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
             lines.append("")
+
+        # Add team conversations section
+        if share and share.team_conversations:
+            lines.append("## Team Conversations")
+            lines.append(f"**Active team members:** {len(share.team_conversations)}")
+            lines.append("")
+
+            for conv_id, team_conv in share.team_conversations.items():
+                achieved, total = share.get_completion_for_conversation(conv_id)
+                progress_pct = int((achieved / total * 100)) if total > 0 else 0
+                lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
+                lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")
+                lines.append(f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}")
+                lines.append("")
 
         return "\n".join(lines)
 
