@@ -1,6 +1,6 @@
-# Message History Manager
+# Chat Context Toolkit
 
-The **Message History Manager** is a Python library designed to efficiently process, prioritize, and archive message histories for AI-powered conversations. It provides sophisticated token budget management and long-term archival capabilities, making it ideal for managing chat-based workflows where context preservation and resource optimization are critical.
+The **Chat Context Toolkit** is a Python library designed to efficiently manage context for LLM-powered conversations. It provides sophisticated token budget management, long-term archival capabilities, and a virtual file system for exposing files to LLM models, making it ideal for managing chat-based workflows where context preservation and resource optimization are critical.
 
 ## Key Features
 
@@ -16,7 +16,14 @@ The **Message History Manager** is a Python library designed to efficiently proc
 - **Manifest Generation**: Create detailed manifests for each archive chunk including summaries, message IDs, and timestamps
 - **State Persistence**: Track archival progress with persistent state management across sessions
 - **Archive Retrieval**: Efficiently browse and retrieve archived content with filtering and search capabilities
-- **Summarization Integration**: Generate AI-readable summaries of archived chunks for context understanding
+- **Summarization Integration**: Generate LLM-readable summaries of archived chunks for context understanding
+
+### Virtual File System
+
+- **Unified File Access**: Present files from multiple sources in a single virtual file system for LLM interaction
+- **Chat Completion Integration**: Provide built-in tools (`ls`, `view`) for LLMs to explore and read files
+- **Multiple File Sources**: Mount different file sources (local filesystem, cloud storage, databases) at various paths
+- **Write Tool Support**: Allow file sources to provide custom write tools for file modification
 
 ### Protocol-Based Design
 
@@ -47,6 +54,14 @@ Manages in-memory history for active sessions and ensures prioritization within 
 - **`_budget.py`**: Ensures that token usage remains within the defined budget through abbreviation and truncation.
 - **`_decorators.py`**: Utility decorators for performance logging and timing.
 - **`_types.py`**: Type definitions specific to history management including protocols and data structures.
+
+### `virtual_filesystem` Module
+
+Provides a virtual file system abstraction for LLM interaction with files from multiple sources:
+
+- **`virtual_filesystem.py`**: Core `VirtualFileSystem` class that manages file source mounts and provides tools for LLM interaction.
+- **`types.py`**: Type definitions including `FileSource`, `DirectoryEntry`, `FileEntry`, and `WriteToolDefinition` protocols.
+- **`README.md`**: Detailed documentation on the virtual file system concept and implementation.
 
 ---
 
@@ -156,6 +171,39 @@ if content:
     print(f"Found {len(content.messages)} messages in archive")
 ```
 
+### Example 4: Virtual File System
+
+```python
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from openai import OpenAI
+
+# Create and configure virtual file system
+vfs = VirtualFileSystem()
+vfs.mount("/docs", your_file_source)  # Must implement FileSource protocol
+
+# Get tools for OpenAI chat completion
+tools = list(vfs.tools.values())
+
+# Use with OpenAI chat completion
+client = OpenAI()
+messages = [
+    {"role": "system", "content": "You have access to files through the virtual file system. Use the ls and view tools to explore and read files."},
+    {"role": "user", "content": "What files are available in /docs?"}
+]
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    tools=tools
+)
+
+# Execute tool calls from the response
+if response.choices[0].message.tool_calls:
+    for tool_call in response.choices[0].message.tool_calls:
+        result = await vfs.execute_tool(tool_call)
+        print(f"Tool {tool_call.function.name} result: {result}")
+```
+
 ---
 
 ## Development Setup
@@ -170,39 +218,3 @@ if content:
    ```bash
    make test
    ```
-
-## Example Application
-
-See `examples/01_cli_agent.py` for a complete working example of a CLI agent that demonstrates file management capabilities using PydanticAI. To run the example:
-
-```bash
-# Using Anthropic (default)
-uv run examples/01_cli_agent.py --directory /path/to/your/files
-
-# Using OpenAI
-uv run examples/01_cli_agent.py --provider openai --directory /path/to/your/files
-```
-
-Make sure to set your API keys in environment variables:
-
-- `ANTHROPIC_API_KEY` for Anthropic
-- `OPENAI_API_KEY` for OpenAI
-
-## Core Protocols and Types
-
-The library is built around several key protocols that you must implement:
-
-### History Management
-
-- **`HistoryMessageProtocol`**: Interface for messages that can be processed by the history manager
-- **`HistoryMessageProvider`**: Protocol for retrieving messages from your storage system
-- **`TokenCounter`**: Protocol for counting tokens in messages
-- **`NewTurn`**: Configuration for prioritizing recent messages in a conversation turn
-
-### Archive Management
-
-- **`MessageProtocol`**: Interface for messages that can be archived (includes timestamp)
-- **`MessageProvider`**: Protocol for retrieving messages for archiving
-- **`StorageProvider`**: Protocol for reading/writing archive files
-- **`Summarizer`**: Protocol for generating summaries of archived message chunks
-- **`ArchiveTaskConfig`**: Configuration for the archiving process
