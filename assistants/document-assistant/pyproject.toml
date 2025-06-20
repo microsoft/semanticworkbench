@@ -6,17 +6,24 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "aiofiles>=24.0,<25.0",
     "assistant-drive>=0.1.0",
     "assistant-extensions[attachments, mcp]>=0.1.0",
     "mcp-extensions[openai]>=0.1.0",
     "content-safety>=0.1.0",
     "deepmerge>=2.0",
+    "httpx>=0.28,<1.0",
     "markitdown[docx,outlook,pptx,xlsx]==0.1.1",
+    # "message-history-manager>=0.1.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "pdfplumber>=0.11.2",
     "pendulum>=3.1,<4.0",
+    "pydantic-ai[openai,athropic]>=0.2,<0.3",
+    "pydantic-extra-types>=2.10,<3.0",
+    "python-dotenv>=1.1,<2.0",
     "python-liquid>=2.0,<3.0",
+    "PyYAML>=6.0,<7.0",
     "tiktoken>=0.9.0",
 ]
 
@@ -33,6 +40,7 @@ assistant-extensions = { path = "../../libraries/python/assistant-extensions", e
 mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
+# message-history-manager = { path = "../../libraries/python/message-history-manager", editable = true }
 
 [build-system]
 requires = ["hatchling"]

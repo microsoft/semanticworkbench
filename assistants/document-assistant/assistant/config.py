@@ -5,6 +5,7 @@ from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel,
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
+    AzureOpenAIServiceConfig,
     OpenAIRequestConfig,
     azure_openai_service_config_construct,
     azure_openai_service_config_reasoning_construct,
@@ -14,6 +15,20 @@ from semantic_workbench_assistant.config import UISchema
 
 from assistant.guidance.guidance_config import GuidanceConfigModel
 from assistant.response.prompts import GUARDRAILS_POSTFIX, ORCHESTRATION_SYSTEM_PROMPT
+
+
+def _azure_openai_service_config_with_deployment(deployment_name: str) -> AzureOpenAIServiceConfig:
+    """
+    Create Azure OpenAI service config with specific deployment name.
+    This avoids environment variable overrides that would affect the deployment.
+    """
+    base_config = azure_openai_service_config_construct()
+    return AzureOpenAIServiceConfig(
+        azure_openai_endpoint=base_config.azure_openai_endpoint,
+        azure_openai_deployment=deployment_name,
+        auth_config=base_config.auth_config,
+    )
+
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -85,7 +100,7 @@ class HostedMCPServersConfigModel(BaseModel):
     ] = HostedMCPServerConfig.from_env(
         "memory-user-bio",
         "MCP_SERVER_MEMORY_USER_BIO_URL",
-        enabled=True,
+        enabled=False,
         # scopes the memories to the assistant instance
         roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
         # auto-include the user-bio memory prompt
@@ -202,6 +217,40 @@ class PromptsConfigModel(BaseModel):
         ),
     ] = "2024-05"
 
+    max_total_tokens: Annotated[
+        int,
+        Field(
+            title="Maximum Number of Allowed Tokens Used",
+        ),
+    ] = 100000  # -1 uses a default based on model config's max_tokens
+
+    token_window: Annotated[
+        int,
+        Field(
+            title="Compaction Window",
+            description=dedent("""
+                Window size for how to chunk the conversation for compaction, files,
+                and other operations where content must be broken up into smaller pieces.
+                ONLY CHANGE THIS FOR NEW CONVERSATIONS. Unexpected behavior may occur if you change this mid-conversation.
+            """).strip(),
+        ),
+    ] = 40000
+
+    max_relevant_files: Annotated[
+        int,
+        Field(
+            title="Maximum Number of Relevant Files in System Prompt",
+        ),
+    ] = 25
+
+    percent_files_score_per_turn: Annotated[
+        float,
+        Field(
+            title="Percent of files to re-compute scores for per turn",
+            description="This is an optimization to prevent re-computing scores for all files in every turn",
+        ),
+    ] = 0.1
+
 
 class OrchestrationConfigModel(BaseModel):
     hosted_mcp_servers: Annotated[
@@ -284,11 +333,29 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIClientConfigModel(
-        service_config=azure_openai_service_config_construct(default_deployment="gpt-4.1"),
+        service_config=_azure_openai_service_config_with_deployment("gpt-4.1"),
         request_config=OpenAIRequestConfig(
-            max_tokens=180000,
+            max_tokens=120000,
             response_tokens=16_384,
             model="gpt-4.1",
+            is_reasoning_model=False,
+        ),
+    )
+
+    generative_ai_fast_client_config: Annotated[
+        AzureOpenAIClientConfigModel | OpenAIClientConfigModel,
+        Field(
+            title="OpenAI Fast Generative Model",
+            discriminator="ai_service_type",
+            default=AzureOpenAIClientConfigModel.model_construct(),
+        ),
+        UISchema(widget="radio", hide_title=True),
+    ] = AzureOpenAIClientConfigModel(
+        service_config=_azure_openai_service_config_with_deployment("gpt-4o-mini"),
+        request_config=OpenAIRequestConfig(
+            max_tokens=120000,
+            response_tokens=16_384,
+            model="gpt-4o-mini",
             is_reasoning_model=False,
         ),
     )
@@ -319,3 +386,10 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
+
+    additional_debug_info: Annotated[
+        bool,
+        Field(
+            title="Enable for additional debug information",
+        ),
+    ] = True

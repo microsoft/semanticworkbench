@@ -37,6 +37,10 @@ class Attachment(BaseModel):
     updated_datetime: datetime.datetime = Field(default=datetime.datetime.fromtimestamp(0, datetime.timezone.utc))
 
 
+class FilesystemFile(BaseModel):
+    summary: str = ""
+
+
 class DocumentEditorConfigModel(Protocol):
     enabled: bool
 

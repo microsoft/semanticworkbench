@@ -25,7 +25,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.context_management.conv_compaction import get_compaction_data
 from assistant.filesystem import AttachmentsExtension
+from assistant.filesystem._tasks import get_filesystem_metadata
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
 
@@ -79,11 +81,9 @@ async def handle_completion(
         if content is None:
             if ai_context is not None and ai_context.strip() != "":
                 content = ai_context
-            # else:
-            #     content = f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
 
     if content is None:
-        content = "[no response from openai]"
+        content = ""
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(
@@ -152,20 +152,15 @@ async def handle_completion(
     if content.startswith("["):
         content = re.sub(r"\[.*\]:\s", "", content)
 
-    # Handle silence token
-    if content.replace(" ", "") == silence_token or content.strip() == "":
-        # No response from the AI, nothing to send
-        pass
-
-    # Send the AI's response to the conversation
-    else:
-        await context.send_messages(
-            NewConversationMessage(
-                content=content,
-                message_type=MessageType.chat,
-                metadata=step_result.metadata,
-            )
+    await context.send_messages(
+        NewConversationMessage(
+            content=content,
+            message_type=MessageType.chat,
+            metadata=step_result.metadata,
         )
+    )
+
+    # region Tool Logic
 
     # Check for tool calls
     if len(tool_calls) == 0:
@@ -202,6 +197,7 @@ async def handle_completion(
                 metadata=step_result.metadata,
             )
         )
+
     # Handle the view tool call
     elif tool_calls[0].name == "view":
         path = (tool_calls[0].arguments or {}).get("path", "")
@@ -211,6 +207,14 @@ async def handle_completion(
         # Then try to find the path as an attachment file
         if file_content is None:
             file_content = await attachments_extension.get_attachment(context, path)
+
+        # Finally try to find the path as a conversation file.
+        if file_content is None:
+            compaction_data = await get_compaction_data(context)
+            for chunk in compaction_data.compaction_data.values():
+                if chunk.chunk_name == path:
+                    file_content = chunk.original_conversation_text
+                    break
 
         if file_content is None:
             file_content = f"File at path {path} not found. Please pay attention to the available files and try again."
@@ -243,8 +247,59 @@ async def handle_completion(
                 metadata=step_result.metadata,
             )
         )
+    elif tool_calls[0].name == "ls":
+        # Need to get all the available files and present it to the model.
+        attachment_filenames = await attachments_extension.get_attachment_filenames(context)
+        doc_editor_filenames = await attachments_extension._inspectors.list_document_filenames(context)
+        compaction_data = await get_compaction_data(context)
+        filesystem_metadata = await get_filesystem_metadata(context)
+
+        # Tuple of (filename, permission, summary)
+        all_files = [(filename, "-r--", filesystem_metadata.get(filename, "")) for filename in attachment_filenames]
+        all_files.extend([
+            (filename, "-rw-", filesystem_metadata.get(filename, "")) for filename in doc_editor_filenames
+        ])
+        for chunk in compaction_data.compaction_data.values():
+            all_files.append((chunk.chunk_name, "-r--", chunk.compacted_text))
+
+        all_files.sort(key=lambda x: x[0].lower())
+
+        # Format the file list into a string
+        ls_string = ""
+        for _, (filename, permission, summary) in enumerate(all_files):
+            ls_string += f"{filename} ({permission}) - {summary}\n"
+
+        if ls_string == "":
+            ls_string = "No files currently available in the filesystem."
+
+        step_result.conversation_tokens += num_tokens_from_messages(
+            messages=[
+                ChatCompletionToolMessageParam(
+                    role="tool",
+                    content=ls_string,
+                    tool_call_id=tool_calls[0].id,
+                )
+            ],
+            model=request_config.model,
+        )
+        deepmerge.always_merger.merge(
+            step_result.metadata,
+            {
+                "tool_result": {
+                    "content": ls_string,
+                    "tool_call_id": tool_calls[0].id,
+                },
+            },
+        )
+        await context.send_messages(
+            NewConversationMessage(
+                content=ls_string,
+                message_type=MessageType.note,
+                metadata=step_result.metadata,
+            )
+        )
     else:
-        # Handle tool calls
+        # Handle MCP tool calls
         tool_call_count = 0
         for tool_call in tool_calls:
             tool_call_count += 1
@@ -318,5 +373,7 @@ async def handle_completion(
                     metadata=step_result.metadata,
                 )
             )
+
+    # endregion
 
     return step_result
