@@ -9,11 +9,10 @@ from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
     AzureOpenAIServiceConfig,
     OpenAIRequestConfig,
-    azure_openai_service_config_construct,
     azure_openai_service_config_reasoning_construct,
 )
 from pydantic import BaseModel, Field
-from semantic_workbench_assistant.config import UISchema
+from semantic_workbench_assistant.config import UISchema, first_env_var
 
 from assistant.guidance.guidance_config import GuidanceConfigModel
 from assistant.response.prompts import GUARDRAILS_POSTFIX, ORCHESTRATION_SYSTEM_PROMPT
@@ -24,11 +23,11 @@ def _azure_openai_service_config_with_deployment(deployment_name: str) -> AzureO
     Create Azure OpenAI service config with specific deployment name.
     This avoids environment variable overrides that would affect the deployment.
     """
-    base_config = azure_openai_service_config_construct()
-    return AzureOpenAIServiceConfig(
-        azure_openai_endpoint=base_config.azure_openai_endpoint,
+
+    endpoint = first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint")
+    return AzureOpenAIServiceConfig.model_construct(
+        azure_openai_endpoint=endpoint,
         azure_openai_deployment=deployment_name,
-        auth_config=base_config.auth_config,
     )
 
 
