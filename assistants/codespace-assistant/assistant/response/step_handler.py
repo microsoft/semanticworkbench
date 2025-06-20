@@ -6,6 +6,9 @@ from typing import Any, List
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
+from assistant_extensions.virtual_filesystem import AttachmentsVirtualFileSystemFileSource
+from message_history_manager.history import NewTurn
+from message_history_manager.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -43,6 +46,7 @@ async def next_step(
     attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
+    history_turn: NewTurn,
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -75,8 +79,15 @@ async def next_step(
     # Establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
+    virtual_filesystem = VirtualFileSystem()
+    virtual_filesystem.mount(
+        "/attachments",
+        AttachmentsVirtualFileSystemFileSource(attachments_extension=attachments_extension, context=context),
+    )
+
+    tools = [tool for _, tool in virtual_filesystem.tools.items()]
     # convert the tools to make them compatible with the OpenAI API
-    tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
+    tools += get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config) or []
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
@@ -89,6 +100,7 @@ async def next_step(
         tools=tools,
         attachments_config=attachments_config,
         silence_token=silence_token,
+        history_turn=history_turn,
     )
 
     chat_message_params = build_request_result.chat_message_params
@@ -157,6 +169,7 @@ async def next_step(
         silence_token,
         metadata_key,
         response_start_time,
+        virtual_filesystem=virtual_filesystem,
     )
 
     if build_request_result.token_overage > 0:

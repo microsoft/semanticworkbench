@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from typing import List
+from typing import Iterable, List
 
 import deepmerge
 from assistant_extensions.mcp import (
@@ -11,8 +11,10 @@ from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
+from message_history_manager.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionMessageToolCallParam,
     ChatCompletionToolMessageParam,
     ParsedChatCompletion,
 )
@@ -43,6 +45,7 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
+    virtual_filesystem: VirtualFileSystem,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -171,11 +174,42 @@ async def handle_completion(
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
                 try:
-                    tool_call_result = await handle_mcp_tool_call(
-                        mcp_sessions,
-                        tool_call,
-                        f"{metadata_key}:request:tool_call_{tool_call_count}",
-                    )
+                    if tool_call.name in virtual_filesystem.tools:
+                        # Execute the tool call using the virtual filesystem
+                        tool_result = await virtual_filesystem.execute_tool(
+                            ChatCompletionMessageToolCallParam(
+                                id=tool_call.id,
+                                function={
+                                    "name": tool_call.name,
+                                    "arguments": json.dumps(tool_call.arguments),
+                                },
+                                type="function",
+                            )
+                        )
+                        match tool_result:
+                            case str():
+                                content = tool_result
+
+                            case Iterable():
+                                content = "\n".join(item["text"] for item in tool_result)
+
+                    else:
+                        tool_result = await handle_mcp_tool_call(
+                            mcp_sessions,
+                            tool_call,
+                            f"{metadata_key}:request:tool_call_{tool_call_count}",
+                        )
+
+                        # Update content and metadata with tool call result metadata
+                        deepmerge.always_merger.merge(step_result.metadata, tool_result.metadata)
+
+                        # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
+                        # Get the content from the tool call result
+                        content = next(
+                            (content_item.text for content_item in tool_result.content if content_item.type == "text"),
+                            "[tool call returned no content]",
+                        )
+
                 except Exception as e:
                     logger.exception(f"Error handling tool call '{tool_call.name}': {e}")
                     deepmerge.always_merger.merge(
@@ -197,16 +231,6 @@ async def handle_completion(
                     )
                     step_result.status = "error"
                     return step_result
-
-            # Update content and metadata with tool call result metadata
-            deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
-
-            # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
-            # Get the content from the tool call result
-            content = next(
-                (content_item.text for content_item in tool_call_result.content if content_item.type == "text"),
-                "[tool call returned no content]",
-            )
 
             # Add the token count for the tool call result to the total token count
             step_result.conversation_tokens += num_tokens_from_messages(

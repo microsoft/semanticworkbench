@@ -109,6 +109,14 @@ class ResponseBehaviorConfigModel(BaseModel):
         ),
     ] = False
 
+    high_priority_token_count: Annotated[
+        int,
+        Field(
+            title="High Priority Token Count",
+            description="The number of tokens to consider high priority when abbreviating message history.",
+        ),
+    ] = 30_000
+
 
 class HostedMCPServersConfigModel(BaseModel):
     web_research: Annotated[

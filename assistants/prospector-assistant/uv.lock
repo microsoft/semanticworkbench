@@ -290,6 +290,7 @@ dependencies = [
     { name = "anthropic-client" },
     { name = "assistant-drive" },
     { name = "deepmerge" },
+    { name = "message-history-manager" },
     { name = "openai" },
     { name = "openai-client" },
     { name = "requests-sse" },
@@ -310,6 +311,7 @@ requires-dist = [
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
     { name = "mcp-extensions", extras = ["openai"], marker = "extra == 'mcp'", editable = "../../libraries/python/mcp-extensions" },
+    { name = "message-history-manager", editable = "../../libraries/python/message-history-manager" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
@@ -406,6 +408,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b5/a1/f1a683672e7a88ea0e3119f57b6c7843ed52650fdcac8bfa66ed84e86e40/azure_identity-1.21.0.tar.gz", hash = "sha256:ea22ce6e6b0f429bc1b8d9212d5b9f9877bd4c82f1724bfa910760612c07a9a6", size = 266445, upload-time = "2025-03-11T20:53:07.463Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/9f/1f9f3ef4f49729ee207a712a5971a9ca747f2ca47d9cbf13cf6953e3478a/azure_identity-1.21.0-py3-none-any.whl", hash = "sha256:258ea6325537352440f71b35c3dffe9d240eae4a5126c1b7ce5efd5766bd9fd9", size = 189190, upload-time = "2025-03-11T20:53:09.197Z" },
+]
+
+[[package]]
+name = "babel"
+version = "2.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/6b/d52e42361e1aa00709585ecc30b3f9684b3ab62530771402248b1b1d6240/babel-2.17.0.tar.gz", hash = "sha256:0c54cffb19f690cdcc52a3b50bcbf71e07a808d1c80d549f2459b9d2cf0afb9d", size = 9951852, upload-time = "2025-02-01T15:17:41.026Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/b8/3fe70c75fe32afc4bb507f75563d39bc5642255d1d94f1f23604725780bf/babel-2.17.0-py3-none-any.whl", hash = "sha256:4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2", size = 10182537, upload-time = "2025-02-01T15:17:37.39Z" },
 ]
 
 [[package]]
@@ -968,15 +979,6 @@ wheels = [
 ]
 
 [[package]]
-name = "importlib-resources"
-version = "6.5.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/8c/f834fbf984f691b4f7ff60f50b514cc3de5cc08abfc3295564dd89c5e2e7/importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c", size = 44693, upload-time = "2025-01-03T18:51:56.698Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/ed/1f1afb2e9e7f38a545d628f864d562a5ae64fe6f7a10e28ffb9b185b4e89/importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec", size = 37461, upload-time = "2025-01-03T18:51:54.306Z" },
-]
-
-[[package]]
 name = "iniconfig"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1270,6 +1272,35 @@ wheels = [
 ]
 
 [[package]]
+name = "message-history-manager"
+version = "0.1.0"
+source = { editable = "../../libraries/python/message-history-manager" }
+dependencies = [
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "python-liquid" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openai", specifier = ">=1.85,<2.0" },
+    { name = "openai-client", editable = "../../libraries/python/openai-client" },
+    { name = "pydantic", specifier = ">=2.10,<3.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
+    { name = "python-liquid", specifier = ">=2.0,<3.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.401" },
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
+]
+examples = [{ name = "pydantic-ai", extras = ["openai", "athropic"], specifier = ">=0.2,<0.3" }]
+
+[[package]]
 name = "more-itertools"
 version = "10.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1426,7 +1457,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.66.3"
+version = "1.89.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1438,9 +1469,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/77/5172104ca1df35ed2ed8fb26dbc787f721c39498fc51d666c4db07756a0c/openai-1.66.3.tar.gz", hash = "sha256:8dde3aebe2d081258d4159c4cb27bdc13b5bb3f7ea2201d9bd940b9a89faf0c9", size = 397244, upload-time = "2025-03-12T19:54:07.03Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/50/3f71aa0fd00b12ed7e25295912a7b3ed4f77fbf814dcf553159aeb349546/openai-1.89.0.tar.gz", hash = "sha256:c9ae3e85a4dad280176a63f4afd54dc78deadd323bf2d275edc6b2eca6858971", size = 471871, upload-time = "2025-06-20T18:45:04.101Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/5a/e20182f7b6171642d759c548daa0ba20a1d3ac10d2bd0a13fd75704a9ac3/openai-1.66.3-py3-none-any.whl", hash = "sha256:a427c920f727711877ab17c11b95f1230b27767ba7a01e5b66102945141ceca9", size = 567400, upload-time = "2025-03-12T19:54:05.466Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/a1/cfb21bd74d40565c61f4cb77d3beede56ba6adfe5f799c797606d1584576/openai-1.89.0-py3-none-any.whl", hash = "sha256:3fe395b3859c45336022026bbedf8e40a35e77c4ee5878ba5eaa6c8e2ff851f6", size = 734682, upload-time = "2025-06-20T18:45:02.402Z" },
 ]
 
 [[package]]
@@ -2069,16 +2100,17 @@ wheels = [
 
 [[package]]
 name = "python-liquid"
-version = "1.13.0"
+version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "importlib-resources" },
+    { name = "babel" },
+    { name = "markupsafe" },
     { name = "python-dateutil" },
-    { name = "typing-extensions" },
+    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/75/0fed0ca920161b058806fa52d3e2ed82cf14beb2abe1afb114358ccc1413/python_liquid-1.13.0.tar.gz", hash = "sha256:c158fbaad6dd41c49de7cff34e3611bff7211326fb3049322d27673e1d66e166", size = 127389, upload-time = "2025-02-08T14:15:46.487Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/29/45ea9b5b22394aaea4d981960531c1de8cc46b9f4f85ddef3ff180740a8d/python_liquid-2.0.2.tar.gz", hash = "sha256:3b10c3716829778284e545afa968252bc51bc67ad8d13b3d93975d3affa92e2e", size = 91642, upload-time = "2025-05-21T07:38:16.108Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/b0/a795755aad1230c8d2f15c63c703204c351abd183deeff85941866a88a92/python_liquid-1.13.0-py3-none-any.whl", hash = "sha256:843ed7b8af00c1480d1bf402553ed07bdddce130ebbf4b1fefc84bb2e076f5d4", size = 210446, upload-time = "2025-02-08T14:15:44.935Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/64/4e7d316c3ebaaae8a5f6fdbfa5067285f66bceed66ef002b21ac3033049d/python_liquid-2.0.2-py3-none-any.whl", hash = "sha256:599ac3f0fcfc77c914447a0c53f87a55b537ffe5d0169f2fffdc8216577161c0", size = 136282, upload-time = "2025-05-21T07:38:14.856Z" },
 ]
 
 [[package]]
@@ -2088,6 +2120,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f3/87/f44d7c9f274c7ee665a29b885ec97089ec5dc034c7f3fafa03da9e39a09e/python_multipart-0.0.20.tar.gz", hash = "sha256:8dd0cab45b8e23064ae09147625994d090fa46f5b0d1e13af944c331a7fa9d13", size = 37158, upload-time = "2024-12-16T19:45:46.972Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/45/58/38b5afbc1a800eeea951b9285d3912613f2603bdf897a4ab0f4bd7f405fc/python_multipart-0.0.20-py3-none-any.whl", hash = "sha256:8a62d3a8335e06589fe01f2a3e178cdcc632f3fbe0d492ad9ee0ec35aab1f104", size = 24546, upload-time = "2024-12-16T19:45:44.423Z" },
+]
+
+[[package]]
+name = "pytz"
+version = "2025.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/bf/abbd3cdfb8fbc7fb3d4d38d320f2441b1e7cbe29be4f23797b4a2b5d8aac/pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3", size = 320884, upload-time = "2025-03-25T02:25:00.538Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00", size = 509225, upload-time = "2025-03-25T02:24:58.468Z" },
 ]
 
 [[package]]

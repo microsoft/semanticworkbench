@@ -10,6 +10,7 @@ dependencies = [
     "anthropic-client>=0.1.0",
     "assistant-drive>=0.1.0",
     "deepmerge>=2.0",
+    "message-history-manager>=0.1.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "requests-sse>=0.3.2",
@@ -33,6 +34,7 @@ assistant-drive = { path = "../assistant-drive", editable = true }
 mcp-extensions = { path = "../mcp-extensions", editable = true }
 openai-client = { path = "../openai-client", editable = true }
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
+message-history-manager = { path = "../message-history-manager", editable = true }
 
 [build-system]
 requires = ["hatchling"]

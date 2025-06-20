@@ -1,14 +1,16 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, cast
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
+from assistant_extensions.message_history import message_history_manager_message_provider_for
 from mcp.types import SamplingMessage, TextContent
+from message_history_manager.history import NewTurn, apply_budget_to_history_messages
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -17,9 +19,7 @@ from openai.types.chat import (
 )
 from openai_client import (
     OpenAIRequestConfig,
-    convert_from_completion_messages,
     num_tokens_from_messages,
-    num_tokens_from_tools,
     num_tokens_from_tools_and_messages,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -27,8 +27,8 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from ..config import MCPToolsConfigModel, PromptsConfigModel
 from ..whiteboard import notify_whiteboard
 from .utils import (
+    abbreviations,
     build_system_message_content,
-    get_history_messages,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ async def build_request(
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     silence_token: str,
+    history_turn: NewTurn,
 ) -> BuildRequestResult:
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -98,6 +99,17 @@ async def build_request(
             )
         )
 
+    # Generate the attachment messages
+    # attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
+    #     await attachments_extension.get_completion_messages_for_attachments(
+    #         context,
+    #         config=attachments_config,
+    #     )
+    # )
+
+    # # Add attachment messages
+    # chat_message_params.extend(attachment_messages)
+
     # Initialize token count to track the number of tokens used
     # Add history messages last, as they are what will be truncated if the token limit is reached
     #
@@ -106,53 +118,36 @@ async def build_request(
     # - tools
     # - tool_choice
     # - response_format
-    # - seed (if set, minor impact)
 
-    # Calculate the token count for the messages so far
-    token_count = num_tokens_from_messages(
+    # Calculate the token count for everything so far
+    consumed_token_count = num_tokens_from_tools_and_messages(
         model=request_config.model,
         messages=chat_message_params,
-    )
-
-    # Get the token count for the tools
-    tool_token_count = num_tokens_from_tools(
-        model=request_config.model,
         tools=tools or [],
     )
 
-    # Generate the attachment messages
-    attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
-        await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config=attachments_config,
-        )
-    )
-
-    # Add attachment messages
-    chat_message_params.extend(attachment_messages)
-
-    token_count += num_tokens_from_messages(
-        model=request_config.model,
-        messages=attachment_messages,
-    )
-
-    # Calculate available tokens
+    # Calculate the total available tokens for the request (ie. the maximum tokens minus the allocation for the response)
     available_tokens = request_config.max_tokens - request_config.response_tokens
 
     # Add room for reasoning tokens if using a reasoning model
     if request_config.is_reasoning_model:
         available_tokens -= request_config.reasoning_token_allocation
 
-    # Get history messages
-    history_messages_result = await get_history_messages(
-        context=context,
-        participants=participants_response.participants,
-        model=request_config.model,
-        token_limit=available_tokens - token_count - tool_token_count,
+    message_provider = message_history_manager_message_provider_for(
+        context=context, tool_abbreviations=abbreviations.tool_abbreviations
+    )
+
+    message_history_token_budget = available_tokens - consumed_token_count
+
+    history_messages = await apply_budget_to_history_messages(
+        turn=history_turn,
+        token_budget=message_history_token_budget,
+        token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=request_config.model),
+        message_provider=message_provider,
     )
 
     # Add history messages
-    chat_message_params.extend(history_messages_result.messages)
+    chat_message_params.extend(history_messages)
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
@@ -160,6 +155,13 @@ async def build_request(
         tools=tools or [],
         model=request_config.model,
     )
+
+    logging.info(
+        "chat message params budgeted; message count: %d, total token count: %d",
+        len(chat_message_params),
+        total_token_count,
+    )
+
     if total_token_count > available_tokens:
         raise ValueError(
             f"You've exceeded the token limit of {request_config.max_tokens} in this conversation "
@@ -193,10 +195,10 @@ async def build_request(
                 variable = json_payload.get("variable")
                 match variable:
                     case "attachment_messages":
-                        updated_messages.extend(attachment_messages)
+                        updated_messages.extend([])  # (attachment_messages)
                         continue
                     case "history_messages":
-                        updated_messages.extend(history_messages_result.messages)
+                        updated_messages.extend(history_messages)
                         continue
                     case _:
                         add_converted_message(message)
@@ -212,8 +214,8 @@ async def build_request(
     await notify_whiteboard(
         context=context,
         server_config=tools_config.hosted_mcp_servers.memory_whiteboard,
-        attachment_messages=attachment_messages,
-        chat_messages=history_messages_result.messages,
+        attachment_messages=[],  # attachment_messages,
+        chat_messages=cast(list[ChatCompletionMessageParam], history_messages),
     )
 
     # Set the message processor for the sampling handler
@@ -222,5 +224,5 @@ async def build_request(
     return BuildRequestResult(
         chat_message_params=chat_message_params,
         token_count=total_token_count,
-        token_overage=history_messages_result.token_overage,
+        token_overage=0,
     )

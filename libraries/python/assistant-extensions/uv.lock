@@ -201,6 +201,7 @@ dependencies = [
     { name = "anthropic-client" },
     { name = "assistant-drive" },
     { name = "deepmerge" },
+    { name = "message-history-manager" },
     { name = "openai" },
     { name = "openai-client" },
     { name = "requests-sse" },
@@ -231,6 +232,7 @@ requires-dist = [
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
     { name = "mcp-extensions", extras = ["openai"], marker = "extra == 'mcp'", editable = "../mcp-extensions" },
+    { name = "message-history-manager", editable = "../message-history-manager" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
@@ -941,6 +943,35 @@ wheels = [
 ]
 
 [[package]]
+name = "message-history-manager"
+version = "0.1.0"
+source = { editable = "../message-history-manager" }
+dependencies = [
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "python-liquid" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openai", specifier = ">=1.85,<2.0" },
+    { name = "openai-client", editable = "../openai-client" },
+    { name = "pydantic", specifier = ">=2.10,<3.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
+    { name = "python-liquid", specifier = ">=2.0,<3.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.401" },
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
+]
+examples = [{ name = "pydantic-ai", extras = ["openai", "athropic"], specifier = ">=0.2,<0.3" }]
+
+[[package]]
 name = "msal"
 version = "1.31.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1032,7 +1063,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.65.0"
+version = "1.87.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1044,9 +1075,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/85/aa/c6a44d02f65304ec38398ffa5054a3e905e2ba0246c246ad3a0c95cc8975/openai-1.65.0.tar.gz", hash = "sha256:8dcd5992df60236b9132734e68a17b16a3dbb19464b34ee6db5632dd5f46225e", size = 357426, upload-time = "2025-02-27T20:11:26.961Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/ed/2b3f6c7e950784e9442115ab8ebeff514d543fb33da10607b39364645a75/openai-1.87.0.tar.gz", hash = "sha256:5c69764171e0db9ef993e7a4d8a01fd8ff1026b66f8bdd005b9461782b6e7dfc", size = 470880, upload-time = "2025-06-16T19:04:26.316Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/17/ca/f98f539255494e87082f885258c9f05851c8fa098ce4c3572ccb36286e62/openai-1.65.0-py3-none-any.whl", hash = "sha256:becda1ca068c27f2884aacef09b6ed94791b9a440f7678e305de982ec92c47bf", size = 472815, upload-time = "2025-02-27T20:11:24.136Z" },
+    { url = "https://files.pythonhosted.org/packages/36/ac/313ded47ce1d5bc2ec02ed5dd5506bf5718678a4655ac20f337231d9aae3/openai-1.87.0-py3-none-any.whl", hash = "sha256:f9bcae02ac4fff6522276eee85d33047335cfb692b863bd8261353ce4ada5692", size = 734368, upload-time = "2025-06-16T19:04:23.181Z" },
 ]
 
 [[package]]
