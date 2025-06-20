@@ -10,8 +10,8 @@ else
 venv_dir = .venv
 endif
 
-UV_SYNC_INSTALL_ARGS ?= --all-extras --frozen
-UV_RUN_ARGS ?= --all-extras --frozen
+UV_SYNC_INSTALL_ARGS ?= --all-extras --all-groups --frozen
+UV_RUN_ARGS ?= --all-extras --all-groups --frozen
 
 PYTEST_ARGS ?= --color=yes
 

@@ -1,0 +1,10 @@
+- archives chunks from the tail end of the message history
+- uses the same "MessageProvider" as get_message_history
+- tracks the "newest message id" in the archive
+- provides a job to archive the messages that can be started and stopped
+- consumer passes in a function that generates the summary of an archive
+- consider providing example prompts for summary generation?
+- function to retrieve state of the archives
+  - list archives
+  - including summary, original content, and metadata
+  - function to retrieve a specific archive by id
