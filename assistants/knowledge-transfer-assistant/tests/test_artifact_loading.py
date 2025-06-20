@@ -112,7 +112,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
         brief = KnowledgeBrief(
             title=self.title,
-            description="Test project description",
+            content="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,

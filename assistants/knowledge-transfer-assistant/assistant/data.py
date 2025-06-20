@@ -133,27 +133,26 @@ class LearningObjective(BaseModel):
 class KnowledgeBrief(BaseEntity):
     """
     A thorough, comprehensive documentation of the knowledge to be transferred,
-    containing all relevant information necessary for understanding and learning.
+    containing all relevant information necessary for understanding and
+    learning.
 
-    The brief is the primary document that defines the knowledge package.
-    It serves as the central reference for both the Coordinator and team members
-    to understand what needs to be learned and why, capturing the comprehensive
+    The brief is the primary document that defines the knowledge package. It
+    serves as the central reference for both the Coordinator and team members to
+    understand what needs to be learned and why, capturing the comprehensive
     context of the knowledge being transferred.
 
-    The brief includes learning objectives, outcomes, and complete context.
-    It focuses on capturing comprehensive knowledge through detailed description
-    and additional_context fields that help learners understand the scope and purpose.
+    The brief focuses on capturing comprehensive knowledge that help learners
+    understand the scope, purpose, and content of the knowledge transfer.
 
     Created by the Coordinator during the ORGANIZING phase, the brief must be
     completed before the knowledge can move to the READY_FOR_TRANSFER state.
-    Once team members begin learning, the brief can still be updated,
-    but major changes should be communicated to all participants.
+    Once team members begin learning, the brief can still be updated, but major
+    changes should be communicated to all participants.
     """
 
     title: str  # Short, distinctive title for the knowledge package to transfer
-    description: str  # Comprehensive description of the knowledge's purpose, scope, and context
+    content: str  # The brief content, including the knowledge's purpose, scope, and content
     timeline: Optional[str] = None  # Expected timeline for learning (optional)
-    additional_context: Optional[str] = None  # Detailed supplementary information for knowledge transfer participants
 
 
 class KnowledgeDigest(BaseEntity):
@@ -388,11 +387,11 @@ class KnowledgePackage(BaseModel):
     def is_actively_sharing(self) -> bool:
         """
         Determine if knowledge transfer is actively happening (team members have joined).
-        
+
         A package is actively sharing when it's ready for transfer AND has team conversations.
         This indicates that team members have actually redeemed share links and are engaging
         with the knowledge.
-        
+
         Returns:
             bool: True if actively sharing, False otherwise
         """
@@ -512,53 +511,53 @@ class KnowledgePackage(BaseModel):
 
         achieved_outcomes, total_outcomes = self.get_overall_completion()
         return total_outcomes > 0 and achieved_outcomes == total_outcomes
-    
+
     def get_all_linked_conversations(self, exclude_current: Optional[str] = None) -> List[str]:
         """
         Get all conversations linked to this knowledge package.
-        
+
         Args:
             exclude_current: Conversation ID to exclude from results (typically current conversation)
-            
+
         Returns:
             List of conversation IDs (coordinator, shared template, and all team conversations)
         """
         conversations = []
-        
+
         # Add coordinator conversation
         if self.coordinator_conversation_id and self.coordinator_conversation_id != exclude_current:
             conversations.append(self.coordinator_conversation_id)
-            
+
         # Add shared template conversation (though usually excluded from notifications)
         if self.shared_conversation_id and self.shared_conversation_id != exclude_current:
             conversations.append(self.shared_conversation_id)
-            
+
         # Add all team conversations
         for conversation_id in self.team_conversations.keys():
             if conversation_id != exclude_current:
                 conversations.append(conversation_id)
-                
+
         return conversations
-    
+
     def get_notification_conversations(self, exclude_current: Optional[str] = None) -> List[str]:
         """
         Get conversations that should receive notifications (excludes shared template).
-        
+
         Args:
             exclude_current: Conversation ID to exclude from results
-            
+
         Returns:
             List of conversation IDs that should receive notifications
         """
         conversations = []
-        
+
         # Add coordinator conversation
         if self.coordinator_conversation_id and self.coordinator_conversation_id != exclude_current:
             conversations.append(self.coordinator_conversation_id)
-            
+
         # Add all team conversations (but NOT shared template)
         for conversation_id in self.team_conversations.keys():
             if conversation_id != exclude_current:
                 conversations.append(conversation_id)
-                
+
         return conversations

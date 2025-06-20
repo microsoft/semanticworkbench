@@ -791,7 +791,7 @@ async def handle_project_info_command(
             if briefing:
                 # Format briefing information
                 output.append(f"## Brief: {briefing.title}")
-                output.append(f"\n{briefing.description}\n")
+                output.append(f"\n{briefing.content}\n")
 
                 # Get learning objectives
                 if share_id:

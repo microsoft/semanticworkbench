@@ -42,7 +42,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         brief_text = dedent(f"""
             ### BRIEF
             **Title:** {briefing.title}
-            **Description:** {briefing.description}
+            **Description:** {briefing.content}
             """)
         project_data["briefing"] = brief_text
 

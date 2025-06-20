@@ -121,7 +121,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
         brief = KnowledgeBrief(
             title="Test KnowledgePackage",
-            description="Test project description",
+            content="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
@@ -168,7 +168,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(brief, "Should load the brief")
         if brief:  # Type checking guard
             self.assertEqual(brief.title, "Test KnowledgePackage")
-            self.assertEqual(brief.description, "Test project description")
+            self.assertEqual(brief.content, "Test project description")
 
         # Verify the project was loaded with goals correctly
         self.assertIsNotNone(project, "Should load the project")
@@ -395,15 +395,15 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Load knowledge package
         package = ShareStorage.read_share(self.share_id)
         self.assertIsNotNone(package)
-        
+
         if package:
             # Verify team_conversations dict exists (even if empty)
             self.assertIsInstance(package.team_conversations, dict)
-            
+
             # Verify helper methods work
             linked_conversations = package.get_all_linked_conversations()
             self.assertIsInstance(linked_conversations, list)
-            
+
             notification_conversations = package.get_notification_conversations()
             self.assertIsInstance(notification_conversations, list)
 

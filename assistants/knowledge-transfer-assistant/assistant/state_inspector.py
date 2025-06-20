@@ -113,15 +113,9 @@ class ShareInspectorStateProvider:
             title = brief.title
             lines.append(f"### {title}")
             lines.append("")
-            
-            if brief.description:
-                lines.append(brief.description)
-                lines.append("")
 
-            # In context transfer mode, show additional context in a dedicated section
-            if brief.additional_context:
-                lines.append("## Additional Knowledge Context")
-                lines.append(brief.additional_context)
+            if brief.content:
+                lines.append(brief.content)
                 lines.append("")
         else:
             # Show instructional text when no brief has been created yet
@@ -268,15 +262,9 @@ class ShareInspectorStateProvider:
             title = brief.title
             lines.append(f"### {title}")
             lines.append("")
-            
-            if brief.description:
-                lines.append(brief.description)
-                lines.append("")
 
-            # In context transfer mode, show additional context in a dedicated section
-            if brief.additional_context:
-                lines.append("## Additional Knowledge Context")
-                lines.append(brief.additional_context)
+            if brief.content:
+                lines.append(brief.content)
                 lines.append("")
         else:
             # Show message for team members when no brief has been created yet

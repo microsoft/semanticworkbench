@@ -512,7 +512,6 @@ class KnowledgeTransferManager:
         title: str,
         description: str,
         timeline: Optional[str] = None,
-        additional_context: Optional[str] = None,
         send_notification: bool = True,
     ) -> Optional[KnowledgeBrief]:
         """
@@ -525,7 +524,6 @@ class KnowledgeTransferManager:
             title: Short, descriptive name for the knowledge share
             description: Comprehensive description of the knowledge share's purpose
             timeline: Optional information about timeline/deadlines
-            additional_context: Optional additional relevant information
             send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
@@ -544,9 +542,8 @@ class KnowledgeTransferManager:
         # Create the project brief
         brief = KnowledgeBrief(
             title=title,
-            description=description,
+            content=description,
             timeline=timeline,
-            additional_context=additional_context,
             created_by=current_user_id,
             updated_by=current_user_id,
             conversation_id=str(context.id),

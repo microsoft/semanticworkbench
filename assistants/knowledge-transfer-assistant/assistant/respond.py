@@ -201,7 +201,7 @@ async def respond_to_conversation(
     briefing = ShareStorage.read_knowledge_brief(project_id)
     project_brief_text = ""
     if briefing:
-        project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.description}"
+        project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.content}"
         prompt.contexts.append(
             Context(
                 "Knowledge Brief",
