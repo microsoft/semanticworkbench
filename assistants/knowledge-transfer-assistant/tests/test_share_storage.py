@@ -390,14 +390,22 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(updated_package.completion_percentage, 50)
                 self.assertEqual(updated_package.next_learning_actions, ["Action 1", "Action 2"])
 
-    async def test_get_linked_conversations_dir(self):
-        """Test getting linked conversations directory."""
-        # Get linked conversations directory
-        linked_dir = ShareStorageManager.get_linked_conversations_dir(self.share_id)
-
-        # Verify directory exists
-        self.assertTrue(linked_dir.exists(), "Linked conversations directory should exist")
-        self.assertEqual(linked_dir.name, "linked_conversations")
+    async def test_conversation_tracking_in_json(self):
+        """Test that conversations are tracked in JSON instead of file system."""
+        # Load knowledge package
+        package = ShareStorage.read_share(self.share_id)
+        self.assertIsNotNone(package)
+        
+        if package:
+            # Verify team_conversations dict exists (even if empty)
+            self.assertIsInstance(package.team_conversations, dict)
+            
+            # Verify helper methods work
+            linked_conversations = package.get_all_linked_conversations()
+            self.assertIsInstance(linked_conversations, list)
+            
+            notification_conversations = package.get_notification_conversations()
+            self.assertIsInstance(notification_conversations, list)
 
     async def test_conversation_association(self):
         """Test conversation association with project."""

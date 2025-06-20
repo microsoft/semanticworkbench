@@ -227,16 +227,40 @@ async def respond_to_conversation(
     share = ShareStorage.read_share(project_id)
     if share and share.learning_objectives:
         learning_objectives_text = ""
-        for i, objective in enumerate(share.learning_objectives):
-            # Count completed criteria
-            completed = sum(1 for c in objective.learning_outcomes if c.achieved)
-            total = len(objective.learning_outcomes)
+        conversation_id = str(context.id)
 
+        # Show progress based on role
+        if role == ConversationRole.COORDINATOR:
+            # Coordinator sees overall progress across all team members
+            achieved_overall, total_overall = share.get_overall_completion()
+            learning_objectives_text += (
+                f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
+            )
+        else:
+            # Team member sees their personal progress
+            if conversation_id in share.team_conversations:
+                achieved_personal, total_personal = share.get_completion_for_conversation(conversation_id)
+                progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
+                learning_objectives_text += (
+                    f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
+                )
+
+        for i, objective in enumerate(share.learning_objectives):
             project_brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
             if objective.learning_outcomes:
-                learning_objectives_text += f"   Progress: {completed}/{total} criteria complete\n"
                 for criterion in objective.learning_outcomes:
-                    check = "✅" if criterion.achieved else "⬜"
+                    if role == ConversationRole.COORDINATOR:
+                        # Show if achieved by any team member
+                        achieved_by_any = any(
+                            share.is_outcome_achieved_by_conversation(criterion.id, conv_id)
+                            for conv_id in share.team_conversations.keys()
+                        )
+                        check = "✅" if achieved_by_any else "⬜"
+                    else:
+                        # Show if achieved by this team member
+                        achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
+                        check = "✅" if achieved_by_me else "⬜"
+
                     learning_objectives_text += f"   {check} {criterion.description}\n"
         prompt.contexts.append(
             Context(

@@ -168,6 +168,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
 
             await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
+            # Set the conversation role for team conversations
+            await ConversationKnowledgePackageManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
 
             # Synchronize files.
             await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)

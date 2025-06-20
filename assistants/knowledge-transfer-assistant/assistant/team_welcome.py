@@ -50,14 +50,23 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
     share = ShareStorage.read_share(project_id)
     if share and share.learning_objectives:
         brief_text += "\n#### LEARNING OBJECTIVES:\n\n"
+        conversation_id = str(context.id)
+
+        # Show team member's personal progress (initially 0)
+        if conversation_id in share.team_conversations:
+            achieved_personal, total_personal = share.get_completion_for_conversation(conversation_id)
+            progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
+            brief_text += (
+                f"**My Progress:** {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
+            )
+
         for i, objective in enumerate(share.learning_objectives):
-            completed = sum(1 for c in objective.learning_outcomes if c.achieved)
-            total = len(objective.learning_outcomes)
             brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
             if objective.learning_outcomes:
-                brief_text += f"   Progress: {completed}/{total} criteria complete\n"
                 for j, criterion in enumerate(objective.learning_outcomes):
-                    check = "✅" if criterion.achieved else "⬜"
+                    # Show team member's achievement status for each outcome
+                    achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
+                    check = "✅" if achieved_by_me else "⬜"
                     brief_text += f"   {check} {criterion.description}\n"
             brief_text += "\n"
         project_data["learning_objectives"] = brief_text

@@ -47,7 +47,7 @@ class TestKnowledgeTransferManager:
                     priority=2,
                     learning_outcomes=[
                         LearningOutcome(description="Criterion 1"),
-                        LearningOutcome(description="Criterion 2", achieved=True),
+                        LearningOutcome(description="Criterion 2"),
                     ],
                 ),
                 LearningObjective(name="Goal 3", description="Description 3", priority=3, learning_outcomes=[]),

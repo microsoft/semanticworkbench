@@ -117,13 +117,13 @@ class KnowledgeTransferManager:
 
         share_url = f"/conversation-share/{share.id}/redeem"
 
-        # Store team conversation info in KnowledgePackageInfo
-        share_info = ShareStorage.read_share_info(share_id)
-        if share_info:
-            share_info.team_conversation_id = str(conversation.id)
-            share_info.share_url = share_url
-            share_info.updated_at = datetime.utcnow()
-            ShareStorage.write_share_info(share_id, share_info)
+        # Store shared conversation info in KnowledgePackage
+        knowledge_package = ShareStorage.read_share(share_id)
+        if knowledge_package:
+            knowledge_package.shared_conversation_id = str(conversation.id)
+            knowledge_package.share_url = share_url
+            knowledge_package.updated_at = datetime.utcnow()
+            ShareStorage.write_share(share_id, knowledge_package)
         else:
             raise ValueError(f"KnowledgePackage info not found for project ID: {share_id}")
 
@@ -179,9 +179,7 @@ class KnowledgeTransferManager:
         # No need to set conversation role in project storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for project {share_id}")
 
-        # Ensure linked_conversations directory exists
-        linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
-        logger.debug(f"Ensured linked_conversations directory exists: {linked_dir}")
+        # Note: Conversation linking is now handled via JSON data, no directory needed
 
         return share_id
 
@@ -744,20 +742,15 @@ class KnowledgeTransferManager:
 
             # Get the updated project to access learning objectives
             updated_project = ShareStorage.read_share(share_id)
-            if updated_project and updated_project.learning_objectives:
-                for g in updated_project.learning_objectives:
-                    total_criteria += len(g.learning_outcomes)
-                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
+            if updated_project:
+                # Use the new overall completion calculation
+                completed_criteria, total_criteria = updated_project.get_overall_completion()
 
-            # Update project info with criteria stats
-            # Note: achieved_criteria not in KnowledgePackageInfo model
-            # Note: total_criteria not in KnowledgePackageInfo model
-
-            # Calculate progress percentage
-            if total_criteria > 0:
-                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
-            else:
-                project_info.completion_percentage = 0
+                # Calculate progress percentage
+                if total_criteria > 0:
+                    project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
+                else:
+                    project_info.completion_percentage = 0
 
             # Update metadata
             project_info.updated_at = datetime.utcnow()
@@ -1318,10 +1311,10 @@ class KnowledgeTransferManager:
                 return "No knowledge brief found. Start by creating one."
 
             # Check if learning objectives are needed and exist
-            if package.is_intended_to_accomplish_outcomes and (not knowledge_package or not knowledge_package.learning_objectives):
-                return (
-                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes, or indicate this package is for general exploration."
-                )
+            if package.is_intended_to_accomplish_outcomes and (
+                not knowledge_package or not knowledge_package.learning_objectives
+            ):
+                return "Knowledge package has no learning objectives. Add at least one learning objective with outcomes, or indicate this package is for general exploration."
 
             # Check if knowledge package is ready for transfer
             if not package.is_ready_for_transfer():

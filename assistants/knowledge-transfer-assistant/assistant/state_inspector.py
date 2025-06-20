@@ -122,19 +122,54 @@ class ShareInspectorStateProvider:
         # Add learning objectives section if available and progress tracking is enabled
         if share and share.learning_objectives:
             lines.append("## Learning Objectives")
+
+            # Show overall progress across all team conversations
+            achieved_outcomes, total_outcomes = share.get_overall_completion()
+            lines.append(
+                f"**Overall Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved by team members"
+            )
+            lines.append("")
+
             for objective in share.learning_objectives:
-                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
-                criteria_total = len(objective.learning_outcomes)
                 lines.append(f"### {objective.name}")
                 lines.append(objective.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
                 if objective.learning_outcomes:
                     lines.append("")
                     lines.append("#### Learning Outcomes:")
                     for criterion in objective.learning_outcomes:
-                        status_emoji = "✅" if criterion.achieved else "⬜"
-                        lines.append(f"- {status_emoji} {criterion.description}")
+                        # Check if any team conversation has achieved this outcome
+                        achieved_by_any = any(
+                            share.is_outcome_achieved_by_conversation(criterion.id, conv_id)
+                            for conv_id in share.team_conversations.keys()
+                        )
+                        status_emoji = "✅" if achieved_by_any else "⬜"
+
+                        # Show which team members achieved this outcome
+                        achieved_by_names = []
+                        for conv_id, team_conv in share.team_conversations.items():
+                            if share.is_outcome_achieved_by_conversation(criterion.id, conv_id):
+                                achieved_by_names.append(team_conv.redeemer_name)
+
+                        achievement_info = ""
+                        if achieved_by_names:
+                            achievement_info = f" (achieved by: {', '.join(achieved_by_names)})"
+
+                        lines.append(f"- {status_emoji} {criterion.description}{achievement_info}")
+                lines.append("")
+
+        # Add team conversations section
+        if share and share.team_conversations:
+            lines.append("## Team Conversations")
+            lines.append(f"**Active team members:** {len(share.team_conversations)}")
+            lines.append("")
+
+            for conv_id, team_conv in share.team_conversations.items():
+                achieved, total = share.get_completion_for_conversation(conv_id)
+                progress_pct = int((achieved / total * 100)) if total > 0 else 0
+                lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
+                lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")
+                lines.append(f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}")
                 lines.append("")
 
         # Add information requests section
@@ -234,21 +269,35 @@ class ShareInspectorStateProvider:
         # Add learning objectives section with checkable outcomes if progress tracking is enabled
         if share and share.learning_objectives:
             lines.append("## Learning Objectives")
+
+            # Show my personal progress
+            conversation_id = str(context.id)
+            achieved_outcomes, total_outcomes = share.get_completion_for_conversation(conversation_id)
+            progress_pct = int((achieved_outcomes / total_outcomes * 100)) if total_outcomes > 0 else 0
+            lines.append(f"**My Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved ({progress_pct}%)")
+            lines.append("")
+
             for objective in share.learning_objectives:
-                criteria_complete = sum(1 for c in objective.learning_outcomes if c.achieved)
-                criteria_total = len(objective.learning_outcomes)
                 lines.append(f"### {objective.name}")
                 lines.append(objective.description)
-                lines.append(f"**Progress:** {criteria_complete}/{criteria_total} outcomes achieved")
 
                 if objective.learning_outcomes:
                     lines.append("")
                     lines.append("#### Learning Outcomes:")
                     for criterion in objective.learning_outcomes:
-                        status_emoji = "✅" if criterion.achieved else "⬜"
+                        # Check if I've achieved this outcome
+                        achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
+                        status_emoji = "✅" if achieved_by_me else "⬜"
+
                         completion_info = ""
-                        if criterion.achieved and hasattr(criterion, "achieved_at") and criterion.achieved_at:
-                            completion_info = f" (achieved on {criterion.achieved_at.strftime('%Y-%m-%d')})"
+                        if achieved_by_me:
+                            # Find my achievement record
+                            my_achievements = share.get_achievements_for_conversation(conversation_id)
+                            for achievement in my_achievements:
+                                if achievement.outcome_id == criterion.id and achievement.achieved:
+                                    completion_info = f" (achieved on {achievement.achieved_at.strftime('%Y-%m-%d')})"
+                                    break
+
                         lines.append(f"- {status_emoji} {criterion.description}{completion_info}")
                 lines.append("")
 
