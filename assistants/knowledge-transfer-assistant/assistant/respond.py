@@ -639,12 +639,13 @@ async def respond_to_conversation(
                 output_model.excerpt = output_model.excerpt.strip().strip('"')
                 response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
 
-            if output_model.next_step_suggestion:
-                response_parts.append(output_model.next_step_suggestion)
-
             if output_model.citations:
                 citations = ", ".join(output_model.citations)
                 response_parts.append(f"Sources: _{citations}_")
+
+            if output_model.next_step_suggestion:
+                metadata["help"] = output_model.next_step_suggestion
+
         else:
             output_model = CoordinatorOutput.model_validate_json(content)
             if output_model.response:
