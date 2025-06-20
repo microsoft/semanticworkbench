@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Iterable
 
 import pytest
-from message_history_manager.virtual_filesystem import (
+from chat_context_toolkit.virtual_filesystem import (
     DirectoryEntry,
     FileEntry,
     VirtualFileSystem,

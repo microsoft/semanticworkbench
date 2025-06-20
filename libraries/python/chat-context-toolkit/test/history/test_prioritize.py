@@ -1,11 +1,11 @@
 from uuid import uuid4
 
 import pytest
-from message_history_manager.history import HistoryMessageProtocol, OpenAIHistoryMessageParam
-from message_history_manager.history._prioritize import (
+from chat_context_toolkit.history import HistoryMessageProtocol, OpenAIHistoryMessageParam
+from chat_context_toolkit.history._prioritize import (
     _high_priority_start_index,
 )
-from message_history_manager.history._types import TokenCounts
+from chat_context_toolkit.history._types import TokenCounts
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,

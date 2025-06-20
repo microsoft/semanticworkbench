@@ -8,9 +8,9 @@ from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
-from assistant_extensions.message_history import message_history_manager_message_provider_for
+from assistant_extensions.message_history import chat_context_toolkit_message_provider_for
+from chat_context_toolkit.history import NewTurn, apply_budget_to_history_messages
 from mcp.types import SamplingMessage, TextContent
-from message_history_manager.history import NewTurn, apply_budget_to_history_messages
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -133,7 +133,7 @@ async def build_request(
     if request_config.is_reasoning_model:
         available_tokens -= request_config.reasoning_token_allocation
 
-    message_provider = message_history_manager_message_provider_for(
+    message_provider = chat_context_toolkit_message_provider_for(
         context=context, tool_abbreviations=abbreviations.tool_abbreviations
     )
 

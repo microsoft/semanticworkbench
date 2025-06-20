@@ -1,4 +1,4 @@
-from message_history_manager.history.tool_abbreviations import Abbreviations, ToolAbbreviations
+from chat_context_toolkit.history.tool_abbreviations import Abbreviations, ToolAbbreviations
 
 tool_abbreviations = ToolAbbreviations({
     "read_file": Abbreviations(

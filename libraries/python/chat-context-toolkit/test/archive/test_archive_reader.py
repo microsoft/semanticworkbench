@@ -2,8 +2,8 @@ import pathlib
 from datetime import datetime, timezone
 
 import pytest
-from message_history_manager.archive import ArchiveReader, HistoryMessageParam
-from message_history_manager.archive._types import (
+from chat_context_toolkit.archive import ArchiveReader, HistoryMessageParam
+from chat_context_toolkit.archive._types import (
     ArchiveContent,
     ArchiveManifest,
     ArchivesState,

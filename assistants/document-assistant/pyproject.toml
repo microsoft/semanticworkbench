@@ -14,7 +14,7 @@ dependencies = [
     "deepmerge>=2.0",
     "httpx>=0.28,<1.0",
     "markitdown[docx,outlook,pptx,xlsx]==0.1.1",
-    "message-history-manager>=0.1.0",
+    "chat-context-toolkit>=0.1.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "pdfplumber>=0.11.2",
@@ -40,7 +40,7 @@ assistant-extensions = { path = "../../libraries/python/assistant-extensions", e
 mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
-message-history-manager = { path = "../../libraries/python/message-history-manager", editable = true }
+chat-context-toolkit = { path = "../../libraries/python/chat-context-toolkit", editable = true }
 
 [build-system]
 requires = ["hatchling"]

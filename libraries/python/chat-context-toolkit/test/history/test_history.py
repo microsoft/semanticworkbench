@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from message_history_manager.history import (
+from chat_context_toolkit.history import (
     HistoryMessageProtocol,
     NewTurn,
     OpenAIHistoryMessageParam,

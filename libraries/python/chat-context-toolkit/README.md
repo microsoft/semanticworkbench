@@ -77,7 +77,7 @@ uv sync --all-extras --all-groups --frozen
 ### Example 1: Managing Message History with Token Budgets
 
 ```python
-from message_history_manager.history import (
+from chat_context_toolkit.history import (
     apply_budget_to_history_messages,
     NewTurn,
     HistoryMessageProvider,
@@ -108,7 +108,7 @@ messages = await apply_budget_to_history_messages(
 ### Example 2: Archiving Messages
 
 ```python
-from message_history_manager.archive import ArchiveTask, ArchiveTaskConfig
+from chat_context_toolkit.archive import ArchiveTask, ArchiveTaskConfig
 
 # Initialize archiving task
 archive_task = ArchiveTask(
@@ -132,7 +132,7 @@ trigger_fn()
 ### Example 3: Reading Archived Messages
 
 ```python
-from message_history_manager.archive import ArchiveReader
+from chat_context_toolkit.archive import ArchiveReader
 
 # Create archive reader
 reader = ArchiveReader(

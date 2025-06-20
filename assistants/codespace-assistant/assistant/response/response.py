@@ -13,8 +13,8 @@ from assistant_extensions.mcp import (
     list_roots_callback_for,
     refresh_mcp_sessions,
 )
+from chat_context_toolkit.history import NewTurn
 from mcp import ServerNotification
-from message_history_manager.history import NewTurn
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,

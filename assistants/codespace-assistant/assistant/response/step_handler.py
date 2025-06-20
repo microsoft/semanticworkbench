@@ -7,8 +7,8 @@ import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
 from assistant_extensions.virtual_filesystem import AttachmentsVirtualFileSystemFileSource
-from message_history_manager.history import NewTurn
-from message_history_manager.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.history import NewTurn
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,

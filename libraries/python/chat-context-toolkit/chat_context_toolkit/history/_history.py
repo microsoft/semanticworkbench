@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from message_history_manager.history._decorators import log_timing
+from ._decorators import log_timing
 
 from . import _budget as budget
 from . import _prioritize as prioritize

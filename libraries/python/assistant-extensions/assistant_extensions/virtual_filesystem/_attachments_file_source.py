@@ -1,7 +1,7 @@
 import logging
 from typing import Iterable
 
-from message_history_manager.virtual_filesystem import (
+from chat_context_toolkit.virtual_filesystem import (
     DirectoryEntry,
     FileEntry,
     FileSource,
