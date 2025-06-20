@@ -341,6 +341,7 @@ class KnowledgePackage(BaseModel):
     is_intended_to_accomplish_outcomes: bool = (
         True  # Whether this package is intended for specific learning outcomes vs general exploration
     )
+    knowledge_organized: bool = False  # Whether the coordinator has confirmed all necessary knowledge has been captured
 
     # Metadata fields (formerly from KnowledgePackageInfo)
     version: int = 1  # Version counter for tracking changes
@@ -363,6 +364,7 @@ class KnowledgePackage(BaseModel):
         Determine if this knowledge package is ready for transfer to team members.
 
         A package is ready when it has:
+        - Knowledge organized and confirmed by coordinator
         - A knowledge brief
         - An audience definition
         - Either:
@@ -372,7 +374,11 @@ class KnowledgePackage(BaseModel):
         Returns:
             bool: True if ready for transfer, False otherwise
         """
-        has_basic_requirements = self.brief is not None and self.audience is not None
+        has_basic_requirements = (
+            self.knowledge_organized and 
+            self.brief is not None and 
+            self.audience is not None
+        )
 
         if not has_basic_requirements:
             return False
@@ -414,12 +420,14 @@ class KnowledgePackage(BaseModel):
             # Coordinator perspective
             if not self.audience:
                 return "🎯 Defining Audience"
+            elif not self.knowledge_organized:
+                return "📋 Organizing Knowledge"
             elif not self.brief:
-                return "📋 Creating Brief"
+                return "📝 Creating Brief"
             elif self.is_intended_to_accomplish_outcomes and not self.learning_objectives:
                 return "📚 Adding Objectives"
             elif not self.is_ready_for_transfer():
-                return "📋 Organizing Knowledge"
+                return "📋 Finalizing Setup"
             elif self.is_intended_to_accomplish_outcomes and self._is_transfer_complete():
                 return "✅ Transfer Complete"
             elif self.is_actively_sharing():

@@ -1297,29 +1297,33 @@ class KnowledgeTransferManager:
             if not package.audience:
                 return "Let's start by defining who your audience is. Who is this knowledge for, and what's their background?"
 
-            # 3. Brief not yet written
+            # 3. Knowledge not yet organized
+            if not package.knowledge_organized:
+                return "Next, let's organize your knowledge. Upload any relevant files or describe the knowledge you want to transfer. When you're ready, I can mark the knowledge as organized."
+
+            # 4. Brief not yet written
             if not brief:
                 return "Your package needs a short introduction that will orient your team. Let's write a knowledge brief next."
 
-            # 4. If intended to have outcomes but none defined yet
+            # 5. If intended to have outcomes but none defined yet
             if package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
                 return (
                     "Would you like your team to achieve any specific outcomes? If so, let's define some learning objectives. "
                     "If not, you can mark this package as 'exploratory' instead."
                 )
 
-            # 5. Objectives exist, but missing outcomes
+            # 6. Objectives exist, but missing outcomes
             if package.is_intended_to_accomplish_outcomes:
                 incomplete_objectives = [obj for obj in package.learning_objectives if not obj.learning_outcomes]
                 if incomplete_objectives:
                     name = incomplete_objectives[0].name
                     return f"The learning objective “{name}” doesn't have any outcomes yet. Let's define what your team should accomplish to meet it."
 
-            # 6. Ready for transfer but not yet shared
+            # 7. Ready for transfer but not yet shared
             if package.is_ready_for_transfer() and not package.is_actively_sharing():
                 return "Your knowledge package is ready to share. Would you like to create a message and generate the invitation link?"
 
-            # 7. Actively sharing - monitor and support ongoing transfer
+            # 8. Actively sharing - monitor and support ongoing transfer
             if package.is_actively_sharing():
                 if package.is_intended_to_accomplish_outcomes and not package._is_transfer_complete():
                     team_count = len(package.team_conversations)
@@ -1327,7 +1331,7 @@ class KnowledgeTransferManager:
                 else:
                     return "Your knowledge transfer is in progress. You can continue improving the package or respond to information requests as they come in."
 
-            # 8. Default: General support
+            # 9. Default: General support
             return "Your package is available. You can continue improving it or respond to new information requests as they come in."
 
         except Exception as e:

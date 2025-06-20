@@ -95,24 +95,33 @@ class ShareTools:
 
         # Register role-specific tools
         if role == "coordinator":
-            # Coordinator-specific tools
-            self.tool_functions.add_function(
-                self.update_brief,
-                "update_brief",
-                "Update a brief with a title and description",
-            )
-            self.tool_functions.add_function(
-                self.resolve_information_request,
-                "resolve_information_request",
-                "Resolve an information request with information",
-            )
+            # Coordinator workflow tools (in typical usage order)
 
+            # 1. Setup phase - Define audience and organize knowledge
             self.tool_functions.add_function(
                 self.update_audience,
                 "update_audience",
                 "Update the target audience description for this knowledge package",
             )
+            self.tool_functions.add_function(
+                self.set_knowledge_organized,
+                "set_knowledge_organized",
+                "Mark that all necessary knowledge has been captured and organized for transfer. If knowledge was just added and you think it is sufficient for the audience, run this function immediately. If you think the coordinator should add more knowledge, suggest to them what they should add next.",
+            )
 
+            # 2. Brief creation phase
+            self.tool_functions.add_function(
+                self.update_brief,
+                "update_brief",
+                "Update a brief with a title and brief content",
+            )
+
+            # 3. Learning objectives phase
+            self.tool_functions.add_function(
+                self.set_learning_intention,
+                "set_learning_intention",
+                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration. If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).",
+            )
             self.tool_functions.add_function(
                 self.add_learning_objective,
                 "add_learning_objective",
@@ -128,10 +137,12 @@ class ShareTools:
                 "delete_learning_objective",
                 "Delete a learning objective from the knowledge package by index",
             )
+
+            # 4. Ongoing support phase
             self.tool_functions.add_function(
-                self.set_learning_intention,
-                "set_learning_intention",
-                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration",
+                self.resolve_information_request,
+                "resolve_information_request",
+                "Resolve an information request with information",
             )
 
         else:
@@ -915,6 +926,48 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             guidance = "This knowledge package is now set for general exploration. No specific learning objectives are required."
 
         return f"Learning intention updated successfully. {guidance}"
+
+    async def set_knowledge_organized(self, is_organized: bool) -> str:
+        """
+        Mark that all necessary knowledge has been captured and organized for transfer.
+
+        This indicates that the coordinator has uploaded files, shared information through conversation,
+        and confirmed that all necessary knowledge for the transfer has been captured. This is required
+        before the knowledge package can move to the "Ready for Transfer" state.
+
+        Args:
+            is_organized: True if knowledge is organized and ready, False to mark as currently unorganized
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can mark knowledge as organized."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return "No knowledge package found. Please create a knowledge brief first."
+
+        # Update the knowledge organized flag
+        package.knowledge_organized = is_organized
+        package.updated_at = datetime.utcnow()
+
+        # Save the updated package
+        ShareStorage.write_share(share_id, package)
+
+        # Provide appropriate feedback
+        if is_organized:
+            guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."
+        else:
+            guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."
+
+        return f"Knowledge organization status updated successfully. {guidance}"
 
     async def update_audience(self, audience_description: str) -> str:
         """

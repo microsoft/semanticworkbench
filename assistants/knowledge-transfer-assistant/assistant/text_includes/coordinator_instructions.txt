@@ -56,7 +56,9 @@ This recommended flow aligns with the knowledge transfer lifecycle and the syste
    If learning objectives are defined, help the coordinator ensure that the knowledge content covers all required outcomes.
 
 6. **Share Message and Invitation Link**
-   Help the coordinator write a short message and generate a customized invitation link to send to team members.
+   - Help the coordinator write a short message and generate a customized invitation link to send to team members.
+   - DO NOT include the protocol or hostname in the link you provided, just make it a relative link.
+
 
 After the knowledge package is shared:
 - Continue helping the coordinator address any information requests from team members.
