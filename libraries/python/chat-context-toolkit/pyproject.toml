@@ -1,7 +1,7 @@
 [project]
-name = "message-history-manager"
+name = "chat-context-toolkit"
 version = "0.1.0"
-description = "Manages message history for an OpenAI agent"
+description = "Toolkit for managing context in OpenAI chat completions."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"

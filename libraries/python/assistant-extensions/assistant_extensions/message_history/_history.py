@@ -1,11 +1,11 @@
-"""Utility functions for retrieving message history using message_history_manager."""
+"""Utility functions for retrieving message history using chat_context_toolkit."""
 
 import logging
 import uuid
 from typing import Sequence
 
-from message_history_manager.history import HistoryMessageProtocol, HistoryMessageProvider
-from message_history_manager.history.tool_abbreviations import (
+from chat_context_toolkit.history import HistoryMessageProtocol, HistoryMessageProvider
+from chat_context_toolkit.history.tool_abbreviations import (
     HistoryMessageWithToolAbbreviation,
     ToolAbbreviations,
 )
@@ -20,7 +20,7 @@ from ._message import conversation_message_to_chat_message_params
 logger = logging.getLogger(__name__)
 
 
-def message_history_manager_message_provider_for(
+def chat_context_toolkit_message_provider_for(
     context: ConversationContext, tool_abbreviations: ToolAbbreviations
 ) -> HistoryMessageProvider:
     """
@@ -39,7 +39,7 @@ async def _get_history_manager_messages(
     context: ConversationContext, after_id: str | None, tool_abbreviations: ToolAbbreviations
 ) -> list[HistoryMessageWithToolAbbreviation]:
     """
-    Get all messages in the conversation, formatted for the message_history_manager.
+    Get all messages in the conversation, formatted for the chat_context_toolkit.
     """
 
     participants_response = await context.get_participants(include_inactive=True)

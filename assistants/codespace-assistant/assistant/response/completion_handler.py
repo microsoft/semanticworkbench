@@ -11,7 +11,7 @@ from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
-from message_history_manager.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionMessageToolCallParam,

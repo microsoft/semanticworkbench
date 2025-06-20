@@ -3,19 +3,19 @@
 from enum import Enum
 from typing import Literal, Sequence
 
-from liquid import render
-from message_history_manager.history import (
+from chat_context_toolkit.history import (
     HistoryMessageProtocol,
     HistoryMessageProvider,
     NewTurn,
     OpenAIHistoryMessageParam,
     apply_budget_to_history_messages,
 )
-from message_history_manager.history.tool_abbreviations import (
+from chat_context_toolkit.history.tool_abbreviations import (
     Abbreviations,
     HistoryMessageWithToolAbbreviation,
     ToolAbbreviations,
 )
+from liquid import render
 from openai_client import (
     num_tokens_from_messages,
 )

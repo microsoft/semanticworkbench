@@ -93,6 +93,10 @@
       "path": "libraries/python/assistant-extensions"
     },
     {
+      "name": "libraries:chat-context-toolkit",
+      "path": "libraries/python/chat-context-toolkit"
+    },
+    {
       "name": "libraries:content-safety",
       "path": "libraries/python/content-safety"
     },
@@ -103,10 +107,6 @@
     {
       "name": "libraries:guided-conversation",
       "path": "libraries/python/guided-conversation"
-    },
-    {
-      "name": "libraries:message-history-manager",
-      "path": "libraries/python/message-history-manager"
     },
     {
       "name": "libraries:mcp-extensions",

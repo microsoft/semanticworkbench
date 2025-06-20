@@ -1,7 +1,7 @@
 from typing import cast
 
-from message_history_manager.history import OpenAIHistoryMessageParam
-from message_history_manager.history._history import (
+from chat_context_toolkit.history import OpenAIHistoryMessageParam
+from chat_context_toolkit.history._history import (
     pair_and_order_tool_messages,
 )
 from openai.types.chat import (

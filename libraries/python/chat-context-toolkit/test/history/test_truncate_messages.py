@@ -1,8 +1,8 @@
 from uuid import uuid4
 
-from message_history_manager.history import OpenAIHistoryMessageParam
-from message_history_manager.history._budget import truncate_messages
-from message_history_manager.history._types import BudgetDecision, MessageCollection, TokenCounts
+from chat_context_toolkit.history import OpenAIHistoryMessageParam
+from chat_context_toolkit.history._budget import truncate_messages
+from chat_context_toolkit.history._types import BudgetDecision, MessageCollection, TokenCounts
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionUserMessageParam,

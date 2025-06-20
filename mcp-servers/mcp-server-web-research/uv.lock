@@ -200,8 +200,8 @@ dependencies = [
     { name = "anthropic" },
     { name = "anthropic-client" },
     { name = "assistant-drive" },
+    { name = "chat-context-toolkit" },
     { name = "deepmerge" },
-    { name = "message-history-manager" },
     { name = "openai" },
     { name = "openai-client" },
     { name = "requests-sse" },
@@ -219,10 +219,10 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "anthropic-client", editable = "../../libraries/python/anthropic-client" },
     { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
+    { name = "chat-context-toolkit", editable = "../../libraries/python/chat-context-toolkit" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
     { name = "mcp-extensions", extras = ["openai"], marker = "extra == 'mcp'", editable = "../../libraries/python/mcp-extensions" },
-    { name = "message-history-manager", editable = "../../libraries/python/message-history-manager" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
@@ -438,6 +438,32 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/e5/131d2fb1b0dddafc37be4f3a2fa79aa4c037368be9423061dccadfd90091/charset_normalizer-3.4.1-cp313-cp313-win32.whl", hash = "sha256:eb8178fe3dba6450a3e024e95ac49ed3400e506fd4e9e5c32d30adda88cbd407", size = 95391, upload-time = "2024-12-24T18:11:24.139Z" },
     { url = "https://files.pythonhosted.org/packages/27/f2/4f9a69cc7712b9b5ad8fdb87039fd89abba997ad5cbe690d1835d40405b0/charset_normalizer-3.4.1-cp313-cp313-win_amd64.whl", hash = "sha256:b1ac5992a838106edb89654e0aebfc24f5848ae2547d22c2c3f66454daa11971", size = 102702, upload-time = "2024-12-24T18:11:26.535Z" },
     { url = "https://files.pythonhosted.org/packages/0e/f6/65ecc6878a89bb1c23a086ea335ad4bf21a588990c3f535a227b9eea9108/charset_normalizer-3.4.1-py3-none-any.whl", hash = "sha256:d98b1668f06378c6dbefec3b92299716b931cd4e6061f3c875a71ced1780ab85", size = 49767, upload-time = "2024-12-24T18:12:32.852Z" },
+]
+
+[[package]]
+name = "chat-context-toolkit"
+version = "0.1.0"
+source = { editable = "../../libraries/python/chat-context-toolkit" }
+dependencies = [
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openai", specifier = ">=1.85,<2.0" },
+    { name = "openai-client", editable = "../../libraries/python/openai-client" },
+    { name = "pydantic", specifier = ">=2.10,<3.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.401" },
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [[package]]
@@ -1045,32 +1071,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "message-history-manager"
-version = "0.1.0"
-source = { editable = "../../libraries/python/message-history-manager" }
-dependencies = [
-    { name = "openai" },
-    { name = "openai-client" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "openai", specifier = ">=1.85,<2.0" },
-    { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "pydantic", specifier = ">=2.10,<3.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.401" },
-    { name = "pytest", specifier = ">=8.4.0" },
-    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [[package]]
