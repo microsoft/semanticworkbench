@@ -55,7 +55,6 @@ Manages in-memory history for active sessions and ensures prioritization within 
 ### Requirements
 
 - **Python**: 3.11 or higher
-- **Dependencies**: OpenAI SDK, Pydantic, python-dotenv, python-liquid
 
 ### Setup
 

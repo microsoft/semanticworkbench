@@ -21,7 +21,7 @@ from pydantic_ai import Agent
 from assistant.evaluation.config import EvaluationConfig
 from assistant.evaluation.pydantic_ai_utils import create_model
 
-SYSTEM_PROMPT = """You are a creative scenario generator for testing AI assistants with document processing and web search capabilities.
+SYSTEM_PROMPT = """You are a creative scenario generator for testing AI assistants.
 
 Your task is to create realistic, varied scenarios that test different aspects of the assistant's capabilities. Each scenario should:
 - Be distinct from all existing scenarios

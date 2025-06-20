@@ -1175,7 +1175,6 @@ dependencies = [
     { name = "openai-client" },
     { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "python-liquid" },
 ]
 
 [package.metadata]
@@ -1184,7 +1183,6 @@ requires-dist = [
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pydantic", specifier = ">=2.10,<3.0" },
     { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
-    { name = "python-liquid", specifier = ">=2.0,<3.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1193,7 +1191,6 @@ dev = [
     { name = "pytest", specifier = ">=8.4.0" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
-examples = [{ name = "pydantic-ai", extras = ["openai", "athropic"], specifier = ">=0.2,<0.3" }]
 
 [[package]]
 name = "msal"

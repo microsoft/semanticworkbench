@@ -10,7 +10,6 @@ dependencies = [
     "openai-client>=0.1.0",
     "pydantic>=2.10,<3.0",
     "python-dotenv>=1.0.1,<2.0",
-    "python-liquid>=2.0,<3.0",
 ]
 
 [tool.uv.sources]
@@ -18,7 +17,6 @@ openai-client = { path = "../openai-client", editable = true }
 
 [dependency-groups]
 dev = ["pyright>=1.1.401", "pytest>=8.4.0", "pytest-asyncio>=1.0.0"]
-examples = ["pydantic-ai[openai,athropic]>=0.2,<0.3"]
 
 [build-system]
 requires = ["hatchling"]

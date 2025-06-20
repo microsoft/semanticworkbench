@@ -8,7 +8,15 @@
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
       "consoleTitle": "${workspaceFolderBasename}",
-      "justMyCode": false // Set to false to debug external libraries
+      "justMyCode": true // Set to false to debug external libraries
+    },
+    {
+      "name": "assistants: document-assistant (Python Debugger: Current File)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
     }
   ],
   "compounds": [
