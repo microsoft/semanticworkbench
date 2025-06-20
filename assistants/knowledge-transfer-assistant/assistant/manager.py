@@ -1269,19 +1269,15 @@ class KnowledgeTransferManager:
     @staticmethod
     async def get_coordinator_next_action_suggestion(context: ConversationContext) -> Optional[str]:
         """
-        Generate next action suggestions for the coordinator based on knowledge transfer state.
+        Generate next action suggestions for the coordinator based on the knowledge transfer state.
 
-        This function provides contextual suggestions to help coordinators understand what
-        actions they should take next based on the current state of the knowledge transfer process.
-
-        Args:
-            context: Current conversation context
+        This output is passed to the assistant and helps guide the conversation toward completing or improving
+        the knowledge package in a helpful, structured way.
 
         Returns:
-            A suggestion message or None if no suggestions are available
+            A user-facing suggestion string, or None if no suggestion is needed.
         """
         try:
-            # Get share ID
             share_id = await KnowledgeTransferManager.get_share_id(context)
             if not share_id:
                 logger.warning("No share ID found for this conversation")
@@ -1291,38 +1287,44 @@ class KnowledgeTransferManager:
             if not package:
                 return None
 
-            # Get knowledge transfer state information
             brief = ShareStorage.read_knowledge_brief(share_id)
-            knowledge_package = ShareStorage.read_share(share_id)
             requests = ShareStorage.get_all_information_requests(share_id)
-
-            # Handling unresolved information requests is the first order of business.
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
+
+            # 1. Unresolved requests come first
             if active_requests:
-                request = active_requests[0]  # Get the first unresolved request
-                return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
+                request = active_requests[0]
+                return f'There are {len(active_requests)} unanswered questions from team members. One of them is: "{request.title}" Let\'s work on answering it.'
 
-            # Check if audience is defined.
+            # 2. Audience not yet defined
             if not package.audience:
-                return "Consider defining the target audience for this knowledge transfer. Understanding who will receive this knowledge and their existing expertise level will help ensure appropriate content depth and coverage."
+                return "Let's start by defining who your audience is. Who is this knowledge for, and what's their background?"
 
-            # Check if knowledge brief exists.
+            # 3. Brief not yet written
             if not brief:
-                return "No knowledge brief found. Start by creating one."
+                return "Your package needs a short introduction that will orient your team. Let's write a knowledge brief next."
 
-            # Check if learning objectives are needed and exist
-            if package.is_intended_to_accomplish_outcomes and (
-                not knowledge_package or not knowledge_package.learning_objectives
-            ):
-                return "Knowledge package has no learning objectives. Add at least one learning objective with outcomes, or indicate this package is for general exploration."
+            # 4. If intended to have outcomes but none defined yet
+            if package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
+                return (
+                    "Would you like your team to achieve any specific outcomes? If so, let's define some learning objectives. "
+                    "If not, you can mark this package as 'exploratory' instead."
+                )
 
-            # Check if knowledge package is ready for transfer
-            if not package.is_ready_for_transfer():
-                return "Knowledge package information is complete. Mark it as ready for transfer."
+            # 5. Objectives exist, but missing outcomes
+            if package.is_intended_to_accomplish_outcomes:
+                incomplete_objectives = [obj for obj in package.learning_objectives if not obj.learning_outcomes]
+                if incomplete_objectives:
+                    name = incomplete_objectives[0].name
+                    return f"The learning objective “{name}” doesn't have any outcomes yet. Let's define what your team should accomplish to meet it."
 
-            # Default suggestion for coordinators
-            return "Monitor team operations and respond to any new information requests. Feel free to anything in the knowledge package."
+            # 6. Ready for transfer but not yet shared
+            if package.is_ready_for_transfer():
+                return "Your knowledge package is ready to share. Would you like to create a message and generate the invitation link?"
+
+            # 7. Default: Post-transfer support
+            return "Your package is live. You can continue improving it or respond to new information requests as they come in."
 
         except Exception as e:
-            logger.exception(f"Error getting coordinator next action suggestion: {e}")
+            logger.exception(f"Error generating next action suggestion: {e}")
             return None
