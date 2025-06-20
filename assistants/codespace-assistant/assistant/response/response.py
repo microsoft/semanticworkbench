@@ -14,6 +14,7 @@ from assistant_extensions.mcp import (
     refresh_mcp_sessions,
 )
 from mcp import ServerNotification
+from message_history_manager.history import NewTurn
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -107,6 +108,7 @@ async def respond_to_conversation(
         completed_within_max_steps = False
         step_count = 0
 
+        history_turn = NewTurn(high_priority_token_count=config.response_behavior.high_priority_token_count)
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
@@ -139,6 +141,7 @@ async def respond_to_conversation(
                 attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
+                history_turn=history_turn,
             )
 
             if step_result.status == "error":

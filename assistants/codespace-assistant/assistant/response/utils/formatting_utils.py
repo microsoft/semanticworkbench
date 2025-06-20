@@ -1,25 +1,7 @@
 import logging
 from textwrap import dedent
 
-from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
-    ConversationParticipant,
-)
-
 logger = logging.getLogger(__name__)
-
-
-def format_message(message: ConversationMessage, participants: list[ConversationParticipant]) -> str:
-    """
-    Format a conversation message for display.
-    """
-    conversation_participant = next(
-        (participant for participant in participants if participant.id == message.sender.participant_id),
-        None,
-    )
-    participant_name = conversation_participant.name if conversation_participant else "unknown"
-    message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    return f"[{participant_name} - {message_datetime}]: {message.content}"
 
 
 def get_response_duration_message(response_duration: float) -> str:
