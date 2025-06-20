@@ -38,26 +38,19 @@ class ProjectNotifier:
         """
         # Import ConversationClientManager locally to avoid circular imports
         from .conversation_clients import ConversationClientManager
-        from .conversation_share_link import ConversationKnowledgePackageManager
 
-        # Get conversation IDs in the same project
-        linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
+        # Load the knowledge package to get notification conversations
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package:
+            logger.warning(f"Could not load knowledge package {share_id} for notifications")
+            return
+
+        # Get conversations that should receive notifications (excludes shared template and current)
         current_conversation_id = str(context.id)
+        notification_conversations = knowledge_package.get_notification_conversations(exclude_current=current_conversation_id)
 
-        # Get the shareable team conversation ID from project info
-        # This is the conversation created by the coordinator for sharing,
-        # not an actual user conversation
-        shareable_conversation_id = None
-        project_info = ShareStorage.read_share_info(share_id)
-        if project_info and project_info.team_conversation_id:
-            shareable_conversation_id = project_info.team_conversation_id
-
-        # Send notification to each linked conversation, excluding current and shareable conversation
-        for conv_id in linked_conversations:
-            # Skip current conversation and the shareable team conversation
-            if conv_id != current_conversation_id and (
-                not shareable_conversation_id or conv_id != shareable_conversation_id
-            ):
+        # Send notification to each conversation
+        for conv_id in notification_conversations:
                 try:
                     # Get client for the target conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -165,60 +158,49 @@ async def refresh_all_project_uis(context: ConversationContext, share_id: str) -
     """
     # Import ConversationClientManager locally to avoid circular imports
     from .conversation_clients import ConversationClientManager
-    from .conversation_share_link import ConversationKnowledgePackageManager
 
     try:
         # First update the current conversation's UI
         await refresh_current_ui(context)
 
-        # Get the shareable team conversation ID from project info to exclude it
-        shareable_conversation_id = None
-        project_info = ShareStorage.read_share_info(share_id)
-        if project_info and project_info.team_conversation_id:
-            shareable_conversation_id = project_info.team_conversation_id
+        # Load the knowledge package to get all conversations
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package:
+            logger.warning(f"Could not load knowledge package {share_id} for UI refresh")
+            return
 
-        # Get Coordinator client and update Coordinator if not the current conversation
-        (
-            coordinator_client,
-            coordinator_conversation_id,
-        ) = await ConversationClientManager.get_coordinator_client_for_project(context, share_id)
-        if coordinator_client and coordinator_conversation_id:
+        current_id = str(context.id)
+
+        # Update coordinator conversation if it exists and is not current
+        if knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
             try:
+                coordinator_client = ConversationClientManager.get_conversation_client(
+                    context, knowledge_package.coordinator_conversation_id
+                )
                 state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
-                # Get assistant ID from context
                 assistant_id = context.assistant.id
                 await coordinator_client.send_conversation_state_event(assistant_id, state_event)
                 logger.debug(
-                    f"Sent state event to Coordinator conversation {coordinator_conversation_id} to refresh inspector"
+                    f"Sent state event to Coordinator conversation {knowledge_package.coordinator_conversation_id} to refresh inspector"
                 )
             except Exception as e:
                 logger.warning(f"Error sending state event to Coordinator: {e}")
 
-        # Get all team conversation clients and update them
-        linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
-        current_id = str(context.id)
-
-        for conv_id in linked_conversations:
-            # Skip current conversation, coordinator conversation, and shareable conversation
-            if (
-                conv_id != current_id
-                and (not coordinator_conversation_id or conv_id != coordinator_conversation_id)
-                and (not shareable_conversation_id or conv_id != shareable_conversation_id)
-            ):
+        # Update all team conversations (excluding current)
+        for conv_id in knowledge_package.team_conversations.keys():
+            if conv_id != current_id:
                 try:
                     # Get client for the conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
 
                     # Send state event to refresh the inspector panel
                     state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
-                    # Get assistant ID from context
                     assistant_id = context.assistant.id
                     await client.send_conversation_state_event(assistant_id, state_event)
+                    logger.debug(f"Sent state event to team conversation {conv_id} to refresh inspector")
                 except Exception as e:
                     logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
                     continue
-            elif conv_id == shareable_conversation_id:
-                logger.info(f"Skipping UI update for shareable conversation: {conv_id}")
 
     except Exception as e:
         logger.warning(f"Error notifying all project UIs: {e}")

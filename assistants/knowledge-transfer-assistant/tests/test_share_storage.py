@@ -121,7 +121,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
         brief = KnowledgeBrief(
             title="Test KnowledgePackage",
-            description="Test project description",
+            content="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
@@ -168,7 +168,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(brief, "Should load the brief")
         if brief:  # Type checking guard
             self.assertEqual(brief.title, "Test KnowledgePackage")
-            self.assertEqual(brief.description, "Test project description")
+            self.assertEqual(brief.content, "Test project description")
 
         # Verify the project was loaded with goals correctly
         self.assertIsNotNone(project, "Should load the project")
@@ -390,14 +390,22 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(updated_package.completion_percentage, 50)
                 self.assertEqual(updated_package.next_learning_actions, ["Action 1", "Action 2"])
 
-    async def test_get_linked_conversations_dir(self):
-        """Test getting linked conversations directory."""
-        # Get linked conversations directory
-        linked_dir = ShareStorageManager.get_linked_conversations_dir(self.share_id)
+    async def test_conversation_tracking_in_json(self):
+        """Test that conversations are tracked in JSON instead of file system."""
+        # Load knowledge package
+        package = ShareStorage.read_share(self.share_id)
+        self.assertIsNotNone(package)
 
-        # Verify directory exists
-        self.assertTrue(linked_dir.exists(), "Linked conversations directory should exist")
-        self.assertEqual(linked_dir.name, "linked_conversations")
+        if package:
+            # Verify team_conversations dict exists (even if empty)
+            self.assertIsInstance(package.team_conversations, dict)
+
+            # Verify helper methods work
+            linked_conversations = package.get_all_linked_conversations()
+            self.assertIsInstance(linked_conversations, list)
+
+            notification_conversations = package.get_notification_conversations()
+            self.assertIsInstance(notification_conversations, list)
 
     async def test_conversation_association(self):
         """Test conversation association with project."""

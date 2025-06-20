@@ -160,7 +160,7 @@ Simply share your content or ideas, tell me who needs to understand them, and wh
 
 In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will help them understand the content of your knowledge transfer. You can ask me to update it at any time.
 
-What knowledge would you like to transfer today?"""
+Who are you going to be sharing your knowledge with?"""
 
 
 class TeamConfig(BaseModel):

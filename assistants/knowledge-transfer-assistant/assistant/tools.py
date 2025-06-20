@@ -26,6 +26,7 @@ from .command_processor import (
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
+    LearningOutcomeAchievement,
     LogEntryType,
     RequestPriority,
 )
@@ -92,27 +93,35 @@ class ShareTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
-
         # Register role-specific tools
         if role == "coordinator":
-            # Coordinator-specific tools
-            self.tool_functions.add_function(
-                self.update_brief,
-                "update_brief",
-                "Update a brief with a title and description",
-            )
-            self.tool_functions.add_function(
-                self.resolve_information_request,
-                "resolve_information_request",
-                "Resolve an information request with information",
-            )
+            # Coordinator workflow tools (in typical usage order)
 
+            # 1. Setup phase - Define audience and organize knowledge
             self.tool_functions.add_function(
                 self.update_audience,
                 "update_audience",
                 "Update the target audience description for this knowledge package",
             )
+            self.tool_functions.add_function(
+                self.set_knowledge_organized,
+                "set_knowledge_organized",
+                "Mark that all necessary knowledge has been captured and organized for transfer. If knowledge was just added and you think it is sufficient for the audience, run this function immediately. If you think the coordinator should add more knowledge, suggest to them what they should add next.",
+            )
 
+            # 2. Brief creation phase
+            self.tool_functions.add_function(
+                self.update_brief,
+                "update_brief",
+                "Update a brief with a title and brief content",
+            )
+
+            # 3. Learning objectives phase
+            self.tool_functions.add_function(
+                self.set_learning_intention,
+                "set_learning_intention",
+                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration. If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).",
+            )
             self.tool_functions.add_function(
                 self.add_learning_objective,
                 "add_learning_objective",
@@ -128,10 +137,12 @@ class ShareTools:
                 "delete_learning_objective",
                 "Delete a learning objective from the knowledge package by index",
             )
+
+            # 4. Ongoing support phase
             self.tool_functions.add_function(
-                self.set_learning_intention,
-                "set_learning_intention",
-                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration",
+                self.resolve_information_request,
+                "resolve_information_request",
+                "Resolve an information request with information",
             )
 
         else:
@@ -157,7 +168,6 @@ class ShareTools:
                 "mark_learning_outcome_achieved",
                 "Mark a learning outcome as achieved",
             )
-
 
     async def update_brief(self, title: str, description: str) -> str:
         """
@@ -763,9 +773,11 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Update the outcome
         outcome = objective.learning_outcomes[criterion_index]
+        conversation_id = str(self.context.id)
 
-        if outcome.achieved:
-            return f"Outcome '{outcome.description}' is already marked as achieved."
+        # Check if already achieved by this conversation
+        if knowledge_package.is_outcome_achieved_by_conversation(outcome.id, conversation_id):
+            return f"Outcome '{outcome.description}' is already marked as achieved by this team member."
 
         # Get current user information
         participants = await self.context.get_participants()
@@ -779,10 +791,18 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not current_user_id:
             return "Could not identify current user."
 
-        # Mark as achieved
-        outcome.achieved = True
-        outcome.achieved_at = datetime.utcnow()
-        outcome.achieved_by = current_user_id
+        # Ensure team conversation info exists
+        if conversation_id not in knowledge_package.team_conversations:
+            return "Team conversation not properly registered. Please contact the coordinator."
+
+        # Create achievement record
+        achievement = LearningOutcomeAchievement(outcome_id=outcome.id, achieved=True, achieved_at=datetime.utcnow())
+
+        # Add achievement to team conversation's achievements
+        knowledge_package.team_conversations[conversation_id].outcome_achievements.append(achievement)
+
+        # Update team conversation's last active timestamp
+        knowledge_package.team_conversations[conversation_id].last_active_at = datetime.utcnow()
 
         # Save the updated knowledge package with the achieved outcome
         ShareStorage.write_share(share_id, knowledge_package)
@@ -801,22 +821,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         knowledge_package = ShareStorage.read_share(share_id)
 
         if knowledge_package:
-            # Count all completed criteria
-            completed_criteria = 0
-            total_criteria = 0
-
-            if knowledge_package.learning_objectives:
-                for objective in knowledge_package.learning_objectives:
-                    total_criteria += len(objective.learning_outcomes)
-                    completed_criteria += sum(1 for outcome in objective.learning_outcomes if outcome.achieved)
+            # Get overall completion statistics
+            achieved_outcomes, total_outcomes = knowledge_package.get_overall_completion()
 
             # Update knowledge package with outcome stats
-            knowledge_package.achieved_outcomes = completed_criteria
-            knowledge_package.total_outcomes = total_criteria
+            knowledge_package.achieved_outcomes = achieved_outcomes
+            knowledge_package.total_outcomes = total_outcomes
 
             # Calculate progress percentage
-            if total_criteria > 0:
-                knowledge_package.completion_percentage = int((completed_criteria / total_criteria) * 100)
+            if total_outcomes > 0:
+                knowledge_package.completion_percentage = int((achieved_outcomes / total_outcomes) * 100)
 
             # Update metadata
             knowledge_package.updated_at = datetime.utcnow()
@@ -838,22 +852,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             await ShareStorage.refresh_all_share_uis(self.context, share_id)
 
             # Check if all outcomes are achieved for transfer completion
-            # Count all achieved outcomes again to check for completion
-            completed = 0
-            total = 0
-
-            # Get the knowledge package to access objectives
+            # Get the knowledge package to check completion status
             knowledge_package = ShareStorage.read_share(share_id)
-            if knowledge_package and knowledge_package.learning_objectives:
-                for objective in knowledge_package.learning_objectives:
-                    total += len(objective.learning_outcomes)
-                    completed += sum(1 for outcome in objective.learning_outcomes if outcome.achieved)
-
-            if completed == total and total > 0:
+            if knowledge_package and knowledge_package._is_transfer_complete():
                 # Automatically complete the transfer
                 success, share_info = await KnowledgeTransferManager.complete_project(
                     context=self.context,
-                    summary=f"All {total} learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
+                    summary=f"All {total_outcomes} learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
                 )
 
                 if success:
@@ -883,14 +888,14 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
     async def set_learning_intention(self, is_for_specific_outcomes: bool) -> str:
         """
         Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.
-        
+
         When is_for_specific_outcomes is True, the package will require learning objectives with outcomes.
         When is_for_specific_outcomes is False, the package is for general knowledge exploration.
-        
+
         Args:
             is_for_specific_outcomes: True if this package should have learning objectives and outcomes,
                                     False if this is for general exploration
-        
+
         Returns:
             A message indicating success or failure
         """
@@ -922,13 +927,55 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return f"Learning intention updated successfully. {guidance}"
 
+    async def set_knowledge_organized(self, is_organized: bool) -> str:
+        """
+        Mark that all necessary knowledge has been captured and organized for transfer.
+
+        This indicates that the coordinator has uploaded files, shared information through conversation,
+        and confirmed that all necessary knowledge for the transfer has been captured. This is required
+        before the knowledge package can move to the "Ready for Transfer" state.
+
+        Args:
+            is_organized: True if knowledge is organized and ready, False to mark as currently unorganized
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can mark knowledge as organized."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        package = ShareStorage.read_share(share_id)
+        if not package:
+            return "No knowledge package found. Please create a knowledge brief first."
+
+        # Update the knowledge organized flag
+        package.knowledge_organized = is_organized
+        package.updated_at = datetime.utcnow()
+
+        # Save the updated package
+        ShareStorage.write_share(share_id, package)
+
+        # Provide appropriate feedback
+        if is_organized:
+            guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."
+        else:
+            guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."
+
+        return f"Knowledge organization status updated successfully. {guidance}"
+
     async def update_audience(self, audience_description: str) -> str:
         """
         Update the target audience description for this knowledge package.
-        
+
         Args:
             audience_description: Description of the intended audience and their existing knowledge level
-        
+
         Returns:
             A message indicating success or failure
         """
@@ -953,8 +1000,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         ShareStorage.write_share(share_id, package)
 
         return f"Target audience updated successfully: {audience_description}"
-
-
 
     async def report_transfer_completion(self) -> str:
         """
@@ -1044,4 +1089,3 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         )
 
         return "Knowledge transfer successfully marked as complete. All participants have been notified."
-

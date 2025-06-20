@@ -11,9 +11,11 @@ from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .data import TeamConversationInfo
 from .logging import logger
 from .storage import ShareStorageManager
 from .storage_models import ConversationRole
+from .utils import get_current_user
 
 
 class ConversationKnowledgePackageManager:
@@ -42,25 +44,16 @@ class ConversationKnowledgePackageManager:
             if not share_id:
                 return []
 
-            # Get the linked conversations directory
-            linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
-            if not linked_dir.exists():
+            # Load the knowledge package
+            from .storage import ShareStorage
+
+            knowledge_package = ShareStorage.read_share(share_id)
+            if not knowledge_package:
                 return []
 
-            # Get all conversation files in the directory
-            result = []
+            # Get all linked conversations, excluding current conversation
             conversation_id = str(context.id)
-
-            # Each file in the directory represents a linked conversation
-            # The filename itself is the conversation ID
-            for file_path in linked_dir.glob("*"):
-                if file_path.is_file():
-                    # The filename is the conversation ID
-                    conv_id = file_path.name
-                    if conv_id != conversation_id:
-                        result.append(conv_id)
-
-            return result
+            return knowledge_package.get_all_linked_conversations(exclude_current=conversation_id)
 
         except Exception as e:
             logger.error(f"Error getting linked conversations: {e}")
@@ -93,7 +86,7 @@ class ConversationKnowledgePackageManager:
     @staticmethod
     async def associate_conversation_with_share(context: ConversationContext, share_id: str) -> None:
         """
-        Associates a conversation with a project.
+        Associates a conversation with a project and captures redeemer information.
         """
         logger.debug(f"Associating conversation {context.id} with project {share_id}")
 
@@ -104,18 +97,64 @@ class ConversationKnowledgePackageManager:
             logger.debug(f"Writing project association to {project_path}")
             write_model(project_path, project_data)
 
-            # 2. Register this conversation in the project's linked_conversations directory
-            linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
-            logger.debug(f"Registering in linked_conversations directory: {linked_dir}")
-            conversation_file = linked_dir / str(context.id)
+            # 2. Capture redeemer information and store in knowledge package
+            # This method will now handle storing the conversation in JSON instead of file system
+            await ConversationKnowledgePackageManager._capture_redeemer_info(context, share_id)
 
-            # Touch the file to create it if it doesn't exist
-            # We don't need to write any content to it, just its existence is sufficient
-            conversation_file.touch(exist_ok=True)
-            logger.debug(f"Created conversation link file: {conversation_file}")
         except Exception as e:
             logger.error(f"Error associating conversation with project: {e}")
             raise
+
+    @staticmethod
+    async def _capture_redeemer_info(context: ConversationContext, share_id: str) -> None:
+        """
+        Captures the redeemer (first non-assistant participant) information and stores it in the knowledge package.
+        Only captures info for actual team member conversations, not coordinator or shared conversations.
+        """
+        try:
+            # Load the knowledge package
+            from .storage import ShareStorage
+
+            knowledge_package = ShareStorage.read_share(share_id)
+            if not knowledge_package:
+                logger.warning(f"Could not load knowledge package {share_id} to capture redeemer info")
+                return
+
+            conversation_id = str(context.id)
+
+            # Skip if this is the coordinator conversation
+            if conversation_id == knowledge_package.coordinator_conversation_id:
+                logger.debug(f"Skipping redeemer capture for coordinator conversation {conversation_id}")
+                return
+
+            # Skip if this is the shared conversation template
+            if conversation_id == knowledge_package.shared_conversation_id:
+                logger.debug(f"Skipping redeemer capture for shared conversation template {conversation_id}")
+                return
+
+            # If we get here, it's a team member conversation - capture redeemer info
+            # Get current user information (the redeemer)
+            user_id, user_name = await get_current_user(context)
+
+            if not user_id or not user_name:
+                logger.warning(f"Could not identify redeemer for conversation {conversation_id}")
+                return
+
+            # Create team conversation info
+            team_conversation_info = TeamConversationInfo(
+                conversation_id=conversation_id, redeemer_user_id=user_id, redeemer_name=user_name
+            )
+
+            # Add to knowledge package
+            knowledge_package.team_conversations[conversation_id] = team_conversation_info
+
+            # Save the updated knowledge package
+            ShareStorage.write_share(share_id, knowledge_package)
+            logger.debug(f"Captured redeemer info for team conversation {conversation_id}: {user_name} ({user_id})")
+
+        except Exception as e:
+            logger.error(f"Error capturing redeemer info: {e}")
+            # Don't re-raise - this is not critical for the association process
 
     @staticmethod
     async def get_associated_share_id(context: ConversationContext) -> Optional[str]:

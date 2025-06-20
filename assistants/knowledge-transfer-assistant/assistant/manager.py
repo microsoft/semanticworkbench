@@ -117,13 +117,13 @@ class KnowledgeTransferManager:
 
         share_url = f"/conversation-share/{share.id}/redeem"
 
-        # Store team conversation info in KnowledgePackageInfo
-        share_info = ShareStorage.read_share_info(share_id)
-        if share_info:
-            share_info.team_conversation_id = str(conversation.id)
-            share_info.share_url = share_url
-            share_info.updated_at = datetime.utcnow()
-            ShareStorage.write_share_info(share_id, share_info)
+        # Store shared conversation info in KnowledgePackage
+        knowledge_package = ShareStorage.read_share(share_id)
+        if knowledge_package:
+            knowledge_package.shared_conversation_id = str(conversation.id)
+            knowledge_package.share_url = share_url
+            knowledge_package.updated_at = datetime.utcnow()
+            ShareStorage.write_share(share_id, knowledge_package)
         else:
             raise ValueError(f"KnowledgePackage info not found for project ID: {share_id}")
 
@@ -179,9 +179,7 @@ class KnowledgeTransferManager:
         # No need to set conversation role in project storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for project {share_id}")
 
-        # Ensure linked_conversations directory exists
-        linked_dir = ShareStorageManager.get_linked_conversations_dir(share_id)
-        logger.debug(f"Ensured linked_conversations directory exists: {linked_dir}")
+        # Note: Conversation linking is now handled via JSON data, no directory needed
 
         return share_id
 
@@ -514,7 +512,6 @@ class KnowledgeTransferManager:
         title: str,
         description: str,
         timeline: Optional[str] = None,
-        additional_context: Optional[str] = None,
         send_notification: bool = True,
     ) -> Optional[KnowledgeBrief]:
         """
@@ -527,7 +524,6 @@ class KnowledgeTransferManager:
             title: Short, descriptive name for the knowledge share
             description: Comprehensive description of the knowledge share's purpose
             timeline: Optional information about timeline/deadlines
-            additional_context: Optional additional relevant information
             send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
@@ -546,9 +542,8 @@ class KnowledgeTransferManager:
         # Create the project brief
         brief = KnowledgeBrief(
             title=title,
-            description=description,
+            content=description,
             timeline=timeline,
-            additional_context=additional_context,
             created_by=current_user_id,
             updated_by=current_user_id,
             conversation_id=str(context.id),
@@ -744,20 +739,15 @@ class KnowledgeTransferManager:
 
             # Get the updated project to access learning objectives
             updated_project = ShareStorage.read_share(share_id)
-            if updated_project and updated_project.learning_objectives:
-                for g in updated_project.learning_objectives:
-                    total_criteria += len(g.learning_outcomes)
-                    completed_criteria += sum(1 for c in g.learning_outcomes if c.achieved)
+            if updated_project:
+                # Use the new overall completion calculation
+                completed_criteria, total_criteria = updated_project.get_overall_completion()
 
-            # Update project info with criteria stats
-            # Note: achieved_criteria not in KnowledgePackageInfo model
-            # Note: total_criteria not in KnowledgePackageInfo model
-
-            # Calculate progress percentage
-            if total_criteria > 0:
-                project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
-            else:
-                project_info.completion_percentage = 0
+                # Calculate progress percentage
+                if total_criteria > 0:
+                    project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
+                else:
+                    project_info.completion_percentage = 0
 
             # Update metadata
             project_info.updated_at = datetime.utcnow()
@@ -1276,19 +1266,15 @@ class KnowledgeTransferManager:
     @staticmethod
     async def get_coordinator_next_action_suggestion(context: ConversationContext) -> Optional[str]:
         """
-        Generate next action suggestions for the coordinator based on knowledge transfer state.
+        Generate next action suggestions for the coordinator based on the knowledge transfer state.
 
-        This function provides contextual suggestions to help coordinators understand what
-        actions they should take next based on the current state of the knowledge transfer process.
-
-        Args:
-            context: Current conversation context
+        This output is passed to the assistant and helps guide the conversation toward completing or improving
+        the knowledge package in a helpful, structured way.
 
         Returns:
-            A suggestion message or None if no suggestions are available
+            A user-facing suggestion string, or None if no suggestion is needed.
         """
         try:
-            # Get share ID
             share_id = await KnowledgeTransferManager.get_share_id(context)
             if not share_id:
                 logger.warning("No share ID found for this conversation")
@@ -1298,38 +1284,56 @@ class KnowledgeTransferManager:
             if not package:
                 return None
 
-            # Get knowledge transfer state information
             brief = ShareStorage.read_knowledge_brief(share_id)
-            knowledge_package = ShareStorage.read_share(share_id)
             requests = ShareStorage.get_all_information_requests(share_id)
-
-            # Handling unresolved information requests is the first order of business.
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
+
+            # 1. Unresolved requests come first
             if active_requests:
-                request = active_requests[0]  # Get the first unresolved request
-                return f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'."
+                request = active_requests[0]
+                return f'There are {len(active_requests)} unanswered questions from team members. One of them is: "{request.title}" Let\'s work on answering it.'
 
-            # Check if audience is defined.
+            # 2. Audience not yet defined
             if not package.audience:
-                return "Consider defining the target audience for this knowledge transfer. Understanding who will receive this knowledge and their existing expertise level will help ensure appropriate content depth and coverage."
+                return "Let's start by defining who your audience is. Who is this knowledge for, and what's their background?"
 
-            # Check if knowledge brief exists.
+            # 3. Knowledge not yet organized
+            if not package.knowledge_organized:
+                return "Next, let's organize your knowledge. Upload any relevant files or describe the knowledge you want to transfer. When you're ready, I can mark the knowledge as organized."
+
+            # 4. Brief not yet written
             if not brief:
-                return "No knowledge brief found. Start by creating one."
+                return "Your package needs a short introduction that will orient your team. Let's write a knowledge brief next."
 
-            # Check if learning objectives are needed and exist
-            if package.is_intended_to_accomplish_outcomes and (not knowledge_package or not knowledge_package.learning_objectives):
+            # 5. If intended to have outcomes but none defined yet
+            if package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
                 return (
-                    "Knowledge package has no learning objectives. Add at least one learning objective with outcomes, or indicate this package is for general exploration."
+                    "Would you like your team to achieve any specific outcomes? If so, let's define some learning objectives. "
+                    "If not, you can mark this package as 'exploratory' instead."
                 )
 
-            # Check if knowledge package is ready for transfer
-            if not package.is_ready_for_transfer():
-                return "Knowledge package information is complete. Mark it as ready for transfer."
+            # 6. Objectives exist, but missing outcomes
+            if package.is_intended_to_accomplish_outcomes:
+                incomplete_objectives = [obj for obj in package.learning_objectives if not obj.learning_outcomes]
+                if incomplete_objectives:
+                    name = incomplete_objectives[0].name
+                    return f"The learning objective “{name}” doesn't have any outcomes yet. Let's define what your team should accomplish to meet it."
 
-            # Default suggestion for coordinators
-            return "Monitor team operations and respond to any new information requests. Feel free to anything in the knowledge package."
+            # 7. Ready for transfer but not yet shared
+            if package.is_ready_for_transfer() and not package.is_actively_sharing():
+                return "Your knowledge package is ready to share. Would you like to create a message and generate the invitation link?"
+
+            # 8. Actively sharing - monitor and support ongoing transfer
+            if package.is_actively_sharing():
+                if package.is_intended_to_accomplish_outcomes and not package._is_transfer_complete():
+                    team_count = len(package.team_conversations)
+                    return f"Great! Your knowledge is being shared with {team_count} team member{'s' if team_count != 1 else ''}. You can continue improving the package or respond to information requests as they come in."
+                else:
+                    return "Your knowledge transfer is in progress. You can continue improving the package or respond to information requests as they come in."
+
+            # 9. Default: General support
+            return "Your package is available. You can continue improving it or respond to new information requests as they come in."
 
         except Exception as e:
-            logger.exception(f"Error getting coordinator next action suggestion: {e}")
+            logger.exception(f"Error generating next action suggestion: {e}")
             return None

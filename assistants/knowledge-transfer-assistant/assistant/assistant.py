@@ -168,6 +168,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
 
             await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
+            # Set the conversation role for team conversations
+            await ConversationKnowledgePackageManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
 
             # Synchronize files.
             await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
@@ -200,13 +202,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             try:
                 share_id = await KnowledgeTransferManager.create_share(context)
 
-                # A basic brief to start with.
-
-                await KnowledgeTransferManager.update_knowledge_brief(
-                    context=context,
-                    title="Knowledge Brief",
-                    description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_",
-                )
+                # No default brief - let the state inspector handle displaying instructional content
 
                 # Create a team conversation with a share URL
                 share_url = await KnowledgeTransferManager.create_shareable_team_conversation(

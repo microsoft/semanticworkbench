@@ -10,7 +10,6 @@ from openai import (
     NotGiven,
 )
 from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionToolParam,
     ParsedChatCompletion,
@@ -425,10 +424,12 @@ async def complete_with_tool_calls(
     completion_args: dict[str, Any],
     tool_functions: ToolFunctions,
     metadata: dict[str, Any] = {},
+    max_tool_call_rounds: int = 5,  # Adding a parameter to limit the maximum number of rounds
 ) -> tuple[ParsedChatCompletion | None, list[ChatCompletionMessageParam]]:
     """
     Complete a chat response with tool calls handled by the supplied tool
-    functions.
+    functions. This function supports multiple rounds of tool calls, continuing
+    until the model no longer requests tool calls or the maximum number of rounds is reached.
 
     Parameters:
 
@@ -438,85 +439,74 @@ async def complete_with_tool_calls(
     - tool_functions: A ToolFunctions object that contains the tool functions to
       be available to be called.
     - metadata: Metadata to be added to the completion response.
+    - max_tool_call_rounds: Maximum number of tool call rounds to prevent infinite loops (default: 5)
     """
     messages: list[ChatCompletionMessageParam] = completion_args.get("messages", [])
+    all_new_messages: list[ChatCompletionMessageParam] = []
+    current_completion = None
+    rounds = 0
 
     # Set up the tools if tool_functions exists.
     if tool_functions:
         # Note: this overwrites any existing tools.
         completion_args["tools"] = tool_functions.chat_completion_tools()
 
-    # Completion call.
-    logger.debug(
-        "Completion call (pre-tool).", extra=add_serializable_data(make_completion_args_serializable(completion_args))
-    )
-    metadata["completion_request"] = make_completion_args_serializable(completion_args)
-    try:
-        completion = await async_client.beta.chat.completions.parse(
-            **completion_args,
-        )
-        validate_completion(completion)
-        logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
-        metadata["completion_response"] = completion.model_dump()
-    except Exception as e:
-        completion_error = CompletionError(e)
-        metadata["completion_error"] = completion_error.message
-        logger.error(
-            completion_error.message,
-            extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
-        )
-        raise completion_error from e
+    # Keep making completions until no more tool calls are requested
+    # or we hit the maximum number of rounds
+    while rounds < max_tool_call_rounds:
+        rounds += 1
 
-    # Extract response and add to messages.
-    new_messages: list[ChatCompletionMessageParam] = []
+        # Prepare arguments for this round
+        current_args = {**completion_args, "messages": [*messages, *all_new_messages]}
 
-    assistant_message = assistant_message_from_completion(completion)
-    if assistant_message:
-        new_messages.append(assistant_message)
+        # Log the completion request
+        round_description = f"round {rounds}"
+        if rounds == 1:
+            round_description = "pre-tool"
 
-    # If no tool calls, we're done.
-    completion_message = completion.choices[0].message
-    if not completion_message.tool_calls:
-        return completion, new_messages
-
-    # Call all tool functions and generate return messages.
-    for tool_call in completion_message.tool_calls:
-        function_call_result_message = await tool_functions.execute_tool_call(tool_call)
-        if function_call_result_message:
-            new_messages.append(function_call_result_message)
-
-    # Now, pass all messages back to the API to get a final response.
-    final_args = {**completion_args, "messages": [*messages, *new_messages]}
-    logger.debug(
-        "Tool completion call (final).", extra=add_serializable_data(make_completion_args_serializable(final_args))
-    )
-    metadata["completion_request (post-tool)"] = make_completion_args_serializable(final_args)
-    try:
-        tool_completion: ParsedChatCompletion = await async_client.beta.chat.completions.parse(
-            **final_args,
-        )
-        validate_completion(tool_completion)
         logger.debug(
-            "Tool completion response.", extra=add_serializable_data({"completion": tool_completion.model_dump()})
+            f"Completion call ({round_description}).",
+            extra=add_serializable_data(make_completion_args_serializable(current_args)),
         )
-        metadata["completion_response (post-tool)"] = tool_completion.model_dump()
-    except Exception as e:
-        tool_completion_error = CompletionError(e)
-        metadata["completion_error (post-tool)"] = tool_completion_error.message
-        logger.error(
-            tool_completion_error.message,
-            extra=add_serializable_data({
-                "completion_error (post-tool)": tool_completion_error.body,
-                "metadata": metadata,
-            }),
-        )
-        raise tool_completion_error from e
+        metadata[f"completion_request ({round_description})"] = make_completion_args_serializable(current_args)
 
-    # Add assistant response to messages.
-    tool_completion_assistant_message: ChatCompletionAssistantMessageParam = assistant_message_from_completion(
-        tool_completion
-    )
-    if tool_completion_assistant_message:
-        new_messages.append(tool_completion_assistant_message)
+        # Make the completion call
+        try:
+            current_completion = await async_client.beta.chat.completions.parse(
+                **current_args,
+            )
+            validate_completion(current_completion)
+            logger.debug(
+                f"Completion response ({round_description}).",
+                extra=add_serializable_data({"completion": current_completion.model_dump()}),
+            )
+            metadata[f"completion_response ({round_description})"] = current_completion.model_dump()
+        except Exception as e:
+            completion_error = CompletionError(e)
+            metadata[f"completion_error ({round_description})"] = completion_error.message
+            logger.error(
+                completion_error.message,
+                extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
+            )
+            raise completion_error from e
 
-    return tool_completion, new_messages
+        # Extract assistant message from completion and add to new messages
+        assistant_message = assistant_message_from_completion(current_completion)
+        if assistant_message:
+            all_new_messages.append(assistant_message)
+
+        # Check for tool calls
+        completion_message = current_completion.choices[0].message
+        if not completion_message.tool_calls:
+            # No more tool calls, we're done
+            break
+
+        # Call all tool functions and generate return messages
+        round_tool_messages: list[ChatCompletionMessageParam] = []
+        for tool_call in completion_message.tool_calls:
+            function_call_result_message = await tool_functions.execute_tool_call(tool_call)
+            if function_call_result_message:
+                round_tool_messages.append(function_call_result_message)
+                all_new_messages.append(function_call_result_message)
+
+    return current_completion, all_new_messages

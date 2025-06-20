@@ -50,21 +50,12 @@ class ShareStorageManager:
         share_dir.mkdir(parents=True, exist_ok=True)
         return share_dir
 
-    @staticmethod
-    def get_linked_conversations_dir(share_id: str) -> pathlib.Path:
-        """Gets the directory that tracks linked conversations for a project."""
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        linked_dir = share_dir / "linked_conversations"
-        linked_dir.mkdir(parents=True, exist_ok=True)
-        return linked_dir
-
 
     @staticmethod
     def get_share_log_path(share_id: str) -> pathlib.Path:
         """Gets the path to the project log file."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_LOG_FILE
-
 
     @staticmethod
     def get_coordinator_conversation_path(share_id: str) -> pathlib.Path:
@@ -77,7 +68,6 @@ class ShareStorageManager:
         """Gets the path to the complete KnowledgePackage data file."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_FILE
-
 
     @staticmethod
     def share_exists(share_id: str) -> bool:
@@ -133,7 +123,7 @@ class ShareStorage:
             )
         else:
             package.brief = brief
-        
+
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
@@ -212,7 +202,6 @@ class ShareStorage:
         # Save the updated conversation
         ShareStorage.write_coordinator_conversation(share_id, conversation)
 
-
     @staticmethod
     def write_knowledge_digest(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
         """Writes the knowledge digest to the main share data."""
@@ -226,7 +215,7 @@ class ShareStorage:
             )
         else:
             package.digest = digest
-        
+
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
@@ -235,11 +224,11 @@ class ShareStorage:
         package = ShareStorage.read_share(share_id)
         if not package or not package.requests:
             return None
-        
+
         for request in package.requests:
             if request.request_id == request_id:
                 return request
-        
+
         return None
 
     @staticmethod
@@ -267,12 +256,12 @@ class ShareStorage:
                     existing_requests[i] = request
                     updated = True
                     break
-            
+
             if not updated:
                 existing_requests.append(request)
-            
+
             package.requests = existing_requests
-        
+
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
@@ -294,12 +283,11 @@ class ShareStorage:
         package = ShareStorage.read_share(share_id)
         if not package:
             return []
-        
+
         # Sort by updated_at timestamp, newest first
         requests = package.requests or []
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
-
 
     @staticmethod
     async def refresh_all_share_uis(context: ConversationContext, share_id: str) -> None:

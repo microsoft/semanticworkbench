@@ -791,7 +791,7 @@ async def handle_project_info_command(
             if briefing:
                 # Format briefing information
                 output.append(f"## Brief: {briefing.title}")
-                output.append(f"\n{briefing.description}\n")
+                output.append(f"\n{briefing.content}\n")
 
                 # Get learning objectives
                 if share_id:
@@ -799,19 +799,45 @@ async def handle_project_info_command(
                     if share and share.learning_objectives:
                         output.append("\n### Learning Objectives:\n")
 
-                        for i, objective in enumerate(share.learning_objectives):
-                            # Count achieved outcomes
-                            achieved = sum(1 for c in objective.learning_outcomes if c.achieved)
-                            total = len(objective.learning_outcomes)
+                        # Show progress information based on role
+                        role = await KnowledgeTransferManager.get_share_role(context)
+                        conversation_id = str(context.id)
 
+                        if role == ConversationRole.COORDINATOR:
+                            # Coordinator sees overall progress across all team members
+                            achieved_overall, total_overall = share.get_overall_completion()
+                            output.append(
+                                f"**Overall Progress:** {achieved_overall}/{total_overall} outcomes achieved by team members\n"
+                            )
+                        else:
+                            # Team member sees their personal progress
+                            achieved_personal, total_personal = share.get_completion_for_conversation(conversation_id)
+                            progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
+                            output.append(
+                                f"**My Progress:** {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n"
+                            )
+
+                        for i, objective in enumerate(share.learning_objectives):
                             output.append(f"{i + 1}. **{objective.name}** - {objective.description}")
 
                             if objective.learning_outcomes:
-                                output.append(f"   Progress: {achieved}/{total} outcomes achieved")
                                 output.append("   Learning Outcomes:")
 
                                 for j, criterion in enumerate(objective.learning_outcomes):
-                                    status = "✅" if criterion.achieved else "⬜"
+                                    if role == ConversationRole.COORDINATOR:
+                                        # Show if achieved by any team member
+                                        achieved_by_any = any(
+                                            share.is_outcome_achieved_by_conversation(criterion.id, conv_id)
+                                            for conv_id in share.team_conversations.keys()
+                                        )
+                                        status = "✅" if achieved_by_any else "⬜"
+                                    else:
+                                        # Show if achieved by this team member
+                                        achieved_by_me = share.is_outcome_achieved_by_conversation(
+                                            criterion.id, conversation_id
+                                        )
+                                        status = "✅" if achieved_by_me else "⬜"
+
                                     output.append(f"   {status} {criterion.description}")
 
                             output.append("")
