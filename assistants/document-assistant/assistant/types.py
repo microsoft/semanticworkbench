@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from pydantic import BaseModel
 
 

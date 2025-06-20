@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 CONVERSATION_SYSTEM_PROMPT = """You are a helpful, thoughtful, and meticulous assistant who conducts conversations with users.
 Your goal is to conduct a conversation with the user that completes the agenda \
 appropriately paced according to the resource constraints and conversation flow.

@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from textwrap import dedent
 from typing import Annotated
 

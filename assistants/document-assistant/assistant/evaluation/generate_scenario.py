@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """
 Generate new evaluation scenarios using Pydantic AI.
 

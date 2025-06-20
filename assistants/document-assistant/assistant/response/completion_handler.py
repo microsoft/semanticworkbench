@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import json
 import logging
 import re

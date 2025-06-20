@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """Configuration models for evaluation components."""
 
 from pathlib import Path

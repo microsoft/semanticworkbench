@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import logging
 from hashlib import md5
 from typing import Awaitable, Callable

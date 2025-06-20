@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 ORCHESTRATION_SYSTEM_PROMPT = """You are an autonomous AI office worker agent that helps users get their work done in an applicated called "Workspace".
 Please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. \
 Only terminate your turn when you are sure that the problem is solved.

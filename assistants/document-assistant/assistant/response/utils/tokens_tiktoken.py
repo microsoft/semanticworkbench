@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from collections.abc import Collection
 from typing import AbstractSet, Literal
 

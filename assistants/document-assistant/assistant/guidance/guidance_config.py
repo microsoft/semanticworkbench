@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from typing import Annotated
 
 from pydantic import BaseModel, Field

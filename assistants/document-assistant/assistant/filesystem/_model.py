@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import datetime
 from typing import Annotated, Any, Literal, Protocol
 

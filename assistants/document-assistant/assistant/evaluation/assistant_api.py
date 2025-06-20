@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """
 Wraps aspects of the workbench and assistant APIs to make it easy to interact with them at the level we need here.
 """
