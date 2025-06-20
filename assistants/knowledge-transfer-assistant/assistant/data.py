@@ -385,6 +385,19 @@ class KnowledgePackage(BaseModel):
         # If this package is intended for specific learning outcomes
         return bool(self.learning_objectives) and any(bool(obj.learning_outcomes) for obj in self.learning_objectives)
 
+    def is_actively_sharing(self) -> bool:
+        """
+        Determine if knowledge transfer is actively happening (team members have joined).
+        
+        A package is actively sharing when it's ready for transfer AND has team conversations.
+        This indicates that team members have actually redeemed share links and are engaging
+        with the knowledge.
+        
+        Returns:
+            bool: True if actively sharing, False otherwise
+        """
+        return self.is_ready_for_transfer() and len(self.team_conversations) > 0
+
     def get_stage_label(self, for_coordinator: bool = True) -> str:
         """
         Get a human-readable stage label based on current package state.
@@ -410,6 +423,8 @@ class KnowledgePackage(BaseModel):
                 return "📋 Organizing Knowledge"
             elif self.is_intended_to_accomplish_outcomes and self._is_transfer_complete():
                 return "✅ Transfer Complete"
+            elif self.is_actively_sharing():
+                return "📤 Sharing in Progress"
             else:
                 return "🚀 Ready for Transfer"
         else:

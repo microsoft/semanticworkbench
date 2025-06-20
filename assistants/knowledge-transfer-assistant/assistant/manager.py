@@ -1319,11 +1319,19 @@ class KnowledgeTransferManager:
                     return f"The learning objective “{name}” doesn't have any outcomes yet. Let's define what your team should accomplish to meet it."
 
             # 6. Ready for transfer but not yet shared
-            if package.is_ready_for_transfer():
+            if package.is_ready_for_transfer() and not package.is_actively_sharing():
                 return "Your knowledge package is ready to share. Would you like to create a message and generate the invitation link?"
 
-            # 7. Default: Post-transfer support
-            return "Your package is live. You can continue improving it or respond to new information requests as they come in."
+            # 7. Actively sharing - monitor and support ongoing transfer
+            if package.is_actively_sharing():
+                if package.is_intended_to_accomplish_outcomes and not package._is_transfer_complete():
+                    team_count = len(package.team_conversations)
+                    return f"Great! Your knowledge is being shared with {team_count} team member{'s' if team_count != 1 else ''}. You can continue improving the package or respond to information requests as they come in."
+                else:
+                    return "Your knowledge transfer is in progress. You can continue improving the package or respond to information requests as they come in."
+
+            # 8. Default: General support
+            return "Your package is available. You can continue improving it or respond to new information requests as they come in."
 
         except Exception as e:
             logger.exception(f"Error generating next action suggestion: {e}")
