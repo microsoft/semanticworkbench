@@ -1,10 +1,10 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# Prospector Assistant
 #
-# This assistant helps you mine ideas from artifacts.
+# Document Assistant
 #
 
+import asyncio
 import logging
 import pathlib
 from textwrap import dedent
@@ -29,6 +29,9 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.config import AssistantConfigModel
+from assistant.context_management.conv_compaction import task_compact_conversation
+from assistant.context_management.file_manager import task_score_files
+from assistant.context_management.inspector import ContextManagementInspector
 from assistant.filesystem import AttachmentsExtension, DocumentEditorConfigModel
 from assistant.guidance.dynamic_ui_inspector import DynamicUIInspector
 from assistant.response.responder import ConversationResponder
@@ -36,9 +39,7 @@ from assistant.whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
 
-#
 # region Setup
-#
 
 # the service id to be registered in the workbench to identify the assistant
 service_id = "document-assistant.made-exploration-team"
@@ -116,7 +117,21 @@ async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfi
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
 _ = DynamicUIInspector(state_id="dynamic_ui", app=assistant)
 
+
+async def context_management_config_provider(ctx: ConversationContext) -> AssistantConfigModel:
+    """
+    Provide the configuration for the context management inspector.
+    This is used to determine if the inspector should be enabled or not.
+    """
+    config = await assistant_config.get(ctx.assistant)
+    return config
+
+
 attachments_extension = AttachmentsExtension(assistant, config_provider=document_editor_config_provider)
+
+context_management_inspector = ContextManagementInspector(
+    app=assistant, config_provider=context_management_config_provider
+)
 
 #
 # create the FastAPI app instance
@@ -172,6 +187,10 @@ async def on_message_created(
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
+        asyncio.create_task(  # Fire off the compaction task in the background
+            task_compact_conversation(context=context, config=config, attachments_extension=attachments_extension)
+        )
+
         try:
             responder = await ConversationResponder.create(
                 message=message,
@@ -179,6 +198,7 @@ async def on_message_created(
                 config=config,
                 metadata=metadata,
                 attachments_extension=attachments_extension,
+                context_management_inspector=context_management_inspector,
             )
             await responder.respond_to_conversation()
         except Exception as e:
@@ -191,6 +211,15 @@ async def on_message_created(
                     metadata=metadata,
                 )
             )
+
+        asyncio.create_task(
+            task_score_files(
+                context=context,
+                config=config,
+                attachments_extension=attachments_extension,
+                context_management_inspector=context_management_inspector,
+            )
+        )
 
 
 async def should_respond_to_message(context: ConversationContext, message: ConversationMessage) -> bool:

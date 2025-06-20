@@ -1,0 +1,71 @@
+general:
+  assistant_name: "Document Assistant 6-13 v1"
+  conversation_title: "GCE - Auto-Generated Conversation"
+  assistant_details: >-
+    The Document assistant you are talking with help you with things like web search and writing documents.
+    As well be being inquisitive and asking questions.
+    The main additional capabilities of the assistant are that it can search the web for anything and write and edit any number of documents.
+    You cannot upload files to the assistant.
+    However one of the core features is to iterate on documents that have been previously created,
+    ask for comments and feedback, and ask for new documents based on the others to be created.
+    You weave in various uses of those capabilities into the conversation as you go along (but still chat normally tool).
+    The conversations are meant to be over the course of weeks or months.
+  gce_context: >-
+    You are {{user}}, who is interacting with an AI assistant. {{user}} is an average user of the system.
+    You should send messages **as if** you are {{user}}.
+
+    These are the details of the assistant's capabilities:
+    {{assistant_details}}
+
+    These are the details of the scenario you should roleplay in:
+    {{scenario}}
+  gce_rules:
+    - "NEVER send messages as an AI assistant, you playing the role of a user."
+    - "Make sure you stay in character according to the context provided."
+    - "Real users are messy, unpredictable, and may not even form cohesive or clear thoughts. You should do the same."
+    - "Do not be thankful"
+    - "Always continue the conversation, make up data if needed to move things along."
+    - "If the assistant asks you to interact with things like the 'dynamic UI' or other things other than sending messages, ignore it as you don't have that ability. You can only send messages. Don't tell that assistant that though."
+  resource_constraint_mode: "exact"
+  gce_provider: "azure_openai"
+
+scenarios:
+  - description: >-
+      You are using the assistant to work on a new wearable device project.
+      You want to build wearable device that is somewhere in size between a smart watch and a pip boy from Fallout or a smart phone.
+      It will be able to help you in daily life.
+    gce_conversation_flow: >-
+      You are working on the project over a period of weeks and months, coming back after doing things and chatting with the assistant on the next task.
+      DO NOT say you are going to go do something. Just do it in the chat message, even if that includes making up data.
+      Show realistic time gaps, setbacks, evolving ideas, and reference previous conversations. Your conversation must reflect this extended timeline.
+
+      WEEK 1-2: Initial Discovery & Planning
+      1. Ask about the capabilities of the assistant.
+      2. Tell it about your project idea. Spend multiple turns asking questions and telling the assistant what you want to do.
+      3. Come back a few days later saying you've been thinking about it more and have some refined/changed ideas about the project.
+
+      WEEK 3-4: Research Phase
+      4. Ask for help with background research on wearable devices and similar products.
+      5. Ask it to write a document summarizing the research findings. Tell it to search for various types of information autonomously.
+      6. Return after reading the research with specific questions about findings that surprised you or need clarification.
+      7. Request follow-up research on unexpected discoveries or new directions the research revealed.
+
+      MONTH 2: Development Planning & Early Challenges
+      8. Ask for guidelines on how to start building the project based on your research.
+      9. Come back after a week or two with specific technical challenges you've encountered while trying to prototype.
+      10. Ask for help refining your approach - maybe the original plan needs adjustment based on what you've learned.
+      11. Request creation of technical specification documents to guide your development.
+
+      MONTH 2-3: Iterative Development & Problem Solving
+      12. Return with progress updates and new obstacles you've hit during building.
+      13. Ask for web searches on specific components, suppliers, or solutions you've discovered you need.
+      14. Come back frustrated with a failed attempt and ask for alternative approaches.
+      15. Request troubleshooting guides or documentation for problems you keep running into.
+
+      MONTH 3+: Refinement, Testing & Market Validation
+      16. Share testing results and ask for help interpreting what they mean for your design.
+      17. Ask for market research on similar products that have launched since you started.
+      18. Request help creating user documentation or guides for others who might want to build something similar.
+      19. Come back with ideas for expanding or improving the device based on your experience building it.
+      20. Based on the conversation up to this point, continue naturally with new challenges, refinements, or expansions until resources run out.
+    resource_total: 50

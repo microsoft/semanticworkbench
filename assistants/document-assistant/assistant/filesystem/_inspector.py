@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft. All rights reserved.
+
+import asyncio
 import datetime
 import io
 import logging
@@ -13,13 +16,19 @@ from semantic_workbench_api_model import workbench_model
 from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
     AssistantConversationInspectorStateDataModel,
+    BaseModelAssistantConfig,
     ConversationContext,
 )
 from semantic_workbench_assistant.config import UISchema, get_ui_schema
 
+from assistant.config import AssistantConfigModel
+from assistant.filesystem._tasks import task_compute_summary
+
 from ._model import DocumentEditorConfigProvider
 
 logger = logging.getLogger(__name__)
+
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 class DocumentFileStateModel(BaseModel):
@@ -357,6 +366,12 @@ class DocumentInspectors:
 
     async def on_external_write(self, context: ConversationContext, filename: str) -> None:
         self._selected_file[context.id] = filename
+
+        content = await self.get_file_content(context=context, filename=filename) or ""
+        config = await assistant_config.get(context.assistant)
+        asyncio.create_task(
+            task_compute_summary(context=context, config=config, file_content=content, filename=filename)
+        )
         await context.send_conversation_state_event(
             workbench_model.AssistantStateEvent(
                 state_id=self._editor.state_id,

@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import datetime
 from typing import Annotated, Any, Literal, Protocol
 
@@ -35,6 +37,10 @@ class Attachment(BaseModel):
     error: str = ""
     metadata: dict[str, Any] = {}
     updated_datetime: datetime.datetime = Field(default=datetime.datetime.fromtimestamp(0, datetime.timezone.utc))
+
+
+class FilesystemFile(BaseModel):
+    summary: str = ""
 
 
 class DocumentEditorConfigModel(Protocol):

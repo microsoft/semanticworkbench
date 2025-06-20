@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import asyncio
 import contextlib
 import io
@@ -18,11 +20,14 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
     AssistantCapability,
+    BaseModelAssistantConfig,
     ConversationContext,
     storage_directory_for_context,
 )
 
+from assistant.config import AssistantConfigModel
 from assistant.filesystem._model import DocumentEditorConfigProvider
+from assistant.filesystem._tasks import task_compute_summary
 
 from . import _convert as convert
 from ._inspector import DocumentInspectors, lock_document_edits
@@ -32,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 
 AttachmentProcessingErrorHandler = Callable[[ConversationContext, str, Exception], Awaitable]
+
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 async def log_and_send_message_on_error(context: ConversationContext, filename: str, e: Exception) -> None:
@@ -328,6 +335,7 @@ async def _get_attachment_for_file(
     and the cache will be updated.
     """
     drive = _attachment_drive_for_context(context)
+    config = await assistant_config.get(context.assistant)
 
     # ensure that only one async task is updating the attachment for the file
     file_lock = await _lock_for_context_file(context, file.filename)
@@ -348,6 +356,9 @@ async def _get_attachment_for_file(
                 file_bytes = await _read_conversation_file(context, file)
                 # convert the content of the file to a string
                 content = await convert.bytes_to_str(file_bytes, filename=file.filename)
+                asyncio.create_task(
+                    task_compute_summary(context=context, config=config, file_content=content, filename=file.filename)
+                )
             except Exception as e:
                 await error_handler(context, file.filename, e)
                 error = f"error processing file: {e}"

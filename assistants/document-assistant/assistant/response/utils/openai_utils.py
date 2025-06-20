@@ -1,10 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import json
 import logging
 import time
+from pathlib import Path
 from textwrap import dedent
-from typing import List, Literal, Tuple, Union
+from typing import Any, List, Literal, Tuple, Union
 
+import aiofiles
+import pendulum
+from semantic_workbench_assistant.config import first_env_var
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
@@ -25,6 +30,32 @@ from pydantic import BaseModel
 from ...config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
+
+
+async def _log_request_completion_pair(
+    request_args: dict[str, Any], completion: ParsedChatCompletion[BaseModel] | ChatCompletion
+) -> None:
+    """Log paired request and completion objects to file for later analysis."""
+    # Check if logging is enabled via environment variable
+    log_filename = first_env_var("openai_log_file", "assistant__openai_log_file")
+    if not log_filename:
+        return
+    
+    try:
+        temp_dir = Path(__file__).parents[3] / "temp"
+        temp_dir.mkdir(exist_ok=True)
+        log_file = temp_dir / log_filename
+
+        timestamp = pendulum.now("UTC").isoformat()
+        completion_data = completion.model_dump() if hasattr(completion, "model_dump") else completion.to_dict()
+
+        log_entry = {"timestamp": timestamp, "request": request_args, "response": completion_data}
+
+        async with aiofiles.open(log_file, mode="a", encoding="utf-8") as f:
+            await f.write(json.dumps(log_entry, default=str) + "\n")
+    except Exception as e:
+        # Don't let logging errors break the main flow
+        logger.warning(f"Failed to log request/completion: {e}")
 
 
 def get_ai_client_configs(
@@ -63,6 +94,7 @@ async def get_completion(
     chat_message_params: List[ChatCompletionMessageParam],
     tools: List[ChatCompletionToolParam] | None,
     tool_choice: str | None = None,
+    structured_output: dict[Any, Any] | None = None,
 ) -> ParsedChatCompletion[BaseModel] | ChatCompletion:
     """
     Generate a completion from the OpenAI API.
@@ -103,6 +135,10 @@ async def get_completion(
                 else:
                     completion_args["tool_choice"] = tool_choice
 
+    if structured_output is not None:
+        response_format = {"type": "json_schema", "json_schema": structured_output}
+        completion_args["response_format"] = response_format
+
     logger.debug(
         dedent(f"""
             Initiating OpenAI request:
@@ -118,6 +154,8 @@ async def get_completion(
     logger.info(
         f"Completion for model `{completion.model}` finished generating `{completion.usage.completion_tokens}` tokens at {tokens_per_second} tok/sec. Input tokens count was `{completion.usage.prompt_tokens}`."
     )
+
+    await _log_request_completion_pair(completion_args, completion)
     return completion
 
 
@@ -181,16 +219,87 @@ def get_openai_tools_from_mcp_sessions(
     """
 
     mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_disabled)
-    extra_parameters = {
-        "aiContext": {
-            "type": "string",
-            "description": dedent("""
-                Explanation of why the AI is using this tool and what it expects to accomplish.
-                This message is displayed to the user, coming from the point of view of the
-                assistant and should fit within the flow of the ongoing conversation, responding
-                to the preceding user message.
-            """).strip(),
-        },
-    }
-    openai_tools = convert_tools_to_openai_tools(mcp_tools, extra_parameters)
+    openai_tools = convert_tools_to_openai_tools(mcp_tools)
     return openai_tools
+
+
+async def convert_oai_messages_to_xml(oai_messages: list[ChatCompletionMessageParam], filename: str | None) -> str:
+    """
+    Converts OpenAI messages to an XML-like formatted string.
+    Example:
+    <conversation filename="conversation_20250520_201521_20250520_201521.txt">
+    <message role="user">
+    message content here
+    </message>
+    <message role="assistant">
+    message content here
+    <toolcall name="tool_name">
+    tool content here
+    </toolcall>
+    </message>
+    <message role="tool">
+    tool content here
+    </message>
+    <message role="user">
+    <content>
+    content here
+    </content>
+    <content>
+    content here
+    </content>
+    </message>
+    </conversation>
+    """
+    xml_parts = []
+    if filename is not None:
+        xml_parts = [f'<conversation filename="{filename}"']
+    else:
+        xml_parts = ["<conversation>"]
+    for msg in oai_messages:
+        role = msg.get("role", "")
+        xml_parts.append(f'<message role="{role}"')
+
+        if role == "assistant":
+            content = msg.get("content")
+            if content:
+                if isinstance(content, str):
+                    xml_parts.append(content)
+                elif isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            xml_parts.append(part.get("text", ""))
+
+            tool_calls = msg.get("tool_calls", [])
+            for tool_call in tool_calls:
+                if tool_call.get("type") == "function":
+                    function = tool_call.get("function", {})
+                    function_name = function.get("name", "unknown")
+                    arguments = function.get("arguments", "")
+                    xml_parts.append(f'<toolcall name="{function_name}">')
+                    xml_parts.append(arguments)
+                    xml_parts.append("</toolcall>")
+
+        elif role == "tool":
+            content = msg.get("content")
+            if isinstance(content, str):
+                xml_parts.append(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        xml_parts.append(part.get("text", ""))
+
+        elif role in ["user", "system", "developer"]:
+            content = msg.get("content")
+            if isinstance(content, str):
+                xml_parts.append(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        xml_parts.append("<content>")
+                        xml_parts.append(part.get("text", ""))
+                        xml_parts.append("</content>")
+
+        xml_parts.append("</message>")
+
+    xml_parts.append("</conversation>")
+    return "\n".join(xml_parts)
