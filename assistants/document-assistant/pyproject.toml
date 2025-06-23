@@ -19,7 +19,6 @@ dependencies = [
     "openai-client>=0.1.0",
     "pdfplumber>=0.11.2",
     "pendulum>=3.1,<4.0",
-    "pydantic-ai[openai,athropic]>=0.2,<0.3",
     "pydantic-extra-types>=2.10,<3.0",
     "python-dotenv>=1.1,<2.0",
     "python-liquid>=2.0,<3.0",

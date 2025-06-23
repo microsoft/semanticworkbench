@@ -6,6 +6,21 @@ import logging
 import time
 from pathlib import Path
 
+from assistant_evaluations.assistant_api import (
+    create_test_jwt_token,
+    get_all_messages,
+    get_assistant,
+    get_user_from_workbench_db,
+    poll_assistant_status,
+)
+from assistant_evaluations.config import EvaluationConfig
+from assistant_evaluations.gce.gce_agent import (
+    Agenda,
+    GuidedConversationInput,
+    GuidedConversationState,
+    step_conversation,
+)
+from dotenv import load_dotenv
 from liquid import render
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -19,20 +34,7 @@ from semantic_workbench_api_model.workbench_service_client import (
     WorkbenchServiceUserClientBuilder,
 )
 
-from assistant.evaluation.assistant_api import (
-    create_test_jwt_token,
-    get_all_messages,
-    get_assistant,
-    get_user_from_workbench_db,
-    poll_assistant_status,
-)
-from assistant.evaluation.config import EvaluationConfig
-from assistant.evaluation.gce.gce_agent import (
-    Agenda,
-    GuidedConversationInput,
-    GuidedConversationState,
-    step_conversation,
-)
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +127,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=str,
-        default=str(Path(__file__).parent / "evaluation_config.yaml"),
+        default=str(Path(__file__).parents[1] / "configs" / "document_assistant_example_config.yaml"),
         help="Path to the configuration YAML file",
     )
     parser.add_argument(

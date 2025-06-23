@@ -14,12 +14,14 @@ import argparse
 import asyncio
 from pathlib import Path
 
+from assistant_evaluations.config import EvaluationConfig
+from assistant_evaluations.pydantic_ai_utils import create_model
+from dotenv import load_dotenv
 from liquid import render
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 
-from assistant.evaluation.config import EvaluationConfig
-from assistant.evaluation.pydantic_ai_utils import create_model
+load_dotenv()
 
 SYSTEM_PROMPT = """You are a creative scenario generator for testing AI assistants.
 
@@ -162,7 +164,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=str,
-        default=str(Path(__file__).parent / "evaluation_config.yaml"),
+        default=str(Path(__file__).parents[1] / "configs" / "document_assistant_example_config.yaml"),
         help="Path to the configuration YAML file",
     )
     return parser.parse_args()
