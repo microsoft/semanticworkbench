@@ -9,7 +9,7 @@ from chat_context_toolkit.virtual_filesystem import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant_extensions.attachments._attachments import AttachmentsExtension, _get_attachments
+from assistant_extensions.attachments import AttachmentsExtension, get_attachments
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +79,8 @@ class AttachmentsVirtualFileSystemFileSource(FileSource):
 
         workbench_path = path.lstrip("/")
 
-        async def error_handler(context: ConversationContext, filename: str, e: Exception) -> None:
-            logger.exception("error reading file %s", filename, exc_info=e)
-
-        attachments = await _get_attachments(
-            context=self.context, error_handler=error_handler, include_filenames=[workbench_path], exclude_filenames=[]
+        attachments = await get_attachments(
+            context=self.context, include_filenames=[workbench_path], exclude_filenames=[]
         )
         if not attachments:
             raise FileNotFoundError(f"File not found: {path}")

@@ -30,43 +30,11 @@ ToolAbbreviations = dict[str, Abbreviations]
 """A mapping of tool names to their abbreviations for assistant tool calls and tool messages."""
 
 
-class HistoryMessageWithToolAbbreviation:
-    """
-    A HistoryMessageProtocol implementation that includes an abbreviated OpenAI message representation
-    for tool messages and assistant messages with tool calls.
-    """
-
-    def __init__(
-        self,
-        id: str,
-        openai_message: OpenAIHistoryMessageParam,
-        tool_abbreviations: ToolAbbreviations,
-        tool_name_for_tool_message: str | None = None,
-    ) -> None:
-        self.id = id
-        self.openai_message = openai_message
-        self._abbreviated_openai_message_created = False
-        self._tool_abbreviations = tool_abbreviations
-        self._tool_name_for_tool_message = tool_name_for_tool_message
-
-    @property
-    def abbreviated_openai_message(self) -> OpenAIHistoryMessageParam | None:
-        if self._abbreviated_openai_message_created:
-            return self._abbreviated_openai_message
-        self._abbreviated_openai_message = abbreviate_openai_message(
-            tool_name_for_tool_message=self._tool_name_for_tool_message,
-            openai_message=self.openai_message,
-            tool_abbreviations=self._tool_abbreviations,
-        )
-        self._abbreviated_openai_message_created = True
-        return self._abbreviated_openai_message
-
-
-def abbreviate_openai_message(
+def abbreviate_openai_tool_message(
     openai_message: OpenAIHistoryMessageParam,
     tool_abbreviations: ToolAbbreviations,
     tool_name_for_tool_message: str | None = None,
-) -> OpenAIHistoryMessageParam | None:
+) -> OpenAIHistoryMessageParam:
     """
     Abbreviate the OpenAI message if it is a tool message or an assistant message with tool calls.
 
@@ -87,7 +55,8 @@ def abbreviate_openai_message(
         case {"role": "assistant", "tool_calls": tool_calls}:
             return abbreviate_tool_call_message(openai_message, tool_calls, tool_abbreviations)
 
-    return openai_message
+        case _:
+            return openai_message
 
 
 def abbreviate_tool_message(

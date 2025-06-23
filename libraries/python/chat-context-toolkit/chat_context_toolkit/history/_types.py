@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Protocol, Sequence
+from typing import Callable, Protocol, Sequence
 from uuid import uuid4
 
 from openai.types.chat import (
@@ -97,3 +97,41 @@ class MessageCollection:
     messages: Sequence[HistoryMessageProtocol]
     token_counts: TokenCounts
     budget_decisions: Sequence[BudgetDecision]
+
+
+class HistoryMessage(HistoryMessageProtocol):
+    """
+    A HistoryMessageProtocol implementation that will lazily abbreviate the OpenAI message
+    when the `abbreviated_openai_message` property is accessed for the first time.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        openai_message: OpenAIHistoryMessageParam,
+        abbreviator: Callable[[], OpenAIHistoryMessageParam | None] | None = None,
+    ) -> None:
+        self._id = id
+        self._openai_message = openai_message
+        self._abbreviated = False
+        self._abbreviator = abbreviator
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def openai_message(self) -> OpenAIHistoryMessageParam:
+        return self._openai_message
+
+    @property
+    def abbreviated_openai_message(self) -> OpenAIHistoryMessageParam | None:
+        if self._abbreviated:
+            return self._abbreviated_openai_message
+
+        self._abbreviated_openai_message = self.openai_message
+        if self._abbreviator:
+            self._abbreviated_openai_message = self._abbreviator()
+
+        self._abbreviated = True
+        return self._abbreviated_openai_message

@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Literal, Sequence
 
 from chat_context_toolkit.history import (
+    HistoryMessage,
     HistoryMessageProtocol,
     HistoryMessageProvider,
     NewTurn,
@@ -12,8 +13,8 @@ from chat_context_toolkit.history import (
 )
 from chat_context_toolkit.history.tool_abbreviations import (
     Abbreviations,
-    HistoryMessageWithToolAbbreviation,
     ToolAbbreviations,
+    abbreviate_openai_tool_message,
 )
 from liquid import render
 from openai_client import (
@@ -187,28 +188,20 @@ def convert_openai_to_pydantic_ai(openai_messages: Sequence[OpenAIHistoryMessage
     return pydantic_messages
 
 
-class PydanticAIMessageWrapper:
+class PydanticAIMessageWrapper(HistoryMessage):
     """Wrapper to make OpenAI message param compatible with MessageProtocol"""
 
     def __init__(self, openai_message_param: OpenAIHistoryMessageParam, message_id: str):
-        self._openai_message = openai_message_param
-        self._id = message_id
+        super().__init__(id=message_id, openai_message=openai_message_param, abbreviator=self.abbreviator)
 
-    @property
-    def id(self) -> str:
-        return self._id
-
-    @property
-    def openai_message(self) -> OpenAIHistoryMessageParam:
-        return self._openai_message
-
-    @property
-    def abbreviated_openai_message(self) -> OpenAIHistoryMessageParam | None:
-        abbreviations = Abbreviations()
-        abbreviations.tool_call_argument_replacements = {
-            "items": "This agenda is old and has been removed due to token window limitations."
-        }
-        tool_abbreviations = ToolAbbreviations({"update_agenda": abbreviations})
+    def abbreviator(self) -> OpenAIHistoryMessageParam | None:
+        tool_abbreviations = ToolAbbreviations({
+            "update_agenda": Abbreviations(
+                tool_call_argument_replacements={
+                    "items": "This agenda is old and has been removed due to token window limitations."
+                }
+            )
+        })
 
         # For tool messages, we need to provide the tool name. This assumes the tool name is "update_agenda".
         tool_name_for_tool_message = None
@@ -217,10 +210,9 @@ class PydanticAIMessageWrapper:
             # This should match the tool that was called - in our case "update_agenda"
             tool_name_for_tool_message = "update_agenda"
 
-        history_msg = HistoryMessageWithToolAbbreviation(
-            self._id, self._openai_message, tool_abbreviations, tool_name_for_tool_message=tool_name_for_tool_message
+        prop = abbreviate_openai_tool_message(
+            self._openai_message, tool_abbreviations, tool_name_for_tool_message=tool_name_for_tool_message
         )
-        prop = history_msg.abbreviated_openai_message
         return prop
 
 

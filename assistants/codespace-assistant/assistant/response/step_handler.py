@@ -8,7 +8,7 @@ from assistant_extensions.attachments import AttachmentsConfigModel, Attachments
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
 from assistant_extensions.virtual_filesystem import AttachmentsVirtualFileSystemFileSource
 from chat_context_toolkit.history import NewTurn
-from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem import MountPoint, VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -81,8 +81,13 @@ async def next_step(
 
     virtual_filesystem = VirtualFileSystem()
     virtual_filesystem.mount(
-        "/attachments",
-        AttachmentsVirtualFileSystemFileSource(attachments_extension=attachments_extension, context=context),
+        MountPoint(
+            path="/attachments",
+            file_source=AttachmentsVirtualFileSystemFileSource(
+                attachments_extension=attachments_extension, context=context
+            ),
+            description="User and assistant created files and attachments",
+        )
     )
 
     tools = [tool for _, tool in virtual_filesystem.tools.items()]

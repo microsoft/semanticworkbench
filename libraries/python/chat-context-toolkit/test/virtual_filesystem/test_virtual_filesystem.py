@@ -7,6 +7,7 @@ import pytest
 from chat_context_toolkit.virtual_filesystem import (
     DirectoryEntry,
     FileEntry,
+    MountPoint,
     VirtualFileSystem,
     WriteToolDefinition,
 )
@@ -76,7 +77,7 @@ class TestVirtualFileSystem:
         vfs = VirtualFileSystem()
         source = SimpleFileSource(directories={"/": ["file1.txt"]})
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Root directory should show mounted paths
         result = list(await vfs.list_directory("/"))
@@ -92,11 +93,11 @@ class TestVirtualFileSystem:
         vfs = VirtualFileSystem()
         source = SimpleFileSource(directories={"/": ["file1.txt"]})
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Attempting to mount the same source again should raise an error
         with pytest.raises(ValueError, match="already mounted"):
-            vfs.mount("/docs", source)
+            vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
     async def test_invalid_mount_paths_raise_error(self):
         """Test that mounting with invalid paths raises ValueError."""
@@ -104,26 +105,26 @@ class TestVirtualFileSystem:
 
         # Attempt to mount with invalid paths
         with pytest.raises(ValueError, match="is invalid"):
-            vfs.mount("", SimpleFileSource())
+            vfs.mount(MountPoint(path="", description="Test", file_source=SimpleFileSource()))
 
         with pytest.raises(ValueError, match="is invalid"):
-            vfs.mount("/", SimpleFileSource())
+            vfs.mount(MountPoint(path="/", description="Test", file_source=SimpleFileSource()))
 
         with pytest.raises(ValueError, match="is invalid"):
-            vfs.mount("docs", SimpleFileSource())
+            vfs.mount(MountPoint(path="docs", description="Test", file_source=SimpleFileSource()))
 
         with pytest.raises(ValueError, match="is invalid"):
-            vfs.mount("/docs/sub-dir", SimpleFileSource())
+            vfs.mount(MountPoint(path="/docs/sub-dir", description="Test", file_source=SimpleFileSource()))
 
         with pytest.raises(ValueError, match="is invalid"):
-            vfs.mount("\\docs", SimpleFileSource())
+            vfs.mount(MountPoint(path="\\docs", description="Test", file_source=SimpleFileSource()))
 
     async def test_mount_and_list_mounted_directory_with_files(self):
         """Test listing files within a mounted directory."""
         vfs = VirtualFileSystem()
         source = SimpleFileSource(files={"/file1.txt": "content1"}, directories={"/": ["file1.txt"]})
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # List files in mounted directory
         result = list(await vfs.list_directory("/docs"))
@@ -142,7 +143,7 @@ class TestVirtualFileSystem:
             directories={"/": ["file1.txt", "subdir/"], "/subdir": ["file2.txt"]},
         )
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # List files in mounted directory
         result = list(await vfs.list_directory("/docs"))
@@ -164,7 +165,7 @@ class TestVirtualFileSystem:
             directories={"/": ["file1.txt", "subdir/"], "/subdir": ["file2.txt"]},
         )
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # List files in sub directory
         result = list(await vfs.list_directory("/docs/subdir"))
@@ -191,7 +192,7 @@ class TestVirtualFileSystem:
         vfs = VirtualFileSystem()
         source = SimpleFileSource(files={"/file1.txt": "hello world"})
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Read file from mounted source
         result = await vfs.read_file("/docs/file1.txt")
@@ -206,8 +207,8 @@ class TestVirtualFileSystem:
         docs_source = SimpleFileSource(files={"/readme.txt": "docs content"}, directories={"/": ["readme.txt"]})
         code_source = SimpleFileSource(files={"/main.py": "print('hello')"}, directories={"/": ["main.py"]})
 
-        vfs.mount("/docs", docs_source)
-        vfs.mount("/src", code_source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=docs_source))
+        vfs.mount(MountPoint(path="/src", description="Test source code", file_source=code_source))
 
         # Root should show both mounts
         root_result = list(await vfs.list_directory("/"))
@@ -236,7 +237,7 @@ class TestVirtualFileSystem:
         vfs = VirtualFileSystem()
         source = SimpleFileSource(files={"/file1.txt": "content"}, directories={"/": ["file1.txt"]})
 
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
         vfs.unmount("/docs")
 
         # After unmounting, directory should not be accessible
@@ -247,7 +248,7 @@ class TestVirtualFileSystem:
         """Test proper FileNotFoundError for non-existent paths."""
         vfs = VirtualFileSystem()
         source = SimpleFileSource(files={"/file1.txt": "content"}, directories={"/": ["file1.txt"]})
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Non-existent file
         with pytest.raises(FileNotFoundError):
@@ -293,7 +294,7 @@ class TestVirtualFileSystem:
 
         # After mounting source with tools, they should be available
         source = SourceWithTools()
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Tools should now include the mounted source's tools
         assert "write_file" in vfs.tools
@@ -339,7 +340,7 @@ class TestVirtualFileSystem:
 
         # Mount source with tool
         source = SourceWithTool()
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Execute the tool
         tool_call = ChatCompletionMessageToolCallParam(
@@ -399,8 +400,8 @@ class TestVirtualFileSystem:
         starting_tools_count = len(vfs.tools)
 
         # Mount both sources
-        vfs.mount("/docs", SourceWithTool1())
-        vfs.mount("/code", SourceWithTool2())
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=SourceWithTool1()))
+        vfs.mount(MountPoint(path="/code", description="Test code", file_source=SourceWithTool2()))
 
         # Both tools should be available
         tools = vfs.tools
@@ -442,7 +443,7 @@ class TestVirtualFileSystem:
                     raise FileNotFoundError("File not found in source")
                 return "content"
 
-        vfs.mount("/test", ErrorSource())
+        vfs.mount(MountPoint(path="/test", description="Test error source", file_source=ErrorSource()))
 
         # Source errors should propagate
         with pytest.raises(FileNotFoundError, match="Source-specific error"):
@@ -477,7 +478,7 @@ class TestVirtualFileSystem:
         starting_tools_count = len(vfs.tools)
 
         # Mount source with tool
-        vfs.mount("/docs", SourceWithTool())
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=SourceWithTool()))
         assert len(vfs.tools) == starting_tools_count + 1
         assert "test_tool" in vfs.tools
 
@@ -556,7 +557,7 @@ class TestVirtualFileSystem:
             def write_tools(self):
                 return []
 
-        vfs.mount("/docs", TestFileSource())
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=TestFileSource()))
 
         # Test ls on root (should show mounted directories)
         ls_call = ChatCompletionMessageToolCallParam(
@@ -594,7 +595,7 @@ class TestVirtualFileSystem:
         """Test that the built-in view tool can read file contents."""
         vfs = VirtualFileSystem()
         source = SimpleFileSource(files={"/file1.txt": "Hello World", "/subdir/file2.txt": "Nested Content"})
-        vfs.mount("/docs", source)
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=source))
 
         # Test view on file
         view_call = ChatCompletionMessageToolCallParam(
@@ -652,7 +653,7 @@ class TestVirtualFileSystem:
             async def execute(self, args: dict) -> str:
                 return "custom executed"
 
-        vfs.mount("/docs", SourceWithTool())
+        vfs.mount(MountPoint(path="/docs", description="Test docs", file_source=SourceWithTool()))
 
         # Should have both built-in and source tools
         tools = vfs.tools
