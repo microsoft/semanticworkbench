@@ -1,19 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Configuration models for evaluation components."""
-
 from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
 
-from assistant.evaluation.gce.gce_agent import ResourceConstraintMode
+from assistant_evaluations.gce.gce_agent import ResourceConstraintMode
 
 
 class ScenarioConfig(BaseModel):
-    """Configuration for a specific evaluation scenario."""
-
     description: str = Field(description="The scenario description text")
     gce_conversation_flow: str = Field(description="Conversation flow instructions for this scenario")
     resource_total: int | None = Field(
@@ -22,8 +18,6 @@ class ScenarioConfig(BaseModel):
 
 
 class GeneralConfig(BaseModel):
-    """General configuration for the evaluation system."""
-
     assistant_name: str = Field(
         default="Document Assistant 6-13 v1", description="Default name of the assistant to use"
     )
@@ -41,8 +35,6 @@ class GeneralConfig(BaseModel):
 
 
 class EvaluationConfig(BaseModel):
-    """Complete evaluation configuration."""
-
     general: GeneralConfig = Field(description="General configuration settings")
     scenarios: list[ScenarioConfig] = Field(description="List of available scenario configurations")
 

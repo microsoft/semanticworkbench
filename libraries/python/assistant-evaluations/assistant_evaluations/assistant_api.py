@@ -126,9 +126,11 @@ async def get_assistant_participant(conversation_client: ConversationAPIClient) 
 async def poll_assistant_status(conversation_client: ConversationAPIClient):
     """Polls the assistant status until it finishes responding."""
     # TODO: Wait a bit by blocking. There is some race condition this helps with.
+    await asyncio.sleep(1)
     time.sleep(1)
     while True:
         participant = await get_assistant_participant(conversation_client)
+        await asyncio.sleep(1)
         time.sleep(1)
         participant = await get_assistant_participant(conversation_client)
         if participant and participant.status:

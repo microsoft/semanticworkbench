@@ -36,9 +36,10 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.tools import ToolDefinition
 
-from assistant.evaluation.gce.prompts import (
+from assistant_evaluations.gce.prompts import (
     AGENDA_SYSTEM_PROMPT,
     CONVERSATION_SYSTEM_PROMPT,
     FIRST_USER_MESSAGE,
@@ -47,7 +48,7 @@ from assistant.evaluation.gce.prompts import (
     TERMINATION_INSTRUCTIONS_EXACT,
     TERMINATION_INSTRUCTIONS_MAXIMUM,
 )
-from assistant.evaluation.pydantic_ai_utils import create_model
+from assistant_evaluations.pydantic_ai_utils import create_model
 
 
 class ResourceConstraintMode(Enum):
@@ -226,7 +227,7 @@ class PydanticAIMessageWrapper:
 def message_history_message_provider_for(messages: list[ModelMessage]) -> HistoryMessageProvider:
     async def provider(after_id: str | None) -> list[HistoryMessageProtocol]:
         # Convert all messages using Pydantic AI's built-in conversion
-        _temp_model = OpenAIModel("gpt-4o")
+        _temp_model = OpenAIModel("gpt-4o", provider=OpenAIProvider(api_key="dummy-key"))
         openai_messages = await _temp_model._map_messages(messages)
 
         # Filter to only include message types supported by HistoryMessageParam
