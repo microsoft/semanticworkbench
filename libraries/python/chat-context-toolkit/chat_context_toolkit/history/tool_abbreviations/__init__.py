@@ -1,7 +1,11 @@
-from ._tool_abbreviations import Abbreviations, HistoryMessageWithToolAbbreviation, ToolAbbreviations
+from ._tool_abbreviations import (
+    Abbreviations,
+    ToolAbbreviations,
+    abbreviate_openai_tool_message,
+)
 
 __all__ = [
     "ToolAbbreviations",
     "Abbreviations",
-    "HistoryMessageWithToolAbbreviation",
+    "abbreviate_openai_tool_message",
 ]

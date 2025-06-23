@@ -8,7 +8,7 @@ from openai.types.chat import (
     ChatCompletionToolParam,
 )
 
-from .types import DirectoryEntry, FileEntry, FileSource
+from .types import DirectoryEntry, FileEntry, MountPoint
 
 
 class VirtualFileSystem:
@@ -16,10 +16,12 @@ class VirtualFileSystem:
 
     def __init__(self) -> None:
         """Initialize the virtual file system."""
-        self._mounts: dict[str, FileSource] = {}
+        self._mounts: dict[str, MountPoint] = {}
 
-    def mount(self, path: str, source: FileSource) -> None:
+    def mount(self, mount_point: MountPoint) -> None:
         """Mount a file source at the specified path."""
+        path = mount_point.path
+
         # Validate mount path - assign conditions to variables for readability
         is_empty = not path
         is_root = path == "/"
@@ -37,7 +39,7 @@ class VirtualFileSystem:
         if path in self._mounts:
             raise ValueError(f"Path {path} is already mounted")
 
-        self._mounts[path] = source
+        self._mounts[path] = mount_point
 
     def unmount(self, path: str) -> None:
         """Unmount the file source at the specified path."""
@@ -70,7 +72,7 @@ class VirtualFileSystem:
         if mount_path not in self._mounts:
             raise FileNotFoundError(f"Directory not found: {path}")
 
-        source = self._mounts[mount_path]
+        source = self._mounts[mount_path].file_source
         source_entries = await source.list_directory(source_path)
 
         # Adjust paths to include mount prefix
@@ -105,7 +107,7 @@ class VirtualFileSystem:
         if mount_path not in self._mounts:
             raise FileNotFoundError(f"File not found: {path}")
 
-        source = self._mounts[mount_path]
+        source = self._mounts[mount_path].file_source
 
         return await source.read_file(source_path)
 
@@ -117,12 +119,16 @@ class VirtualFileSystem:
         """
         tools_dict = {}
 
+        mount_list = "; ".join(
+            f"{mount_path}: ({mount_point.description})" for mount_path, mount_point in self._mounts.items()
+        )
+
         # Add built-in VFS tools
         tools_dict["ls"] = {
             "type": "function",
             "function": {
                 "name": "ls",
-                "description": "List files and directories at the specified path",
+                "description": "List files and directories at the specified path. Root directories: " + mount_list,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -155,8 +161,8 @@ class VirtualFileSystem:
         }
 
         # Collect tools from all mounted sources
-        for source in self._mounts.values():
-            for tool in source.write_tools:
+        for mount_point in self._mounts.values():
+            for tool in mount_point.file_source.write_tools:
                 tool_param = tool.tool_param
                 tool_name = tool_param["function"]["name"]
                 tools_dict[tool_name] = tool_param
@@ -186,8 +192,8 @@ class VirtualFileSystem:
 
             case _:
                 # Find the tool in mounted sources
-                for source in self._mounts.values():
-                    for tool in source.write_tools:
+                for mount_point in self._mounts.values():
+                    for tool in mount_point.file_source.write_tools:
                         tool_param = tool.tool_param
                         if tool_param["function"]["name"] == tool_name:
                             return await tool.execute(args)

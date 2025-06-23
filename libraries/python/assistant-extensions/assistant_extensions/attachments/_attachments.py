@@ -142,7 +142,7 @@ class AttachmentsExtension:
         """
 
         # get attachments, filtered by include_filenames and exclude_filenames
-        attachments = await _get_attachments(
+        attachments = await get_attachments(
             context,
             error_handler=self._error_handler,
             include_filenames=include_filenames,
@@ -167,7 +167,7 @@ class AttachmentsExtension:
         exclude_filenames: list[str] = [],
     ) -> list[str]:
         # get attachments, filtered by include_filenames and exclude_filenames
-        attachments = await _get_attachments(
+        attachments = await get_attachments(
             context,
             error_handler=self._error_handler,
             include_filenames=include_filenames,
@@ -227,11 +227,15 @@ def _create_message(preferred_message_role: str, content: str) -> CompletionMess
             raise ValueError(f"unsupported preferred_message_role: {preferred_message_role}")
 
 
-async def _get_attachments(
+async def default_error_handler(context: ConversationContext, filename: str, e: Exception) -> None:
+    logger.exception("error reading file %s", filename, exc_info=e)
+
+
+async def get_attachments(
     context: ConversationContext,
-    error_handler: AttachmentProcessingErrorHandler,
     include_filenames: list[str] | None,
     exclude_filenames: list[str],
+    error_handler: AttachmentProcessingErrorHandler = default_error_handler,
 ) -> Sequence[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.

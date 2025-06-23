@@ -79,3 +79,17 @@ class FileSource(Protocol):
         FileSource implementations are responsible for representing the file content as a string.
         """
         ...
+
+
+@dataclass
+class MountPoint:
+    """Mount point for a file source in the virtual file system."""
+
+    path: str
+    """Mount path in the virtual file system, such as "/docs"."""
+
+    description: str
+    """Description of the mount point, used for informing the LLM about the content."""
+
+    file_source: FileSource
+    """The file source that is mounted at the specified path."""
