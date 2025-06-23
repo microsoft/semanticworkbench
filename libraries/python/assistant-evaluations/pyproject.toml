@@ -22,16 +22,9 @@ chat-context-toolkit = { path = "../chat-context-toolkit", editable = true }
 openai-client = { path = "../openai-client", editable = true }
 
 [dependency-groups]
-dev = ["pyright>=1.1.401", "pytest>=8.4.0", "pytest-asyncio>=1.0.0"]
+dev = ["pyright>=1.1.401"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.pytest.ini_options]
-addopts = ["-vv"]
-log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-asyncio_default_fixture_loop_scope = "function"
-asyncio_mode = "auto"
