@@ -89,6 +89,10 @@
       "path": "libraries/python/assistant-drive"
     },
     {
+      "name": "libraries:assistant-evaluations",
+      "path": "libraries/python/assistant-evaluations"
+    },
+    {
       "name": "libraries:assistant-extensions",
       "path": "libraries/python/assistant-extensions"
     },
