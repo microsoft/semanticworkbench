@@ -166,15 +166,15 @@ async def respond_to_conversation(
             )
             logger.info("Response stopped early due to maximum steps.")
 
-    # enqueue an archive task for this conversation
-    await archive_task_queues.enqueue_run(
-        context=context,
-        service_config=service_config,
-        request_config=request_config,
-        archive_task_config=ArchiveTaskConfig(
-            chunk_token_count_threshold=config.chat_context_config.archive_token_threshold
-        ),
-    )
+        # enqueue an archive task for this conversation
+        await archive_task_queues.enqueue_run(
+            context=context,
+            service_config=service_config,
+            request_config=request_config,
+            archive_task_config=ArchiveTaskConfig(
+                chunk_token_count_threshold=config.chat_context_config.archive_token_threshold
+            ),
+        )
 
     # Log the completion of the response
     logger.info("Response completed.")
