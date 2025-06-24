@@ -217,7 +217,7 @@ class PydanticAIMessageWrapper(HistoryMessage):
 
 
 def message_history_message_provider_for(messages: list[ModelMessage]) -> HistoryMessageProvider:
-    async def provider(after_id: str | None) -> list[HistoryMessageProtocol]:
+    async def provider() -> list[HistoryMessageProtocol]:
         # Convert all messages using Pydantic AI's built-in conversion
         _temp_model = OpenAIModel("gpt-4o", provider=OpenAIProvider(api_key="dummy-key"))
         openai_messages = await _temp_model._map_messages(messages)
@@ -232,11 +232,6 @@ def message_history_message_provider_for(messages: list[ModelMessage]) -> Histor
         wrapped_messages = []
         # Find starting index if after_id is provided
         start_idx = 0
-        if after_id:
-            for i, _ in enumerate(filtered_messages):
-                if f"msg_{i}" == after_id:
-                    start_idx = i + 1
-                    break
 
         for i, openai_msg in enumerate(filtered_messages[start_idx:], start_idx):
             msg_id = f"msg_{i}"
@@ -252,13 +247,13 @@ async def process_message_history_with_budget(
     high_priority_token_count: int = 8000,
 ) -> list[ModelMessage]:
     message_provider = message_history_message_provider_for(message_history)
-    messages = await apply_budget_to_history_messages(
+    budget_result = await apply_budget_to_history_messages(
         turn=NewTurn(high_priority_token_count=high_priority_token_count),
         token_budget=token_budget,
         token_counter=lambda messages: num_tokens_from_messages(messages=messages, model="gpt-4o"),
         message_provider=message_provider,
     )
-    return convert_openai_to_pydantic_ai(messages)
+    return convert_openai_to_pydantic_ai(budget_result.messages)
 
 
 # endregion
