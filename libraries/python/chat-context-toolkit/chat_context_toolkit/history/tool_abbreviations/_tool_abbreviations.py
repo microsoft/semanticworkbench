@@ -11,7 +11,7 @@ from openai.types.chat import (
 
 from .. import OpenAIHistoryMessageParam
 
-logger = logging.getLogger("history.tool_abbreviations")
+logger = logging.getLogger("chat_context_toolkit.history.tool_abbreviations")
 
 
 @dataclass

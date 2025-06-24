@@ -1,9 +1,12 @@
 """Utility functions for retrieving message history using chat_context_toolkit."""
 
+import datetime
 import logging
 import uuid
-from typing import Sequence
+from typing import Protocol, Sequence
 
+from chat_context_toolkit.archive import MessageProtocol as ArchiveMessageProtocol
+from chat_context_toolkit.archive import MessageProvider as ArchiveMessageProvider
 from chat_context_toolkit.history import (
     HistoryMessage,
     HistoryMessageProtocol,
@@ -34,13 +37,19 @@ class HistoryMessageWithAbbreviation(HistoryMessage):
     def __init__(
         self,
         id: str,
+        timestamp: datetime.datetime,
         openai_message: OpenAIHistoryMessageParam,
         tool_abbreviations: ToolAbbreviations,
         tool_name_for_tool_message: str | None = None,
     ) -> None:
         super().__init__(id=id, openai_message=openai_message, abbreviator=self.abbreviator)
+        self._timestamp = timestamp
         self._tool_abbreviations = tool_abbreviations
         self._tool_name_for_tool_message = tool_name_for_tool_message
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        return self._timestamp
 
     def abbreviator(self) -> OpenAIHistoryMessageParam | None:
         match self.openai_message:
@@ -103,15 +112,31 @@ def abbreviate_attachment_content_parts(
     return {**openai_message, "content": abbreviated_content_parts}
 
 
-def chat_context_toolkit_message_provider_for(
-    context: ConversationContext, tool_abbreviations: ToolAbbreviations
-) -> HistoryMessageProvider:
+class CompositeMessageProvider(HistoryMessageProvider, ArchiveMessageProvider, Protocol):
     """
-    Create a history message provider for the given workbench conversation context.
+    A composite message provider that combines both history and archive message providers.
     """
 
-    async def provider(after_id: str | None) -> Sequence[HistoryMessageProtocol]:
-        history = await _get_history_manager_messages(context, after_id=after_id, tool_abbreviations=tool_abbreviations)
+    ...
+
+
+class CompositeMessageProtocol(HistoryMessageProtocol, ArchiveMessageProtocol, Protocol):
+    """
+    A composite message protocol that combines both history and archive message protocols.
+    """
+
+    ...
+
+
+def chat_context_toolkit_message_provider_for(
+    context: ConversationContext, tool_abbreviations: ToolAbbreviations
+) -> CompositeMessageProvider:
+    """
+    Create a composite message provider for the given workbench conversation context.
+    """
+
+    async def provider(after_id: str | None = None) -> Sequence[CompositeMessageProtocol]:
+        history = await _get_history_manager_messages(context, tool_abbreviations=tool_abbreviations, after_id=after_id)
 
         return history
 
@@ -119,7 +144,7 @@ def chat_context_toolkit_message_provider_for(
 
 
 async def _get_history_manager_messages(
-    context: ConversationContext, after_id: str | None, tool_abbreviations: ToolAbbreviations
+    context: ConversationContext, tool_abbreviations: ToolAbbreviations, after_id: str | None = None
 ) -> list[HistoryMessageWithAbbreviation]:
     """
     Get all messages in the conversation, formatted for the chat_context_toolkit.
@@ -128,29 +153,31 @@ async def _get_history_manager_messages(
     participants_response = await context.get_participants(include_inactive=True)
     participants = participants_response.participants
 
-    # each call to get_messages will return a maximum of 100 messages
-    # so we need to loop until all messages are retrieved
-    # if token_limit is provided, we will stop when the token limit is reached
-
     history: list[HistoryMessageWithAbbreviation] = []
 
-    page_size = 100
+    batch_size = 100
     before_message_id = None
 
+    # each call to get_messages will return a maximum of `batch_size` messages
+    # so we need to loop until all messages are retrieved
     while True:
         # get the next batch of messages, including chat and tool result messages
         messages_response = await context.get_messages(
-            limit=page_size,
+            limit=batch_size,
             before=before_message_id,
             message_types=[MessageType.chat, MessageType.note],
             after=uuid.UUID(after_id) if after_id else None,
         )
         messages_list = messages_response.messages
 
+        if not messages_list:
+            # if there are no more messages, we are done
+            break
+
         # set the before_message_id for the next batch of messages
         before_message_id = messages_list[0].id
 
-        page: list[HistoryMessageWithAbbreviation] = []
+        batch: list[HistoryMessageWithAbbreviation] = []
         for message in messages_list:
             # format the message
             formatted_message = await conversation_message_to_chat_message_param(context, message, participants)
@@ -161,20 +188,22 @@ async def _get_history_manager_messages(
                 continue
 
             # prepend the formatted messages to the history list
-            page.append(
+            batch.append(
                 HistoryMessageWithAbbreviation(
                     id=str(message.id),
                     openai_message=formatted_message,
                     tool_abbreviations=tool_abbreviations,
                     tool_name_for_tool_message=tool_name_for_tool_message(message),
+                    timestamp=message.timestamp,
                 )
             )
 
         # add the formatted messages to the history
-        history = page + history
+        history = batch + history
 
-        if len(messages_list) < page_size:
-            # if we received less than `page_size` messages, we have reached the end of the conversation
+        if len(messages_list) < batch_size:
+            # if we received less than `batch_size` messages, we have reached the end of the conversation.
+            # exit early to avoid another unnecessary message query.
             break
 
     # return the formatted messages

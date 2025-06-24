@@ -1,4 +1,6 @@
 import pathlib
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from ._types import ArchivesState, StorageProvider
 
@@ -23,7 +25,19 @@ class StateStorage:
 
         return ArchivesState.model_validate_json(state_content)
 
-    async def write_state(self, state: ArchivesState) -> None:
+    @asynccontextmanager
+    async def update_state(self) -> AsyncIterator[ArchivesState]:
+        """
+        Updates the current state of the message history archive.
+
+        Returns:
+            ArchiveState: The updated state of the archive.
+        """
+        state = await self.read_state()
+        yield state
+        await self._write_state(state)
+
+    async def _write_state(self, state: ArchivesState) -> None:
         """
         Writes the current state of the message history archive.
 

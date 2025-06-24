@@ -2,13 +2,14 @@ import pathlib
 from datetime import datetime, timezone
 
 import pytest
-from chat_context_toolkit.archive import ArchiveReader, HistoryMessageParam
+from chat_context_toolkit.archive import ArchiveReader
 from chat_context_toolkit.archive._types import (
     ArchiveContent,
     ArchiveManifest,
     ArchivesState,
     MessageProtocol,
 )
+from chat_context_toolkit.history import OpenAIHistoryMessageParam
 from openai.types.chat import ChatCompletionUserMessageParam
 
 
@@ -94,6 +95,7 @@ async def test_list_chunks_with_manifests():
         filename="chunk1.json",
         timestamp_oldest=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 11, 0, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
     manifest2 = ArchiveManifest(
         summary="Second chunk summary",
@@ -101,6 +103,7 @@ async def test_list_chunks_with_manifests():
         filename="chunk2.json",
         timestamp_oldest=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
 
     storage_provider.directories["manifests"] = [
@@ -147,6 +150,7 @@ async def test_list_chunks_skips_non_json_files():
         filename="content.json",
         timestamp_oldest=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
     storage_provider.files["manifests/manifest.json"] = manifest.model_dump_json()
     storage_provider.files["manifests/readme.txt"] = "This is a readme"
@@ -178,6 +182,7 @@ async def test_list_chunks_skips_files_with_no_content():
         filename="content.json",
         timestamp_oldest=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
     storage_provider.files["manifests/valid.json"] = manifest.model_dump_json()
     # missing.json is not in storage_provider.files, so read_text_file returns None
@@ -201,7 +206,7 @@ async def test_read_chunk_existing_file():
     storage_provider = MockStorageProvider()
 
     # Setup content file
-    messages: list[HistoryMessageParam] = [
+    messages: list[OpenAIHistoryMessageParam] = [
         ChatCompletionUserMessageParam(role="user", content="Hello"),
         ChatCompletionUserMessageParam(role="user", content="World"),
     ]
@@ -292,6 +297,7 @@ async def test_integration_full_workflow():
         filename="weather.json",
         timestamp_oldest=datetime(2024, 1, 1, 9, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 9, 30, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
     manifest2 = ArchiveManifest(
         summary="Technical discussion",
@@ -299,6 +305,7 @@ async def test_integration_full_workflow():
         filename="tech.json",
         timestamp_oldest=datetime(2024, 1, 1, 14, 0, 0, tzinfo=timezone.utc),
         timestamp_most_recent=datetime(2024, 1, 1, 14, 45, 0, tzinfo=timezone.utc),
+        content_size_bytes=0,
     )
 
     storage_provider.directories["manifests"] = ["manifests/weather.json", "manifests/tech.json"]

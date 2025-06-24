@@ -1,14 +1,14 @@
 from typing import Sequence
 
-from ._decorators import log_timing
-
 from . import _budget as budget
 from . import _prioritize as prioritize
+from ._decorators import log_timing
 from ._types import (
     BudgetDecision,
     HistoryMessageProtocol,
     HistoryMessageProvider,
     MessageCollection,
+    MessageHistoryBudgetResult,
     NewTurn,
     OpenAIHistoryMessageParam,
     TokenCounter,
@@ -23,12 +23,12 @@ async def apply_budget_to_history_messages(
     token_budget: int,
     token_counter: TokenCounter,
     message_provider: HistoryMessageProvider,
-) -> Sequence[OpenAIHistoryMessageParam]:
+) -> MessageHistoryBudgetResult:
     """
     Retrieves the history messages for a given turn, applying message content abbreviation and truncation
     to guarantee that the total token count of the messages fits within the specified token budget.
     """
-    messages = await message_provider(after_id=None)
+    messages = await message_provider()
 
     logger.info("get_history_messages received %d messages to process", len(messages))
 
@@ -91,25 +91,25 @@ def is_within_budget(
     return token_count <= token_budget
 
 
-def get_resulting_messages(message_collection: MessageCollection) -> Sequence[OpenAIHistoryMessageParam]:
+def get_resulting_messages(message_collection: MessageCollection) -> MessageHistoryBudgetResult:
     """
     Applies the budget decisions to the messages in the collection and returns the resulting messages.
 
     Raises a ValueError if all messages are omitted (ie. zero messages could fit in the budget).
     """
-    result_messages = budget.apply_budget_decisions(
+    result = budget.apply_budget_decisions(
         messages=message_collection.messages, decisions=message_collection.budget_decisions
     )
 
-    result_messages = pair_and_order_tool_messages(result_messages)
+    result.messages = pair_and_order_tool_messages(result.messages)
 
-    if len(message_collection.messages) > 0 and not result_messages:
+    if len(message_collection.messages) > 0 and not result.messages:
         raise ValueError(
             "no messages fit within the token budget; "
             "consider increasing the token budget or limiting the size of messages"
         )
 
-    return result_messages
+    return result
 
 
 def count_tokens(messages: Sequence[HistoryMessageProtocol], token_counter: TokenCounter) -> TokenCounts:

@@ -1,5 +1,6 @@
 """Type definitions for the virtual file system."""
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Literal, Protocol
@@ -9,31 +10,45 @@ from openai.types.chat import (
     ChatCompletionToolParam,
 )
 
+logger = logging.getLogger("chat_context_toolkit.virtual_filesystem")
+
 
 @dataclass
 class DirectoryEntry:
     """Directory entry in the virtual file system."""
 
-    name: str
-    """Directory name"""
     path: str
-    """Full path of the directory."""
+    """Absolute path of the directory."""
+    permission: Literal["read", "read_write"]
+    """Permission for the directory - read_write means new files can be created in the directory."""
+    description: str
+    """Description of the directory, used for informing the LLM about the content."""
+
+    @property
+    def name(self) -> str:
+        """Get the name of the directory from its path."""
+        return self.path.rstrip("/").split("/")[-1] if self.path else ""
 
 
 @dataclass
 class FileEntry:
     """File entry in the virtual file system."""
 
-    filename: str
-    """File name."""
     path: str
-    """Full path of the file."""
+    """Absolute path of the file."""
     size: int
     """File size in bytes."""
     timestamp: datetime
     """Timestamp of the last modification."""
     permission: Literal["read", "read_write"]
     """Permission for the file"""
+    description: str
+    """Description of the file, used for informing the LLM about the content."""
+
+    @property
+    def filename(self) -> str:
+        """Get the name of the file from its path."""
+        return self.path.split("/")[-1] if self.path else ""
 
 
 class WriteToolDefinition(Protocol):
@@ -85,11 +100,8 @@ class FileSource(Protocol):
 class MountPoint:
     """Mount point for a file source in the virtual file system."""
 
-    path: str
-    """Mount path in the virtual file system, such as "/docs"."""
-
-    description: str
-    """Description of the mount point, used for informing the LLM about the content."""
+    entry: DirectoryEntry
+    """The directory entry representing the mount point in the virtual file system."""
 
     file_source: FileSource
     """The file source that is mounted at the specified path."""

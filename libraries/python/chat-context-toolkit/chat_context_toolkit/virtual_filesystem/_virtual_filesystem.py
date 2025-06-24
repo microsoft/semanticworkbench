@@ -1,5 +1,6 @@
 """Virtual file system implementation."""
 
+import json
 from typing import Iterable
 
 from openai.types.chat import (
@@ -8,19 +9,21 @@ from openai.types.chat import (
     ChatCompletionToolParam,
 )
 
-from .types import DirectoryEntry, FileEntry, MountPoint
+from ._types import DirectoryEntry, FileEntry, MountPoint, logger
 
 
 class VirtualFileSystem:
     """Virtual file system that can mount multiple file sources."""
 
-    def __init__(self) -> None:
+    def __init__(self, mounts: Iterable[MountPoint] = []) -> None:
         """Initialize the virtual file system."""
         self._mounts: dict[str, MountPoint] = {}
+        for mount in mounts:
+            self.mount(mount)
 
     def mount(self, mount_point: MountPoint) -> None:
         """Mount a file source at the specified path."""
-        path = mount_point.path
+        path = mount_point.entry.path
 
         # Validate mount path - assign conditions to variables for readability
         is_empty = not path
@@ -65,7 +68,14 @@ class VirtualFileSystem:
 
         if path == "/":
             # Return DirectoryEntry for each mount point
-            return [DirectoryEntry(name=mount_path.lstrip("/"), path=mount_path) for mount_path in self._mounts.keys()]
+            return [
+                DirectoryEntry(
+                    path=mount_path,
+                    description=mount_point.entry.description,
+                    permission=mount_point.entry.permission,
+                )
+                for mount_path, mount_point in self._mounts.items()
+            ]
 
         mount_path, source_path = self._split_path(path)
 
@@ -80,16 +90,22 @@ class VirtualFileSystem:
         for entry in source_entries:
             match entry:
                 case DirectoryEntry():
-                    adjusted_entries.append(DirectoryEntry(name=entry.name, path=mount_path + entry.path))
+                    adjusted_entries.append(
+                        DirectoryEntry(
+                            path=mount_path + entry.path,
+                            description=entry.description,
+                            permission=entry.permission,
+                        )
+                    )
 
                 case FileEntry():
                     adjusted_entries.append(
                         FileEntry(
-                            filename=entry.filename,
                             path=mount_path + entry.path,
                             size=entry.size,
                             timestamp=entry.timestamp,
                             permission=entry.permission,
+                            description=entry.description,
                         )
                     )
 
@@ -120,7 +136,7 @@ class VirtualFileSystem:
         tools_dict = {}
 
         mount_list = "; ".join(
-            f"{mount_path}: ({mount_point.description})" for mount_path, mount_point in self._mounts.items()
+            f"{mount_path}: ({mount_point.entry.description})" for mount_path, mount_point in self._mounts.items()
         )
 
         # Add built-in VFS tools
@@ -177,11 +193,15 @@ class VirtualFileSystem:
         Calls to execute tools that do not exist result in ValueError.
         """
         tool_name = tool_call["function"]["name"]
+        arguments_str = tool_call["function"]["arguments"]
+
+        logger.info("executing tool; name: %s, arguments: %s", tool_name, arguments_str)
 
         # Parse arguments from tool call
-        import json
-
-        args = json.loads(tool_call["function"]["arguments"])
+        try:
+            args = json.loads(arguments_str)
+        except json.JSONDecodeError as e:
+            return f"Error parsing tool arguments: {e}"
 
         # Handle built-in VFS tools
         match tool_name:
@@ -212,41 +232,61 @@ class VirtualFileSystem:
         except FileNotFoundError:
             return f"Error: Directory not found: {path}"
 
-        # Format the output similar to Linux ls -l with header and name-only entries:
-        # Directories are listed first, in alphabetical order and with a trailing slash.
-        # Files are listed next, in alphabetical order, with permissions and size.
-        # Example output:
-        # List of files in /path:
-        # dr--    - dirname/
-        # -rw- 100B filename.txt
-        # -r--  50B readonly.txt
-        lines = [f"List of files in {path}:"]
-
         # Collect directory and file entries separately so we can sort them independently
-        directory_names_and_lines = []
-        file_names_and_lines = []
+        directory_names_and_lines: list[tuple[str, str]] = []
+        file_names_and_lines: list[tuple[str, str]] = []
+
+        def format_ls_line(directory: bool, writeable: bool, path: str, size: str, description: str) -> str:
+            # Format the output similar to Linux ls -l with header and name-only entries:
+            # Directories are listed first, in alphabetical order and with a trailing slash.
+            # Files are listed next, in alphabetical order, with permissions and size.
+            # Example output:
+            # List of files in /path:
+            # dr-    - dirname/ - description of directory
+            # -rw 100B filename.txt - description of file
+            # -r-  50B readonly.txt - description of file
+            dir_flag = "d" if directory else "-"
+            read_flag = "r"  # all entries are considered readable
+            write_flag = "w" if writeable else "-"
+            executable_flag = "-"  # no execute permissions at the moment
+            perms = f"{dir_flag}{read_flag}{write_flag}{executable_flag}"
+            name = path.split("/")[-1]  # Get the last part of the path
+            name += "/" if directory and not name.endswith("/") else ""
+            return f"{perms} {size.rjust(4)} {name} - {description}"
 
         for entry in entries:
             match entry:
                 case DirectoryEntry():
-                    # Directories use 'd' prefix, show 0B size, and add trailing /
-                    directory_names_and_lines.append((entry.name, f"dr--    - {entry.name}/"))
+                    directory_names_and_lines.append((
+                        entry.path,
+                        format_ls_line(
+                            directory=True,
+                            writeable=entry.permission == "read_write",
+                            path=entry.path,
+                            size="-",
+                            description=entry.description,
+                        ),
+                    ))
 
                 case FileEntry():
-                    # Files show permissions and size with B suffix, just the filename
-                    perms = "-rw-" if entry.permission == "read_write" else "-r--"
-                    # Right-align size to 4 characters
-                    size_str = f"{entry.size}B".rjust(4)
-                    file_names_and_lines.append((entry.filename, f"{perms} {size_str} {entry.filename}"))
+                    file_names_and_lines.append((
+                        entry.path,
+                        format_ls_line(
+                            directory=False,
+                            writeable=entry.permission == "read_write",
+                            path=entry.path,
+                            size=f"{entry.size}B",
+                            description=entry.description,
+                        ),
+                    ))
 
         if not directory_names_and_lines and not file_names_and_lines:
             directory_names_and_lines.append(("", "(empty directory)"))
 
         # Sort directories and files separately, then combine
-        directory_names_and_lines = [entry[1] for entry in sorted(directory_names_and_lines, key=lambda x: x[0])]
-        file_names_and_lines = [entry[1] for entry in sorted(file_names_and_lines, key=lambda x: x[0])]
-        lines.extend(directory_names_and_lines)
-        lines.extend(file_names_and_lines)
+        directory_lines = [entry[1] for entry in sorted(directory_names_and_lines, key=lambda x: x[0])]
+        file_lines = [entry[1] for entry in sorted(file_names_and_lines, key=lambda x: x[0])]
+        lines = [f"List of files in {path}:", *directory_lines, *file_lines]
 
         return "\n".join(lines)
 

@@ -5,6 +5,7 @@ from ._types import (
     BudgetDecision,
     HistoryMessageProtocol,
     MessageCollection,
+    MessageHistoryBudgetResult,
     OpenAIHistoryMessageParam,
     TokenCounts,
     logger,
@@ -42,6 +43,10 @@ def abbreviate_messages(
             # we've reached the index where we stop abbreviating
             break
 
+        if result_decisions[message_index] == BudgetDecision.omitted:
+            # this message has already been omitted, skip it
+            continue
+
         current_token_count = token_count_with_budget_applied(
             messages=messages, token_counts=token_counts, budget_decisions=result_decisions
         )
@@ -59,13 +64,7 @@ def abbreviate_messages(
         full_message_token_count = token_counts.openai_message_token_counts[message_index]
         abbreviated_message_token_count = token_counts.abbreviated_openai_message_token_counts[message_index]
         if abbreviated_message_token_count > full_message_token_count:
-            # if the abbreviated message is larger than the original message, we can't abbreviate it
-            logger.warning(
-                "abbreviated message for id %s has a greater token count (%d) than the original message (%d)",
-                message.id,
-                abbreviated_message_token_count,
-                full_message_token_count,
-            )
+            # only abbreviate if the abbreviated message is smaller than the original
             continue
 
         if result_decisions[message_index] == BudgetDecision.original:
@@ -101,6 +100,7 @@ def truncate_messages(token_budget: int, message_collection: MessageCollection) 
     )
 
     # iterate the messages from oldest to newest, truncating until we are within the token budget
+    current_token_count = 0
     for message_index in range(len(messages)):
         current_token_count = token_count_with_budget_applied(
             messages=messages,
@@ -122,6 +122,12 @@ def truncate_messages(token_budget: int, message_collection: MessageCollection) 
     logger.info(
         "truncated %d messages from %d tokens to %d tokens", len(messages), initial_token_count, resulting_token_count
     )
+    if resulting_token_count == 0 and len(messages) > 0:
+        logger.warning(
+            "no messages fit within the token budget of %d tokens; final message token count: %d",
+            token_budget,
+            current_token_count,
+        )
 
     return result_decisions
 
@@ -158,7 +164,7 @@ def token_count_with_budget_applied(
 def apply_budget_decisions(
     messages: Sequence[HistoryMessageProtocol],
     decisions: Sequence[BudgetDecision],
-) -> Sequence[OpenAIHistoryMessageParam]:
+) -> MessageHistoryBudgetResult:
     """
     Applies budget decisions to the messages, returning a list of messages that fit within the budget.
     If a message is abbreviated, it will be replaced with its abbreviated version.
@@ -167,6 +173,7 @@ def apply_budget_decisions(
     Returns:
         A list of messages with the budget decisions applied.
     """
+    oldest_retained_message_id: str | None = None
     result_messages: list[OpenAIHistoryMessageParam] = []
 
     for message, decision in zip(messages, decisions):
@@ -177,9 +184,16 @@ def apply_budget_decisions(
             case BudgetDecision.abbreviated:
                 # message is abbreviated, include the abbreviated version
                 if message.abbreviated_openai_message is not None:
+                    if oldest_retained_message_id is None:
+                        oldest_retained_message_id = message.id
                     result_messages.append(message.abbreviated_openai_message)
             case BudgetDecision.original:
                 # message is original, include the full version
                 result_messages.append(message.openai_message)
+                if oldest_retained_message_id is None:
+                    oldest_retained_message_id = message.id
 
-    return result_messages
+    return MessageHistoryBudgetResult(
+        messages=result_messages,
+        oldest_message_id=oldest_retained_message_id,
+    )

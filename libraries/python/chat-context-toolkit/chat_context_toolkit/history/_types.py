@@ -11,7 +11,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-logger = logging.getLogger("history")
+logger = logging.getLogger("chat_context_toolkit.history")
 
 
 class TokenCounter(Protocol):
@@ -31,6 +31,13 @@ OpenAI message parameters supported by the history manager.
 
 
 class NewTurn:
+    """
+    Represents a new turn in the conversation. Re-use the turn between calls to `apply_budget_to_history_messages`
+    to ensure that all messages generated in the turn are treated as high priority while applying the budget.
+    This is especially important when executing multiple completions that result in tool calls, so that all messages
+    in the turn are not abbreviated.
+    """
+
     def __init__(self, high_priority_token_count: int = 30_000):
         self.high_priority_token_count = high_priority_token_count
         self.turn_start_message_id: str | None = None
@@ -61,11 +68,10 @@ class HistoryMessageProtocol(Protocol):
 
 class HistoryMessageProvider(Protocol):
     """
-    Protocol for a message source that returns an ordered list of messages, oldest to most recent, returning
-    messages after the `after_id`, if set.
+    Protocol for a message source that returns an ordered list of messages, oldest to most recent.
     """
 
-    async def __call__(self, after_id: str | None) -> Sequence[HistoryMessageProtocol]: ...
+    async def __call__(self) -> Sequence[HistoryMessageProtocol]: ...
 
 
 @dataclass
@@ -135,3 +141,16 @@ class HistoryMessage(HistoryMessageProtocol):
 
         self._abbreviated = True
         return self._abbreviated_openai_message
+
+
+@dataclass
+class MessageHistoryBudgetResult:
+    """
+    Result of applying a budget to a message history.
+    """
+
+    messages: Sequence[OpenAIHistoryMessageParam]
+    """The messages that fit within the budget after applying the budget decisions."""
+
+    oldest_message_id: str | None
+    """The ID of the oldest message that fit within the budget, or None if no messages fit within the budget."""

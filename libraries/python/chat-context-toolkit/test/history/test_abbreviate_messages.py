@@ -294,8 +294,8 @@ def test_before_index() -> None:
     assert decisions == [BudgetDecision.abbreviated, BudgetDecision.original]
 
 
-def test_abbreviated_message_larger_than_original_warning(caplog):
-    """Test warning when abbreviated message is larger than original."""
+def test_abbreviated_message_larger_than_original_retains_original():
+    """Test that abbreviated message larger than original retains original."""
     # Create a message where abbreviated is larger than original
     messages = [user_message("hi", abbreviated_content="this is much longer than the original")]
 
@@ -314,7 +314,3 @@ def test_abbreviated_message_larger_than_original_warning(caplog):
 
     # Should not abbreviate because abbreviated is larger
     assert decisions == [BudgetDecision.original]
-
-    # Check that warning was logged
-    assert "abbreviated message" in caplog.text
-    assert "greater token count" in caplog.text

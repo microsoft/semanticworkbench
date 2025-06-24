@@ -5,6 +5,7 @@ from chat_context_toolkit.virtual_filesystem import (
     DirectoryEntry,
     FileEntry,
     FileSource,
+    MountPoint,
     WriteToolDefinition,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -54,16 +55,16 @@ class AttachmentsVirtualFileSystemFileSource(FileSource):
                     continue
 
                 directories.add(directory)
-                entries.append(DirectoryEntry(name=directory, path=f"/{prefix}{directory}/"))
+                entries.append(DirectoryEntry(path=f"/{prefix}{directory}", description="", permission="read"))
                 continue
 
             entries.append(
                 FileEntry(
-                    filename=relative_filepath,
                     path=f"/{prefix}{relative_filepath}",
                     size=file.file_size,
                     timestamp=file.updated_datetime,
                     permission="read",
+                    description="",
                 )
             )
 
@@ -86,3 +87,18 @@ class AttachmentsVirtualFileSystemFileSource(FileSource):
             raise FileNotFoundError(f"File not found: {path}")
 
         return attachments[0].content
+
+
+def attachments_file_source_mount(
+    attachments_extension: AttachmentsExtension, context: ConversationContext
+) -> MountPoint:
+    return MountPoint(
+        entry=DirectoryEntry(
+            path="/attachments",
+            description="User and assistant created files and attachments",
+            permission="read",
+        ),
+        file_source=AttachmentsVirtualFileSystemFileSource(
+            attachments_extension=attachments_extension, context=context
+        ),
+    )

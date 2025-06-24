@@ -3,6 +3,7 @@ from typing import Annotated
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
+from assistant_extensions.chat_context_toolkit import ChatContextConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
@@ -108,14 +109,6 @@ class ResponseBehaviorConfigModel(BaseModel):
             description="Only respond to messages that @mention the assistant.",
         ),
     ] = False
-
-    high_priority_token_count: Annotated[
-        int,
-        Field(
-            title="High Priority Token Count",
-            description="The number of tokens to consider high priority when abbreviating message history.",
-        ),
-    ] = 30_000
 
 
 class HostedMCPServersConfigModel(BaseModel):
@@ -440,6 +433,14 @@ class AssistantConfigModel(BaseModel):
             title="Assistant Extensions",
         ),
     ] = ExtensionsConfigModel()
+
+    chat_context_config: Annotated[
+        ChatContextConfigModel,
+        Field(
+            title="Chat Context Management",
+            description="Settings for the management of LLM chat context.",
+        ),
+    ] = ChatContextConfigModel()
 
     prompts: Annotated[
         PromptsConfigModel,

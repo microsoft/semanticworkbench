@@ -3,12 +3,11 @@ import logging
 from dataclasses import dataclass
 from typing import List, cast
 
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
 from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
-from assistant_extensions.message_history import chat_context_toolkit_message_provider_for
 from chat_context_toolkit.history import NewTurn, apply_budget_to_history_messages
 from mcp.types import SamplingMessage, TextContent
 from openai.types.chat import (
@@ -44,13 +43,11 @@ class BuildRequestResult:
 async def build_request(
     sampling_handler: OpenAISamplingHandler,
     mcp_prompts: List[str],
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     prompts_config: PromptsConfigModel,
     request_config: OpenAIRequestConfig,
     tools: List[ChatCompletionToolParam] | None,
     tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
     silence_token: str,
     history_turn: NewTurn,
 ) -> BuildRequestResult:
@@ -139,7 +136,7 @@ async def build_request(
 
     message_history_token_budget = available_tokens - consumed_token_count
 
-    history_messages = await apply_budget_to_history_messages(
+    budgeted_messages_result = await apply_budget_to_history_messages(
         turn=history_turn,
         token_budget=message_history_token_budget,
         token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=request_config.model),
@@ -147,7 +144,7 @@ async def build_request(
     )
 
     # Add history messages
-    chat_message_params.extend(history_messages)
+    chat_message_params.extend(budgeted_messages_result.messages)
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
@@ -198,7 +195,7 @@ async def build_request(
                         updated_messages.extend([])  # (attachment_messages)
                         continue
                     case "history_messages":
-                        updated_messages.extend(history_messages)
+                        updated_messages.extend(budgeted_messages_result.messages)
                         continue
                     case _:
                         add_converted_message(message)
@@ -215,7 +212,7 @@ async def build_request(
         context=context,
         server_config=tools_config.hosted_mcp_servers.memory_whiteboard,
         attachment_messages=[],  # attachment_messages,
-        chat_messages=cast(list[ChatCompletionMessageParam], history_messages),
+        chat_messages=cast(list[ChatCompletionMessageParam], budgeted_messages_result),
     )
 
     # Set the message processor for the sampling handler
