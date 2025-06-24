@@ -14,9 +14,9 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
 import { CodeLabel } from '../../App/CodeLabel';
+import { CodeContentRenderer } from '../ContentRenderers/CodeContentRenderer';
 import { DebugInspector } from '../DebugInspector';
 import { MessageDelete } from '../MessageDelete';
-import { MessageContent } from './MessageContent';
 
 const useClasses = makeStyles({
     root: {
@@ -75,8 +75,8 @@ export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
     const toolName = toolCalls?.find((toolCall) => toolCall.id === toolCallId)?.name;
 
     const messageContent = React.useMemo(
-        () => <MessageContent message={message} conversation={conversation} />,
-        [message, conversation],
+        () => <CodeContentRenderer content={message.content} language="bash" />,
+        [message],
     );
 
     return (
