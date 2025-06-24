@@ -61,7 +61,7 @@ class MockMessageProvider:
     def __init__(self, messages: list[HistoryMessageProtocol]):
         self.messages = messages
 
-    async def __call__(self, after_id: str | None) -> list[HistoryMessageProtocol]:
+    async def __call__(self) -> list[HistoryMessageProtocol]:
         return self.messages
 
 
@@ -81,7 +81,7 @@ async def test_empty_messages():
         message_provider=message_provider,
     )
 
-    assert result == []
+    assert result.messages == []
 
 
 async def test_messages_within_total_budget():
@@ -102,7 +102,7 @@ async def test_messages_within_total_budget():
     )
 
     expected = [msg.openai_message for msg in messages]
-    assert result == expected
+    assert result.messages == expected
 
 
 async def test_messages_exceed_budget_abbreviation_needed():
@@ -128,7 +128,7 @@ async def test_messages_exceed_budget_abbreviation_needed():
         ChatCompletionAssistantMessageParam(role="assistant", content="hello world"),  # full
         ChatCompletionUserMessageParam(role="user", content="bye"),  # full
     ]
-    assert result == expected
+    assert result.messages == expected
 
 
 async def test_high_priority_messages_only():
@@ -154,7 +154,7 @@ async def test_high_priority_messages_only():
         ChatCompletionAssistantMessageParam(role="assistant", content="keep this"),
         ChatCompletionUserMessageParam(role="user", content="keep too"),
     ]
-    assert result == expected
+    assert result.messages == expected
 
 
 async def test_no_messages_fit_budget_raises_error():
@@ -198,8 +198,8 @@ async def test_progressive_abbreviation_and_truncation():
     # High priority: last 3 messages (5 + 6 + 11 = 22 > 20, so last 2: 6 + 11 = 17)
     # Low priority budget: 30 - 17 = 13 tokens
     # Should abbreviate some low priority messages to fit
-    assert len(result) > 0
-    assert sum(len(str(msg.get("content") or "")) for msg in result) <= 30
+    assert len(result.messages) > 0
+    assert sum(len(str(msg.get("content") or "")) for msg in result.messages) <= 30
 
 
 async def test_tool_message_pairing():
@@ -223,11 +223,12 @@ async def test_tool_message_pairing():
     )
 
     # Should preserve tool call pairing and ordering
-    assert len(result) == 4
-    assert result[0]["role"] == "user"
-    assert result[1]["role"] == "assistant"
-    assert result[2]["role"] == "tool"
-    assert result[3]["role"] == "assistant"
+    messages = result.messages
+    assert len(messages) == 4
+    assert messages[0]["role"] == "user"
+    assert messages[1]["role"] == "assistant"
+    assert messages[2]["role"] == "tool"
+    assert messages[3]["role"] == "assistant"
 
 
 async def test_large_budget_all_messages_included():
@@ -249,7 +250,7 @@ async def test_large_budget_all_messages_included():
     )
 
     expected = [msg.openai_message for msg in messages]
-    assert result == expected
+    assert result.messages == expected
 
 
 async def test_zero_budget_scenarios():
@@ -301,7 +302,7 @@ async def test_session_step_pins_high_priority_window() -> None:
         ChatCompletionUserMessageParam(role="user", content="user request 1"),  # preserved
     ]
 
-    assert result1 == expected
+    assert result1.messages == expected
 
     # Second call - add agent thinking message
     provider2 = MockMessageProvider(initial_messages + agent_turn_messages[:2])
@@ -320,7 +321,7 @@ async def test_session_step_pins_high_priority_window() -> None:
         ChatCompletionAssistantMessageParam(role="assistant", content="agent thinking"),  # preserved
     ]
 
-    assert result2 == expected
+    assert result2.messages == expected
 
     # Third call - add final agent response
     provider3 = MockMessageProvider(initial_messages + agent_turn_messages)
@@ -342,7 +343,7 @@ async def test_session_step_pins_high_priority_window() -> None:
         ChatCompletionAssistantMessageParam(role="assistant", content="agent response"),  # preserved
     ]
 
-    assert result3 == expected
+    assert result3.messages == expected
 
 
 async def test_high_priority_with_overflow() -> None:
@@ -399,7 +400,7 @@ async def test_high_priority_with_overflow() -> None:
         ChatCompletionUserMessageParam(role="user", content="follow up question"),  # preserved
     ]
 
-    assert result3 == expected
+    assert result3.messages == expected
 
 
 async def test_high_priority_for_turn_with_large_latest_message():
@@ -439,7 +440,7 @@ async def test_high_priority_for_turn_with_large_latest_message():
         ChatCompletionUserMessageParam(role="user", content="a high priority message"),  # preserved
     ]
 
-    assert result == expected
+    assert result.messages == expected
 
     all_messages += [
         user_message(
@@ -463,7 +464,7 @@ async def test_high_priority_for_turn_with_large_latest_message():
         ChatCompletionUserMessageParam(role="user", content="1 high priority message"),  # preserved
     ]
 
-    assert result == expected
+    assert result.messages == expected
 
     all_messages += [
         user_message(
@@ -487,4 +488,4 @@ async def test_high_priority_for_turn_with_large_latest_message():
         ChatCompletionUserMessageParam(role="user", content="2 high priority message"),  # preserved
     ]
 
-    assert result == expected
+    assert result.messages == expected

@@ -17,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..attachments import get_attachments
+from ...attachments import get_attachments
 
 logger = logging.getLogger(__name__)
 

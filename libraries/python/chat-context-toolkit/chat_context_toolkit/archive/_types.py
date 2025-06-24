@@ -1,15 +1,23 @@
 import datetime
+import logging
 import pathlib
 from typing import Protocol, Sequence
 
 from attr import dataclass
 from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
-    ChatCompletionToolMessageParam,
-    ChatCompletionUserMessageParam,
 )
 from pydantic import BaseModel, SkipValidation
+
+from ..history import OpenAIHistoryMessageParam
+
+logger = logging.getLogger("chat_context_toolkit.archive")
+
+
+CONTENT_SUB_DIR_PATH = pathlib.PurePath("content")
+"""The sub-directory path for storing archived content files."""
+MANIFEST_SUB_DIR_PATH = pathlib.PurePath("manifests")
+"""The sub-directory path for storing archive manifests."""
 
 
 class TokenCounter(Protocol):
@@ -20,16 +28,8 @@ class TokenCounter(Protocol):
         ...
 
 
-HistoryMessageParam = (
-    ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionToolMessageParam
-)
-
-
 @dataclass
 class ArchiveTaskConfig:
-    message_poll_interval_seconds: float = 60.0
-    """Interval to poll for new messages to archive."""
-
     chunk_token_count_threshold: int = 30_000
     """Token count threshold for archiving chunks."""
 
@@ -49,7 +49,7 @@ class MessageProtocol(Protocol):
         ...
 
     @property
-    def openai_message(self) -> HistoryMessageParam:
+    def openai_message(self) -> OpenAIHistoryMessageParam:
         """
         The OpenAI message representation.
         """
@@ -131,6 +131,8 @@ class ArchiveManifest(BaseModel):
     """The timestamp of the most recent message in this archive."""
     filename: str
     """The filename where the content of this archive is stored."""
+    content_size_bytes: int
+    """The size of the content in bytes."""
 
 
 class ArchiveContent(BaseModel):
@@ -139,7 +141,7 @@ class ArchiveContent(BaseModel):
     This class is a pydantic BaseModel to simplify serialization and deserialization.
     """
 
-    messages: list[SkipValidation[HistoryMessageParam]]
+    messages: list[SkipValidation[OpenAIHistoryMessageParam]]
     """
     The list of messages in this archive.
 
@@ -153,7 +155,7 @@ class Summarizer(Protocol):
     Protocol for a summarizer that can summarize a list of messages.
     """
 
-    async def summarize(self, messages: list[HistoryMessageParam]) -> str:
+    async def summarize(self, messages: list[OpenAIHistoryMessageParam]) -> str:
         """
         Summarizes a list of messages.
 

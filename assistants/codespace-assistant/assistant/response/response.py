@@ -3,6 +3,7 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.chat_context_toolkit.archive import ArchiveTaskQueues
 from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
@@ -13,6 +14,7 @@ from assistant_extensions.mcp import (
     list_roots_callback_for,
     refresh_mcp_sessions,
 )
+from chat_context_toolkit.archive import ArchiveTaskConfig
 from chat_context_toolkit.history import NewTurn
 from mcp import ServerNotification
 from semantic_workbench_api_model.workbench_model import (
@@ -28,6 +30,8 @@ from .step_handler import next_step
 from .utils import get_ai_client_configs
 
 logger = logging.getLogger(__name__)
+
+archive_task_queues = ArchiveTaskQueues()
 
 
 async def respond_to_conversation(
@@ -108,7 +112,7 @@ async def respond_to_conversation(
         completed_within_max_steps = False
         step_count = 0
 
-        history_turn = NewTurn(high_priority_token_count=config.response_behavior.high_priority_token_count)
+        history_turn = NewTurn(high_priority_token_count=config.chat_context_config.high_priority_token_count)
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
@@ -138,7 +142,6 @@ async def respond_to_conversation(
                 service_config=service_config,
                 prompts_config=config.prompts,
                 tools_config=config.tools,
-                attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
                 history_turn=history_turn,
@@ -162,6 +165,16 @@ async def respond_to_conversation(
                 )
             )
             logger.info("Response stopped early due to maximum steps.")
+
+        # enqueue an archive task for this conversation
+        await archive_task_queues.enqueue_run(
+            context=context,
+            service_config=service_config,
+            request_config=request_config,
+            archive_task_config=ArchiveTaskConfig(
+                chunk_token_count_threshold=config.chat_context_config.archive_token_threshold
+            ),
+        )
 
     # Log the completion of the response
     logger.info("Response completed.")

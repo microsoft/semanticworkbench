@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(rg:*)",
+      "Bash(uv run pytest:*)"
     ],
     "deny": []
   }

@@ -4,11 +4,14 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
+    archive_file_source_mount,
+    attachments_file_source_mount,
+)
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
-from assistant_extensions.virtual_filesystem import AttachmentsVirtualFileSystemFileSource
 from chat_context_toolkit.history import NewTurn
-from chat_context_toolkit.virtual_filesystem import MountPoint, VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -43,7 +46,6 @@ async def next_step(
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
     prompts_config: PromptsConfigModel,
     tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
     history_turn: NewTurn,
@@ -79,15 +81,11 @@ async def next_step(
     # Establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    virtual_filesystem = VirtualFileSystem()
-    virtual_filesystem.mount(
-        MountPoint(
-            path="/attachments",
-            file_source=AttachmentsVirtualFileSystemFileSource(
-                attachments_extension=attachments_extension, context=context
-            ),
-            description="User and assistant created files and attachments",
-        )
+    virtual_filesystem = VirtualFileSystem(
+        mounts=[
+            attachments_file_source_mount(attachments_extension, context),
+            archive_file_source_mount(context),
+        ]
     )
 
     tools = [tool for _, tool in virtual_filesystem.tools.items()]
@@ -97,13 +95,11 @@ async def next_step(
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
         mcp_prompts=mcp_prompts,
-        attachments_extension=attachments_extension,
         context=context,
         prompts_config=prompts_config,
         request_config=request_config,
         tools_config=tools_config,
         tools=tools,
-        attachments_config=attachments_config,
         silence_token=silence_token,
         history_turn=history_turn,
     )

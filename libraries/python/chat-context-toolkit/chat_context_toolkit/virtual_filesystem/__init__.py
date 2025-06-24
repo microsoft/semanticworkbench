@@ -1,7 +1,7 @@
 """Virtual file system for chat completions."""
 
-from .types import DirectoryEntry, FileEntry, FileSource, WriteToolDefinition, MountPoint
-from .virtual_filesystem import VirtualFileSystem
+from ._types import DirectoryEntry, FileEntry, FileSource, MountPoint, WriteToolDefinition
+from ._virtual_filesystem import VirtualFileSystem
 
 __all__ = [
     "DirectoryEntry",

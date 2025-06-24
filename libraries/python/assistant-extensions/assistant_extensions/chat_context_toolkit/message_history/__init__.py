@@ -1,3 +1,7 @@
+"""
+Provides a message history provider for the chat context toolkit's history management.
+"""
+
 from ._history import chat_context_toolkit_message_provider_for
 
 __all__ = [

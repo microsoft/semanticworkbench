@@ -1,9 +1,13 @@
-from ._archive import ArchiveReader, ArchiveTask
+"""Archiving and retrieval tools for chat message history."""
+
+from ._archive_reader import ArchiveReader
+from ._archive_task_queue import ArchiveTaskQueue
 from ._types import (
     ArchiveContent,
     ArchiveManifest,
     ArchivesState,
-    HistoryMessageParam,
+    ArchiveTaskConfig,
+    MessageProtocol,
     MessageProvider,
     StorageProvider,
     Summarizer,
@@ -12,12 +16,13 @@ from ._types import (
 
 __all__ = [
     "ArchiveReader",
-    "ArchiveTask",
+    "ArchiveTaskQueue",
     "ArchiveContent",
     "ArchiveManifest",
     "ArchivesState",
-    "HistoryMessageParam",
+    "ArchiveTaskConfig",
     "MessageProvider",
+    "MessageProtocol",
     "StorageProvider",
     "Summarizer",
     "TokenCounter",
