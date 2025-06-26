@@ -48,14 +48,14 @@ def convert_oai_messages_to_xml(oai_messages: list[ChatCompletionMessageParam]) 
     """
     Converts OpenAI messages to an XML-like formatted string.
     Example:
-    <conversation filename="conversation_20250520_201521_20250520_201521.txt">
+    <conversation>
     <message role="user">
     message content here
     </message>
     <message role="assistant">
     message content here
     <toolcall name="tool_name">
-    tool content here
+    tool arguments here
     </toolcall>
     </message>
     <message role="tool">

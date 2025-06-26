@@ -15,11 +15,15 @@ from chat_context_toolkit.history import (
 )
 from chat_context_toolkit.history.tool_abbreviations import ToolAbbreviations, abbreviate_openai_tool_message
 from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionUserMessageParam
+from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant_extensions.attachments._attachments import get_attachments
+from assistant_extensions.attachments._summarizer import LLMConfig, LLMFileSummarizer
 
 from ._message import conversation_message_to_chat_message_param
 
@@ -129,14 +133,23 @@ class CompositeMessageProtocol(HistoryMessageProtocol, ArchiveMessageProtocol, P
 
 
 def chat_context_toolkit_message_provider_for(
-    context: ConversationContext, tool_abbreviations: ToolAbbreviations
+    context: ConversationContext,
+    tool_abbreviations: ToolAbbreviations,
+    service_config: ServiceConfig,
+    request_config: OpenAIRequestConfig,
 ) -> CompositeMessageProvider:
     """
     Create a composite message provider for the given workbench conversation context.
     """
 
     async def provider(after_id: str | None = None) -> Sequence[CompositeMessageProtocol]:
-        history = await _get_history_manager_messages(context, tool_abbreviations=tool_abbreviations, after_id=after_id)
+        history = await _get_history_manager_messages(
+            context,
+            tool_abbreviations=tool_abbreviations,
+            service_config=service_config,
+            request_config=request_config,
+            after_id=after_id,
+        )
 
         return history
 
@@ -144,7 +157,11 @@ def chat_context_toolkit_message_provider_for(
 
 
 async def _get_history_manager_messages(
-    context: ConversationContext, tool_abbreviations: ToolAbbreviations, after_id: str | None = None
+    context: ConversationContext,
+    tool_abbreviations: ToolAbbreviations,
+    service_config: ServiceConfig,
+    request_config: OpenAIRequestConfig,
+    after_id: str | None = None,
 ) -> list[HistoryMessageWithAbbreviation]:
     """
     Get all messages in the conversation, formatted for the chat_context_toolkit.
@@ -157,6 +174,21 @@ async def _get_history_manager_messages(
 
     batch_size = 100
     before_message_id = None
+
+    attachments = list(
+        await get_attachments(
+            context=context,
+            include_filenames=None,
+            exclude_filenames=[],
+            summarizer=LLMFileSummarizer(
+                llm_config=LLMConfig(
+                    client_factory=lambda: create_client(service_config),
+                    model=request_config.model,
+                    max_response_tokens=request_config.response_tokens,
+                )
+            ),
+        )
+    )
 
     # each call to get_messages will return a maximum of `batch_size` messages
     # so we need to loop until all messages are retrieved
@@ -180,7 +212,9 @@ async def _get_history_manager_messages(
         batch: list[HistoryMessageWithAbbreviation] = []
         for message in messages_list:
             # format the message
-            formatted_message = await conversation_message_to_chat_message_param(context, message, participants)
+            formatted_message = await conversation_message_to_chat_message_param(
+                context, message, participants, attachments=attachments
+            )
 
             if not formatted_message:
                 # if the message could not be formatted, skip it

@@ -5,6 +5,7 @@ from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
 from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
     archive_file_source_mount,
     attachments_file_source_mount,
@@ -28,6 +29,7 @@ from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
 from .utils import (
+    abbreviations,
     get_completion,
     get_formatted_token_count,
     get_openai_tools_from_mcp_sessions,
@@ -83,7 +85,7 @@ async def next_step(
 
     virtual_filesystem = VirtualFileSystem(
         mounts=[
-            attachments_file_source_mount(attachments_extension, context),
+            attachments_file_source_mount(context, service_config=service_config, request_config=request_config),
             archive_file_source_mount(context),
         ]
     )
@@ -102,6 +104,12 @@ async def next_step(
         tools=tools,
         silence_token=silence_token,
         history_turn=history_turn,
+        history_message_provider=chat_context_toolkit_message_provider_for(
+            context=context,
+            tool_abbreviations=abbreviations.tool_abbreviations,
+            service_config=service_config,
+            request_config=request_config,
+        ),
     )
 
     chat_message_params = build_request_result.chat_message_params
