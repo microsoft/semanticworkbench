@@ -13,6 +13,7 @@ from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -27,9 +28,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.context_management.conv_compaction import get_compaction_data
 from assistant.filesystem import AttachmentsExtension
-from assistant.filesystem._tasks import get_filesystem_metadata
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
 
@@ -55,6 +54,7 @@ async def handle_completion(
     response_start_time: float,
     attachments_extension: AttachmentsExtension,
     guidance_enabled: bool,
+    virtual_filesystem: VirtualFileSystem,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -203,25 +203,7 @@ async def handle_completion(
     # Handle the view tool call
     elif tool_calls[0].name == "view":
         path = (tool_calls[0].arguments or {}).get("path", "")
-        # First try to find the path as an editable file
-        file_content = await attachments_extension._inspectors.get_file_content(context, path)
-
-        # Then try to find the path as an attachment file
-        if file_content is None:
-            file_content = await attachments_extension.get_attachment(context, path)
-
-        # Finally try to find the path as a conversation file.
-        if file_content is None:
-            compaction_data = await get_compaction_data(context)
-            for chunk in compaction_data.compaction_data.values():
-                if chunk.chunk_name == path:
-                    file_content = chunk.original_conversation_text
-                    break
-
-        if file_content is None:
-            file_content = f"File at path {path} not found. Please pay attention to the available files and try again."
-        else:
-            file_content = f"<file path={path}>{file_content}</file>"
+        file_content = await virtual_filesystem._execute_view_tool({"path": path})
 
         step_result.conversation_tokens += num_tokens_from_messages(
             messages=[
@@ -250,29 +232,14 @@ async def handle_completion(
             )
         )
     elif tool_calls[0].name == "ls":
-        # Need to get all the available files and present it to the model.
-        attachment_filenames = await attachments_extension.get_attachment_filenames(context)
-        doc_editor_filenames = await attachments_extension._inspectors.list_document_filenames(context)
-        compaction_data = await get_compaction_data(context)
-        filesystem_metadata = await get_filesystem_metadata(context)
-
-        # Tuple of (filename, permission, summary)
-        all_files = [(filename, "-r--", filesystem_metadata.get(filename, "")) for filename in attachment_filenames]
-        all_files.extend([
-            (filename, "-rw-", filesystem_metadata.get(filename, "")) for filename in doc_editor_filenames
-        ])
-        for chunk in compaction_data.compaction_data.values():
-            all_files.append((chunk.chunk_name, "-r--", chunk.compacted_text))
-
-        all_files.sort(key=lambda x: x[0].lower())
-
-        # Format the file list into a string
         ls_string = ""
-        for _, (filename, permission, summary) in enumerate(all_files):
-            ls_string += f"{filename} ({permission}) - {summary}\n"
-
-        if ls_string == "":
-            ls_string = "No files currently available in the filesystem."
+        ls_string += (
+            await virtual_filesystem._execute_ls_tool({"path": "/attachments"})
+            + "\n"
+            + await virtual_filesystem._execute_ls_tool({"path": "/editable_documents"})
+            + "\n"
+            + await virtual_filesystem._execute_ls_tool({"path": "/archives"})
+        )
 
         step_result.conversation_tokens += num_tokens_from_messages(
             messages=[
@@ -304,6 +271,16 @@ async def handle_completion(
         # Handle MCP tool calls
         tool_call_count = 0
         for tool_call in tool_calls:
+            # Check if this is an edit_file tool call and strip the "/editable_documents/" prefix from the path
+            if (
+                (tool_call.name in ["edit_file", "add_comments"])
+                and tool_call.arguments
+                and "path" in tool_call.arguments
+            ):
+                path = tool_call.arguments["path"]
+                if path.startswith("/editable_documents/"):
+                    tool_call.arguments["path"] = path[len("/editable_documents") :]
+
             tool_call_count += 1
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):

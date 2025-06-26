@@ -23,13 +23,9 @@ logger = logging.getLogger(__name__)
 
 class ContextManagementTelemetry(BaseModel):
     total_context_tokens: int = 0
-    tokens_after_heuristic_stage: int = 0
-    after_context_management_tokens: int = 0
     system_prompt_tokens: int = 0
-    chunks_evicted: int = 0
-    data_tool_calls_truncated: int = 0
-    tool_calls_removed: int = 0
-    attachments_truncated: int = 0
+    tool_tokens: int = 0
+    message_tokens: int = 0
 
     system_prompt: str = ""
     final_messages: list[ChatCompletionMessageParam] = []
@@ -41,19 +37,10 @@ class ContextManagementTelemetry(BaseModel):
             return "**Debug use only. Send a message to see the context management output for the final step of the conversation.**"
 
         markdown_str = "## Key Metrics\n"
-        markdown_str += (
-            f"* **Total amount of context tokens (not including system prompt):** {self.total_context_tokens}\n"
-        )
-        markdown_str += f"* **Messages tokens after context management (not including system prompt):** {self.after_context_management_tokens}\n"
-        markdown_str += (
-            f"* **Tokens after heuristic stage (not including system prompt):** {self.tokens_after_heuristic_stage}\n"
-        )
-        markdown_str += f"* **System prompt tokens:** {self.system_prompt_tokens}\n\n"
-        markdown_str += "#### Algorithm Metrics\n"
-        markdown_str += f"* **Data tool calls truncated:** {self.data_tool_calls_truncated}\n"
-        markdown_str += f"* **Tool calls removed:** {self.tool_calls_removed}\n"
-        markdown_str += f"* **Attachments truncated:** {self.attachments_truncated}\n\n"
-        markdown_str += f"* **Conversation chunks evicted:** {self.chunks_evicted}\n"
+        markdown_str += f"* **Total tokens sent to LLM:** {self.total_context_tokens}\n"
+        markdown_str += f"* **System prompt tokens:** {self.system_prompt_tokens}\n"
+        markdown_str += f"* **Tool tokens:** {self.tool_tokens}\n"
+        markdown_str += f"* **Message tokens after context management:** {self.message_tokens}\n\n"
 
         markdown_str += "## System Prompt\n"
         system_prompt = self.system_prompt.strip().replace("```", "\\`\\`\\`")

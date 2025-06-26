@@ -12,7 +12,7 @@ There is also a quick `generate_scenario.py` script that can be used to generate
 ### Setup
 
 1. Run the workbench service running locally (at http://127.0.0.1:3000), an assistant service, and create the assistant you want to test.
-2. Have LLM provider configured. Check [pydantic_ai_utils.py](./pydantic_ai_utils.py) for an example of how it is configured for Pydantic AI.
+2. Have LLM provider configured. Check [pydantic_ai_utils.py](./assistant_evaluations/pydantic_ai_utils.py) for an example of how it is configured for Pydantic AI.
    1. For example, create a `.env` file with your Azure OpenAI endpoint set as `ASSISTANT__AZURE_OPENAI_ENDPOINT=<your_endpoint>`
 3. Create a configuration file. See [document_assistant_example_config.yaml](./configs/document_assistant_example_config.yaml) for an example.
    1. The scenarios field is a list that allows you to specify multiple test scenarios (different conversation paths).

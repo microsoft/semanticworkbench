@@ -9,6 +9,10 @@ from typing import Any, Awaitable, Callable
 
 import deepmerge
 import pendulum
+from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
+from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
+    archive_file_source_mount,
+)
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPClientSettings,
@@ -21,6 +25,8 @@ from assistant_extensions.mcp import (
     refresh_mcp_sessions,
     sampling_message_to_chat_completion_message,
 )
+from chat_context_toolkit.history import NewTurn, apply_budget_to_history_messages
+from chat_context_toolkit.virtual_filesystem import FileEntry, VirtualFileSystem
 from liquid import render
 from mcp import SamplingMessage, ServerNotification
 from mcp.types import (
@@ -31,7 +37,12 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionToolParam,
 )
-from openai_client import create_client
+from openai_client import (
+    create_client,
+    num_tokens_from_message,
+    num_tokens_from_messages,
+    num_tokens_from_tools,
+)
 from pydantic import BaseModel
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
@@ -45,9 +56,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.config import AssistantConfigModel
-from assistant.context_management.context_manager import complete_context_management
-from assistant.context_management.conv_compaction import get_compaction_data
-from assistant.context_management.file_manager import get_file_rankings
 from assistant.context_management.inspector import ContextManagementInspector
 from assistant.filesystem import (
     EDIT_TOOL_DESCRIPTION_HOSTED,
@@ -55,13 +63,14 @@ from assistant.filesystem import (
     VIEW_TOOL_OBJ,
     AttachmentsExtension,
 )
-from assistant.filesystem._prompts import FILES_PROMPT, FILESYSTEM_ADDON_PROMPT, LS_TOOL_OBJ
-from assistant.filesystem._tasks import get_filesystem_metadata
+from assistant.filesystem._file_sources import attachments_file_source_mount, editable_documents_file_source_mount
+from assistant.filesystem._filesystem import _files_drive_for_context
+from assistant.filesystem._prompts import FILES_PROMPT, LS_TOOL_OBJ
 from assistant.guidance.dynamic_ui_inspector import get_dynamic_ui_state, update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_OBJ
 from assistant.response.completion_handler import handle_completion
 from assistant.response.models import StepResult
-from assistant.response.prompts import ORCHESTRATION_SYSTEM_PROMPT
+from assistant.response.prompts import ORCHESTRATION_SYSTEM_PROMPT, tool_abbreviations
 from assistant.response.utils import get_ai_client_configs, get_completion, get_openai_tools_from_mcp_sessions
 from assistant.response.utils.tokens_tiktoken import TokenizerOpenAI
 from assistant.whiteboard import notify_whiteboard
@@ -92,6 +101,7 @@ class ConversationResponder:
         self.metadata = metadata
         self.attachments_extension = attachments_extension
         self.context_management_inspector = context_management_inspector
+        self.latest_telemetry = context_management_inspector.get_telemetry(context.id)
 
         self.stack = AsyncExitStack()
 
@@ -111,9 +121,18 @@ class ConversationResponder:
         self.token_window = (
             int(self.max_total_tokens * 0.2) if token_window_from_config == -1 else token_window_from_config
         )
-        self.data_tools = ["view", "search", "click_link"]
 
         self.tokenizer = TokenizerOpenAI(model=self.token_model)
+
+        # Chat Context Toolkit
+        self.history_turn = NewTurn()
+        self.virtual_filesystem = VirtualFileSystem(
+            mounts=[
+                archive_file_source_mount(context),
+                attachments_file_source_mount(context, attachments_extension),
+                editable_documents_file_source_mount(context, _files_drive_for_context),
+            ],
+        )
 
     @classmethod
     async def create(
@@ -187,8 +206,6 @@ class ConversationResponder:
         step_result = StepResult(status="continue", metadata=self.metadata.copy())
 
         response_start_time = time.time()
-
-        self.context_management_inspector.reset_telemetry(self.context.id)
 
         tools, chat_message_params = await self._construct_prompt()
 
@@ -314,6 +331,7 @@ class ConversationResponder:
             response_start_time,
             self.attachments_extension,
             self.config.orchestration.guidance.enabled,
+            self.virtual_filesystem,
         )
         return step_result
 
@@ -337,10 +355,6 @@ class ConversationResponder:
         # Override the description of the edit_file depending on the environment
         tools = self._override_edit_file_description(tools)
 
-        chat_history = await complete_context_management(
-            self.context, self.config, self.attachments_extension, self.context_management_inspector, tools
-        )
-
         # Note: Currently assuming system prompt will fit into the token budget.
         # Start constructing main system prompt
         # Inject the {{knowledge_cutoff}} and {{current_date}} placeholders
@@ -363,10 +377,8 @@ class ConversationResponder:
             main_system_prompt += "\n\n" + dynamic_ui_system_prompt.strip()
 
         # Filesystem System Prompt
-        filesystem_system_prompt = self.tokenizer.truncate_str(
-            await self._construct_filesystem_system_prompt(),
-            10000,
-        )
+        ls_result = await self._construct_filesystem_system_prompt()
+        filesystem_system_prompt = self.tokenizer.truncate_str(ls_result, max_len=10000)
         main_system_prompt += "\n\n" + filesystem_system_prompt.strip()
 
         # Add specific guidance from MCP servers
@@ -378,17 +390,43 @@ class ConversationResponder:
 
         # Always append the guardrails postfix at the end.
         main_system_prompt += "\n\n" + self.config.orchestration.prompts.guardrails_prompt.strip()
-
-        logging.info("The system prompt has been constructed.")
-        cm_telemetry = self.context_management_inspector.get_telemetry(self.context.id)
-        cm_telemetry.system_prompt = main_system_prompt
-        cm_telemetry.system_prompt_tokens = self.tokenizer.num_tokens_in_str(main_system_prompt)
+        self.latest_telemetry.system_prompt = main_system_prompt
 
         main_system_prompt = ChatCompletionSystemMessageParam(
             role="system",
             content=main_system_prompt,
         )
+
+        message_provider = chat_context_toolkit_message_provider_for(
+            context=self.context, tool_abbreviations=tool_abbreviations
+        )
+        system_prompt_token_count = num_tokens_from_message(main_system_prompt, model="gpt-4o")
+        tool_token_count = num_tokens_from_tools(tools, model="gpt-4o")
+        message_history_token_budget = (
+            self.config.orchestration.prompts.max_total_tokens
+            - system_prompt_token_count
+            - tool_token_count
+            - self.config.generative_ai_client_config.request_config.response_tokens
+        )
+        budgeted_messages_result = await apply_budget_to_history_messages(
+            turn=self.history_turn,
+            token_budget=message_history_token_budget,
+            token_counter=lambda messages: num_tokens_from_messages(messages=messages, model="gpt-4o"),
+            message_provider=message_provider,
+        )
+        chat_history: list[ChatCompletionMessageParam] = list(budgeted_messages_result.messages)
         chat_history.insert(0, main_system_prompt)
+
+        logging.info("The system prompt has been constructed.")
+        # Update telemetry for inspector
+        self.latest_telemetry.system_prompt_tokens = system_prompt_token_count
+        self.latest_telemetry.tool_tokens = tool_token_count
+        self.latest_telemetry.message_tokens = num_tokens_from_messages(messages=chat_history, model="gpt-4o")
+        self.latest_telemetry.total_context_tokens = (
+            system_prompt_token_count + tool_token_count + self.latest_telemetry.message_tokens
+        )
+        self.latest_telemetry.final_messages = chat_history
+
         return tools, chat_history
 
     async def _construct_dynamic_ui_system_prompt(self) -> str:
@@ -409,73 +447,35 @@ class ConversationResponder:
         -r-- path2.pdf [File content summary: <summary>]
         -rw- path3.txt [File content summary: No summary available yet, use the context available to determine the use of this file]
         """
+        entries = (
+            list(await self.virtual_filesystem.list_directory(path="/attachments"))
+            + list(await self.virtual_filesystem.list_directory(path="/editable_documents"))
+            + list(await self.virtual_filesystem.list_directory(path="/archives"))
+        )
+        files = [entry for entry in entries if isinstance(entry, FileEntry)]
 
-        max_relevant_files = self.config.orchestration.prompts.max_relevant_files
+        # TODO: Better ranking algorithm
+        # order the files by timestamp, newest first
+        files.sort(key=lambda f: f.timestamp, reverse=True)
+        # take the top 25 files
+        files = files[:25]
+        # order them alphabetically by path
+        files.sort(key=lambda f: f.path.lower())
 
-        attachment_filenames = await self.attachments_extension.get_attachment_filenames(self.context)
-        doc_editor_filenames = await self.attachments_extension._inspectors.list_document_filenames(self.context)
-        compaction_data = await get_compaction_data(self.context)
-
-        filesystem_metadata = await get_filesystem_metadata(self.context)
-
-        # Get the file rankings and filter for only the most relevant and recent files.
-        # The score function is `relevance_score = (recency_probability * 0.25 + relevance_score * 0.75)`
-        file_rankings = await get_file_rankings(self.context)
-        # Update telemetry with file manager data
-        cm_telemetry = self.context_management_inspector.get_telemetry(self.context.id)
-        cm_telemetry.file_manager_data = file_rankings
-
-        # Tuple of (filename, permission, summary)
-        all_files = [(filename, "-r--", filesystem_metadata.get(filename, "")) for filename in attachment_filenames]
-        all_files.extend([
-            (filename, "-rw-", filesystem_metadata.get(filename, "")) for filename in doc_editor_filenames
-        ])
-        for chunk in compaction_data.compaction_data.values():
-            all_files.append((chunk.chunk_name, "-r--", chunk.compacted_text))
-
-        # Track if files were truncated
-        files_were_truncated = False
-        # Apply file ranking filtering if we have rankings and exceed max_relevant_files
-        if file_rankings.file_data and len(all_files) > max_relevant_files:
-            files_were_truncated = True
-            scored_files = []
-            for filename, permission, summary in all_files:
-                if filename in file_rankings.file_data:
-                    file_relevance = file_rankings.file_data[filename]
-                    combined_score = (
-                        file_relevance.recency_probability * 0.25 + file_relevance.relevance_probability * 0.75
-                    )
-                    scored_files.append((filename, permission, summary, combined_score))
-                else:
-                    # Files without rankings get a default score of 1, implicitly assuming they are new and it has not been computed yet.
-                    scored_files.append((filename, permission, summary, 1))
-
-            scored_files.sort(key=lambda x: x[3], reverse=True)
-            all_files = [
-                (filename, permission, summary)
-                for filename, permission, summary, _ in scored_files[:max_relevant_files]
-            ]
-            all_files.sort(key=lambda x: x[0].lower())
-        else:
-            # If no rankings or within limit, sort alphabetically
-            all_files.sort(key=lambda x: x[0].lower())
-
-        system_prompt = FILES_PROMPT
-        if not all_files:
+        system_prompt = FILES_PROMPT + "\n"
+        if not files:
             system_prompt += "\nNo files are currently available."
-            return system_prompt
 
-        if all_files:
-            system_prompt += "\n\n"
-            for filename, permission, summary in all_files:
-                if summary:
-                    system_prompt += f"{permission} {filename} [File content summary: {summary}]\n"
-                else:
-                    system_prompt += f"{permission} {filename} [File content summary: No summary available yet.]\n"
-
-        # Append the filesystem addon prompt if files were truncated
-        if files_were_truncated:
-            system_prompt += "\n" + FILESYSTEM_ADDON_PROMPT
+        for file in files:
+            # Format permissions: -rw- for read_write, -r-- for read
+            permissions = "-rw-" if file.permission == "read_write" else "-r--"
+            # Use the file description as the summary, or provide a default message
+            summary = (
+                file.description
+                if file.description
+                else "No summary available yet, use the context available to determine the use of this file"
+            )
+            system_prompt += f"{permissions} {file.path} [File content summary: {summary}]\n"
         return system_prompt
 
     def _override_edit_file_description(self, tools: list[ChatCompletionToolParam]) -> list[ChatCompletionToolParam]:

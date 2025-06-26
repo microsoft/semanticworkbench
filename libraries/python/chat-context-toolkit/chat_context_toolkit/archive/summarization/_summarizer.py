@@ -17,9 +17,7 @@ AsyncOpenAIClientFactory = Callable[[], AsyncOpenAI]
 class LLMArchiveSummarizerConfig:
     model: str = "gpt-4o"
     response_tokens: int = 1_000
-
-
-SUMMARY_GENERATION_PROMPT = """You are summarizing portions of a conversation so they can be easily retrieved. \
+    summary_system_prompt: str = """You are summarizing portions of a conversation so they can be easily retrieved. \
 You must focus on what the user role wanted, preferred, and any critical information that they shared. \
 Always prefer to include information from the user than from any other role. \
 Include the content from other roles only as much as necessary to provide the necessary content.
@@ -39,7 +37,7 @@ async def _compute_chunk_summary(
     """
     conversation_text = convert_oai_messages_to_xml(oai_messages)
     summary_messages = [
-        ChatCompletionSystemMessageParam(role="system", content=SUMMARY_GENERATION_PROMPT),
+        ChatCompletionSystemMessageParam(role="system", content=llm_config.summary_system_prompt),
         ChatCompletionUserMessageParam(
             role="user",
             content=f"{conversation_text}\n\nPlease summarize the conversation above according to your instructions.",
