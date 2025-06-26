@@ -735,14 +735,14 @@ async def test_builtin_view_tool_reads_file():
         id="test", function={"name": "view", "arguments": '{"path": "/docs/file1.txt"}'}, type="function"
     )
     result = await vfs.execute_tool(view_call)
-    assert result == "Hello World"
+    assert result == "<file path=/docs/file1.txt>\nHello World\n</file>"
 
     # Test view on nested file
     view_call = ChatCompletionMessageToolCallParam(
         id="test", function={"name": "view", "arguments": '{"path": "/docs/subdir/file2.txt"}'}, type="function"
     )
     result = await vfs.execute_tool(view_call)
-    assert result == "Nested Content"
+    assert result == "<file path=/docs/subdir/file2.txt>\nNested Content\n</file>"
 
 
 async def test_builtin_tools_error_handling():
@@ -761,7 +761,10 @@ async def test_builtin_tools_error_handling():
         id="test", function={"name": "view", "arguments": '{"path": "/nonexistent.txt"}'}, type="function"
     )
     result = await vfs.execute_tool(view_call)
-    assert result == "Error: File not found: /nonexistent.txt"
+    assert (
+        result
+        == "Error: File at path /nonexistent.txt not found. Please pay attention to the available files and try again."
+    )
 
 
 def test_builtin_tools_combined_with_source_tools():
