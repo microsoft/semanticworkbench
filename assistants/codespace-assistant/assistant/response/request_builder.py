@@ -3,12 +3,11 @@ import logging
 from dataclasses import dataclass
 from typing import List, cast
 
-from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
 from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
-from chat_context_toolkit.history import NewTurn, apply_budget_to_history_messages
+from chat_context_toolkit.history import HistoryMessageProvider, NewTurn, apply_budget_to_history_messages
 from mcp.types import SamplingMessage, TextContent
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
@@ -26,7 +25,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from ..config import MCPToolsConfigModel, PromptsConfigModel
 from ..whiteboard import notify_whiteboard
 from .utils import (
-    abbreviations,
     build_system_message_content,
 )
 
@@ -50,6 +48,7 @@ async def build_request(
     tools_config: MCPToolsConfigModel,
     silence_token: str,
     history_turn: NewTurn,
+    history_message_provider: HistoryMessageProvider,
 ) -> BuildRequestResult:
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -130,17 +129,13 @@ async def build_request(
     if request_config.is_reasoning_model:
         available_tokens -= request_config.reasoning_token_allocation
 
-    message_provider = chat_context_toolkit_message_provider_for(
-        context=context, tool_abbreviations=abbreviations.tool_abbreviations
-    )
-
     message_history_token_budget = available_tokens - consumed_token_count
 
     budgeted_messages_result = await apply_budget_to_history_messages(
         turn=history_turn,
         token_budget=message_history_token_budget,
         token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=request_config.model),
-        message_provider=message_provider,
+        message_provider=history_message_provider,
     )
 
     # Add history messages

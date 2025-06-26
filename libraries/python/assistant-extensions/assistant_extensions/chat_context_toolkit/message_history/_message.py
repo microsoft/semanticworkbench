@@ -17,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ...attachments import get_attachments
+from assistant_extensions.attachments._model import Attachment
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +96,9 @@ def conversation_message_to_assistant_message(
 
 
 async def conversation_message_to_user_message(
-    context: ConversationContext,
     message: ConversationMessage,
     participants: list[ConversationParticipant],
+    attachments: list[Attachment],
 ) -> ChatCompletionUserMessageParam:
     """
     Convert a conversation message to a user message. For messages with attachments, the attachments
@@ -124,7 +124,7 @@ async def conversation_message_to_user_message(
 
     # additionally, include any attachments as content parts
     for filename in message.filenames:
-        attachments = await get_attachments(context=context, include_filenames=[filename], exclude_filenames=[])
+        attachment = next((attachment for attachment in attachments if attachment.filename == filename), None)
 
         attachment_filename = f"/attachments/{filename}"
 
@@ -135,7 +135,7 @@ async def conversation_message_to_user_message(
             )
         )
 
-        if not attachments:
+        if not attachment:
             content_parts.append(
                 ChatCompletionContentPartTextParam(
                     type="text",
@@ -143,8 +143,6 @@ async def conversation_message_to_user_message(
                 )
             )
             continue
-
-        attachment = attachments[0]
 
         if attachment.error:
             content_parts.append(
@@ -180,7 +178,10 @@ async def conversation_message_to_user_message(
 
 
 async def conversation_message_to_chat_message_param(
-    context: ConversationContext, message: ConversationMessage, participants: list[ConversationParticipant]
+    context: ConversationContext,
+    message: ConversationMessage,
+    participants: list[ConversationParticipant],
+    attachments: list[Attachment],
 ) -> ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionToolMessageParam | None:
     """
     Convert a conversation message to a list of chat message parameters.
@@ -203,7 +204,7 @@ async def conversation_message_to_chat_message_param(
 
     # add the user message to the completion messages
     user_message = await conversation_message_to_user_message(
-        context=context, message=message, participants=participants
+        message=message, participants=participants, attachments=attachments
     )
 
     return user_message

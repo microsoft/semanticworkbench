@@ -7,7 +7,6 @@ from chat_context_toolkit.archive._types import (
     ArchiveContent,
     ArchiveManifest,
     ArchivesState,
-    MessageProtocol,
 )
 from chat_context_toolkit.history import OpenAIHistoryMessageParam
 from openai.types.chat import ChatCompletionUserMessageParam
@@ -38,17 +37,8 @@ class MockStorageProvider:
         return [pathlib.PurePath(file_path) for file_path in self.directories[directory_str]]
 
 
-class MockMessageProvider:
-    def __init__(self, messages: list[MessageProtocol]):
-        self.messages = messages
-
-    async def __call__(self, after_id: str | None) -> list[MessageProtocol]:
-        return self.messages
-
-
 async def test_get_state_returns_existing_state():
     """Test that get_state returns existing state from storage."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup existing state
@@ -56,7 +46,6 @@ async def test_get_state_returns_existing_state():
     storage_provider.files["archive_state.json"] = existing_state.model_dump_json()
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -67,12 +56,10 @@ async def test_get_state_returns_existing_state():
 
 async def test_list_chunks_empty_directory():
     """Test list_chunks when manifest directory is empty."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
     storage_provider.directories["manifests"] = []
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -85,7 +72,6 @@ async def test_list_chunks_empty_directory():
 
 async def test_list_chunks_with_manifests():
     """Test list_chunks returns ArchiveChunkManifest objects."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup manifest files
@@ -116,7 +102,6 @@ async def test_list_chunks_with_manifests():
     storage_provider.files["manifests/not_json.txt"] = "not json content"
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -135,7 +120,6 @@ async def test_list_chunks_with_manifests():
 
 async def test_list_chunks_skips_non_json_files():
     """Test that list_chunks skips non-JSON files."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     storage_provider.directories["manifests"] = [
@@ -157,7 +141,6 @@ async def test_list_chunks_skips_non_json_files():
     storage_provider.files["manifests/config.yaml"] = "config: value"
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -171,7 +154,6 @@ async def test_list_chunks_skips_non_json_files():
 
 async def test_list_chunks_skips_files_with_no_content():
     """Test that list_chunks skips files that return None content."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     storage_provider.directories["manifests"] = ["manifests/valid.json", "manifests/missing.json"]
@@ -188,7 +170,6 @@ async def test_list_chunks_skips_files_with_no_content():
     # missing.json is not in storage_provider.files, so read_text_file returns None
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -202,7 +183,6 @@ async def test_list_chunks_skips_files_with_no_content():
 
 async def test_read_chunk_existing_file():
     """Test read_chunk returns ArchiveChunkContent for existing file."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup content file
@@ -214,7 +194,6 @@ async def test_read_chunk_existing_file():
     storage_provider.files["content/chunk1.json"] = content.model_dump_json()
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -229,11 +208,9 @@ async def test_read_chunk_existing_file():
 
 async def test_read_chunk_nonexistent_file():
     """Test read_chunk returns None for nonexistent file."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -244,7 +221,6 @@ async def test_read_chunk_nonexistent_file():
 
 async def test_read_chunk_constructs_correct_path():
     """Test that read_chunk constructs the correct content file path."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup content in nested directory structure
@@ -252,7 +228,6 @@ async def test_read_chunk_constructs_correct_path():
     storage_provider.files["content/subfolder/chunk.json"] = content.model_dump_json()
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -265,14 +240,12 @@ async def test_read_chunk_constructs_correct_path():
 
 async def test_read_chunk_invalid_json():
     """Test read_chunk handles invalid JSON gracefully."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup invalid JSON content
     storage_provider.files["content/invalid.json"] = "{ invalid json content"
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 
@@ -283,7 +256,6 @@ async def test_read_chunk_invalid_json():
 
 async def test_integration_full_workflow():
     """Integration test showing full workflow of reading archive data."""
-    message_provider = MockMessageProvider([])
     storage_provider = MockStorageProvider()
 
     # Setup complete archive structure
@@ -330,7 +302,6 @@ async def test_integration_full_workflow():
     storage_provider.files["content/tech.json"] = content2.model_dump_json()
 
     reader = ArchiveReader(
-        message_provider=message_provider,
         storage_provider=storage_provider,
     )
 

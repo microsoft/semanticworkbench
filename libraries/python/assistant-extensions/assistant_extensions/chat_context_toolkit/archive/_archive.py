@@ -45,9 +45,16 @@ class ArchiveStorageProvider(StorageProvider):
         return [file.relative_to(self.root_path) for file in path.iterdir()]
 
 
-def archive_message_provider_for(context: ConversationContext) -> ArchiveMessageProvider:
+def archive_message_provider_for(
+    context: ConversationContext, service_config: ServiceConfig, request_config: OpenAIRequestConfig
+) -> ArchiveMessageProvider:
     """Create an archive message provider for the provided context."""
-    return chat_context_toolkit_message_provider_for(context=context, tool_abbreviations=ToolAbbreviations())
+    return chat_context_toolkit_message_provider_for(
+        context=context,
+        tool_abbreviations=ToolAbbreviations(),
+        service_config=service_config,
+        request_config=request_config,
+    )
 
 
 def _archive_task_queue_for(
@@ -63,7 +70,9 @@ def _archive_task_queue_for(
     """
     return ArchiveTaskQueue(
         storage_provider=ArchiveStorageProvider(context=context, sub_directory=archive_storage_sub_directory),
-        message_provider=archive_message_provider_for(context=context),
+        message_provider=archive_message_provider_for(
+            context=context, service_config=service_config, request_config=request_config
+        ),
         token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=token_counting_model),
         summarizer=LLMArchiveSummarizer(
             client_factory=lambda: create_client(service_config),
@@ -106,5 +115,4 @@ def archive_reader_for(context: ConversationContext, archive_storage_sub_directo
     """
     return ArchiveReader(
         storage_provider=ArchiveStorageProvider(context=context, sub_directory=archive_storage_sub_directory),
-        message_provider=archive_message_provider_for(context=context),
     )

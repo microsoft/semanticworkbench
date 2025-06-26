@@ -1,4 +1,5 @@
 from typing import AsyncIterable
+
 from ._state import StateStorage
 from ._types import (
     CONTENT_SUB_DIR_PATH,
@@ -6,7 +7,6 @@ from ._types import (
     ArchiveContent,
     ArchiveManifest,
     ArchivesState,
-    MessageProvider,
     StorageProvider,
 )
 
@@ -14,12 +14,10 @@ from ._types import (
 class ArchiveReader:
     def __init__(
         self,
-        message_provider: MessageProvider,
         storage_provider: StorageProvider,
     ) -> None:
         self._state_storage = StateStorage(storage_provider)
         self._storage_provider = storage_provider
-        self._message_provider = message_provider
 
     async def get_state(self) -> ArchivesState:
         """
