@@ -1,36 +1,48 @@
 # Chat Context Toolkit
 
-The **Chat Context Toolkit** is a Python library designed to efficiently manage context for LLM-powered conversations. It provides sophisticated token budget management, long-term archival capabilities, and a virtual file system for exposing files to LLM models, making it ideal for managing chat-based workflows where context preservation and resource optimization are critical.
+The **Chat Context Toolkit** is a Python library designed to efficiently manage context for most AI agents.
+
+It provides these three core, modular components:
+- Message History Management: Applies context engineering techniques to ensure that messages fit within a token budget.
+- Archive: A task for archiving and processing chunks of the message history that may no longer fit within a token budget to ensure older data can still be considered.
+- Virtual Filesystem: Creates a common abstraction for LLMs to read, edit, and explore files coming from a variety of disparate sources.
+
 
 ## Key Features
 
 ### History Management
 
-- **Token Budget Management**: Intelligently manage message histories within configurable token limits through message abbreviation and truncation
-- **High-Priority Message Preservation**: Protect recent and important messages (like tool calls and their results) from being abbreviated
-- **Tool Call Pairing**: Automatically pair assistant tool calls with their corresponding tool result messages to maintain conversation coherence
+The primary goal of history management is to ensure that a list of messages is guaranteed to be under a token limit
+and to provide a framework for common prompt engineering techniques to optimize how the messages are reduced to fit within a token budget.
+
+In the default case, this algorithm is equivalent to the commonly implemented truncation of oldest messages,
+but a user can configure abbreviations which allow for fine-grained control over how message contents can be reduced, rather than eliminated.
+
+For example, the results of "data" tools, such as ones that query external sources like the web or a database,
+are usually only important until they are "consumed" by a user asking questions or incorporating the results into something else like a document.
+Thus, a common abbreviation for a tool message like this might be: `The content of this tool call result has been removed due to token limits. If you need it, call the tool again.`
+
+![](./assets/history_v1.png)
 
 ### Archiving
 
-- **Automatic Chunked Archival**: Archive messages in configurable chunks when token thresholds are exceeded, with background processing
-- **Manifest Generation**: Create detailed manifests for each archive chunk including summaries, message IDs, and timestamps
-- **State Persistence**: Track archival progress with persistent state management across sessions
-- **Archive Retrieval**: Efficiently browse and retrieve archived content with filtering and search capabilities
-- **Summarization Integration**: Generate LLM-readable summaries of archived chunks for context understanding
+Removing messages from history may be removing valuable data required to effectively address a user’s task.
+We address this by asynchronously storing and extracting important content from chunks of the conversation into a configurable summary.
+The original files could be later retrieved by the model (see the following section on the Virtual Filesystem),
+and the summaries could be used as a form of memory system (although we do not prescribe this – it is up to the user of the library to decide what they want to use the summary for).
+
+![](./assets/archive_v1.png)
 
 ### Virtual File System
 
-- **Unified File Access**: Present files from multiple sources in a single virtual file system for LLM interaction
-- **Chat Completion Integration**: Provide built-in tools (`ls`, `view`) for LLMs to explore and read files
-- **Multiple File Sources**: Mount different file sources (local filesystem, cloud storage, databases) at various paths
-- **Write Tool Support**: Allow file sources to provide custom write tools for file modification
+Files are often large, and users usually have many of them that they create, add, or get created as part of working with an agent.
+These files might come from different sources, but to the model it is unnecessary, confusing, or detrimental to present them in different ways.
+To solve for this the virtual filesystem provides the following:
+- A cohesive view of all types of varied data (generated documents, uploaded files, old message histories, etc.) optimized for the model’s understanding.
+- Default tools for retrieval and exploration of that data as one cohesive aggregation of files.
+- A mechanism for editing files that we define as editable.
 
-### Protocol-Based Design
-
-- **Pluggable Architecture**: Use protocol-based interfaces for storage providers, token counters, and summarizers
-- **Storage Agnostic**: Work with any storage backend by implementing the `StorageProvider` protocol
-- **Customizable Token Counting**: Integrate with any tokenization system through the `TokenCounter` protocol
-- **Flexible Message Sources**: Support various message sources through `MessageProvider` and `HistoryMessageProvider` protocols
+![](./assets/vfs_v1.png)
 
 ---
 
@@ -43,7 +55,6 @@ Handles the archival of message histories into summarized chunks for long-term s
 - **`_archive.py`**: Core archiving logic with `ArchiveTask` for periodic archiving and `ArchiveReader` for retrieving archived content.
 - **`_state.py`**: Manages the archive's persistent state using configurable storage providers.
 - **`_types.py`**: Defines archival data structures, protocols, and configurations including `ArchiveContent`, `ArchiveManifest`, `ArchivesState`, and provider protocols.
-- **`ideas.md`**: Development notes and future feature ideas.
 
 ### `history` Module
 

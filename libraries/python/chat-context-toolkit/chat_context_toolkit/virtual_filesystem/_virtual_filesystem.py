@@ -290,7 +290,7 @@ class VirtualFileSystem:
 
         return "\n".join(lines)
 
-    async def _execute_view_tool(self, args: dict) -> str | Iterable[ChatCompletionContentPartTextParam]:
+    async def _execute_view_tool(self, args: dict) -> str:
         """Execute the built-in view tool to read file contents."""
         path = args.get("path")
         if not path:
@@ -298,7 +298,7 @@ class VirtualFileSystem:
 
         try:
             result = await self.read_file(path)
+            result = f"<file path={path}>\n{result}\n</file>"
         except FileNotFoundError:
-            return f"Error: File not found: {path}"
-
+            return f"Error: File at path {path} not found. Please pay attention to the available files and try again."
         return result

@@ -42,7 +42,8 @@ scenarios:
       WEEK 1-2: Initial Discovery & Planning
       1. Ask about the capabilities of the assistant.
       2. Tell it about your project idea. Spend multiple turns asking questions and telling the assistant what you want to do.
-      3. Come back a few days later saying you've been thinking about it more and have some refined/changed ideas about the project.
+      3. Iterate on a plan for the project in a markdown document, asking the assistant to help refine it.
+      4. Come back a few days later saying you've been thinking about it more and have some refined/changed ideas about the project.
 
       WEEK 3-4: Research Phase
       4. Ask for help with background research on wearable devices and similar products.
