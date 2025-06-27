@@ -398,7 +398,11 @@ class ConversationResponder:
         )
 
         message_provider = chat_context_toolkit_message_provider_for(
-            context=self.context, tool_abbreviations=tool_abbreviations
+            context=self.context,
+            tool_abbreviations=tool_abbreviations,
+            # use the fast client config for the attachment summarization that the message provider does
+            service_config=self.config.generative_ai_fast_client_config.service_config,
+            request_config=self.config.generative_ai_fast_client_config.request_config,
         )
         system_prompt_token_count = num_tokens_from_message(main_system_prompt, model="gpt-4o")
         tool_token_count = num_tokens_from_tools(tools, model="gpt-4o")

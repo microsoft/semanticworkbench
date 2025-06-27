@@ -36,3 +36,11 @@ class ToolCollection(list[ToolDefinition]):
             return f"Error: Invalid JSON arguments: {tool_call['function']['arguments']}"
 
         return await tool_definition.execute(args)
+
+
+def tool_result_to_string(tool_result: str | Iterable[ChatCompletionContentPartTextParam]) -> str:
+    match tool_result:
+        case str():
+            return tool_result
+        case Iterable():
+            return "\n".join(part["text"] for part in tool_result)

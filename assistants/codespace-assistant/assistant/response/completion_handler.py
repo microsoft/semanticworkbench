@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from typing import Iterable, List
+from typing import List
 
 import deepmerge
 from assistant_extensions.mcp import (
@@ -10,7 +10,7 @@ from assistant_extensions.mcp import (
     MCPSession,
     handle_mcp_tool_call,
 )
-from chat_context_toolkit.virtual_filesystem.tools import ToolCollection
+from chat_context_toolkit.virtual_filesystem.tools import ToolCollection, tool_result_to_string
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionMessageToolCallParam,
@@ -184,12 +184,7 @@ async def handle_completion(
                                 type="function",
                             )
                         )
-                        match tool_result:
-                            case str():
-                                content = tool_result
-
-                            case Iterable():
-                                content = "\n".join(item["text"] for item in tool_result)
+                        content = tool_result_to_string(tool_result)
 
                     else:
                         tool_result = await handle_mcp_tool_call(

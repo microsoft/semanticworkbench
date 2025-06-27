@@ -14,6 +14,7 @@ from assistant_extensions.mcp import (
     handle_mcp_tool_call,
 )
 from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem.tools import LsTool, ViewTool, tool_result_to_string
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -203,7 +204,8 @@ async def handle_completion(
     # Handle the view tool call
     elif tool_calls[0].name == "view":
         path = (tool_calls[0].arguments or {}).get("path", "")
-        file_content = await virtual_filesystem._execute_view_tool({"path": path})
+        tool_result = await ViewTool(virtual_filesystem).execute({"path": path})
+        file_content = tool_result_to_string(tool_result)
 
         step_result.conversation_tokens += num_tokens_from_messages(
             messages=[
@@ -232,14 +234,11 @@ async def handle_completion(
             )
         )
     elif tool_calls[0].name == "ls":
-        ls_string = ""
-        ls_string += (
-            await virtual_filesystem._execute_ls_tool({"path": "/attachments"})
-            + "\n"
-            + await virtual_filesystem._execute_ls_tool({"path": "/editable_documents"})
-            + "\n"
-            + await virtual_filesystem._execute_ls_tool({"path": "/archives"})
-        )
+        ls_tool = LsTool(virtual_filesystem)
+        ls_string = "\n".join([
+            tool_result_to_string(await ls_tool.execute({"path": path}))
+            for path in ["/attachments", "/editable_documents", "/archives"]
+        ])
 
         step_result.conversation_tokens += num_tokens_from_messages(
             messages=[
