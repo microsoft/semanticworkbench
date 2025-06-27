@@ -8,10 +8,9 @@ import deepmerge
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPSession,
-    OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
-from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem.tools import ToolCollection
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionMessageToolCallParam,
@@ -36,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_completion(
-    sampling_handler: OpenAISamplingHandler,
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
@@ -45,7 +43,7 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
-    virtual_filesystem: VirtualFileSystem,
+    tool_collection: ToolCollection,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -174,9 +172,9 @@ async def handle_completion(
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
                 try:
-                    if tool_call.name in virtual_filesystem.tools:
-                        # Execute the tool call using the virtual filesystem
-                        tool_result = await virtual_filesystem.execute_tool(
+                    if tool_collection.has_tool(tool_call.name):
+                        # Execute the tool call using the tool collection
+                        tool_result = await tool_collection.execute_tool(
                             ChatCompletionMessageToolCallParam(
                                 id=tool_call.id,
                                 function={

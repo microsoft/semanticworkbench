@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Literal, Protocol
+from typing import Any, Iterable, Literal, Protocol
 
 from openai.types.chat import (
     ChatCompletionContentPartTextParam,
@@ -51,15 +51,15 @@ class FileEntry:
         return self.path.split("/")[-1] if self.path else ""
 
 
-class WriteToolDefinition(Protocol):
-    """Protocol for write tool definitions."""
+class ToolDefinition(Protocol):
+    """Protocol for tool definitions."""
 
     @property
     def tool_param(self) -> ChatCompletionToolParam:
-        """Tool parameter definition for the write tool."""
+        """Tool parameter definition for the tool."""
         ...
 
-    async def execute(self, args: dict) -> str | Iterable[ChatCompletionContentPartTextParam]:
+    async def execute(self, args: dict[str, Any]) -> str | Iterable[ChatCompletionContentPartTextParam]:
         """Executes the tool with the given arguments."""
         ...
 
@@ -67,16 +67,11 @@ class WriteToolDefinition(Protocol):
 class FileSource(Protocol):
     """
     Protocol for file sources that can be mounted in the virtual file system.
-    File sources can provide tools for writing files, and must implement methods for listing files and reading file contents.
+    File sources must implement methods for listing files and reading file contents.
     Paths provided to the FileSource will always be absolute, such as "/" or "/foo/bar", and will never include the mount point.
     For example, if a FileSource is mounted at "/foo", the path passed to the FileSource will be "/bar" for a path at "/foo/bar"
     in the virtual file system.
     """
-
-    @property
-    def write_tools(self) -> Iterable[WriteToolDefinition]:
-        """Get the list of write tools provided by this file system provider."""
-        ...
 
     async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
         """

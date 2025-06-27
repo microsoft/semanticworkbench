@@ -6,7 +6,6 @@ from chat_context_toolkit.virtual_filesystem import (
     FileEntry,
     FileSource,
     MountPoint,
-    WriteToolDefinition,
 )
 from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -30,11 +29,6 @@ class AttachmentsVirtualFileSystemFileSource(FileSource):
         """Initialize the file source with the conversation context."""
         self.context = context
         self.summarizer = summarizer
-
-    @property
-    def write_tools(self) -> Iterable[WriteToolDefinition]:
-        """Get the list of write tools provided by this file system provider."""
-        return []
 
     async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
         """
