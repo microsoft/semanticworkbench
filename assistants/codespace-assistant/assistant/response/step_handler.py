@@ -4,7 +4,6 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
 from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
     archive_file_source_mount,
@@ -13,6 +12,7 @@ from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
 from chat_context_toolkit.history import NewTurn
 from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem.tools import LsTool, ToolCollection, ViewTool
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -42,7 +42,6 @@ async def next_step(
     sampling_handler: OpenAISamplingHandler,
     mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     request_config: OpenAIRequestConfig,
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
@@ -90,9 +89,20 @@ async def next_step(
         ]
     )
 
-    tools = [tool for _, tool in virtual_filesystem.tools.items()]
-    # convert the tools to make them compatible with the OpenAI API
-    tools += get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config) or []
+    vfs_tools = ToolCollection((LsTool(virtual_filesystem), ViewTool(virtual_filesystem)))
+
+    tools = [
+        *[tool.tool_param for tool in vfs_tools],
+        # convert the tools to make them compatible with the OpenAI API
+        *(get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config) or []),
+    ]
+
+    history_message_provider = chat_context_toolkit_message_provider_for(
+        context=context,
+        tool_abbreviations=abbreviations.tool_abbreviations,
+        service_config=service_config,
+        request_config=request_config,
+    )
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
@@ -104,12 +114,7 @@ async def next_step(
         tools=tools,
         silence_token=silence_token,
         history_turn=history_turn,
-        history_message_provider=chat_context_toolkit_message_provider_for(
-            context=context,
-            tool_abbreviations=abbreviations.tool_abbreviations,
-            service_config=service_config,
-            request_config=request_config,
-        ),
+        history_message_provider=history_message_provider,
     )
 
     chat_message_params = build_request_result.chat_message_params
@@ -165,11 +170,7 @@ async def next_step(
                 step_result.status = "error"
                 return step_result
 
-    if completion is None:
-        return await handle_error("No response from OpenAI.")
-
     step_result = await handle_completion(
-        sampling_handler,
         step_result,
         completion,
         mcp_sessions,
@@ -178,7 +179,7 @@ async def next_step(
         silence_token,
         metadata_key,
         response_start_time,
-        virtual_filesystem=virtual_filesystem,
+        tool_collection=vfs_tools,
     )
 
     if build_request_result.token_overage > 0:

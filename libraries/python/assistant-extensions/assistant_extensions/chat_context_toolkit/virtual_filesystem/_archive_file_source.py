@@ -1,6 +1,6 @@
 from typing import Iterable, cast
 
-from chat_context_toolkit.virtual_filesystem import DirectoryEntry, FileEntry, MountPoint, WriteToolDefinition
+from chat_context_toolkit.virtual_filesystem import DirectoryEntry, FileEntry, MountPoint
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -13,11 +13,6 @@ class ArchiveFileSource:
         self._archive_reader = archive_reader_for(
             context=context, archive_storage_sub_directory=archive_storage_sub_directory
         )
-
-    @property
-    def write_tools(self) -> Iterable[WriteToolDefinition]:
-        """Get the list of write tools provided by this file system provider."""
-        return []
 
     async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
         """

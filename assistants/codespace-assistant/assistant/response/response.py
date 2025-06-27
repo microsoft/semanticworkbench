@@ -2,7 +2,6 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any
 
-from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.chat_context_toolkit.archive import ArchiveTaskQueues
 from assistant_extensions.mcp import (
     MCPClientSettings,
@@ -36,7 +35,6 @@ archive_task_queues = ArchiveTaskQueues()
 
 async def respond_to_conversation(
     message: ConversationMessage,
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
     metadata: dict[str, Any] = {},
@@ -136,7 +134,6 @@ async def respond_to_conversation(
                 sampling_handler=sampling_handler,
                 mcp_sessions=mcp_sessions,
                 mcp_prompts=mcp_prompts,
-                attachments_extension=attachments_extension,
                 context=context,
                 request_config=request_config,
                 service_config=service_config,
