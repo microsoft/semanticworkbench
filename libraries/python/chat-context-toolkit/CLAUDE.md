@@ -1,4 +1,4 @@
-Python tools:
+# Python tools
 
 - `uv` for dependency management
 - `uv run` to run python or project scripts
