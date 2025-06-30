@@ -14,7 +14,7 @@ async def test_builtin_view_tool_reads_file():
     result = await view_tool.execute({"path": "/docs/file1.txt"})
 
     mock_vfs.read_file.assert_called_once_with("/docs/file1.txt")
-    assert result == "<file path=/docs/file1.txt>\nHello World\n</file>"
+    assert result == '<file path="/docs/file1.txt">\nHello World\n</file>'
 
 
 async def test_view_tool_error_handling():
@@ -25,4 +25,7 @@ async def test_view_tool_error_handling():
     # view on non-existent file should raise error
     view_tool = ViewTool(mock_vfs)
     result = await view_tool.execute({"path": "/nonexistent.txt"})
-    assert result == "Error: File at path /nonexistent.txt not found. Please pay attention to the available files and try again."
+    assert (
+        result
+        == "Error: File at path /nonexistent.txt not found. Please pay attention to the available files and try again."
+    )

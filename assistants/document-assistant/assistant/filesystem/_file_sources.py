@@ -2,7 +2,7 @@ import io
 from typing import Callable, Iterable
 
 from assistant_drive import Drive
-from chat_context_toolkit.virtual_filesystem import DirectoryEntry, FileEntry, MountPoint, WriteToolDefinition
+from chat_context_toolkit.virtual_filesystem import DirectoryEntry, FileEntry, MountPoint
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.filesystem._filesystem import AttachmentsExtension, _get_attachments, log_and_send_message_on_error
@@ -16,11 +16,6 @@ class AttachmentFileSource:
     def __init__(self, context: ConversationContext, attachments_extension: AttachmentsExtension) -> None:
         self.context = context
         self.attachments_extension = attachments_extension
-
-    @property
-    def write_tools(self) -> Iterable[WriteToolDefinition]:
-        """Get the list of write tools provided by this file system provider."""
-        return []
 
     async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
         """
@@ -85,11 +80,6 @@ class EditableDocumentsFileSource:
     def __init__(self, context: ConversationContext, drive_provider: Callable[[ConversationContext], Drive]) -> None:
         self.context = context
         self.drive_provider = drive_provider
-
-    @property
-    def write_tools(self) -> Iterable[WriteToolDefinition]:
-        """Get the list of write tools provided by this file system provider."""
-        return []
 
     async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
         """

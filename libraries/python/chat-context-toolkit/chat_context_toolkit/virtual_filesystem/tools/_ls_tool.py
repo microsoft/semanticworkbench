@@ -1,15 +1,28 @@
+from dataclasses import dataclass
 from typing import Iterable
+
 from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionToolParam
 
 from chat_context_toolkit.virtual_filesystem._types import DirectoryEntry, FileEntry, ToolDefinition
 from chat_context_toolkit.virtual_filesystem._virtual_filesystem import VirtualFileSystem
 
 
+@dataclass
+class LsToolOptions:
+    tool_name: str = "ls"
+    """Name of the tool provided to the LLM."""
+    tool_description: str = "List files and directories at the specified path. Root directories: {root_path_list}"
+    """Description of the tool provided to the LLM."""
+    path_argument_description: str = "The path to list (e.g., '/', '/docs', '/docs/subdir)"
+    """Description of the 'path' argument."""
+
+
 class LsTool(ToolDefinition):
     """Tool for listing files and directories in the virtual file system."""
 
-    def __init__(self, virtual_filesystem: VirtualFileSystem):
+    def __init__(self, virtual_filesystem: VirtualFileSystem, options: LsToolOptions = LsToolOptions()) -> None:
         self.virtual_filesystem = virtual_filesystem
+        self.options = options
 
     @property
     def tool_param(self) -> ChatCompletionToolParam:
@@ -20,14 +33,14 @@ class LsTool(ToolDefinition):
         return ChatCompletionToolParam(
             type="function",
             function={
-                "name": "ls",
-                "description": "List files and directories at the specified path. Root directories: " + mount_list,
+                "name": self.options.tool_name,
+                "description": self.options.tool_description.format(root_path_list=mount_list),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "The path to list (e.g., '/', '/docs', '/docs/subdir')",
+                            "description": self.options.path_argument_description.format(root_path_list=mount_list),
                         }
                     },
                     "required": ["path"],
@@ -39,7 +52,7 @@ class LsTool(ToolDefinition):
         """Execute the built-in ls tool to list directory contents."""
         path = args.get("path")
         if not path:
-            return "Error: 'path' argument is required for the ls tool"
+            return f"Error: 'path' argument is required for the {self.options.tool_name} tool"
 
         try:
             entries = await self.virtual_filesystem.list_directory(path)
