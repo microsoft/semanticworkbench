@@ -324,7 +324,10 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
     const sortedParticipantsByOwnerMeOthers = React.useMemo(() => {
         const participants: ConversationParticipant[] = [];
-        participants.push(getOwnerParticipant(conversation));
+        const owner = getOwnerParticipant(conversation);
+        if (owner) {
+            participants.push(owner);
+        }
         if (wasSharedWithMe(conversation)) {
             const me = conversation.participants.find((participant) => participant.id === localUserId);
             if (me) {
