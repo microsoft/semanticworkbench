@@ -11,7 +11,9 @@ from typing import Any
 
 import deepmerge
 from assistant_extensions import dashboard_card, navigator
-from assistant_extensions.chat_context_toolkit.archive import ArchiveTaskQueues
+from assistant_extensions.attachments import get_attachments
+from assistant_extensions.chat_context_toolkit.archive import ArchiveTaskQueues, construct_archive_summarizer
+from assistant_extensions.chat_context_toolkit.message_history import construct_attachment_summarizer
 from assistant_extensions.mcp import MCPServerConfig
 from chat_context_toolkit.archive import ArchiveTaskConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
@@ -209,11 +211,21 @@ async def on_message_created(
                 )
             )
 
+        attachments = await get_attachments(
+            context=context,
+            summarizer=construct_attachment_summarizer(
+                service_config=config.generative_ai_fast_client_config.service_config,
+                request_config=config.generative_ai_fast_client_config.request_config,
+            ),
+        )
         await archive_task_queues.enqueue_run(
             context=context,
-            service_config=config.generative_ai_client_config.service_config,
-            request_config=config.generative_ai_client_config.request_config,
+            attachments=attachments,
             archive_task_config=ArchiveTaskConfig(chunk_token_count_threshold=30_000),
+            archive_summarizer=construct_archive_summarizer(
+                service_config=config.generative_ai_fast_client_config.service_config,
+                request_config=config.generative_ai_fast_client_config.request_config,
+            ),
         )
 
 

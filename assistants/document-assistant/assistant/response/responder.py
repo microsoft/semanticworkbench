@@ -324,16 +324,13 @@ class ConversationResponder:
                         await update_dynamic_ui_state(self.context, tool_call.arguments)
 
         step_result = await handle_completion(
-            self.sampling_handler,
             step_result,
             completion,
             self.mcp_sessions,
             self.context,
             self.config.generative_ai_client_config.request_config,
-            "SILENCE",  # TODO: This is not being used correctly.
             f"respond_to_conversation:step_{step_count}",
             response_start_time,
-            self.attachments_extension,
             self.config.orchestration.guidance.enabled,
             self.virtual_filesystem,
         )

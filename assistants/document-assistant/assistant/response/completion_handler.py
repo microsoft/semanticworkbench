@@ -44,16 +44,13 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_completion(
-    sampling_handler: OpenAISamplingHandler,
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
     context: ConversationContext,
     request_config: OpenAIRequestConfig,
-    silence_token: str,
     metadata_key: str,
     response_start_time: float,
-    attachments_extension: AttachmentsExtension,
     guidance_enabled: bool,
     virtual_filesystem: VirtualFileSystem,
 ) -> StepResult:
