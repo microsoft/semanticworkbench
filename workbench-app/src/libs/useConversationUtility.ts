@@ -53,11 +53,7 @@ export const useConversationUtility = () => {
     //
 
     const getOwnerParticipant = React.useCallback((conversation: Conversation) => {
-        const owner = conversation.participants.find((participant) => participant.id === conversation.ownerId);
-        if (!owner) {
-            throw new Error('Owner not found in conversation participants');
-        }
-        return owner;
+        return conversation.participants.find((participant) => participant.id === conversation.ownerId);
     }, []);
 
     const wasSharedWithMe = React.useCallback(
