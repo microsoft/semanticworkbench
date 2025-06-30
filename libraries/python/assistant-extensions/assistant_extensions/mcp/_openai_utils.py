@@ -173,7 +173,7 @@ class OpenAISamplingHandler(SamplingHandler):
         try:
             return await self._message_handler(context, params)
         except Exception as e:
-            logger.error(f"Error handling sampling request: {e}")
+            logger.exception("Error handling sampling request")
             code = getattr(e, "status_code", 500)
             message = getattr(e, "message", "Error handling sampling request.")
             data = str(e)

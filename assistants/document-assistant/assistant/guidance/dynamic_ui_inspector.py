@@ -103,8 +103,8 @@ async def get_dynamic_ui_state(context: ConversationContext) -> dict[str, Any]:
         with drive.open_file("ui_state.json") as f:
             ui_json = f.read().decode("utf-8")
             return json.loads(ui_json)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        logger.error(f"Error reading dynamic UI state: {e}")
+    except (json.JSONDecodeError, FileNotFoundError):
+        logger.exception("Error reading dynamic UI state")
         return {}
 
 

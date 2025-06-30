@@ -165,9 +165,9 @@ async def connect_to_mcp_server_sse(client_settings: MCPClientSettings) -> Async
                 yield client_session  # Yield the session for use
 
     except ExceptionGroup as e:
-        logger.exception(f"TaskGroup failed in SSE client for {client_settings.server_config.key}: {e}")
+        logger.exception("TaskGroup failed in SSE client for %s", client_settings.server_config.key)
         for sub in e.exceptions:
-            logger.error(f"Sub-exception: {client_settings.server_config.key}: {sub}")
+            logger.exception("sub-exception: %s", client_settings.server_config.key, exc_info=sub)
         # If there's exactly one underlying exception, re-raise it
         if len(e.exceptions) == 1:
             raise e.exceptions[0]
@@ -191,19 +191,18 @@ async def refresh_mcp_sessions(mcp_sessions: list[MCPSession], stack: AsyncExitS
     """
     active_sessions = []
     for session in mcp_sessions:
-        if not session.is_connected:
-            logger.info(f"Session {session.config.server_config.key} is disconnected. Attempting to reconnect...")
-            new_session = await reconnect_mcp_session(session.config, stack)
-            if new_session:
-                active_sessions.append(new_session)
-            else:
-                logger.error(f"Failed to reconnect MCP server {session.config.server_config.key}.")
-        else:
+        if session.is_connected:
             active_sessions.append(session)
+            continue
+
+        logger.info(f"Session {session.config.server_config.key} is disconnected. Attempting to reconnect...")
+        new_session = await reconnect_mcp_session(session.config, stack)
+        active_sessions.append(new_session)
+
     return active_sessions
 
 
-async def reconnect_mcp_session(client_settings: MCPClientSettings, stack: AsyncExitStack) -> MCPSession | None:
+async def reconnect_mcp_session(client_settings: MCPClientSettings, stack: AsyncExitStack) -> MCPSession:
     """
     Attempt to reconnect to the MCP server using the provided configuration.
     Returns a new MCPSession if successful, or None otherwise.

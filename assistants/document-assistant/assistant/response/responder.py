@@ -516,8 +516,8 @@ class ConversationResponder:
                 edit_tool["function"]["description"] = EDIT_TOOL_DESCRIPTION_HOSTED
             elif filesystem_root and edit_tool:
                 edit_tool["function"]["description"] = EDIT_TOOL_DESCRIPTION_LOCAL
-        except Exception as e:
-            logger.error(f"Failed to override edit_file description: {e}")
+        except Exception:
+            logger.exception("Failed to override edit_file description")
             return tools
 
         return tools
