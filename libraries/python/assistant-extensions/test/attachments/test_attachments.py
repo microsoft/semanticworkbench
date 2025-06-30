@@ -21,6 +21,13 @@ from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
 
 
+@pytest.fixture(scope="function", autouse=True)
+def temporary_storage_directory(monkeypatch: pytest.MonkeyPatch) -> Iterable[pathlib.Path]:
+    with TemporaryDirectory() as tempdir:
+        monkeypatch.setattr(settings.storage, "root", tempdir)
+        yield pathlib.Path(tempdir)
+
+
 @pytest.mark.parametrize(
     ("filenames_with_bytes", "expected_messages"),
     [
@@ -101,7 +108,6 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
 async def test_get_completion_messages_for_attachments(
     filenames_with_bytes: dict[str, Callable[[], bytes]],
     expected_messages: list[ChatCompletionMessageParam],
-    temporary_storage_directory: pathlib.Path,
 ) -> None:
     mock_assistant_app = mock.MagicMock(spec=AssistantAppProtocol)
 
@@ -174,10 +180,3 @@ async def test_get_completion_messages_for_attachments(
     )
 
     assert actual_messages == expected_messages
-
-
-@pytest.fixture(scope="function")
-def temporary_storage_directory(monkeypatch: pytest.MonkeyPatch) -> Iterable[pathlib.Path]:
-    with TemporaryDirectory() as tempdir:
-        monkeypatch.setattr(settings.storage, "root", tempdir)
-        yield pathlib.Path(tempdir)

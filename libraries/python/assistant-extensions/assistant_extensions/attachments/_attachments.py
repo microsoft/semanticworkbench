@@ -160,14 +160,14 @@ class AttachmentsExtension:
     async def get_attachment_filenames(
         self,
         context: ConversationContext,
-        include_filenames: list[str] | None = None,
+        include_filenames: list[str] = [],
         exclude_filenames: list[str] = [],
     ) -> list[str]:
         files_response = await context.list_files()
 
         # for all files, get the attachment
         for file in files_response.files:
-            if include_filenames is not None and file.filename not in include_filenames:
+            if include_filenames and file.filename not in include_filenames:
                 continue
             if file.filename in exclude_filenames:
                 continue
@@ -246,7 +246,7 @@ async def get_attachments(
     attachments = []
     # for all files, get the attachment
     for file in files_response.files:
-        if include_filenames is not None and file.filename not in include_filenames:
+        if include_filenames and file.filename not in include_filenames:
             continue
         if file.filename in exclude_filenames:
             continue
