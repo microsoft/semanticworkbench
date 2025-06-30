@@ -118,7 +118,7 @@ class AttachmentsExtension:
         self,
         context: ConversationContext,
         config: AttachmentsConfigModel,
-        include_filenames: list[str] | None = None,
+        include_filenames: list[str] = [],
         exclude_filenames: list[str] = [],
         summarizer: Summarizer | None = None,
     ) -> Sequence[CompletionMessage]:
@@ -143,6 +143,7 @@ class AttachmentsExtension:
             error_handler=self._error_handler,
             include_filenames=include_filenames,
             exclude_filenames=exclude_filenames,
+            summarizer=summarizer,
         )
 
         if not attachments:
@@ -226,17 +227,21 @@ async def default_error_handler(context: ConversationContext, filename: str, e: 
 
 async def get_attachments(
     context: ConversationContext,
-    include_filenames: list[str] | None,
-    exclude_filenames: list[str],
+    exclude_filenames: list[str] = [],
+    include_filenames: list[str] = [],
     error_handler: AttachmentProcessingErrorHandler = default_error_handler,
     summarizer: Summarizer | None = None,
-) -> Sequence[Attachment]:
+) -> list[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.
     """
 
     # get all files in the conversation
     files_response = await context.list_files()
+
+    # delete cached attachments that are no longer in the conversation
+    filenames = {file.filename for file in files_response.files}
+    asyncio.create_task(_delete_attachments_not_in(context, filenames))
 
     attachments = []
     # for all files, get the attachment
@@ -248,10 +253,6 @@ async def get_attachments(
 
         attachment = await _get_attachment_for_file(context, file, {}, error_handler, summarizer=summarizer)
         attachments.append(attachment)
-
-    # delete cached attachments that are no longer in the conversation
-    filenames = {file.filename for file in files_response.files}
-    await _delete_attachments_not_in(context, filenames)
 
     return attachments
 

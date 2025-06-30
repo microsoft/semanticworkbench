@@ -22,7 +22,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant_extensions.attachments._attachments import get_attachments
+from assistant_extensions.attachments._model import Attachment
 from assistant_extensions.attachments._summarizer import LLMConfig, LLMFileSummarizer
 
 from ._message import conversation_message_to_chat_message_param
@@ -132,11 +132,23 @@ class CompositeMessageProtocol(HistoryMessageProtocol, ArchiveMessageProtocol, P
     ...
 
 
-def chat_context_toolkit_message_provider_for(
-    context: ConversationContext,
-    tool_abbreviations: ToolAbbreviations,
+def construct_attachment_summarizer(
     service_config: ServiceConfig,
     request_config: OpenAIRequestConfig,
+) -> LLMFileSummarizer:
+    return LLMFileSummarizer(
+        llm_config=LLMConfig(
+            client_factory=lambda: create_client(service_config),
+            model=request_config.model,
+            max_response_tokens=request_config.response_tokens,
+        )
+    )
+
+
+def chat_context_toolkit_message_provider_for(
+    context: ConversationContext,
+    attachments: list[Attachment],
+    tool_abbreviations: ToolAbbreviations = ToolAbbreviations(),
 ) -> CompositeMessageProvider:
     """
     Create a composite message provider for the given workbench conversation context.
@@ -146,9 +158,8 @@ def chat_context_toolkit_message_provider_for(
         history = await _get_history_manager_messages(
             context,
             tool_abbreviations=tool_abbreviations,
-            service_config=service_config,
-            request_config=request_config,
             after_id=after_id,
+            attachments=attachments,
         )
 
         return history
@@ -159,8 +170,7 @@ def chat_context_toolkit_message_provider_for(
 async def _get_history_manager_messages(
     context: ConversationContext,
     tool_abbreviations: ToolAbbreviations,
-    service_config: ServiceConfig,
-    request_config: OpenAIRequestConfig,
+    attachments: list[Attachment],
     after_id: str | None = None,
 ) -> list[HistoryMessageWithAbbreviation]:
     """
@@ -174,21 +184,6 @@ async def _get_history_manager_messages(
 
     batch_size = 100
     before_message_id = None
-
-    attachments = list(
-        await get_attachments(
-            context=context,
-            include_filenames=None,
-            exclude_filenames=[],
-            summarizer=LLMFileSummarizer(
-                llm_config=LLMConfig(
-                    client_factory=lambda: create_client(service_config),
-                    model=request_config.model,
-                    max_response_tokens=request_config.response_tokens,
-                )
-            ),
-        )
-    )
 
     # each call to get_messages will return a maximum of `batch_size` messages
     # so we need to loop until all messages are retrieved

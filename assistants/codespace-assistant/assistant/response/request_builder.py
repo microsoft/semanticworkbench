@@ -148,7 +148,7 @@ async def build_request(
         model=request_config.model,
     )
 
-    logging.info(
+    logger.info(
         "chat message params budgeted; message count: %d, total token count: %d",
         len(chat_message_params),
         total_token_count,

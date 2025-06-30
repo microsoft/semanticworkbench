@@ -3,10 +3,11 @@ from pathlib import PurePath
 from chat_context_toolkit.archive import ArchiveReader, ArchiveTaskConfig, ArchiveTaskQueue, StorageProvider
 from chat_context_toolkit.archive import MessageProvider as ArchiveMessageProvider
 from chat_context_toolkit.archive.summarization import LLMArchiveSummarizer, LLMArchiveSummarizerConfig
-from chat_context_toolkit.history.tool_abbreviations import ToolAbbreviations
 from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
 from openai_client.tokens import num_tokens_from_messages
 from semantic_workbench_assistant.assistant_app import ConversationContext, storage_directory_for_context
+
+from assistant_extensions.attachments._model import Attachment
 
 from ..message_history import chat_context_toolkit_message_provider_for
 
@@ -46,21 +47,30 @@ class ArchiveStorageProvider(StorageProvider):
 
 
 def archive_message_provider_for(
-    context: ConversationContext, service_config: ServiceConfig, request_config: OpenAIRequestConfig
+    context: ConversationContext,
+    attachments: list[Attachment],
 ) -> ArchiveMessageProvider:
     """Create an archive message provider for the provided context."""
     return chat_context_toolkit_message_provider_for(
         context=context,
-        tool_abbreviations=ToolAbbreviations(),
-        service_config=service_config,
-        request_config=request_config,
+        attachments=attachments,
+    )
+
+
+def construct_archive_summarizer(
+    service_config: ServiceConfig,
+    request_config: OpenAIRequestConfig,
+) -> LLMArchiveSummarizer:
+    return LLMArchiveSummarizer(
+        client_factory=lambda: create_client(service_config),
+        llm_config=LLMArchiveSummarizerConfig(model=request_config.model),
     )
 
 
 def _archive_task_queue_for(
     context: ConversationContext,
-    service_config: ServiceConfig,
-    request_config: OpenAIRequestConfig,
+    attachments: list[Attachment],
+    archive_summarizer: LLMArchiveSummarizer,
     archive_task_config: ArchiveTaskConfig = ArchiveTaskConfig(),
     token_counting_model: str = "gpt-4o",
     archive_storage_sub_directory: str = "archives",
@@ -71,13 +81,11 @@ def _archive_task_queue_for(
     return ArchiveTaskQueue(
         storage_provider=ArchiveStorageProvider(context=context, sub_directory=archive_storage_sub_directory),
         message_provider=archive_message_provider_for(
-            context=context, service_config=service_config, request_config=request_config
+            context=context,
+            attachments=attachments,
         ),
         token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=token_counting_model),
-        summarizer=LLMArchiveSummarizer(
-            client_factory=lambda: create_client(service_config),
-            llm_config=LLMArchiveSummarizerConfig(model=request_config.model),
-        ),
+        summarizer=archive_summarizer,
         config=archive_task_config,
     )
 
@@ -93,8 +101,8 @@ class ArchiveTaskQueues:
     async def enqueue_run(
         self,
         context: ConversationContext,
-        service_config: ServiceConfig,
-        request_config: OpenAIRequestConfig,
+        attachments: list[Attachment],
+        archive_summarizer: LLMArchiveSummarizer,
         archive_task_config: ArchiveTaskConfig = ArchiveTaskConfig(),
     ) -> None:
         """Get the archive task queue for the given context, creating it if it does not exist."""
@@ -102,8 +110,8 @@ class ArchiveTaskQueues:
         if context_id not in self._queues:
             self._queues[context_id] = _archive_task_queue_for(
                 context=context,
-                service_config=service_config,
-                request_config=request_config,
+                attachments=attachments,
+                archive_summarizer=archive_summarizer,
                 archive_task_config=archive_task_config,
             )
         await self._queues[context_id].enqueue_run()

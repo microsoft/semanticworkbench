@@ -9,7 +9,11 @@ from typing import Any, Awaitable, Callable
 
 import deepmerge
 import pendulum
-from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
+from assistant_extensions.attachments import get_attachments
+from assistant_extensions.chat_context_toolkit.message_history import (
+    chat_context_toolkit_message_provider_for,
+    construct_attachment_summarizer,
+)
 from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
     archive_file_source_mount,
 )
@@ -400,9 +404,15 @@ class ConversationResponder:
         message_provider = chat_context_toolkit_message_provider_for(
             context=self.context,
             tool_abbreviations=tool_abbreviations,
-            # use the fast client config for the attachment summarization that the message provider does
-            service_config=self.config.generative_ai_fast_client_config.service_config,
-            request_config=self.config.generative_ai_fast_client_config.request_config,
+            attachments=list(
+                await get_attachments(
+                    self.context,
+                    summarizer=construct_attachment_summarizer(
+                        service_config=self.config.generative_ai_fast_client_config.service_config,
+                        request_config=self.config.generative_ai_fast_client_config.request_config,
+                    ),
+                )
+            ),
         )
         system_prompt_token_count = num_tokens_from_message(main_system_prompt, model="gpt-4o")
         tool_token_count = num_tokens_from_tools(tools, model="gpt-4o")
@@ -421,7 +431,7 @@ class ConversationResponder:
         chat_history: list[ChatCompletionMessageParam] = list(budgeted_messages_result.messages)
         chat_history.insert(0, main_system_prompt)
 
-        logging.info("The system prompt has been constructed.")
+        logger.info("The system prompt has been constructed.")
         # Update telemetry for inspector
         self.latest_telemetry.system_prompt_tokens = system_prompt_token_count
         self.latest_telemetry.tool_tokens = tool_token_count

@@ -4,7 +4,11 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.chat_context_toolkit.message_history import chat_context_toolkit_message_provider_for
+from assistant_extensions.attachments import get_attachments
+from assistant_extensions.chat_context_toolkit.message_history import (
+    chat_context_toolkit_message_provider_for,
+    construct_attachment_summarizer,
+)
 from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
     archive_file_source_mount,
     attachments_file_source_mount,
@@ -100,8 +104,15 @@ async def next_step(
     history_message_provider = chat_context_toolkit_message_provider_for(
         context=context,
         tool_abbreviations=abbreviations.tool_abbreviations,
-        service_config=service_config,
-        request_config=request_config,
+        attachments=list(
+            await get_attachments(
+                context,
+                summarizer=construct_attachment_summarizer(
+                    service_config=service_config,
+                    request_config=request_config,
+                ),
+            )
+        ),
     )
 
     build_request_result = await build_request(
