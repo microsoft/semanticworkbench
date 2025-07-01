@@ -3,8 +3,22 @@
     "allow": [
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(make:*)",
+      "Bash(python:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(cp:*)",
+      "Bash(git mv:*)",
+      "Bash(make lint)",
+      "Bash(make type-check)",
+      "Bash(pytest:*)",
+      "Bash(sed:*)",
+      "Bash(uv:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }
