@@ -23,6 +23,7 @@ from .data import (
 )
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
+from .state_inspector import get_priority_emoji, get_status_emoji
 from .storage import ShareStorage
 from .storage_models import ConversationRole
 
@@ -895,15 +896,9 @@ async def handle_project_info_command(
                     output.append("### Active Requests\n")
 
                     for request in active_requests:
-                        priority_marker = {
-                            RequestPriority.LOW.value: "🔹",
-                            RequestPriority.MEDIUM.value: "🔶",
-                            RequestPriority.HIGH.value: "🔴",
-                            RequestPriority.CRITICAL.value: "⚠️",
-                        }.get(request.priority.value, "🔹")
-
-                        # Include request ID for easy reference when resolving
-                        output.append(f"{priority_marker} **{request.title}** ({request.status.value})")
+                        priority_emoji = get_priority_emoji(request.priority)
+                        status_emoji = get_status_emoji(request.status)
+                        output.append(f"{priority_emoji} **{request.title}** {status_emoji}")
                         output.append(f"  ID: `{request.request_id}`")
                         output.append(f"  {request.description}")
 
@@ -917,7 +912,8 @@ async def handle_project_info_command(
                     output.append("### Resolved Requests\n")
 
                     for request in resolved_requests[:5]:  # Show only the 5 most recent
-                        output.append(f"✅ **{request.title}** ({request.status.value})")
+                        status_emoji = get_status_emoji(request.status)
+                        output.append(f"{status_emoji} **{request.title}**")
                         output.append(f"  ID: `{request.request_id}`")
 
                         if request.resolution:
