@@ -221,7 +221,7 @@ class KnowledgeTransferManager:
     @staticmethod
     async def get_share_id(context: ConversationContext) -> Optional[str]:
         """
-        Gets the project ID associated with the current conversation.
+        Gets the share ID associated with the current conversation.
 
         Every conversation that's part of a project has an associated project ID.
         This method retrieves that ID, which is used for accessing project-related

@@ -265,6 +265,17 @@ async def on_message_created(
                             is_assistant=message.sender.participant_role == ParticipantRole.assistant,
                             timestamp=message.timestamp,
                         )
+
+                        # If this is the coordinator's first message, pop the share canvas
+                        messages = await context.get_messages()
+                        if len(messages.messages) == 2:
+                            await context.send_conversation_state_event(
+                                AssistantStateEvent(
+                                    state_id="project_status",
+                                    event="focus",
+                                    state=None,
+                                )
+                            )
                 except Exception as e:
                     # Don't fail message handling if storage fails
                     logger.exception(f"Error storing Coordinator message for Team access: {e}")
