@@ -27,7 +27,7 @@ The system manages three types of conversations:
 
 - `assistant/assistant.py`: Main assistant implementation with dual-role event handling
 - `assistant/manager.py`: Project state and artifact management
-- `assistant/conversation_project_link.py`: Cross-conversation linking and synchronization
+- `assistant/conversation_share_link.py`: Cross-conversation linking and synchronization
 - `assistant/command_processor.py`: Command handling with role-based authorization
 - `assistant/state_inspector.py`: Real-time project dashboard
 - `assistant/storage.py` & `assistant/storage_models.py`: Persistent state management
@@ -42,6 +42,7 @@ The system manages three types of conversations:
 - Test: `make test` (runs pytest)
 - Single test: `uv run pytest tests/test_file.py::test_function -v`
 - Manual inspector test: `python tests/test_inspector.py` (test state inspector functionality)
+- Docker build: `make docker-build` (builds assistant container image)
 
 ## Development Notes
 
@@ -71,9 +72,17 @@ The assistant supports two templates with unified codebase:
 The assistant uses several key dependencies from the Semantic Workbench ecosystem:
 
 - `semantic-workbench-assistant`: Core assistant framework
-- `assistant-extensions[attachments]`: File attachment support
+- `assistant-extensions[attachments]`: File attachment support with dashboard cards and navigation
 - `content-safety`: Content moderation capabilities
 - `openai-client`: LLM integration
+
+### Project Structure
+
+Key architectural files:
+- `/assistant/`: Core implementation files
+- `/docs/`: Design documentation including `DESIGN.md`, `DEV_GUIDE.md`, and `WORKBENCH_NOTES.md`
+- `/tests/`: Test suite with manual inspector testing support
+- `/assistant/text_includes/`: Role-specific prompts and instruction templates
 
 ## Code Style
 

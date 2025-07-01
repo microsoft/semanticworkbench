@@ -51,27 +51,27 @@ class ProjectNotifier:
 
         # Send notification to each conversation
         for conv_id in notification_conversations:
-                try:
-                    # Get client for the target conversation
-                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+            try:
+                # Get client for the target conversation
+                client = ConversationClientManager.get_conversation_client(context, conv_id)
 
-                    # Send the notification
-                    await client.send_messages(
-                        NewConversationMessage(
-                            content=message,
-                            message_type=MessageType.notice,
-                            metadata={
-                                "debug": {
-                                    "share_id": share_id,
-                                    "message": message,
-                                    "sender": str(context.id),
-                                }
-                            },
-                        )
+                # Send the notification
+                await client.send_messages(
+                    NewConversationMessage(
+                        content=message,
+                        message_type=MessageType.notice,
+                        metadata={
+                            "debug": {
+                                "share_id": share_id,
+                                "message": message,
+                                "sender": str(context.id),
+                            }
+                        },
                     )
-                    logger.debug(f"Sent notification to conversation {conv_id}")
-                except Exception as e:
-                    logger.error(f"Failed to notify conversation {conv_id}: {e}")
+                )
+                logger.debug(f"Sent notification to conversation {conv_id}")
+            except Exception as e:
+                logger.error(f"Failed to notify conversation {conv_id}: {e}")
 
     @staticmethod
     async def notify_project_update(
