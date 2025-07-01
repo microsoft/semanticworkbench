@@ -15,7 +15,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .common import detect_assistant_role
 from .conversation_share_link import ConversationKnowledgePackageManager
-from .data import RequestStatus
+from .data import RequestPriority, RequestStatus
 from .manager import KnowledgeTransferManager
 from .storage import ShareStorage
 from .storage_models import ConversationRole
@@ -24,6 +24,29 @@ logger = logging.getLogger(__name__)
 
 # Default instructional text to show when no brief has been created
 DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
+
+
+def get_status_emoji(status: RequestStatus) -> str:
+    """Get emoji representation for request status."""
+    status_emojis = {
+        RequestStatus.NEW: "🆕",  # New
+        RequestStatus.ACKNOWLEDGED: "👀",  # Acknowledged/Seen
+        RequestStatus.IN_PROGRESS: "⚡",  # In Progress
+        RequestStatus.RESOLVED: "✅",  # Resolved/Complete
+        RequestStatus.DEFERRED: "⏸️",  # Deferred/Paused
+    }
+    return status_emojis.get(status, "❓")  # Unknown status fallback
+
+
+def get_priority_emoji(priority: RequestPriority) -> str:
+    """Get emoji representation for request priority."""
+    priority_emojis = {
+        RequestPriority.LOW: "🔹",  # Low priority - blue diamond
+        RequestPriority.MEDIUM: "🔶",  # Medium priority - orange diamond
+        RequestPriority.HIGH: "🔴",  # High priority - red circle
+        RequestPriority.CRITICAL: "⚠️",  # Critical priority - warning sign
+    }
+    return priority_emojis.get(priority, "🔹")  # Default to low priority emoji
 
 
 class ShareInspectorStateProvider:
@@ -128,13 +151,6 @@ class ShareInspectorStateProvider:
         if share and share.learning_objectives:
             lines.append("## Learning Objectives")
 
-            # Show overall progress across all team conversations
-            achieved_outcomes, total_outcomes = share.get_overall_completion()
-            lines.append(
-                f"**Overall Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved by team members"
-            )
-            lines.append("")
-
             for objective in share.learning_objectives:
                 lines.append(f"### {objective.name}")
                 lines.append(objective.description)
@@ -150,15 +166,17 @@ class ShareInspectorStateProvider:
                         )
                         status_emoji = "✅" if achieved_by_any else "⬜"
 
-                        # Show which team members achieved this outcome
-                        achieved_by_names = []
-                        for conv_id, team_conv in share.team_conversations.items():
+                        # Show progress ratio for team completion
+                        achieved_count = 0
+                        total_team_count = len(share.team_conversations)
+
+                        for conv_id in share.team_conversations.keys():
                             if share.is_outcome_achieved_by_conversation(criterion.id, conv_id):
-                                achieved_by_names.append(team_conv.redeemer_name)
+                                achieved_count += 1
 
                         achievement_info = ""
-                        if achieved_by_names:
-                            achievement_info = f" (achieved by: {', '.join(achieved_by_names)})"
+                        if total_team_count > 0:
+                            achievement_info = f" ({achieved_count}/{total_team_count})"
 
                         lines.append(f"- {status_emoji} {criterion.description}{achievement_info}")
                 lines.append("")
@@ -173,22 +191,9 @@ class ShareInspectorStateProvider:
             lines.append("")
 
             for request in requests[:5]:  # Show only first 5 requests
-                priority_emoji = "🔴"
-                if hasattr(request.priority, "value"):
-                    priority = request.priority.value
-                else:
-                    priority = request.priority
-
-                if priority == "low":
-                    priority_emoji = "🔹"
-                elif priority == "medium":
-                    priority_emoji = "🔶"
-                elif priority == "high":
-                    priority_emoji = "🔴"
-                elif priority == "critical":
-                    priority_emoji = "⚠️"
-
-                lines.append(f"{priority_emoji} **{request.title}** ({request.status})")
+                priority_emoji = get_priority_emoji(request.priority)
+                status_emoji = get_status_emoji(request.status)
+                lines.append(f"{priority_emoji} **{request.title}** {status_emoji}")
                 lines.append(request.description)
                 lines.append("")
         else:
@@ -319,22 +324,9 @@ class ShareInspectorStateProvider:
             if pending:
                 lines.append("### Pending Requests:")
                 for request in pending[:3]:  # Show only first 3 pending requests
-                    priority_emoji = "🔶"  # default medium
-                    if hasattr(request.priority, "value"):
-                        priority = request.priority.value
-                    else:
-                        priority = request.priority
-
-                    if priority == "low":
-                        priority_emoji = "🔹"
-                    elif priority == "medium":
-                        priority_emoji = "🔶"
-                    elif priority == "high":
-                        priority_emoji = "🔴"
-                    elif priority == "critical":
-                        priority_emoji = "⚠️"
-
-                    lines.append(f"{priority_emoji} **{request.title}** ({request.status})")
+                    priority_emoji = get_priority_emoji(request.priority)
+                    status_emoji = get_status_emoji(request.status)
+                    lines.append(f"{priority_emoji} **{request.title}** {status_emoji}")
                     lines.append("")
 
             if resolved:
