@@ -462,9 +462,14 @@ async def respond_to_conversation(
 
         for msg in reversed(messages_list):
             if msg.sender.participant_id == context.assistant.id:
+                # For assistant messages, include help suggestions as part of the message content
+                message_content = format_message(participants, msg)
+                if msg.metadata and "help" in msg.metadata:
+                    message_content += f"\n\n[Next step?: {msg.metadata['help']}]"
+
                 current_message = ChatCompletionAssistantMessageParam(
                     role="assistant",
-                    content=format_message(participants, msg),
+                    content=message_content,
                 )
             else:
                 current_message = ChatCompletionUserMessageParam(
