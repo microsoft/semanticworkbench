@@ -157,7 +157,7 @@ class ShareInspectorStateProvider:
 
                 if objective.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Learning Outcomes:")
+                    lines.append("#### Learning Outcomes")
                     for criterion in objective.learning_outcomes:
                         # Check if any team conversation has achieved this outcome
                         achieved_by_any = any(
@@ -295,7 +295,7 @@ class ShareInspectorStateProvider:
 
                 if objective.learning_outcomes:
                     lines.append("")
-                    lines.append("#### Learning Outcomes:")
+                    lines.append("#### Learning Outcomes")
                     for criterion in objective.learning_outcomes:
                         # Check if I've achieved this outcome
                         achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
