@@ -130,12 +130,29 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.update_learning_objective,
                 "update_learning_objective",
-                "Update an existing learning objective's name, description, or learning outcomes",
+                "Update an existing learning objective's name, description, or learning outcomes by objective ID",
             )
             self.tool_functions.add_function(
                 self.delete_learning_objective,
                 "delete_learning_objective",
-                "Delete a learning objective from the knowledge package by index",
+                "Delete a learning objective from the knowledge package by objective ID",
+            )
+            
+            # Individual outcome management tools
+            self.tool_functions.add_function(
+                self.add_learning_outcome,
+                "add_learning_outcome",
+                "Add a new learning outcome to an existing learning objective",
+            )
+            self.tool_functions.add_function(
+                self.update_learning_outcome,
+                "update_learning_outcome", 
+                "Update the description of an existing learning outcome by outcome ID",
+            )
+            self.tool_functions.add_function(
+                self.delete_learning_outcome,
+                "delete_learning_outcome",
+                "Delete a learning outcome by outcome ID",
             )
 
             # 4. Ongoing support phase
@@ -558,7 +575,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def update_learning_objective(
         self,
-        objective_index: int,
+        objective_id: str,
         objective_name: str,
         description: str,
         learning_outcomes: List[str],
@@ -573,7 +590,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - When reorganizing objectives to improve knowledge transfer structure
 
         Args:
-            objective_index: The index of the learning objective to update (0-based integer)
+            objective_id: The unique ID of the learning objective to update
             objective_name: New name for the objective (empty string to keep current name)
             description: New description (empty string to keep current description)
             learning_outcomes: New list of learning outcomes (empty list to keep current outcomes)
@@ -594,12 +611,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not knowledge_package or not knowledge_package.learning_objectives:
             return "No learning objectives found. Please add objectives before updating them."
 
-        # Validate index
-        if objective_index < 0 or objective_index >= len(knowledge_package.learning_objectives):
-            return f"Invalid objective index {objective_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
-
-        # Get the objective to update
-        objective = knowledge_package.learning_objectives[objective_index]
+        # Find the objective by ID
+        objective = None
+        for obj in knowledge_package.learning_objectives:
+            if obj.id == objective_id:
+                objective = obj
+                break
+        
+        if objective is None:
+            available_ids = [obj.id for obj in knowledge_package.learning_objectives]
+            return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
         original_name = objective.name
 
         # Update fields if provided (empty string/list means no change)
@@ -643,7 +664,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Updated learning objective '{objective.name}': {changes_text}",
             metadata={
-                "objective_index": objective_index,
+                "objective_id": objective_id,
                 "objective_name": objective.name,
                 "changes": changes_text,
             },
@@ -670,9 +691,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         return f"Learning objective '{objective.name}' has been successfully updated: {changes_text}."
 
-    async def delete_learning_objective(self, objective_index: int) -> str:
+    async def delete_learning_objective(self, objective_id: str) -> str:
         """
-        Delete a learning objective from the knowledge package by index.
+        Delete a learning objective from the knowledge package by ID.
 
         WHEN TO USE:
         - When a user explicitly requests to remove or delete a specific learning objective
@@ -681,11 +702,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - Only before marking the knowledge package as ready for transfer
 
         NOTE: This action is irreversible and will remove all learning outcomes associated with the objective.
-        First use get_project_info() to see the list of objectives and their indices before deletion.
+        First use get_project_info() to see the list of objectives and their IDs before deletion.
 
         Args:
-            objective_index: The index of the learning objective to delete (0-based integer). Use get_project_info() first to see the
-                       correct indices of objectives. For example, to delete the first objective, use objective_index=0.
+            objective_id: The unique ID of the learning objective to delete.
 
         Returns:
             A message indicating success or failure
@@ -694,29 +714,83 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can delete learning objectives."
 
-        # Get project ID - validate knowledge package exists
+        # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
-            return "No knowledge package associated with this conversation."
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        # Call the KnowledgeTransferManager method to delete the learning objective
-        success, result = await KnowledgeTransferManager.delete_learning_objective(
+        # Get existing knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found. Please add objectives before deleting them."
+
+        # Find the objective by ID
+        objective = None
+        objective_index = -1
+        for idx, obj in enumerate(knowledge_package.learning_objectives):
+            if obj.id == objective_id:
+                objective = obj
+                objective_index = idx
+                break
+        
+        if objective is None:
+            available_ids = [obj.id for obj in knowledge_package.learning_objectives]
+            return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+
+        objective_name = objective.name
+        
+        # Get user information for logging
+        current_user_id = await require_current_user(self.context, "delete learning objective")
+        if not current_user_id:
+            return "Could not identify current user."
+
+        # Clean up any achievement records for all outcomes in this objective across all team conversations
+        for outcome in objective.learning_outcomes:
+            for team_info in knowledge_package.team_conversations.values():
+                team_info.outcome_achievements = [
+                    achievement for achievement in team_info.outcome_achievements 
+                    if achievement.outcome_id != outcome.id
+                ]
+
+        # Remove the objective from the knowledge package
+        knowledge_package.learning_objectives.pop(objective_index)
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+
+        # Log the objective deletion
+        await ShareStorage.log_share_event(
             context=self.context,
-            objective_index=objective_index,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Deleted learning objective '{objective_name}' and all its outcomes",
+            metadata={
+                "objective_id": objective_id,
+                "objective_name": objective_name,
+                "outcomes_count": len(objective.learning_outcomes),
+            },
         )
 
-        if success:
-            # Notify the user about the successful deletion
-            await self.context.send_messages(
-                NewConversationMessage(
-                    content=f"Learning objective '{result}' has been successfully deleted from the knowledge package.",
-                    message_type=MessageType.notice,
-                )
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=self.context,
+            share_id=share_id,
+            update_type="learning_objective",
+            message=f"Learning objective '{objective_name}' has been deleted",
+        )
+
+        # Update all share UI inspectors
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+
+        # Send notification to current conversation
+        await self.context.send_messages(
+            NewConversationMessage(
+                content=f"Learning objective '{objective_name}' has been successfully deleted from the knowledge package.",
+                message_type=MessageType.notice,
             )
-            return f"Learning objective '{result}' has been successfully deleted from the knowledge package."
-        else:
-            # Return the error message
-            return f"Error deleting learning objective: {result}"
+        )
+
+        return f"Learning objective '{objective_name}' has been successfully deleted from the knowledge package."
 
     async def mark_learning_outcome_achieved(self, objective_index: int, criterion_index: int) -> str:
         """
@@ -1089,3 +1163,304 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         )
 
         return "Knowledge transfer successfully marked as complete. All participants have been notified."
+
+    async def add_learning_outcome(self, objective_id: str, outcome_description: str) -> str:
+        """
+        Add a new learning outcome to an existing learning objective.
+
+        WHEN TO USE:
+        - When you need to add additional measurable outcomes to an existing objective
+        - When refining objectives by breaking them down into more specific outcomes
+        - When expanding the scope of an objective with new learning goals
+        - When iteratively developing learning objectives based on feedback
+
+        Args:
+            objective_id: The unique ID of the learning objective to add the outcome to
+            outcome_description: Clear, specific description of what needs to be understood or accomplished
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can add learning outcomes."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found. Please add objectives before adding outcomes."
+
+        # Find the objective by ID
+        objective = None
+        for obj in knowledge_package.learning_objectives:
+            if obj.id == objective_id:
+                objective = obj
+                break
+        
+        if objective is None:
+            available_ids = [obj.id for obj in knowledge_package.learning_objectives]
+            return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+        
+        # Import here to avoid circular imports
+        from .data import LearningOutcome
+        
+        # Create the new outcome
+        new_outcome = LearningOutcome(description=outcome_description.strip())
+        
+        # Add the outcome to the objective
+        objective.learning_outcomes.append(new_outcome)
+
+        # Get user information for logging
+        current_user_id = await require_current_user(self.context, "add learning outcome")
+        if not current_user_id:
+            return "Could not identify current user."
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+
+        # Log the outcome addition
+        await ShareStorage.log_share_event(
+            context=self.context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Added learning outcome to objective '{objective.name}': {outcome_description}",
+            metadata={
+                "objective_id": objective_id,
+                "objective_name": objective.name,
+                "outcome_added": outcome_description,
+                "outcome_id": new_outcome.id,
+            },
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=self.context,
+            share_id=share_id,
+            update_type="learning_objective",
+            message=f"New learning outcome added to objective '{objective.name}'",
+        )
+
+        # Update all share UI inspectors
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+
+        # Send notification to current conversation
+        await self.context.send_messages(
+            NewConversationMessage(
+                content=f"Learning outcome added successfully to objective '{objective.name}': {outcome_description}",
+                message_type=MessageType.notice,
+            )
+        )
+
+        return f"Learning outcome added successfully to objective '{objective.name}': {outcome_description}"
+
+    async def update_learning_outcome(self, outcome_id: str, new_description: str) -> str:
+        """
+        Update the description of an existing learning outcome.
+
+        WHEN TO USE:
+        - When clarifying or improving the wording of an existing outcome
+        - When making outcomes more specific or measurable
+        - When correcting errors in outcome descriptions
+        - When refining outcomes based on feedback or better understanding
+
+        Args:
+            outcome_id: The unique ID of the learning outcome to update
+            new_description: New description for the learning outcome
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can update learning outcomes."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found. Please add objectives before updating outcomes."
+
+        # Find the outcome by ID across all objectives
+        objective = None
+        outcome = None
+        for obj in knowledge_package.learning_objectives:
+            for out in obj.learning_outcomes:
+                if out.id == outcome_id:
+                    objective = obj
+                    outcome = out
+                    break
+            if outcome:
+                break
+        
+        if outcome is None or objective is None:
+            # Collect available outcome IDs for error message
+            available_outcome_ids = []
+            for obj in knowledge_package.learning_objectives:
+                for out in obj.learning_outcomes:
+                    available_outcome_ids.append(out.id)
+            return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+        
+        old_description = outcome.description
+        
+        # Update the outcome description
+        outcome.description = new_description.strip()
+
+        # Get user information for logging
+        current_user_id = await require_current_user(self.context, "update learning outcome")
+        if not current_user_id:
+            return "Could not identify current user."
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+
+        # Log the outcome update
+        await ShareStorage.log_share_event(
+            context=self.context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Updated learning outcome in objective '{objective.name}': '{old_description}' → '{new_description}'",
+            metadata={
+                "objective_id": objective.id,
+                "objective_name": objective.name,
+                "outcome_id": outcome_id,
+                "old_description": old_description,
+                "new_description": new_description,
+            },
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=self.context,
+            share_id=share_id,
+            update_type="learning_objective",
+            message=f"Learning outcome updated in objective '{objective.name}'",
+        )
+
+        # Update all share UI inspectors
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+
+        # Send notification to current conversation
+        await self.context.send_messages(
+            NewConversationMessage(
+                content=f"Learning outcome updated successfully in objective '{objective.name}': {new_description}",
+                message_type=MessageType.notice,
+            )
+        )
+
+        return f"Learning outcome updated successfully in objective '{objective.name}': {new_description}"
+
+    async def delete_learning_outcome(self, outcome_id: str) -> str:
+        """
+        Delete a learning outcome from a learning objective.
+
+        WHEN TO USE:
+        - When an outcome is no longer relevant or necessary
+        - When consolidating redundant outcomes
+        - When removing outcomes that were added by mistake
+        - When simplifying objectives by removing overly specific outcomes
+
+        NOTE: This action is irreversible. Use get_project_info() first to see the current outcomes and their IDs.
+
+        Args:
+            outcome_id: The unique ID of the learning outcome to delete
+
+        Returns:
+            A message indicating success or failure
+        """
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can delete learning outcomes."
+
+        # Get share ID
+        share_id = await KnowledgeTransferManager.get_share_id(self.context)
+        if not share_id:
+            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+        # Get existing knowledge package
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package or not knowledge_package.learning_objectives:
+            return "No learning objectives found. Please add objectives before deleting outcomes."
+
+        # Find the outcome by ID across all objectives
+        objective = None
+        outcome_to_delete = None
+        outcome_index = -1
+        for obj in knowledge_package.learning_objectives:
+            for idx, out in enumerate(obj.learning_outcomes):
+                if out.id == outcome_id:
+                    objective = obj
+                    outcome_to_delete = out
+                    outcome_index = idx
+                    break
+            if outcome_to_delete:
+                break
+        
+        if outcome_to_delete is None or objective is None:
+            # Collect available outcome IDs for error message
+            available_outcome_ids = []
+            for obj in knowledge_package.learning_objectives:
+                for out in obj.learning_outcomes:
+                    available_outcome_ids.append(out.id)
+            return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+
+        deleted_description = outcome_to_delete.description
+        
+        # Remove the outcome from the objective
+        objective.learning_outcomes.pop(outcome_index)
+
+        # Get user information for logging
+        current_user_id = await require_current_user(self.context, "delete learning outcome")
+        if not current_user_id:
+            return "Could not identify current user."
+
+        # Clean up any achievement records for this outcome across all team conversations
+        for team_info in knowledge_package.team_conversations.values():
+            team_info.outcome_achievements = [
+                achievement for achievement in team_info.outcome_achievements 
+                if achievement.outcome_id != outcome_id
+            ]
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+
+        # Log the outcome deletion
+        await ShareStorage.log_share_event(
+            context=self.context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Deleted learning outcome from objective '{objective.name}': {deleted_description}",
+            metadata={
+                "objective_id": objective.id,
+                "objective_name": objective.name,
+                "outcome_index": outcome_index,
+                "outcome_id": outcome_id,
+                "deleted_description": deleted_description,
+            },
+        )
+
+        # Notify linked conversations
+        await ProjectNotifier.notify_project_update(
+            context=self.context,
+            share_id=share_id,
+            update_type="learning_objective",
+            message=f"Learning outcome removed from objective '{objective.name}'",
+        )
+
+        # Update all share UI inspectors
+        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+
+        # Send notification to current conversation
+        await self.context.send_messages(
+            NewConversationMessage(
+                content=f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}",
+                message_type=MessageType.notice,
+            )
+        )
+
+        return f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}"
