@@ -1,9 +1,8 @@
-Create a welcome message specific to this shared knowledge bundle prepared by the coordinator. It should be something like:
+Create a welcome message specific to this shared knowledge bundle prepared by the coordinator.
 
-```
-# Welcome!
-
-This is your personal conversation for gaining deeper understanding of the knowledge shared to you! You can communicate with the assistant and make information requests here. See more information about your shared knowledge in the side panel. <and then include a brief overview of the shared knowledge>
-```
-
-Your output format should be markdown. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes.
+- Be welcoming.
+- The welcome message should tell a person to read detailed information about the knowledge share in the side panel. Don't repeat detailed information in the welcome message. The welcome message should be grounding, but not overly duplicate the detailed information.
+- Provide a top-level summary of what this shared knowledge is about (in a single sentence, a larger summary is included in the side panel)
+- If there are learning objectives and outcomes in this knowledge share, provide a top-level summary of them (in a single sentence, they can read more details in the side panel).
+- Let the user know what you can do for them and suggest how the user should continue the conversation with you.
+- Your output format should be markdown. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes.
