@@ -302,7 +302,7 @@ class KnowledgeTransferManager:
         status_message: Optional[str] = None,
     ) -> Tuple[bool, Optional[KnowledgePackage]]:
         """
-        Updates the project status message.
+        Updates the knowledge share status message.
 
         Args:
             context: Current conversation context
@@ -341,7 +341,7 @@ class KnowledgeTransferManager:
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = "Updated project status"
+            message = "Updated status"
             if status_message:
                 message += f": {status_message}"
 
@@ -457,7 +457,7 @@ class KnowledgeTransferManager:
 
         # Log the update
         event_type = LogEntryType.STATUS_CHANGED
-        message = "Updated project status"
+        message = "Updated status"
         if progress is not None:
             message += f" ({progress}% complete)"
         if status_message:
