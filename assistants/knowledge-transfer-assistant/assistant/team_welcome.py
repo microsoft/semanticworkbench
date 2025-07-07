@@ -35,14 +35,16 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     project_data: dict[str, str] = {}
 
-    # Briefing
+    # Knowledge Brief
     briefing = ShareStorage.read_knowledge_brief(project_id)
     brief_text = ""
     if briefing:
         brief_text = dedent(f"""
-            ### BRIEF
-            **Title:** {briefing.title}
-            **Description:** {briefing.content}
+            ### Knowledge Brief
+
+            #### {briefing.title}
+
+            {briefing.content}
             """)
         project_data["briefing"] = brief_text
 
@@ -52,26 +54,16 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         brief_text += "\n#### LEARNING OBJECTIVES:\n\n"
         conversation_id = str(context.id)
 
-        # Show team member's personal progress (initially 0)
-        if conversation_id in share.team_conversations:
-            achieved_personal, total_personal = share.get_completion_for_conversation(conversation_id)
-            progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
-            brief_text += (
-                f"**My Progress:** {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
-            )
-
         for i, objective in enumerate(share.learning_objectives):
             brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
             if objective.learning_outcomes:
-                for j, criterion in enumerate(objective.learning_outcomes):
-                    # Show team member's achievement status for each outcome
-                    achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
-                    check = "✅" if achieved_by_me else "⬜"
+                for criterion in objective.learning_outcomes:
+                    check = "⬜"
                     brief_text += f"   {check} {criterion.description}\n"
             brief_text += "\n"
         project_data["learning_objectives"] = brief_text
 
-    # Whiteboard
+    # Knowledge Digest
     knowledge_digest = ShareStorage.read_knowledge_digest(project_id)
     if knowledge_digest and knowledge_digest.content:
         knowledge_digest_text = dedent(f"""
@@ -101,7 +93,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
     try:
         # Chat completion
         async with openai_client.create_client(config.service_config) as client:
-            project_info = "\n\n## CURRENT PROJECT INFORMATION\n\n" + "\n".join(project_data.values())
+            project_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(project_data.values())
 
             instructions = f"{config.prompt_config.welcome_message_generation}\n\n{project_info}"
             messages: List[ChatCompletionMessageParam] = [
