@@ -61,7 +61,7 @@ class CoordinatorOutput(BaseModel):
     """
 
     response: str = Field(
-        description="The response from the assistant.",
+        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",
     )
     next_step_suggestion: str = Field(
         description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action.",
@@ -76,7 +76,7 @@ class TeamOutput(BaseModel):
     """
     Attributes:
         citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
-        excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or DIGEST, only from attachments. If there is no relevant excerpt, this will be None.
+        excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or DIGEST, only from attachments. If there is no relevant excerpt, this will be None. If there is special formatting in the excerpt, remove it as the excerpt will be displayed in quotes in a chat message and should not contain any formatting that would not be supported in a chat message (e.g. markdown).
         next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
     """
 
@@ -84,10 +84,10 @@ class TeamOutput(BaseModel):
         description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
     )
     excerpt: str | None = Field(
-        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or DIGEST, only from attachments. If there is no relevant excerpt, this will be None.",
+        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or KNOWLEDGE_DIGEST, only from attachments. If there is no relevant excerpt, this will be None. If there is special formatting in the excerpt, remove it as the excerpt will be displayed in quotes in a chat message and should not contain any formatting that would not be supported in a chat message (e.g. markdown).",
     )
     response: str = Field(
-        description="The response from the assistant.",
+        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",
     )
     next_step_suggestion: str = Field(
         description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
