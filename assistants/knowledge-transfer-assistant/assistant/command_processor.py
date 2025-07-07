@@ -23,7 +23,7 @@ from .data import (
 )
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .state_inspector import get_priority_emoji, get_status_emoji
+from .inspectors.common import get_priority_emoji, get_status_emoji
 from .storage import ShareStorage
 from .storage_models import ConversationRole
 

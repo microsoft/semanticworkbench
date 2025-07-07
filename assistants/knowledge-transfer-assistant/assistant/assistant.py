@@ -43,7 +43,7 @@ from .files import ShareManager
 from .logging import logger
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .state_inspector import BriefInspector, LearningInspector, SharingInspector, DebugInspector
+from .inspectors import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
 from .storage_models import ConversationRole
 
