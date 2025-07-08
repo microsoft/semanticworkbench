@@ -52,7 +52,6 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
     share = ShareStorage.read_share(project_id)
     if share and share.learning_objectives:
         brief_text += "\n#### LEARNING OBJECTIVES:\n\n"
-        conversation_id = str(context.id)
 
         for i, objective in enumerate(share.learning_objectives):
             brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"

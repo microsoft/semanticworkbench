@@ -32,7 +32,7 @@ from .config import assistant_config
 from .data import RequestStatus
 from .logging import logger
 from .manager import KnowledgeTransferManager
-from .state_inspector import get_priority_emoji, get_status_emoji
+from .inspectors.common import get_priority_emoji, get_status_emoji
 from .storage import ShareStorage
 from .storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget

@@ -43,7 +43,7 @@ from .files import ShareManager
 from .logging import logger
 from .manager import KnowledgeTransferManager
 from .notifications import ProjectNotifier
-from .state_inspector import ShareInspectorStateProvider
+from .inspectors import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
 from .storage_models import ConversationRole
 
@@ -69,7 +69,10 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     capabilities={AssistantCapability.supports_conversation_files},
     inspector_state_providers={
-        "project_status": ShareInspectorStateProvider(assistant_config),
+        "brief": BriefInspector(assistant_config),
+        "objectives": LearningInspector(assistant_config),
+        "requests": SharingInspector(assistant_config),
+        "debug": DebugInspector(assistant_config),
     },
     assistant_service_metadata={
         **dashboard_card.metadata(
@@ -190,7 +193,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Pop open the inspector panel.
             await context.send_conversation_state_event(
                 AssistantStateEvent(
-                    state_id="project_status",
+                    state_id="brief",
                     event="focus",
                     state=None,
                 )
@@ -271,7 +274,7 @@ async def on_message_created(
                         if len(messages.messages) == 2:
                             await context.send_conversation_state_event(
                                 AssistantStateEvent(
-                                    state_id="project_status",
+                                    state_id="brief",
                                     event="focus",
                                     state=None,
                                 )
@@ -544,7 +547,7 @@ async def on_participant_joined(
         # Open the Brief tab (state inspector).
         await context.send_conversation_state_event(
             AssistantStateEvent(
-                state_id="project_status",
+                state_id="brief",
                 event="focus",
                 state=None,
             )
