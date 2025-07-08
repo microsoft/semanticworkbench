@@ -470,14 +470,18 @@ class ConversationResponder:
         attachments_entries = list(await self.virtual_filesystem.list_directory(path="/attachments"))
         editable_documents_entries = list(await self.virtual_filesystem.list_directory(path="/editable_documents"))
         archives_entries = list(await self.virtual_filesystem.list_directory(path="/archives"))
-        
+
         # Separate regular files from archives
-        regular_files = [entry for entry in (attachments_entries + editable_documents_entries) if isinstance(entry, FileEntry)]
+        regular_files = [
+            entry for entry in (attachments_entries + editable_documents_entries) if isinstance(entry, FileEntry)
+        ]
         archives_files = [entry for entry in archives_entries if isinstance(entry, FileEntry)]
 
         # TODO: Better ranking algorithm
         # order the regular files by timestamp, newest first
-        regular_files.sort(key=lambda f: f.timestamp, reverse=True)
+        regular_files.sort(
+            key=lambda f: f.timestamp.timestamp() if hasattr(f.timestamp, "timestamp") else f.timestamp, reverse=True
+        )
         # take the top 25 regular files
         regular_files = regular_files[:25]
         # order them alphabetically by path
@@ -502,14 +506,17 @@ class ConversationResponder:
         # Add ARCHIVES_ADDON_PROMPT if there are archives
         if archives_files:
             system_prompt += "\n" + ARCHIVES_ADDON_PROMPT + "\n"
-            
+
             # order the archives files by timestamp, newest first
-            archives_files.sort(key=lambda f: f.timestamp, reverse=True)
+            archives_files.sort(
+                key=lambda f: f.timestamp.timestamp() if hasattr(f.timestamp, "timestamp") else f.timestamp,
+                reverse=True,
+            )
             # take the top 25 archives files
             archives_files = archives_files[:25]
             # order them alphabetically by path
             archives_files.sort(key=lambda f: f.path.lower())
-            
+
             for file in archives_files:
                 # Format permissions: -rw- for read_write, -r-- for read
                 permissions = "-rw-" if file.permission == "read_write" else "-r--"
