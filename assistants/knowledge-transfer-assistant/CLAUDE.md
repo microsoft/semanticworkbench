@@ -43,6 +43,8 @@ The system manages three types of conversations:
 - Single test: `uv run pytest tests/test_file.py::test_function -v`
 - Manual inspector test: `python tests/test_inspector.py` (test state inspector functionality)
 - Docker build: `make docker-build` (builds assistant container image)
+- Start assistant: `make start` (starts the assistant service)
+- Local docker run: `make docker-run-local` (runs assistant in Docker with local workbench)
 
 ## Development Notes
 
@@ -67,6 +69,23 @@ The assistant supports two templates with unified codebase:
 - **Information Requests**: Bidirectional communication between coordinators and team members
 - **Project Dashboard**: Real-time progress and state information
 
+### Available Commands
+
+#### General Commands (All Users)
+- `/help [command]` - Get help with available commands
+- `/knowledge-info [brief|digest|status|requests]` - View knowledge package information
+
+#### Coordinator Commands
+- `/create-knowledge-brief Title|Description` - Create a knowledge brief
+- `/add-learning-objective Objective Name|Description|Learning outcome 1;Learning outcome 2` - Add learning objectives
+- `/resolve-request request_id|Resolution information` - Resolve information requests
+- `/list-participants` - List all project participants
+
+#### Team Commands
+- `/request-info Request Title|Description|priority` - Request information from coordinator
+- `/update-status status|progress|message` - Update project status and progress
+- `/sync-files` - Synchronize shared files from the project
+
 ### Dependencies
 
 The assistant uses several key dependencies from the Semantic Workbench ecosystem:
@@ -80,9 +99,16 @@ The assistant uses several key dependencies from the Semantic Workbench ecosyste
 
 Key architectural files:
 - `/assistant/`: Core implementation files
+  - `assistant.py`: Main assistant with dual-role event handling
+  - `manager.py`: Project state and artifact management
+  - `conversation_share_link.py`: Cross-conversation linking and synchronization
+  - `command_processor.py`: Command handling with role-based authorization
+  - `inspectors/`: State inspector components (brief, learning, sharing, debug)
+  - `storage.py` & `storage_models.py`: Persistent state management
+  - `config.py`: Role-specific prompt templates and configuration
+  - `text_includes/`: Role-specific prompts and instruction templates
 - `/docs/`: Design documentation including `DESIGN.md`, `DEV_GUIDE.md`, and `WORKBENCH_NOTES.md`
 - `/tests/`: Test suite with manual inspector testing support
-- `/assistant/text_includes/`: Role-specific prompts and instruction templates
 
 ## Code Style
 
@@ -102,3 +128,22 @@ Key architectural files:
 - Type checking: Pyright (Python)
 - Testing: pytest (Python)
 - Package management: uv (Python)
+
+## Testing
+
+The assistant includes comprehensive test coverage:
+- `test_artifact_loading.py`: Artifact loading and management tests
+- `test_inspector.py`: State inspector functionality tests (can be run manually with `python tests/test_inspector.py`)
+- `test_share_manager.py`: File sharing and synchronization tests
+- `test_share_storage.py`: Storage system tests
+- `test_share_tools.py`: Tool functionality tests
+- `test_team_mode.py`: Team mode operation tests
+
+## Philosophy
+
+The codebase follows a **wabi-sabi philosophy** emphasizing:
+- Ruthless simplicity with minimal abstractions
+- Present-moment focus rather than future-proofing
+- Trust in emergence from simple, well-defined components
+- Direct library integration with minimal wrappers
+- Pragmatic trust in external systems
