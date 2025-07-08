@@ -69,7 +69,7 @@ from assistant.filesystem import (
 )
 from assistant.filesystem._file_sources import attachments_file_source_mount, editable_documents_file_source_mount
 from assistant.filesystem._filesystem import _files_drive_for_context
-from assistant.filesystem._prompts import FILES_PROMPT, LS_TOOL_OBJ
+from assistant.filesystem._prompts import ARCHIVES_ADDON_PROMPT, FILES_PROMPT, LS_TOOL_OBJ
 from assistant.guidance.dynamic_ui_inspector import get_dynamic_ui_state, update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_OBJ
 from assistant.response.completion_handler import handle_completion
@@ -452,32 +452,43 @@ class ConversationResponder:
         return system_prompt
 
     async def _construct_filesystem_system_prompt(self) -> str:
-        """Constructs the files available to the assistant that are out of context.
+        """Constructs the filesystem system prompt with available files.
+
+        Builds a system prompt that includes:
+        1. FILES_PROMPT with attachments and editable_documents (up to 25 files)
+        2. ARCHIVES_ADDON_PROMPT (if archives exist)
+        3. Archives files listing (up to 25 files)
+
+        Files are sorted by timestamp (newest first), limited to 25 per category,
+        then sorted alphabetically by path.
 
         This is an example of what gets added after the FILES_PROMPT:
         -r-- path2.pdf [File content summary: <summary>]
         -rw- path3.txt [File content summary: No summary available yet, use the context available to determine the use of this file]
         """
-        entries = (
-            list(await self.virtual_filesystem.list_directory(path="/attachments"))
-            + list(await self.virtual_filesystem.list_directory(path="/editable_documents"))
-            + list(await self.virtual_filesystem.list_directory(path="/archives"))
-        )
-        files = [entry for entry in entries if isinstance(entry, FileEntry)]
+        # Get all file entries
+        attachments_entries = list(await self.virtual_filesystem.list_directory(path="/attachments"))
+        editable_documents_entries = list(await self.virtual_filesystem.list_directory(path="/editable_documents"))
+        archives_entries = list(await self.virtual_filesystem.list_directory(path="/archives"))
+        
+        # Separate regular files from archives
+        regular_files = [entry for entry in (attachments_entries + editable_documents_entries) if isinstance(entry, FileEntry)]
+        archives_files = [entry for entry in archives_entries if isinstance(entry, FileEntry)]
 
         # TODO: Better ranking algorithm
-        # order the files by timestamp, newest first
-        files.sort(key=lambda f: f.timestamp, reverse=True)
-        # take the top 25 files
-        files = files[:25]
+        # order the regular files by timestamp, newest first
+        regular_files.sort(key=lambda f: f.timestamp, reverse=True)
+        # take the top 25 regular files
+        regular_files = regular_files[:25]
         # order them alphabetically by path
-        files.sort(key=lambda f: f.path.lower())
+        regular_files.sort(key=lambda f: f.path.lower())
 
+        # Start with FILES_PROMPT and add attachments/editable_documents
         system_prompt = FILES_PROMPT + "\n"
-        if not files:
+        if not regular_files:
             system_prompt += "\nNo files are currently available."
 
-        for file in files:
+        for file in regular_files:
             # Format permissions: -rw- for read_write, -r-- for read
             permissions = "-rw-" if file.permission == "read_write" else "-r--"
             # Use the file description as the summary, or provide a default message
@@ -487,6 +498,29 @@ class ConversationResponder:
                 else "No summary available yet, use the context available to determine the use of this file"
             )
             system_prompt += f"{permissions} {file.path} [File content summary: {summary}]\n"
+
+        # Add ARCHIVES_ADDON_PROMPT if there are archives
+        if archives_files:
+            system_prompt += "\n" + ARCHIVES_ADDON_PROMPT + "\n"
+            
+            # order the archives files by timestamp, newest first
+            archives_files.sort(key=lambda f: f.timestamp, reverse=True)
+            # take the top 25 archives files
+            archives_files = archives_files[:25]
+            # order them alphabetically by path
+            archives_files.sort(key=lambda f: f.path.lower())
+            
+            for file in archives_files:
+                # Format permissions: -rw- for read_write, -r-- for read
+                permissions = "-rw-" if file.permission == "read_write" else "-r--"
+                # Use the file description as the summary, or provide a default message
+                summary = (
+                    file.description
+                    if file.description
+                    else "No summary available yet, use the context available to determine the use of this file"
+                )
+                system_prompt += f"{permissions} {file.path} [File content summary: {summary}]\n"
+
         return system_prompt
 
     def _override_edit_file_description(self, tools: list[ChatCompletionToolParam]) -> list[ChatCompletionToolParam]:
