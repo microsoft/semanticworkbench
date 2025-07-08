@@ -221,7 +221,9 @@ async def on_message_created(
         await archive_task_queues.enqueue_run(
             context=context,
             attachments=attachments,
-            archive_task_config=ArchiveTaskConfig(chunk_token_count_threshold=30_000),
+            archive_task_config=ArchiveTaskConfig(
+                chunk_token_count_threshold=config.orchestration.prompts.token_window
+            ),
             archive_summarizer=construct_archive_summarizer(
                 service_config=config.generative_ai_fast_client_config.service_config,
                 request_config=config.generative_ai_fast_client_config.request_config,

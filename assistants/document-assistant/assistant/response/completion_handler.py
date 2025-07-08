@@ -10,7 +10,6 @@ import deepmerge
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPSession,
-    OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
 from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
@@ -29,7 +28,6 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.filesystem import AttachmentsExtension
 from assistant.guidance.dynamic_ui_inspector import update_dynamic_ui_state
 from assistant.guidance.guidance_prompts import DYNAMIC_UI_TOOL_NAME, DYNAMIC_UI_TOOL_RESULT
 
