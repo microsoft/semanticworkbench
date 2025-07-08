@@ -54,6 +54,8 @@ class ViewTool(ToolDefinition):
             file_content = await self.virtual_filesystem.read_file(path)
         except FileNotFoundError:
             return f"Error: File at path {path} not found. Please pay attention to the available files and try again."
+        except ValueError as e:
+            return f"Error: {str(e)}"
 
         result = f'<file path="{path}">\n{file_content}\n</file>'
         return result

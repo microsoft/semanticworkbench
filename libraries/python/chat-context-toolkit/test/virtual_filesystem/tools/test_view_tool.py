@@ -29,3 +29,18 @@ async def test_view_tool_error_handling():
         result
         == "Error: File at path /nonexistent.txt not found. Please pay attention to the available files and try again."
     )
+
+
+async def test_view_tool_invalid_path_format():
+    """Test ViewTool.execute with invalid path formats."""
+    mock_vfs = MagicMock(spec=VirtualFileSystem)
+    mock_vfs.read_file.side_effect = ValueError(
+        "Invalid path format: Bair Haiku.md. Path must start with '/' and contain at least one directory."
+    )
+
+    view_tool = ViewTool(mock_vfs)
+    result = await view_tool.execute({"path": "Bair Haiku.md"})
+    assert (
+        result
+        == "Error: Invalid path format: Bair Haiku.md. Path must start with '/' and contain at least one directory."
+    )

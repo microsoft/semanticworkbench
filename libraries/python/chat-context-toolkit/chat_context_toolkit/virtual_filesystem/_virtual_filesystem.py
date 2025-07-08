@@ -47,7 +47,13 @@ class VirtualFileSystem:
         return self._mounts.values()
 
     def _split_path(self, path: str) -> tuple[str, str]:
-        _, mount_path_segment, *source_path_segments = path.split("/")
+        path_segments = path.split("/")
+        if len(path_segments) < 2:
+            raise ValueError(
+                f"Invalid path format: {path}. Path must start with '/' and contain at least one directory."
+            )
+
+        _, mount_path_segment, *source_path_segments = path_segments
         mount_path = "/" + mount_path_segment
         source_path = "/" + "/".join(source_path_segments)
         return mount_path, source_path
