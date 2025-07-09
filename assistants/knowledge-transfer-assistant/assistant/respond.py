@@ -64,7 +64,7 @@ class CoordinatorOutput(BaseModel):
         description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",
     )
     next_step_suggestion: str = Field(
-        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action.",
+        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the coordinator has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",
     )
 
     model_config = {

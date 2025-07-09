@@ -1303,7 +1303,7 @@ class KnowledgeTransferManager:
 
             # 4. Brief not yet written
             if not brief:
-                return "Your package needs a short introduction that will orient your team. Let's write a knowledge brief next."
+                return "Your package needs a short introduction that will orient your team. Let's write a knowledge brief next. The knowledge brief helps your team understand the purpose of this knowledge transfer and will be visible to all team members in their side panel."
 
             # 5. If intended to have outcomes but none defined yet
             if package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
