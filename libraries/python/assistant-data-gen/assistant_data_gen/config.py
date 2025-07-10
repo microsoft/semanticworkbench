@@ -6,7 +6,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field
 
-from assistant_evaluations.gce.gce_agent import ResourceConstraintMode
+from assistant_data_gen.gce.gce_agent import ResourceConstraintMode
 
 
 class ScenarioConfig(BaseModel):

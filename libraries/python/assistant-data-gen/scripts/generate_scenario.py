@@ -14,8 +14,8 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from assistant_evaluations.config import EvaluationConfig
-from assistant_evaluations.pydantic_ai_utils import create_model
+from assistant_data_gen.config import EvaluationConfig
+from assistant_data_gen.pydantic_ai_utils import create_model
 from dotenv import load_dotenv
 from liquid import render
 from pydantic import BaseModel, Field
