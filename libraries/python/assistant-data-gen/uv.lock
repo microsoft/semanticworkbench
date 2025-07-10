@@ -181,31 +181,7 @@ wheels = [
 ]
 
 [[package]]
-name = "assistant-drive"
-version = "0.1.0"
-source = { editable = "../assistant-drive" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.6.1" },
-    { name = "pydantic-settings", specifier = ">=2.5.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
-[[package]]
-name = "assistant-evaluations"
+name = "assistant-data-gen"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -238,6 +214,30 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "pyright", specifier = ">=1.1.401" }]
+
+[[package]]
+name = "assistant-drive"
+version = "0.1.0"
+source = { editable = "../assistant-drive" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.6.1" },
+    { name = "pydantic-settings", specifier = ">=2.5.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
+]
 
 [[package]]
 name = "assistant-extensions"

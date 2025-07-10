@@ -40,7 +40,7 @@ from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.tools import ToolDefinition
 
-from assistant_evaluations.gce.prompts import (
+from assistant_data_gen.gce.prompts import (
     AGENDA_SYSTEM_PROMPT,
     CONVERSATION_SYSTEM_PROMPT,
     FIRST_USER_MESSAGE,
@@ -49,7 +49,7 @@ from assistant_evaluations.gce.prompts import (
     TERMINATION_INSTRUCTIONS_EXACT,
     TERMINATION_INSTRUCTIONS_MAXIMUM,
 )
-from assistant_evaluations.pydantic_ai_utils import create_model
+from assistant_data_gen.pydantic_ai_utils import create_model
 
 
 class ResourceConstraintMode(Enum):

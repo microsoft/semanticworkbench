@@ -1,7 +1,7 @@
 [project]
-name = "assistant-evaluations"
+name = "assistant_data_gen"
 version = "0.1.0"
-description = "Assistant evaluations"
+description = "Assistant Data Generation"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"

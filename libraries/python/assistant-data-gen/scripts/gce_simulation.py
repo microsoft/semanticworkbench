@@ -6,15 +6,15 @@ import logging
 import time
 from pathlib import Path
 
-from assistant_evaluations.assistant_api import (
+from assistant_data_gen.assistant_api import (
     create_test_jwt_token,
     get_all_messages,
     get_assistant,
     get_user_from_workbench_db,
     poll_assistant_status,
 )
-from assistant_evaluations.config import EvaluationConfig
-from assistant_evaluations.gce.gce_agent import (
+from assistant_data_gen.config import EvaluationConfig
+from assistant_data_gen.gce.gce_agent import (
     Agenda,
     GuidedConversationInput,
     GuidedConversationState,
