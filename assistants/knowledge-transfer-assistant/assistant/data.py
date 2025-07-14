@@ -13,6 +13,20 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+class InspectorTab(str, Enum):
+    """
+    Available inspector panel tabs for the knowledge transfer assistant.
+    
+    These correspond to the state_id values used in the inspector state providers
+    and for sending state events to update specific inspector panels.
+    """
+    
+    BRIEF = "brief"              # Knowledge brief and project overview
+    OBJECTIVES = "objectives"    # Learning objectives and outcomes
+    REQUESTS = "requests"        # Information requests and sharing status
+    DEBUG = "debug"             # Debug information and project state
+
+
 class RequestPriority(str, Enum):
     """
     Priority levels for information requests.

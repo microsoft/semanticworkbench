@@ -5,11 +5,12 @@ This module handles notifications between conversations and UI refresh events
 for the project assistant, ensuring all participants stay in sync.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .data import InspectorTab
 from .logging import logger
 from .storage import ShareStorage
 
@@ -81,6 +82,7 @@ class ProjectNotifier:
         message: str,
         data: Optional[Dict[str, Any]] = None,
         send_notification: bool = True,  # Add parameter to control notifications
+        tabs: Optional[List[InspectorTab]] = None,  # Specify which tabs to update
     ) -> None:
         """
         Complete project update: sends notices to all conversations and refreshes all UI inspector panels.
@@ -101,6 +103,7 @@ class ProjectNotifier:
             message: Notification message to display to users
             data: Optional additional data related to the update
             send_notification: Whether to send notifications (default: True)
+            tabs: List of inspector tabs to update. If None, updates all tabs.
         """
 
         # Only send notifications if explicitly requested
@@ -110,29 +113,36 @@ class ProjectNotifier:
 
         # Always refresh all project UI inspector panels to keep UI in sync
         # This will update the UI without sending notifications
-        await ShareStorage.refresh_all_share_uis(context, share_id)
+        await ShareStorage.refresh_all_share_uis(context, share_id, tabs)
 
 
-async def refresh_current_ui(context: ConversationContext) -> None:
+async def refresh_current_ui(context: ConversationContext, tabs: Optional[List[InspectorTab]] = None) -> None:
     """
-    Refreshes only the current conversation's UI inspector panel.
+    Refreshes only the current conversation's UI inspector panels.
 
     Use this when a change only affects the local conversation's view
     and doesn't need to be synchronized with other conversations.
+    
+    Args:
+        context: Current conversation context
+        tabs: List of inspector tabs to update. If None, updates all tabs.
     """
 
-    # Create the state event
-    state_event = AssistantStateEvent(
-        state_id="project_status",  # Must match the inspector_state_providers key in chat.py
-        event="updated",
-        state=None,
-    )
+    # Default to all tabs if none specified
+    if tabs is None:
+        tabs = [InspectorTab.BRIEF, InspectorTab.OBJECTIVES, InspectorTab.REQUESTS, InspectorTab.DEBUG]
+    
+    # Send updated events to specified inspector panels
+    for tab in tabs:
+        state_event = AssistantStateEvent(
+            state_id=tab.value,
+            event="updated",
+            state=None,
+        )
+        await context.send_conversation_state_event(state_event)
 
-    # Send the event to the current context
-    await context.send_conversation_state_event(state_event)
 
-
-async def refresh_all_project_uis(context: ConversationContext, share_id: str) -> None:
+async def refresh_all_project_uis(context: ConversationContext, share_id: str, tabs: Optional[List[InspectorTab]] = None) -> None:
     """
     Refreshes the UI inspector panels of all conversations in a project except the
     shareable team conversation template.
@@ -155,13 +165,18 @@ async def refresh_all_project_uis(context: ConversationContext, share_id: str) -
     Args:
         context: Current conversation context
         share_id: The project ID
+        tabs: List of inspector tabs to update. If None, updates all tabs.
     """
     # Import ConversationClientManager locally to avoid circular imports
     from .conversation_clients import ConversationClientManager
 
+    # Default to all tabs if none specified
+    if tabs is None:
+        tabs = [InspectorTab.BRIEF, InspectorTab.OBJECTIVES, InspectorTab.REQUESTS, InspectorTab.DEBUG]
+
     try:
         # First update the current conversation's UI
-        await refresh_current_ui(context)
+        await refresh_current_ui(context, tabs)
 
         # Load the knowledge package to get all conversations
         knowledge_package = ShareStorage.read_share(share_id)
@@ -177,11 +192,15 @@ async def refresh_all_project_uis(context: ConversationContext, share_id: str) -
                 coordinator_client = ConversationClientManager.get_conversation_client(
                     context, knowledge_package.coordinator_conversation_id
                 )
-                state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
                 assistant_id = context.assistant.id
-                await coordinator_client.send_conversation_state_event(assistant_id, state_event)
+                
+                # Send state events for each specified tab
+                for tab in tabs:
+                    state_event = AssistantStateEvent(state_id=tab.value, event="updated", state=None)
+                    await coordinator_client.send_conversation_state_event(assistant_id, state_event)
+                    
                 logger.debug(
-                    f"Sent state event to Coordinator conversation {knowledge_package.coordinator_conversation_id} to refresh inspector"
+                    f"Sent state events to Coordinator conversation {knowledge_package.coordinator_conversation_id} to refresh inspector"
                 )
             except Exception as e:
                 logger.warning(f"Error sending state event to Coordinator: {e}")
@@ -192,12 +211,14 @@ async def refresh_all_project_uis(context: ConversationContext, share_id: str) -
                 try:
                     # Get client for the conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
-
-                    # Send state event to refresh the inspector panel
-                    state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
                     assistant_id = context.assistant.id
-                    await client.send_conversation_state_event(assistant_id, state_event)
-                    logger.debug(f"Sent state event to team conversation {conv_id} to refresh inspector")
+                    
+                    # Send state events for each specified tab
+                    for tab in tabs:
+                        state_event = AssistantStateEvent(state_id=tab.value, event="updated", state=None)
+                        await client.send_conversation_state_event(assistant_id, state_event)
+                        
+                    logger.debug(f"Sent state events to team conversation {conv_id} to refresh inspector")
                 except Exception as e:
                     logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
                     continue

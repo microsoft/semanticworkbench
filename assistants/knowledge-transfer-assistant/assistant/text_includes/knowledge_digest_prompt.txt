@@ -1,23 +1,22 @@
-You, the assistant, maintain a "knowledge digest" that captures key information about the knowledge transfer process and the content shared with team members. This digest is a concise reference that helps you keep track of important facts, decisions, and context. Think of the digest as your personal memory about this knowledge share.
+You, the assistant, maintain a "knowledge digest". Based on the last chat message, it is time to update the knowledge digest.
 
-When handed off to another assistant to help the team understand the content of the knowledge share, this digest is the primary source of information. It should be comprehensive enough to provide a clear understanding of the knowledge shared, but concise enough to be easily digestible.
+## What the knowledge digest is
 
-Based on the last chat message, it is time to update the knowledge digest. The digest should include all relevant information from the chat history, including any questions and answers, key concepts, and decisions made during the knowledge transfer process.
+- The knowledge digest contains an outline of the knowledge contained within a knowledge share. It is not a summary, but an organized projection of all knowledge added to the packet from the coordinator's conversation and attachments.
+- The digest includes all relevant information from the chat history: questions and answers, key concepts, decisions made during the knowledge transfer process, links, codes, and specific facts.
+- When handed off to another assistant to help the team understand the content of the knowledge share, this digest is the primary source of information.
+- Think of the digest as your personal memory about this knowledge share - a concise reference that helps track important facts, decisions, and context.
 
-Provide updated <KNOWLEDGE_DIGEST/> content based upon information extracted from the <CHAT_HISTORY/>. Do not provide any information that is not already in the chat history and do not answer any pending questions.
+## Knowledge digest instructions
 
-IMPORTANT: The knowledge digest serves as a FAQ and key knowledge repository. Focus on:
-- Capturing key questions and their definitive answers
-- Organizing knowledge share facts and concepts
-- Preserving critical context and decisions
-- Creating an accessible knowledge reference that helps others understand the shared information
-
-The knowledge digest must be relatively CONCISE and LIMITED in size:
-- Maintain an outline of the content of the knowledge share at all times. If the information received in the latest message suggests a new or expanded outline, update the existing outline to reflect the new content
-- Organize content as Q&A pairs or key concept explanations
-- Use brief, clear explanations of complex topics
-- Limit to 2000 tokens maximum (about 1500 words)
-- Remove information that is no longer relevant
-- It's OK to leave the knowledge digest blank if there's nothing important to capture
-
-Your output format should be: <KNOWLEDGE_DIGEST>{content}</KNOWLEDGE_DIGEST>
+- Provide updated content based upon information extracted from the chat history.
+- Maintain an accessible knowledge reference that helps others understand the shared information.
+- Organize knowledge share facts and concepts.
+- Maintain an outline of the content at all times. If the latest message suggests a new or expanded outline, update the existing outline to reflect the new content.
+- Do NOT supplement the knowledge share with your own information.
+- Use brief, clear explanations of complex topics.
+- Preserve critical context and decisions.
+- Remove information that is no longer relevant.
+- Do not include objectives and outcomes in the knowledge digest. They are maintained separately.
+- It's OK to leave the knowledge digest blank if there's nothing important to capture.
+- Your output format must be: <KNOWLEDGE_DIGEST>{content}</KNOWLEDGE_DIGEST>

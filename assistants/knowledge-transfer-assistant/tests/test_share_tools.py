@@ -209,12 +209,8 @@ class TestShareTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal(self, context, monkeypatch):
         """Test the delete_project_goal functionality."""
-        # Create ShareTools instance for Coordinator role
-        tools = ShareTools(context, ConversationRole.COORDINATOR)
-
         # Setup mocks
         project_id = "test-project-id"
-        objective_index = 1
         goal_name = "Test Goal"
 
         # Mock KnowledgeTransferManager.get_project_id
@@ -259,9 +255,6 @@ class TestShareTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal_wrong_role(self, context):
         """Test delete_project_goal with wrong role (Team instead of Coordinator)."""
-        # Create ShareTools instance for Team role
-        tools = ShareTools(context, ConversationRole.TEAM)
-
         # Test the delete_project_goal function with Team role
         # result = await tools.delete_learning_objective(1)
 
@@ -274,9 +267,6 @@ class TestShareTools:
     # @pytest.mark.asyncio
     async def disabled_test_delete_project_goal_error(self, context, monkeypatch):
         """Test delete_project_goal with error condition."""
-        # Create ShareTools instance for Coordinator role
-        tools = ShareTools(context, ConversationRole.COORDINATOR)
-
         # Setup mocks
         error_message = "Invalid goal index"
 

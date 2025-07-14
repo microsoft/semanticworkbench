@@ -10,10 +10,12 @@ A dual-mode context transfer system that facilitates collaborative knowledge sha
 
 ### Dual Mode Operation
 
-The assistant operates in two distinct conversation roles:
+The assistant operates in two distinct conversation roles determined by metadata:
 
 1. **Coordinator Mode**: Knowledge organizers create and manage knowledge bases, provide guidance, and respond to information requests
 2. **Team Mode**: Team members access shared knowledge, explore project context, and request additional information
+
+**Role Detection**: Uses `detect_assistant_role()` to check conversation metadata `project_role` field. Commands and capabilities are role-specific through `command_processor.py` authorization.
 
 ### Conversation Structure
 
@@ -26,12 +28,14 @@ The system manages three types of conversations:
 ### Key Components
 
 - `assistant/assistant.py`: Main assistant implementation with dual-role event handling
-- `assistant/manager.py`: Project state and artifact management
+- `assistant/manager.py`: Project state and artifact management (KnowledgeTransferManager)
 - `assistant/conversation_share_link.py`: Cross-conversation linking and synchronization
 - `assistant/command_processor.py`: Command handling with role-based authorization
-- `assistant/state_inspector.py`: Real-time project dashboard
+- `assistant/inspectors/`: Modular inspector panel system (brief, learning, sharing, debug)
+- `assistant/notifications.py`: Cross-conversation notification and UI refresh system
 - `assistant/storage.py` & `assistant/storage_models.py`: Persistent state management
 - `assistant/config.py`: Role-specific prompt templates and configuration
+- `assistant/data.py`: Core data models and enums (including InspectorTab)
 
 ## Common Commands
 
@@ -48,12 +52,44 @@ The system manages three types of conversations:
 
 ## Development Notes
 
+### Inspector Panel UI Refresh System
+
+The assistant uses a sophisticated event-driven system to keep inspector panels synchronized across all conversations:
+
+- **InspectorTab Enum**: Defines available inspector panels with their state IDs (`data.py`)
+- **refresh_current_ui()**: Updates inspector panels in the current conversation only
+- **refresh_all_project_uis()**: Updates inspector panels across all conversations in a project
+- **ProjectNotifier.notify_project_update()**: Sends notifications and refreshes UIs with optional tab targeting
+- **State Events**: Uses `AssistantStateEvent` with specific state IDs to trigger UI updates
+
+**Key Pattern**: When updating project state, always call the appropriate refresh function with specific tabs:
+```python
+from .data import InspectorTab
+await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.BRIEF])
+```
+
 ### State Management
 
 - **Cross-Conversation Linking**: Connects coordinator and team conversations through project IDs
 - **File Synchronization**: Automatic file sharing between linked conversations
-- **Artifact Storage**: Structured data models for project briefs, whiteboards, and information requests
-- **Inspector Panel**: Real-time visual dashboard showing project state
+- **Artifact Storage**: Structured data models for project briefs, knowledge digests, and information requests
+- **Inspector Panel System**: Multi-panel real-time dashboard with specific state IDs:
+  - `brief`: Knowledge brief and project overview
+  - `objectives`: Learning objectives and outcomes
+  - `requests`: Information requests and sharing status
+  - `debug`: Debug information and project state
+- **UI Refresh Architecture**: Event-driven system using `AssistantStateEvent` with specific state IDs
+- **Auto-Update Knowledge Digest**: LLM-powered automatic extraction and updating of key information from conversations
+
+### Auto-Update Knowledge Digest
+
+The system automatically extracts and updates key information from conversations:
+
+- **Trigger**: Every Coordinator message automatically triggers `auto_update_knowledge_digest()`
+- **Process**: Analyzes chat history using LLM to extract important information
+- **Storage**: Updates the knowledge digest with extracted content marked as auto-generated
+- **UI Refresh**: Ensures debug panel refreshes after completion (both success and error cases)
+- **Pattern**: Always refreshes UI regardless of success/failure to maintain consistency
 
 ### Configuration Templates
 
@@ -65,9 +101,10 @@ The assistant supports two templates with unified codebase:
 ### Key Artifacts
 
 - **Project Brief**: Knowledge goals and success criteria
-- **Project Whiteboard**: Dynamically updated context repository
+- **Knowledge Digest**: Dynamically updated context repository (auto-generated from conversations)
+- **Learning Objectives**: Structured goals with specific learning outcomes
 - **Information Requests**: Bidirectional communication between coordinators and team members
-- **Project Dashboard**: Real-time progress and state information
+- **Inspector Panels**: Real-time multi-panel dashboard showing project state
 
 ### Available Commands
 
@@ -93,22 +130,31 @@ The assistant uses several key dependencies from the Semantic Workbench ecosyste
 - `semantic-workbench-assistant`: Core assistant framework
 - `assistant-extensions[attachments]`: File attachment support with dashboard cards and navigation
 - `content-safety`: Content moderation capabilities
-- `openai-client`: LLM integration
+- `openai-client`: LLM integration for knowledge digest generation
+- `openai>=1.61.0`: Direct OpenAI API integration
 
 ### Project Structure
 
 Key architectural files:
 - `/assistant/`: Core implementation files
   - `assistant.py`: Main assistant with dual-role event handling
-  - `manager.py`: Project state and artifact management
+  - `manager.py`: Project state and artifact management (KnowledgeTransferManager)
   - `conversation_share_link.py`: Cross-conversation linking and synchronization
   - `command_processor.py`: Command handling with role-based authorization
-  - `inspectors/`: State inspector components (brief, learning, sharing, debug)
+  - `notifications.py`: Cross-conversation notification and UI refresh system
+  - `data.py`: Core data models and enums (InspectorTab, RequestPriority, etc.)
+  - `inspectors/`: Modular inspector panel system
+    - `brief.py`: Brief inspector for knowledge transfer status
+    - `learning.py`: Learning objectives inspector
+    - `sharing.py`: Sharing status inspector
+    - `debug.py`: Debug inspector
+    - `common.py`: Common inspector utilities
   - `storage.py` & `storage_models.py`: Persistent state management
   - `config.py`: Role-specific prompt templates and configuration
   - `text_includes/`: Role-specific prompts and instruction templates
-- `/docs/`: Design documentation including `DESIGN.md`, `DEV_GUIDE.md`, and `WORKBENCH_NOTES.md`
-- `/tests/`: Test suite with manual inspector testing support
+  - `assets/`: SVG icons and visual assets
+- `/docs/`: Design documentation including `DESIGN.md`, `DEV_GUIDE.md`, `JTBD.md`, and `WORKBENCH_NOTES.md`
+- `/tests/`: Comprehensive test suite with manual inspector testing support
 
 ## Code Style
 
