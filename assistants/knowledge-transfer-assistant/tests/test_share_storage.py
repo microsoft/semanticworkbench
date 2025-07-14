@@ -354,13 +354,24 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Call refresh_current_ui
         await refresh_current_ui(self.context)
 
-        # Verify that send_conversation_state_event was called with correct parameters
-        self.context.send_conversation_state_event.assert_called_once()
-        called_event = self.context.send_conversation_state_event.call_args[0][0]
-        self.assertIsInstance(called_event, AssistantStateEvent)
-        self.assertEqual(called_event.state_id, "project_status")
-        self.assertEqual(called_event.event, "updated")
-        self.assertIsNone(called_event.state)
+        # Verify that send_conversation_state_event was called 4 times (once per inspector tab)
+        self.assertEqual(self.context.send_conversation_state_event.call_count, 4)
+        
+        # Get all the calls
+        calls = self.context.send_conversation_state_event.call_args_list
+        expected_state_ids = ["brief", "objectives", "requests", "debug"]
+        actual_state_ids = [call[0][0].state_id for call in calls]
+        
+        # Verify each call has the correct parameters
+        for call_args in calls:
+            called_event = call_args[0][0]
+            self.assertIsInstance(called_event, AssistantStateEvent)
+            self.assertEqual(called_event.event, "updated")
+            self.assertIsNone(called_event.state)
+            self.assertIn(called_event.state_id, expected_state_ids)
+        
+        # Verify all expected state IDs were called
+        self.assertEqual(set(actual_state_ids), set(expected_state_ids))
 
     async def test_knowledge_package_info(self):
         """Test reading and writing knowledge package info."""
