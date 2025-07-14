@@ -136,15 +136,6 @@ class SharingInspector:
 
         lines: List[str] = []
 
-        # Get share information first
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
-
-        # Show team information for context
-        if share_id:
-            share = ShareStorage.read_share(share_id)
-        else:
-            share = None
-
         # Filter to my requests only
         my_requests = [r for r in requests if r.conversation_id == str(context.id)]
 

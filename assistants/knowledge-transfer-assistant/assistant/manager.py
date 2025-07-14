@@ -25,6 +25,7 @@ from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
     InformationRequest,
+    InspectorTab,
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
@@ -579,6 +580,7 @@ class KnowledgeTransferManager:
                 share_id=share_id,
                 update_type="brief",
                 message=f"Brief created: {title}",
+                tabs=[InspectorTab.BRIEF],
             )
 
         return brief
@@ -1096,7 +1098,7 @@ class KnowledgeTransferManager:
                 )
             else:
                 # Just refresh the UI without sending notifications
-                await ShareStorage.refresh_all_share_uis(context, share_id)
+                await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.BRIEF])
 
             return True, digest
 
@@ -1168,7 +1170,7 @@ class KnowledgeTransferManager:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
                     messages=[{"role": "user", "content": digest_prompt}],
-                    max_tokens=2500,  # Limiting to 2500 tokens to keep digest content manageable
+                    max_tokens=config.coordinator_config.max_digest_tokens,
                 )
 
                 # Extract the content from the completion
@@ -1192,15 +1194,27 @@ class KnowledgeTransferManager:
 
             # Update the knowledge digest with the extracted content
             # Use send_notification=False to avoid sending notifications for automatic updates
-            return await KnowledgeTransferManager.update_knowledge_digest(
+            result = await KnowledgeTransferManager.update_knowledge_digest(
                 context=context,
                 content=digest_content,
                 is_auto_generated=True,
                 send_notification=False,
             )
+            
+            # Ensure debug panel refreshes after auto-update completes
+            await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.DEBUG])
+            
+            return result
 
         except Exception as e:
             logger.exception(f"Error auto-updating knowledge digest: {e}")
+            # Ensure debug panel refreshes even on error, but only if we have a share_id
+            try:
+                share_id = await KnowledgeTransferManager.get_share_id(context)
+                if share_id:
+                    await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.DEBUG])
+            except Exception as refresh_error:
+                logger.warning(f"Failed to refresh UI after auto-update error: {refresh_error}")
             return False, None
 
     @staticmethod

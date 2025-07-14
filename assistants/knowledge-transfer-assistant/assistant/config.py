@@ -149,19 +149,28 @@ class CoordinatorConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = """# Welcome to Knowledge Transfer
 
-Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
+Welcome! I'm here to help you capture and share knowledge in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
 
 - 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
 - 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
+- 🎯 Define learning objectives - so we can track progress and outcomes
 - 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
-- 🔗 Create shareable experiences - I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace using this [Knowledge Transfer link]({share_url})
 
 Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace.
 
 In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will help them understand the content of your knowledge transfer. You can ask me to update it at any time.
 
-Who are you going to be sharing your knowledge with?"""
+To get started, let's discuss your audience. Who are you going to be sharing your knowledge with?"""
 
+    max_digest_tokens: Annotated[
+        int,
+        Field(
+            title="Maximum Digest Tokens",
+            description=(
+                "The number of tokens to use for the knowledge digest. Default: 4096"
+            ),
+        ),
+    ] = 4_096
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(
