@@ -62,25 +62,6 @@ The assistant uses a multi-layered state management approach:
 
 ## Usage
 
-### Commands
-
-#### General Commands (All Users)
-
-- `/help [command]` - Get help with available commands
-- `/knowledge-info [brief|digest|status|requests]` - View knowledge package information
-
-#### Coordinator Commands
-
-- `/create-knowledge-brief Title|Description` - Create a knowledge brief
-- `/add-learning-objective Objective Name|Description|Learning outcome 1;Learning outcome 2` - Add learning objectives
-- `/resolve-request request_id|Resolution information` - Resolve information requests
-- `/list-participants` - List all project participants
-
-#### Team Commands
-
-- `/request-info Request Title|Description|priority` - Request information from coordinator
-- `/update-status status|progress|message` - Update project status and progress
-- `/sync-files` - Synchronize shared files from the project
 
 ### Workflow
 
@@ -110,7 +91,6 @@ The assistant uses a multi-layered state management approach:
 
 - `/assistant/`: Core implementation files
   - `assistant.py`: Main assistant implementation with dual-role event handling
-  - `command_processor.py`: Command handling logic with role-based authorization
   - `manager.py`: Project state and artifact management (KnowledgeTransferManager)
   - `conversation_share_link.py`: Cross-conversation linking and synchronization
   - `storage.py` & `storage_models.py`: Persistent state management

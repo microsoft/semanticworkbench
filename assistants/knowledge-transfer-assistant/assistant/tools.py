@@ -6,23 +6,16 @@ by the LLM during chat completions to proactively assist users.
 """
 
 from datetime import datetime
-from typing import Callable, List, Literal
-from uuid import UUID
+from typing import List, Literal
 
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
-    MessageSender,
     MessageType,
     NewConversationMessage,
-    ParticipantRole,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .command_processor import (
-    handle_add_learning_objective_command,
-)
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
@@ -38,44 +31,6 @@ from .storage_models import ConversationRole
 from .utils import require_current_user
 
 
-async def invoke_command_handler(
-    context: ConversationContext, command_content: str, handler_func: Callable, success_message: str, error_prefix: str
-) -> str:
-    """
-    Create a system message and invoke a command handler function.
-
-    This helper centralizes the pattern of creating a temporary system message
-    to reuse command handlers from the chat module.
-
-    Args:
-        context: The conversation context
-        command_content: The formatted command content
-        handler_func: The command handler function to call
-        success_message: Message to return on success
-        error_prefix: Prefix for error messages
-
-    Returns:
-        A string with success or error message
-    """
-    # Create a temporary system message to invoke the command handler
-    temp_message = ConversationMessage(
-        id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
-        content=command_content,
-        timestamp=datetime.utcnow(),
-        message_type=MessageType.command,
-        sender=MessageSender(participant_role=ParticipantRole.assistant, participant_id="system"),
-        content_type="text/plain",
-        filenames=[],
-        metadata={},
-        has_debug_data=False,
-    )
-
-    try:
-        await handler_func(context, temp_message, [])
-        return success_message
-    except Exception as e:
-        logger.exception(f"{error_prefix}: {e}")
-        return f"{error_prefix}: {str(e)}"
 
 
 class ShareTools:
@@ -546,30 +501,28 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can add learning objectives."
 
-        # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        # Get existing knowledge brief
         brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
             return "No knowledge brief found. Please create one first with update_brief."
+        try:
+            objective = await KnowledgeTransferManager.add_learning_objective(
+                context=self.context,
+                objective_name=objective_name,
+                description=description,
+                outcomes=learning_outcomes,
+            )
 
-        # Use the formatted command processor from chat.py to leverage existing functionality
-        criteria_str = ""
-        if len(learning_outcomes) > 0:
-            criteria_str = "|" + ";".join(learning_outcomes)
-
-        command_content = f"/add-learning-objective {objective_name}|{description}{criteria_str}"
-
-        return await invoke_command_handler(
-            context=self.context,
-            command_content=command_content,
-            handler_func=handle_add_learning_objective_command,
-            success_message=f"Learning objective '{objective_name}' added to knowledge brief successfully.",
-            error_prefix="Error adding learning objective",
-        )
+            if objective:
+                return f"Learning objective '{objective_name}' added to knowledge brief successfully."
+            else:
+                return "Failed to add learning objective. Please try again."
+        except Exception as e:
+            logger.exception(f"Error adding learning objective: {e}")
+            return f"Error adding learning objective: {str(e)}"
 
     async def update_learning_objective(
         self,
