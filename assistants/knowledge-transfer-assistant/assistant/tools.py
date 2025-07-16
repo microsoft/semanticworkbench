@@ -113,7 +113,7 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.update_brief,
                 "update_brief",
-                "Update a brief with a title and brief content",
+                "Update a brief with a title and brief content. The brief should avoid filler words and unnecessary content.",
             )
 
             # 3. Learning objectives phase
@@ -137,7 +137,7 @@ class ShareTools:
                 "delete_learning_objective",
                 "Delete a learning objective from the knowledge package by objective ID",
             )
-            
+
             # Individual outcome management tools
             self.tool_functions.add_function(
                 self.add_learning_outcome,
@@ -146,7 +146,7 @@ class ShareTools:
             )
             self.tool_functions.add_function(
                 self.update_learning_outcome,
-                "update_learning_outcome", 
+                "update_learning_outcome",
                 "Update the description of an existing learning outcome by outcome ID",
             )
             self.tool_functions.add_function(
@@ -192,7 +192,7 @@ class ShareTools:
 
         Args:
             title: The title of the brief
-            description: A description of the context bundle or project
+            description: A description of the context bundle or project. The brief should avoid filler words and unnecessary content.
 
         Returns:
             A message indicating success or failure
@@ -200,12 +200,10 @@ class ShareTools:
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can create knowledge briefs."
 
-        # First, make sure we have a knowledge package associated with this conversation
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             return "No knowledge package associated with this conversation. Please create a knowledge package first."
 
-        # Create a new knowledge brief using KnowledgeTransferManager
         brief = await KnowledgeTransferManager.update_knowledge_brief(
             context=self.context,
             title=title,
@@ -617,7 +615,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             if obj.id == objective_id:
                 objective = obj
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
@@ -732,13 +730,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 objective = obj
                 objective_index = idx
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
         objective_name = objective.name
-        
+
         # Get user information for logging
         current_user_id = await require_current_user(self.context, "delete learning objective")
         if not current_user_id:
@@ -748,7 +746,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         for outcome in objective.learning_outcomes:
             for team_info in knowledge_package.team_conversations.values():
                 team_info.outcome_achievements = [
-                    achievement for achievement in team_info.outcome_achievements 
+                    achievement for achievement in team_info.outcome_achievements
                     if achievement.outcome_id != outcome.id
                 ]
 
@@ -1200,17 +1198,17 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             if obj.id == objective_id:
                 objective = obj
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
-        
+
         # Import here to avoid circular imports
         from .data import LearningOutcome
-        
+
         # Create the new outcome
         new_outcome = LearningOutcome(description=outcome_description.strip())
-        
+
         # Add the outcome to the objective
         objective.learning_outcomes.append(new_outcome)
 
@@ -1298,7 +1296,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     break
             if outcome:
                 break
-        
+
         if outcome is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
@@ -1306,9 +1304,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
             return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
-        
+
         old_description = outcome.description
-        
+
         # Update the outcome description
         outcome.description = new_description.strip()
 
@@ -1400,7 +1398,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     break
             if outcome_to_delete:
                 break
-        
+
         if outcome_to_delete is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
@@ -1410,7 +1408,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
 
         deleted_description = outcome_to_delete.description
-        
+
         # Remove the outcome from the objective
         objective.learning_outcomes.pop(outcome_index)
 
@@ -1422,7 +1420,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Clean up any achievement records for this outcome across all team conversations
         for team_info in knowledge_package.team_conversations.values():
             team_info.outcome_achievements = [
-                achievement for achievement in team_info.outcome_achievements 
+                achievement for achievement in team_info.outcome_achievements
                 if achievement.outcome_id != outcome_id
             ]
 
