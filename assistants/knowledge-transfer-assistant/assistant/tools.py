@@ -56,53 +56,44 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.update_audience,
                 "update_audience",
-                "Update the target audience description for this knowledge package",
             )
             self.tool_functions.add_function(
                 self.set_knowledge_organized,
                 "set_knowledge_organized",
-                "Mark that all necessary knowledge has been captured and organized for transfer. If knowledge was just added and you think it is sufficient for the audience, run this function immediately. If you think the coordinator should add more knowledge, suggest to them what they should add next.",
             )
 
             # 2. Brief creation phase
             self.tool_functions.add_function(
                 self.update_brief,
                 "update_brief",
-                "Update a brief with a title and brief content. The brief should avoid filler words and unnecessary content.",
             )
 
             # 3. Learning objectives phase
             self.tool_functions.add_function(
                 self.set_learning_intention,
                 "set_learning_intention",
-                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration. If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).",
             )
             self.tool_functions.add_function(
                 self.add_learning_objective,
                 "add_learning_objective",
-                "Add a learning objective to the knowledge brief with measurable learning outcomes",
             )
             self.tool_functions.add_function(
                 self.update_learning_objective,
                 "update_learning_objective",
-                "Update an existing learning objective's name, description, or learning outcomes by objective ID",
             )
             self.tool_functions.add_function(
                 self.delete_learning_objective,
                 "delete_learning_objective",
-                "Delete a learning objective from the knowledge package by objective ID",
             )
 
             # Individual outcome management tools
             self.tool_functions.add_function(
                 self.add_learning_outcome,
                 "add_learning_outcome",
-                "Add a new learning outcome to an existing learning objective",
             )
             self.tool_functions.add_function(
                 self.update_learning_outcome,
                 "update_learning_outcome",
-                "Update the description of an existing learning outcome by outcome ID",
             )
             self.tool_functions.add_function(
                 self.delete_learning_outcome,
@@ -114,7 +105,6 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.resolve_information_request,
                 "resolve_information_request",
-                "Resolve an information request with information",
             )
 
         else:
@@ -123,27 +113,23 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.create_information_request,
                 "create_information_request",
-                "Create an information request for information or to report a blocker",
             )
             self.tool_functions.add_function(
                 self.delete_information_request,
                 "delete_information_request",
-                "Delete an information request that is no longer needed",
-            )
-            self.tool_functions.add_function(
-                self.report_transfer_completion,
-                "report_transfer_completion",
-                "Report that the knowledge transfer is complete",
             )
             self.tool_functions.add_function(
                 self.mark_learning_outcome_achieved,
                 "mark_learning_outcome_achieved",
-                "Mark a learning outcome as achieved",
+            )
+            self.tool_functions.add_function(
+                self.report_transfer_completion,
+                "report_transfer_completion",
             )
 
     async def update_brief(self, title: str, description: str) -> str:
         """
-        Update a brief with a title and description.
+        Update a brief with a title and description. The brief should avoid filler words and unnecessary content.
 
         Args:
             title: The title of the brief
@@ -477,10 +463,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
         """
-        Add a learning objective to the knowledge brief with measurable learning outcomes.
+        Add a learning objective with measurable learning outcomes.
 
-        Learning objectives should define what knowledge areas learners need to understand.
-        Each objective must have clear, measurable learning outcomes that learners can mark as achieved.
+        - Learning objectives should define what knowledge areas learners need to understand.
+        - Each objective must have clear, measurable learning outcomes that learners can mark as achieved.
 
         WHEN TO USE:
         - When defining what knowledge areas team members need to understand
@@ -529,22 +515,14 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         objective_id: str,
         objective_name: str,
         description: str,
-        learning_outcomes: List[str],
     ) -> str:
         """
-        Update an existing learning objective's name, description, or learning outcomes.
-
-        WHEN TO USE:
-        - When refining the scope or clarity of an existing learning objective
-        - When adding, removing, or modifying learning outcomes for an objective
-        - When updating the description to better reflect the knowledge area
-        - When reorganizing objectives to improve knowledge transfer structure
+        Update an existing learning objective's name or description.
 
         Args:
             objective_id: The unique ID of the learning objective to update
             objective_name: New name for the objective (empty string to keep current name)
             description: New description (empty string to keep current description)
-            learning_outcomes: New list of learning outcomes (empty list to keep current outcomes)
 
         Returns:
             A message indicating success or failure
@@ -653,7 +631,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - Only before marking the knowledge package as ready for transfer
 
         NOTE: This action is irreversible and will remove all learning outcomes associated with the objective.
-        First use get_project_info() to see the list of objectives and their IDs before deletion.
 
         Args:
             objective_id: The unique ID of the learning objective to delete.
@@ -912,10 +889,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def set_learning_intention(self, is_for_specific_outcomes: bool) -> str:
         """
-        Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.
-
-        When is_for_specific_outcomes is True, the package will require learning objectives with outcomes.
-        When is_for_specific_outcomes is False, the package is for general knowledge exploration.
+        Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.  If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).
 
         Args:
             is_for_specific_outcomes: True if this package should have learning objectives and outcomes,
