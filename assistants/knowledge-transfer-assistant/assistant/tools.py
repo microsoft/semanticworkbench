@@ -559,14 +559,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if description.strip():
             objective.description = description.strip()
 
-        if learning_outcomes:
-            # Convert learning outcomes to LearningOutcome objects
-            from .data import LearningOutcome
-
-            objective.learning_outcomes = [
-                LearningOutcome(description=outcome.strip()) for outcome in learning_outcomes if outcome.strip()
-            ]
-
         # Get user information for logging
         current_user_id = await require_current_user(self.context, "update learning objective")
         if not current_user_id:
@@ -581,9 +573,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             changes_made.append(f"name: '{original_name}' → '{objective_name.strip()}'")
         if description.strip():
             changes_made.append("description updated")
-        if learning_outcomes:
-            filtered_outcomes = [o for o in learning_outcomes if o.strip()]
-            changes_made.append(f"learning outcomes updated ({len(filtered_outcomes)} outcomes)")
 
         changes_text = ", ".join(changes_made) if changes_made else "no changes specified"
 
