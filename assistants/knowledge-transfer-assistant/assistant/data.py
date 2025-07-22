@@ -16,14 +16,14 @@ from pydantic import BaseModel, Field
 class InspectorTab(str, Enum):
     """
     Available inspector panel tabs for the knowledge transfer assistant.
-    
+
     These correspond to the state_id values used in the inspector state providers
     and for sending state events to update specific inspector panels.
     """
-    
+
     BRIEF = "brief"              # Knowledge brief and project overview
-    OBJECTIVES = "objectives"    # Learning objectives and outcomes
-    REQUESTS = "requests"        # Information requests and sharing status
+    LEARNING = "learning"    # Learning objectives and outcomes
+    SHARING = "sharing"        # Information requests and sharing status
     DEBUG = "debug"             # Debug information and project state
 
 
@@ -345,10 +345,7 @@ class KnowledgePackage(BaseModel):
     transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     shared_conversation_id: Optional[str] = None  # ID of the shareable template conversation for generating share URLs
     share_url: Optional[str] = None  # Shareable URL for inviting team members
-    completion_percentage: Optional[int] = None  # Current learning completion percentage (0-100)
     next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
-    achieved_outcomes: int = 0  # Count of achieved learning outcomes
-    total_outcomes: int = 0  # Total count of learning outcomes
     transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
     audience: Optional[str] = None  # Description of the intended audience and their existing knowledge level
     archived: bool = False  # Whether this knowledge package has been archived
@@ -389,8 +386,8 @@ class KnowledgePackage(BaseModel):
             bool: True if ready for transfer, False otherwise
         """
         has_basic_requirements = (
-            self.knowledge_organized and 
-            self.brief is not None and 
+            self.knowledge_organized and
+            self.brief is not None and
             self.audience is not None
         )
 

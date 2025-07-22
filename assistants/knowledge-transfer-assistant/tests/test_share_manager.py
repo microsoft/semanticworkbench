@@ -31,7 +31,7 @@ class TestKnowledgeTransferManager:
         """Test the delete_project_goal method in KnowledgeTransferManager."""
         # Setup test data
         project_id = "test-project-id"
-        objective_index = 1
+        objective_index = "test-objective-id-1"
         goal_name = "Test Goal"
         goal_description = "Test Description"
 
@@ -59,7 +59,7 @@ class TestKnowledgeTransferManager:
 
         # Set additional fields on the test project
         test_project.coordinator_conversation_id = "test-coordinator-id"
-        test_project.completion_percentage = 50
+        # Note: completion_percentage removed from model
         test_project.version = 1
         # transfer_state field has been removed from the data model
 
@@ -118,7 +118,7 @@ class TestKnowledgeTransferManager:
             # Verify package was updated
             assert package.achieved_outcomes == 0  # Completed criterion was in the deleted goal
             assert package.total_outcomes == 0  # All criteria were in the deleted goal
-            assert package.completion_percentage == 0
+            # Note: completion_percentage removed from model
             assert package.version == 2  # Incremented
             write_project_info_called = True
 
@@ -146,7 +146,7 @@ class TestKnowledgeTransferManager:
             notify_called = True
 
         monkeypatch.setattr(
-            "assistant.notifications.ProjectNotifier.notify_project_update",
+            "assistant.notifications.Notifications.notify_all",
             AsyncMock(side_effect=mock_notify_project_update),
         )
 
@@ -182,7 +182,7 @@ class TestKnowledgeTransferManager:
         """Test deleting a goal with an invalid index."""
         # Setup
         project_id = "test-project-id"
-        objective_index = 5  # Out of range
+        objective_index = "invalid-objective-id"  # Invalid ID
 
         # Create a test project with fewer goals than the index
         test_project = KnowledgePackage(
@@ -246,7 +246,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, 1)
+        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, "test-objective-id")
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

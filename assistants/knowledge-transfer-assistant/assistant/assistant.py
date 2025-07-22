@@ -37,11 +37,11 @@ from assistant.utils import (
 from .common import detect_assistant_role
 from .config import assistant_config
 from .conversation_share_link import ConversationKnowledgePackageManager
-from .data import LogEntryType
+from .data import InspectorTab, LogEntryType
 from .files import ShareManager
 from .logging import logger
 from .manager import KnowledgeTransferManager
-from .notifications import ProjectNotifier
+from .notifications import Notifications
 from .inspectors import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
 from .storage_models import ConversationRole
@@ -68,10 +68,10 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     capabilities={AssistantCapability.supports_conversation_files},
     inspector_state_providers={
-        "brief": BriefInspector(assistant_config),
-        "objectives": LearningInspector(assistant_config),
-        "requests": SharingInspector(assistant_config),
-        "debug": DebugInspector(assistant_config),
+        InspectorTab.BRIEF: BriefInspector(assistant_config),
+        InspectorTab.LEARNING: LearningInspector(assistant_config),
+        InspectorTab.SHARING: SharingInspector(assistant_config),
+        InspectorTab.DEBUG: DebugInspector(assistant_config),
     },
     assistant_service_metadata={
         **dashboard_card.metadata(
@@ -386,14 +386,7 @@ async def on_file_created(
                     )
 
             # 3. Update all UIs but don't send notifications to reduce noise
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                share_id=share_id,
-                update_type="file_created",
-                message=f"Coordinator shared a file: {file.filename}",
-                data={"filename": file.filename},
-                send_notification=False,  # Don't send notification to reduce noise
-            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling as they're already in the conversation
 
         # Log file creation to project log for all files
@@ -450,14 +443,7 @@ async def on_file_updated(
                 )
 
             # 3. Update all UIs but don't send notifications to reduce noise
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                share_id=share_id,
-                update_type="file_updated",
-                message=f"Coordinator updated a file: {file.filename}",
-                data={"filename": file.filename},
-                send_notification=False,  # Don't send notification to reduce noise
-            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling
 
         # Log file update to project log for all files
@@ -501,14 +487,7 @@ async def on_file_deleted(
                 logger.error(f"Failed to delete file from project storage: {file.filename}")
 
             # 2. Update all UIs about the deletion but don't send notifications to reduce noise
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                share_id=share_id,
-                update_type="file_deleted",
-                message=f"Coordinator deleted a file: {file.filename}",
-                data={"filename": file.filename},
-                send_notification=False,  # Don't send notification to reduce noise
-            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling
 
         # Log file deletion to project log for all files

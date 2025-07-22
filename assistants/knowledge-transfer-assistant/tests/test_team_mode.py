@@ -102,12 +102,12 @@ class InformationRequest(BaseArtifact):
 
 class ProjectDashboard(BaseArtifact):
     def __init__(
-        self, state=None, progress_percentage=0, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
+        self, state=None, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
     ):
         super().__init__(artifact_type=ArtifactType.PROJECT_DASHBOARD, **kwargs)
         # transfer_state field removed - using derived state logic instead
         self.state = state or ProjectState.PLANNING
-        self.completion_percentage = progress_percentage
+        # Note: completion_percentage removed from model
         self.active_requests = active_requests or []
         self.achieved_criteria = completed_criteria
         self.total_criteria = total_criteria
@@ -336,7 +336,7 @@ class TestTeamConversationHandler:
         assert success is True
         assert "Updated project progress to 50%" in message
         assert dashboard is not None
-        assert dashboard.completion_percentage == 50
+        # Note: completion_percentage removed from model
         assert dashboard.transfer_notes == "Making progress in the team"
         assert dashboard.state == ProjectState.IN_PROGRESS
 
@@ -360,7 +360,7 @@ class TestTeamConversationHandler:
         assert updated_dashboard is not None
         assert updated_dashboard.achieved_criteria == 1
         assert updated_dashboard.total_criteria == 1
-        assert updated_dashboard.completion_percentage == 100  # 1/1 = 100%
+        # Note: completion_percentage removed from model
 
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
@@ -381,7 +381,7 @@ class TestTeamConversationHandler:
         assert "KnowledgePackage has been marked as completed" in message
         assert dashboard is not None
         assert dashboard.state == ProjectState.COMPLETED
-        assert dashboard.completion_percentage == 100
+        # Note: completion_percentage removed from model
         assert (
             dashboard.transfer_notes == "KnowledgePackage has been successfully completed with all objectives achieved."
         )

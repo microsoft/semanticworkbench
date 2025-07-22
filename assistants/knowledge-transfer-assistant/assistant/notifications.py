@@ -1,227 +1,172 @@
-"""
-Project notification and UI refresh functionality.
-
-This module handles notifications between conversations and UI refresh events
-for the project assistant, ensuring all participants stay in sync.
-"""
-
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .data import InspectorTab
 from .logging import logger
+from .conversation_clients import ConversationClientManager
 from .storage import ShareStorage
 
 
-class ProjectNotifier:
-    """Handles notifications between conversations for project updates."""
+class Notifications:
 
     @staticmethod
-    async def send_notice_to_linked_conversations(context: ConversationContext, share_id: str, message: str) -> None:
-        """
-        Sends a notice message to all linked conversations except:
-        1. The current conversation
-        2. The shareable team conversation template (used only for creating the share URL)
-
-        NOTE: The shareable team conversation is NEVER used directly by any user.
-        It's just a template that gets copied when team members redeem the share URL
-        to create their own individual team conversations. We exclude it from notifications
-        because no one will ever see those notifications.
-
-        This method does NOT refresh any UI inspector panels.
-
-        Args:
-            context: Current conversation context
-            share_id: ID of the project
-            message: Notification message to send
-        """
-        # Import ConversationClientManager locally to avoid circular imports
-        from .conversation_clients import ConversationClientManager
-
-        # Load the knowledge package to get notification conversations
-        knowledge_package = ShareStorage.read_share(share_id)
-        if not knowledge_package:
-            logger.warning(f"Could not load knowledge package {share_id} for notifications")
-            return
-
-        # Get conversations that should receive notifications (excludes shared template and current)
-        current_conversation_id = str(context.id)
-        notification_conversations = knowledge_package.get_notification_conversations(exclude_current=current_conversation_id)
-
-        # Send notification to each conversation
-        for conv_id in notification_conversations:
-            try:
-                # Get client for the target conversation
-                client = ConversationClientManager.get_conversation_client(context, conv_id)
-
-                # Send the notification
-                await client.send_messages(
-                    NewConversationMessage(
-                        content=message,
-                        message_type=MessageType.notice,
-                        metadata={
-                            "debug": {
-                                "share_id": share_id,
-                                "message": message,
-                                "sender": str(context.id),
-                            }
-                        },
-                    )
-                )
-                logger.debug(f"Sent notification to conversation {conv_id}")
-            except Exception as e:
-                logger.error(f"Failed to notify conversation {conv_id}: {e}")
+    async def notify(context: ConversationContext, message: str) -> None:
+        """Send text message notification to current conversation only."""
+        await context.send_messages(
+            NewConversationMessage(
+                content=message,
+                message_type=MessageType.notice,
+            )
+        )
 
     @staticmethod
-    async def notify_project_update(
+    async def notify_self_and_other(
         context: ConversationContext,
         share_id: str,
-        update_type: str,
         message: str,
-        data: Optional[Dict[str, Any]] = None,
-        send_notification: bool = True,  # Add parameter to control notifications
-        tabs: Optional[List[InspectorTab]] = None,  # Specify which tabs to update
+        other_conversation_id: Optional[str] = None
     ) -> None:
         """
-        Complete project update: sends notices to all conversations and refreshes all UI inspector panels.
+        Send text message notification to current conversation and one other.
 
-        This method:
-        1. Sends a notice message to the current conversation (if send_notification=True)
-        2. Sends the same notice message to all linked conversations (if send_notification=True)
-        3. Refreshes UI inspector panels for all conversations in the project
-
-        Use this for important project updates that need both user notification AND UI refresh.
-        Set send_notification=False for frequent updates (like file syncs, whiteboard updates) to
-        avoid notification spam.
-
-        Args:
-            context: Current conversation context
-            share_id: ID of the project
-            update_type: Type of update (e.g., 'brief', 'project_info', 'information_request', etc.)
-            message: Notification message to display to users
-            data: Optional additional data related to the update
-            send_notification: Whether to send notifications (default: True)
-            tabs: List of inspector tabs to update. If None, updates all tabs.
+        If called from team conversation: notifies team + coordinator
+        If called from coordinator: notifies coordinator + specified other_conversation_id
         """
+        # Always notify current conversation
+        await Notifications.notify(context, message)
 
-        # Only send notifications if explicitly requested
-        if send_notification:
-            # Notify all linked conversations with the same message
-            await ProjectNotifier.send_notice_to_linked_conversations(context, share_id, message)
-
-        # Always refresh all project UI inspector panels to keep UI in sync
-        # This will update the UI without sending notifications
-        await ShareStorage.refresh_all_share_uis(context, share_id, tabs)
-
-
-async def refresh_current_ui(context: ConversationContext, tabs: Optional[List[InspectorTab]] = None) -> None:
-    """
-    Refreshes only the current conversation's UI inspector panels.
-
-    Use this when a change only affects the local conversation's view
-    and doesn't need to be synchronized with other conversations.
-    
-    Args:
-        context: Current conversation context
-        tabs: List of inspector tabs to update. If None, updates all tabs.
-    """
-
-    # Default to all tabs if none specified
-    if tabs is None:
-        tabs = [InspectorTab.BRIEF, InspectorTab.OBJECTIVES, InspectorTab.REQUESTS, InspectorTab.DEBUG]
-    
-    # Send updated events to specified inspector panels
-    for tab in tabs:
-        state_event = AssistantStateEvent(
-            state_id=tab.value,
-            event="updated",
-            state=None,
-        )
-        await context.send_conversation_state_event(state_event)
-
-
-async def refresh_all_project_uis(context: ConversationContext, share_id: str, tabs: Optional[List[InspectorTab]] = None) -> None:
-    """
-    Refreshes the UI inspector panels of all conversations in a project except the
-    shareable team conversation template.
-
-    There are three types of conversations in the system:
-    1. Coordinator Conversation - The main conversation for the project owner
-    2. Shareable Team Conversation Template - Only used to generate the share URL, never directly used by any user
-    3. Team Conversation(s) - Individual conversations for each team member
-
-    This sends a state event to all relevant conversations (Coordinator and all active team members)
-    involved in the project to refresh their inspector panels, ensuring all
-    participants have the latest information without sending any text notifications.
-
-    The shareable team conversation template is excluded because no user will ever see it -
-    it only exists to create the share URL that team members can use to join.
-
-    Use this when project data has changed and all UIs need to be updated,
-    but you don't want to send notification messages to users.
-
-    Args:
-        context: Current conversation context
-        share_id: The project ID
-        tabs: List of inspector tabs to update. If None, updates all tabs.
-    """
-    # Import ConversationClientManager locally to avoid circular imports
-    from .conversation_clients import ConversationClientManager
-
-    # Default to all tabs if none specified
-    if tabs is None:
-        tabs = [InspectorTab.BRIEF, InspectorTab.OBJECTIVES, InspectorTab.REQUESTS, InspectorTab.DEBUG]
-
-    try:
-        # First update the current conversation's UI
-        await refresh_current_ui(context, tabs)
-
-        # Load the knowledge package to get all conversations
         knowledge_package = ShareStorage.read_share(share_id)
         if not knowledge_package:
-            logger.warning(f"Could not load knowledge package {share_id} for UI refresh")
             return
 
         current_id = str(context.id)
 
-        # Update coordinator conversation if it exists and is not current
+        # Determine the other conversation to notify
+        if other_conversation_id:
+            target_id = other_conversation_id
+        elif knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
+            target_id = knowledge_package.coordinator_conversation_id
+        else:
+            return
+
+        try:
+            client = ConversationClientManager.get_conversation_client(context, target_id)
+            await client.send_messages(
+                NewConversationMessage(
+                    content=message,
+                    message_type=MessageType.notice,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify conversation {target_id}: {e}")
+
+    @staticmethod
+    async def notify_all(context: ConversationContext, share_id: str, message: str) -> None:
+        """Send text message notification to all knowledge transfer conversations."""
+
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package:
+            return
+
+        # Always notify current conversation
+        await Notifications.notify(context, message)
+
+        current_id = str(context.id)
+
+        # Notify coordinator conversation
         if knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
             try:
-                coordinator_client = ConversationClientManager.get_conversation_client(
+                client = ConversationClientManager.get_conversation_client(
                     context, knowledge_package.coordinator_conversation_id
                 )
-                assistant_id = context.assistant.id
-                
-                # Send state events for each specified tab
-                for tab in tabs:
-                    state_event = AssistantStateEvent(state_id=tab.value, event="updated", state=None)
-                    await coordinator_client.send_conversation_state_event(assistant_id, state_event)
-                    
-                logger.debug(
-                    f"Sent state events to Coordinator conversation {knowledge_package.coordinator_conversation_id} to refresh inspector"
+                await client.send_messages(
+                    NewConversationMessage(
+                        content=message,
+                        message_type=MessageType.notice,
+                    )
                 )
             except Exception as e:
-                logger.warning(f"Error sending state event to Coordinator: {e}")
+                logger.error(f"Failed to notify coordinator conversation: {e}")
 
-        # Update all team conversations (excluding current)
+        # Notify all team conversations
         for conv_id in knowledge_package.team_conversations.keys():
-            if conv_id != current_id:
+            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
                 try:
-                    # Get client for the conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
-                    assistant_id = context.assistant.id
-                    
-                    # Send state events for each specified tab
-                    for tab in tabs:
-                        state_event = AssistantStateEvent(state_id=tab.value, event="updated", state=None)
-                        await client.send_conversation_state_event(assistant_id, state_event)
-                        
-                    logger.debug(f"Sent state events to team conversation {conv_id} to refresh inspector")
+                    await client.send_messages(
+                        NewConversationMessage(
+                            content=message,
+                            message_type=MessageType.notice,
+                        )
+                    )
                 except Exception as e:
-                    logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
-                    continue
+                    logger.error(f"Failed to notify conversation {conv_id}: {e}")
 
-    except Exception as e:
-        logger.warning(f"Error notifying all project UIs: {e}")
+    # State Update Notifications (UI refreshes)
+
+    @staticmethod
+    async def notify_state_update(context: ConversationContext, tabs: List[InspectorTab]) -> None:
+        """Send state update notifications to refresh UI in current conversation only."""
+        for tab in tabs:
+            state_event = AssistantStateEvent(
+                state_id=tab.value,
+                event="updated",
+                state=None,
+            )
+            await context.send_conversation_state_event(state_event)
+
+    @staticmethod
+    async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: List[InspectorTab]) -> None:
+        """Send state update notifications to refresh UI across all project conversations."""
+
+        # Refresh current conversation first
+        await Notifications.notify_state_update(context, tabs)
+
+        # Refresh other conversations
+        knowledge_package = ShareStorage.read_share(share_id)
+        if not knowledge_package:
+            return
+
+        current_id = str(context.id)
+        assistant_id = context.assistant.id
+
+        # Refresh coordinator conversation
+        if knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
+            try:
+                client = ConversationClientManager.get_conversation_client(
+                    context, knowledge_package.coordinator_conversation_id
+                )
+
+                for tab in tabs:
+                    state_event = AssistantStateEvent(
+                        state_id=tab.value,
+                        event="updated",
+                        state=None,
+                    )
+                    await client.send_conversation_state_event(
+                        state_event=state_event,
+                        assistant_id=assistant_id,
+                    )
+            except Exception as e:
+                logger.error(f"Failed to refresh coordinator conversation UI: {e}")
+
+        # Refresh all team conversations
+        for conv_id in knowledge_package.team_conversations.keys():
+            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
+                try:
+                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+
+                    for tab in tabs:
+                        state_event = AssistantStateEvent(
+                            state_id=tab.value,
+                            event="updated",
+                            state=None,
+                        )
+                        await client.send_conversation_state_event(
+                            state_event=state_event,
+                            assistant_id=assistant_id,
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to refresh conversation {conv_id} UI: {e}")
