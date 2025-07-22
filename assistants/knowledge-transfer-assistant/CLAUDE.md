@@ -15,7 +15,7 @@ The assistant operates in two distinct conversation roles determined by metadata
 1. **Coordinator Mode**: Knowledge organizers create and manage knowledge bases, provide guidance, and respond to information requests
 2. **Team Mode**: Team members access shared knowledge, explore project context, and request additional information
 
-**Role Detection**: Uses `detect_assistant_role()` to check conversation metadata `project_role` field. Commands and capabilities are role-specific through `command_processor.py` authorization.
+**Role Detection**: Uses `detect_assistant_role()` to check conversation metadata `project_role` field. Capabilities are role-specific through tool registration.
 
 ### Conversation Structure
 
@@ -30,7 +30,6 @@ The system manages three types of conversations:
 - `assistant/assistant.py`: Main assistant implementation with dual-role event handling
 - `assistant/manager.py`: Project state and artifact management (KnowledgeTransferManager)
 - `assistant/conversation_share_link.py`: Cross-conversation linking and synchronization
-- `assistant/command_processor.py`: Command handling with role-based authorization
 - `assistant/inspectors/`: Modular inspector panel system (brief, learning, sharing, debug)
 - `assistant/notifications.py`: Cross-conversation notification and UI refresh system
 - `assistant/storage.py` & `assistant/storage_models.py`: Persistent state management
@@ -106,22 +105,6 @@ The assistant supports two templates with unified codebase:
 - **Information Requests**: Bidirectional communication between coordinators and team members
 - **Inspector Panels**: Real-time multi-panel dashboard showing project state
 
-### Available Commands
-
-#### General Commands (All Users)
-- `/help [command]` - Get help with available commands
-- `/knowledge-info [brief|digest|status|requests]` - View knowledge package information
-
-#### Coordinator Commands
-- `/create-knowledge-brief Title|Description` - Create a knowledge brief
-- `/add-learning-objective Objective Name|Description|Learning outcome 1;Learning outcome 2` - Add learning objectives
-- `/resolve-request request_id|Resolution information` - Resolve information requests
-- `/list-participants` - List all project participants
-
-#### Team Commands
-- `/request-info Request Title|Description|priority` - Request information from coordinator
-- `/update-status status|progress|message` - Update project status and progress
-- `/sync-files` - Synchronize shared files from the project
 
 ### Dependencies
 
@@ -140,7 +123,6 @@ Key architectural files:
   - `assistant.py`: Main assistant with dual-role event handling
   - `manager.py`: Project state and artifact management (KnowledgeTransferManager)
   - `conversation_share_link.py`: Cross-conversation linking and synchronization
-  - `command_processor.py`: Command handling with role-based authorization
   - `notifications.py`: Cross-conversation notification and UI refresh system
   - `data.py`: Core data models and enums (InspectorTab, RequestPriority, etc.)
   - `inspectors/`: Modular inspector panel system

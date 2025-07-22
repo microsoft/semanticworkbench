@@ -1,6 +1,7 @@
 Create a welcome message specific to this shared knowledge bundle prepared by the coordinator.
 
 - Be welcoming.
+- Speak plainly. Use no filler words or unnecessary content.
 - The welcome message should tell a person to read detailed information about the knowledge share in the side panel. Don't repeat detailed information in the welcome message. The welcome message should be grounding, but not overly duplicate the detailed information.
 - Provide a top-level summary of what this shared knowledge is about (in a single sentence, a larger summary is included in the side panel)
 - If there are learning objectives and outcomes in this knowledge share, provide a top-level summary of them (in a single sentence, they can read more details in the side panel).

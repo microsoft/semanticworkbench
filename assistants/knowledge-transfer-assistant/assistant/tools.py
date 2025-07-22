@@ -6,23 +6,16 @@ by the LLM during chat completions to proactively assist users.
 """
 
 from datetime import datetime
-from typing import Callable, List, Literal
-from uuid import UUID
+from typing import List, Literal
 
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
-    MessageSender,
     MessageType,
     NewConversationMessage,
-    ParticipantRole,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .command_processor import (
-    handle_add_learning_objective_command,
-)
 from .conversation_clients import ConversationClientManager
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import (
@@ -38,44 +31,6 @@ from .storage_models import ConversationRole
 from .utils import require_current_user
 
 
-async def invoke_command_handler(
-    context: ConversationContext, command_content: str, handler_func: Callable, success_message: str, error_prefix: str
-) -> str:
-    """
-    Create a system message and invoke a command handler function.
-
-    This helper centralizes the pattern of creating a temporary system message
-    to reuse command handlers from the chat module.
-
-    Args:
-        context: The conversation context
-        command_content: The formatted command content
-        handler_func: The command handler function to call
-        success_message: Message to return on success
-        error_prefix: Prefix for error messages
-
-    Returns:
-        A string with success or error message
-    """
-    # Create a temporary system message to invoke the command handler
-    temp_message = ConversationMessage(
-        id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
-        content=command_content,
-        timestamp=datetime.utcnow(),
-        message_type=MessageType.command,
-        sender=MessageSender(participant_role=ParticipantRole.assistant, participant_id="system"),
-        content_type="text/plain",
-        filenames=[],
-        metadata={},
-        has_debug_data=False,
-    )
-
-    try:
-        await handler_func(context, temp_message, [])
-        return success_message
-    except Exception as e:
-        logger.exception(f"{error_prefix}: {e}")
-        return f"{error_prefix}: {str(e)}"
 
 
 class ShareTools:
@@ -101,53 +56,44 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.update_audience,
                 "update_audience",
-                "Update the target audience description for this knowledge package",
             )
             self.tool_functions.add_function(
                 self.set_knowledge_organized,
                 "set_knowledge_organized",
-                "Mark that all necessary knowledge has been captured and organized for transfer. If knowledge was just added and you think it is sufficient for the audience, run this function immediately. If you think the coordinator should add more knowledge, suggest to them what they should add next.",
             )
 
             # 2. Brief creation phase
             self.tool_functions.add_function(
                 self.update_brief,
                 "update_brief",
-                "Update a brief with a title and brief content",
             )
 
             # 3. Learning objectives phase
             self.tool_functions.add_function(
                 self.set_learning_intention,
                 "set_learning_intention",
-                "Set or update whether this knowledge package is intended for specific learning outcomes or general exploration. If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).",
             )
             self.tool_functions.add_function(
                 self.add_learning_objective,
                 "add_learning_objective",
-                "Add a learning objective to the knowledge brief with measurable learning outcomes",
             )
             self.tool_functions.add_function(
                 self.update_learning_objective,
                 "update_learning_objective",
-                "Update an existing learning objective's name, description, or learning outcomes by objective ID",
             )
             self.tool_functions.add_function(
                 self.delete_learning_objective,
                 "delete_learning_objective",
-                "Delete a learning objective from the knowledge package by objective ID",
             )
-            
+
             # Individual outcome management tools
             self.tool_functions.add_function(
                 self.add_learning_outcome,
                 "add_learning_outcome",
-                "Add a new learning outcome to an existing learning objective",
             )
             self.tool_functions.add_function(
                 self.update_learning_outcome,
-                "update_learning_outcome", 
-                "Update the description of an existing learning outcome by outcome ID",
+                "update_learning_outcome",
             )
             self.tool_functions.add_function(
                 self.delete_learning_outcome,
@@ -159,7 +105,6 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.resolve_information_request,
                 "resolve_information_request",
-                "Resolve an information request with information",
             )
 
         else:
@@ -168,31 +113,27 @@ class ShareTools:
             self.tool_functions.add_function(
                 self.create_information_request,
                 "create_information_request",
-                "Create an information request for information or to report a blocker",
             )
             self.tool_functions.add_function(
                 self.delete_information_request,
                 "delete_information_request",
-                "Delete an information request that is no longer needed",
-            )
-            self.tool_functions.add_function(
-                self.report_transfer_completion,
-                "report_transfer_completion",
-                "Report that the knowledge transfer is complete",
             )
             self.tool_functions.add_function(
                 self.mark_learning_outcome_achieved,
                 "mark_learning_outcome_achieved",
-                "Mark a learning outcome as achieved",
+            )
+            self.tool_functions.add_function(
+                self.report_transfer_completion,
+                "report_transfer_completion",
             )
 
     async def update_brief(self, title: str, description: str) -> str:
         """
-        Update a brief with a title and description.
+        Update a brief with a title and description. The brief should avoid filler words and unnecessary content.
 
         Args:
             title: The title of the brief
-            description: A description of the context bundle or project
+            description: A description of the context bundle or project. The brief should avoid filler words and unnecessary content.
 
         Returns:
             A message indicating success or failure
@@ -200,12 +141,10 @@ class ShareTools:
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can create knowledge briefs."
 
-        # First, make sure we have a knowledge package associated with this conversation
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             return "No knowledge package associated with this conversation. Please create a knowledge package first."
 
-        # Create a new knowledge brief using KnowledgeTransferManager
         brief = await KnowledgeTransferManager.update_knowledge_brief(
             context=self.context,
             title=title,
@@ -524,10 +463,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
         """
-        Add a learning objective to the knowledge brief with measurable learning outcomes.
+        Add a learning objective with measurable learning outcomes.
 
-        Learning objectives should define what knowledge areas learners need to understand.
-        Each objective must have clear, measurable learning outcomes that learners can mark as achieved.
+        - Learning objectives should define what knowledge areas learners need to understand.
+        - Each objective must have clear, measurable learning outcomes that learners can mark as achieved.
 
         WHEN TO USE:
         - When defining what knowledge areas team members need to understand
@@ -548,52 +487,42 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can add learning objectives."
 
-        # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             return "No knowledge package associated with this conversation. Please create a knowledge brief first."
 
-        # Get existing knowledge brief
         brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
         if not brief:
             return "No knowledge brief found. Please create one first with update_brief."
+        try:
+            objective = await KnowledgeTransferManager.add_learning_objective(
+                context=self.context,
+                objective_name=objective_name,
+                description=description,
+                outcomes=learning_outcomes,
+            )
 
-        # Use the formatted command processor from chat.py to leverage existing functionality
-        criteria_str = ""
-        if len(learning_outcomes) > 0:
-            criteria_str = "|" + ";".join(learning_outcomes)
-
-        command_content = f"/add-learning-objective {objective_name}|{description}{criteria_str}"
-
-        return await invoke_command_handler(
-            context=self.context,
-            command_content=command_content,
-            handler_func=handle_add_learning_objective_command,
-            success_message=f"Learning objective '{objective_name}' added to knowledge brief successfully.",
-            error_prefix="Error adding learning objective",
-        )
+            if objective:
+                return f"Learning objective '{objective_name}' added to knowledge brief successfully."
+            else:
+                return "Failed to add learning objective. Please try again."
+        except Exception as e:
+            logger.exception(f"Error adding learning objective: {e}")
+            return f"Error adding learning objective: {str(e)}"
 
     async def update_learning_objective(
         self,
         objective_id: str,
         objective_name: str,
         description: str,
-        learning_outcomes: List[str],
     ) -> str:
         """
-        Update an existing learning objective's name, description, or learning outcomes.
-
-        WHEN TO USE:
-        - When refining the scope or clarity of an existing learning objective
-        - When adding, removing, or modifying learning outcomes for an objective
-        - When updating the description to better reflect the knowledge area
-        - When reorganizing objectives to improve knowledge transfer structure
+        Update an existing learning objective's name or description.
 
         Args:
             objective_id: The unique ID of the learning objective to update
             objective_name: New name for the objective (empty string to keep current name)
             description: New description (empty string to keep current description)
-            learning_outcomes: New list of learning outcomes (empty list to keep current outcomes)
 
         Returns:
             A message indicating success or failure
@@ -617,7 +546,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             if obj.id == objective_id:
                 objective = obj
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
@@ -629,14 +558,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         if description.strip():
             objective.description = description.strip()
-
-        if learning_outcomes:
-            # Convert learning outcomes to LearningOutcome objects
-            from .data import LearningOutcome
-
-            objective.learning_outcomes = [
-                LearningOutcome(description=outcome.strip()) for outcome in learning_outcomes if outcome.strip()
-            ]
 
         # Get user information for logging
         current_user_id = await require_current_user(self.context, "update learning objective")
@@ -652,9 +573,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             changes_made.append(f"name: '{original_name}' → '{objective_name.strip()}'")
         if description.strip():
             changes_made.append("description updated")
-        if learning_outcomes:
-            filtered_outcomes = [o for o in learning_outcomes if o.strip()]
-            changes_made.append(f"learning outcomes updated ({len(filtered_outcomes)} outcomes)")
 
         changes_text = ", ".join(changes_made) if changes_made else "no changes specified"
 
@@ -702,7 +620,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         - Only before marking the knowledge package as ready for transfer
 
         NOTE: This action is irreversible and will remove all learning outcomes associated with the objective.
-        First use get_project_info() to see the list of objectives and their IDs before deletion.
 
         Args:
             objective_id: The unique ID of the learning objective to delete.
@@ -732,13 +649,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 objective = obj
                 objective_index = idx
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
         objective_name = objective.name
-        
+
         # Get user information for logging
         current_user_id = await require_current_user(self.context, "delete learning objective")
         if not current_user_id:
@@ -748,7 +665,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         for outcome in objective.learning_outcomes:
             for team_info in knowledge_package.team_conversations.values():
                 team_info.outcome_achievements = [
-                    achievement for achievement in team_info.outcome_achievements 
+                    achievement for achievement in team_info.outcome_achievements
                     if achievement.outcome_id != outcome.id
                 ]
 
@@ -961,10 +878,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
     async def set_learning_intention(self, is_for_specific_outcomes: bool) -> str:
         """
-        Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.
-
-        When is_for_specific_outcomes is True, the package will require learning objectives with outcomes.
-        When is_for_specific_outcomes is False, the package is for general knowledge exploration.
+        Set or update whether this knowledge package is intended for specific learning outcomes or general exploration.  If intended for learning and an objective or outcome was provided, you should run the add_learning_objective function next (don't wait).
 
         Args:
             is_for_specific_outcomes: True if this package should have learning objectives and outcomes,
@@ -1200,17 +1114,17 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             if obj.id == objective_id:
                 objective = obj
                 break
-        
+
         if objective is None:
             available_ids = [obj.id for obj in knowledge_package.learning_objectives]
             return f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
-        
+
         # Import here to avoid circular imports
         from .data import LearningOutcome
-        
+
         # Create the new outcome
         new_outcome = LearningOutcome(description=outcome_description.strip())
-        
+
         # Add the outcome to the objective
         objective.learning_outcomes.append(new_outcome)
 
@@ -1298,7 +1212,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     break
             if outcome:
                 break
-        
+
         if outcome is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
@@ -1306,9 +1220,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
             return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
-        
+
         old_description = outcome.description
-        
+
         # Update the outcome description
         outcome.description = new_description.strip()
 
@@ -1400,7 +1314,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     break
             if outcome_to_delete:
                 break
-        
+
         if outcome_to_delete is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
@@ -1410,7 +1324,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
 
         deleted_description = outcome_to_delete.description
-        
+
         # Remove the outcome from the objective
         objective.learning_outcomes.pop(outcome_index)
 
@@ -1422,7 +1336,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Clean up any achievement records for this outcome across all team conversations
         for team_info in knowledge_package.team_conversations.values():
             team_info.outcome_achievements = [
-                achievement for achievement in team_info.outcome_achievements 
+                achievement for achievement in team_info.outcome_achievements
                 if achievement.outcome_id != outcome_id
             ]
 

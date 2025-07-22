@@ -27,7 +27,6 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
 from assistant.utils import (
@@ -319,18 +318,13 @@ async def on_command_created(
     try:
         metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-        # Process the command using the command processor
-        role = await detect_assistant_role(context)
-        command_processed = await command_registry.process_command(context, message, role.value)
-
-        # If the command wasn't recognized or processed, respond normally
-        if not command_processed:
-            await respond_to_conversation(
-                context,
-                new_message=message,
-                attachments_extension=attachments_extension,
-                metadata=metadata,
-            )
+        # Respond to the conversation
+        await respond_to_conversation(
+            context,
+            new_message=message,
+            attachments_extension=attachments_extension,
+            metadata=metadata,
+        )
     finally:
         # update the participant status to indicate the assistant is done thinking
         await context.update_participant_me(UpdateParticipant(status=None))
