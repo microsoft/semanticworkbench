@@ -12,6 +12,7 @@ from datetime import datetime
 from assistant.conversation_share_link import ConversationKnowledgePackageManager
 from assistant.data import (
     InformationRequest,
+    InspectorTab,
     KnowledgeBrief,
     KnowledgeDigest,
     KnowledgePackage,
@@ -23,7 +24,7 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
-from assistant.notifications import refresh_current_ui
+from assistant.notifications import Notifications
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.storage_models import (
     ConversationRole,
@@ -352,16 +353,16 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
-        await refresh_current_ui(self.context)
+        await Notifications.notify_state_update(self.context, [InspectorTab.BRIEF, InspectorTab.LEARNING, InspectorTab.SHARING, InspectorTab.DEBUG])
 
         # Verify that send_conversation_state_event was called 4 times (once per inspector tab)
         self.assertEqual(self.context.send_conversation_state_event.call_count, 4)
-        
+
         # Get all the calls
         calls = self.context.send_conversation_state_event.call_args_list
-        expected_state_ids = ["brief", "objectives", "requests", "debug"]
+        expected_state_ids = ["brief", "learning", "sharing", "debug"]
         actual_state_ids = [call[0][0].state_id for call in calls]
-        
+
         # Verify each call has the correct parameters
         for call_args in calls:
             called_event = call_args[0][0]
@@ -369,7 +370,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(called_event.event, "updated")
             self.assertIsNone(called_event.state)
             self.assertIn(called_event.state_id, expected_state_ids)
-        
+
         # Verify all expected state IDs were called
         self.assertEqual(set(actual_state_ids), set(expected_state_ids))
 
@@ -385,7 +386,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
             # Update knowledge package info
             package.transfer_notes = "Test status message"
-            package.completion_percentage = 50
+            # Note: completion_percentage removed from model
             package.next_learning_actions = ["Action 1", "Action 2"]
 
             # Write updated knowledge package
@@ -398,7 +399,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(updated_package, "Should load updated knowledge package")
             if updated_package:
                 self.assertEqual(updated_package.transfer_notes, "Test status message")
-                self.assertEqual(updated_package.completion_percentage, 50)
+                # Note: completion_percentage removed from model
                 self.assertEqual(updated_package.next_learning_actions, ["Action 1", "Action 2"])
 
     async def test_conversation_tracking_in_json(self):

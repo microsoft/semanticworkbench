@@ -6,10 +6,6 @@ Tools for initializing and configuring knowledge packages.
 
 from datetime import datetime
 
-from semantic_workbench_api_model.workbench_model import (
-    MessageType,
-    NewConversationMessage,
-)
 
 from ..manager import KnowledgeTransferManager
 from ..storage import ShareStorage
@@ -116,17 +112,9 @@ class ProjectSetupTools(ToolsBase):
             context=self.context,
             title=title,
             description=description,
-            send_notification=True,
         )
 
         if brief:
-            await self.context.send_messages(
-                NewConversationMessage(
-                    content=f"Brief '{title}' updated successfully.",
-                    message_type=MessageType.notice,
-                    metadata={"debug": brief.model_dump()},
-                )
-            )
             return f"Brief '{title}' updated successfully."
         else:
             return "Failed to update the brief. Please try again."

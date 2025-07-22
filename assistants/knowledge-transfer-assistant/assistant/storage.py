@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .data import InspectorTab
+    from .notifications import Notifications
 
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -293,20 +294,20 @@ class ShareStorage:
         return requests
 
     @staticmethod
-    async def refresh_all_share_uis(context: ConversationContext, share_id: str, tabs: Optional[List["InspectorTab"]] = None) -> None:
+    async def refresh_all_share_uis(context: ConversationContext, share_id: str, tabs: List["InspectorTab"]) -> None:
         """
         Refreshes the UI inspector panels of all conversations in a project.
 
         This function is now a wrapper that calls the implementation in project_notifications.py.
-        
+
         Args:
             context: Current conversation context
             share_id: The project ID
             tabs: List of InspectorTab values to update. If None, updates all tabs.
         """
-        from .notifications import refresh_all_project_uis
 
-        await refresh_all_project_uis(context, share_id, tabs)
+        from .notifications import Notifications
+        await Notifications.notify_all_state_update(context, share_id, tabs)
 
     @staticmethod
     async def log_share_event(

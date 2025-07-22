@@ -4,25 +4,18 @@ Learning objectives and outcomes management for Knowledge Transfer Assistant.
 Handles learning objectives, outcomes creation, updates, and deletion.
 """
 
-from .base import (
-    ManagerBase,
-    datetime,
-    Optional,
-    List,
-    Tuple,
-    ConversationContext,
-    LearningObjective,
-    LearningOutcome,
-    KnowledgePackage,
-    ShareStorage,
-    LogEntryType,
-    ProjectNotifier,
-    require_current_user,
-    logger,
-)
+from typing import List, Optional, Tuple
 
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
-class LearningObjectivesManager(ManagerBase):
+from ..data import InspectorTab, KnowledgePackage, LearningObjective, LearningOutcome, LogEntryType
+from ..logging import logger
+from ..notifications import Notifications
+from ..storage import ShareStorage
+from ..utils import require_current_user
+from .share_management import ShareManagement
+
+class LearningObjectivesManager:
     """Manages learning objectives and outcomes operations."""
 
     @staticmethod
@@ -33,39 +26,21 @@ class LearningObjectivesManager(ManagerBase):
         outcomes: Optional[List[str]] = None,
         priority: int = 1,
     ) -> Optional[LearningObjective]:
-        """
-        Adds a learning objective to the project.
 
-        Args:
-            context: Current conversation context
-            objective_name: Name of the learning objective
-            description: Description of the learning objective
-            outcomes: List of learning outcome strings (optional)
-            priority: Priority of the learning objective (default: 1)
-
-        Returns:
-            The created LearningObjective if successful, None otherwise
-        """
-        from .share_management import ShareManagement
-        
-        # Get project ID
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             logger.error("Cannot add learning objective: no project associated with this conversation")
             return None
 
-        # Get user information
         current_user_id = await require_current_user(context, "add learning objective")
         if not current_user_id:
             return None
 
-        # Create success criteria objects if provided
         criterion_objects = []
         if outcomes:
             for criterion in outcomes:
                 criterion_objects.append(LearningOutcome(description=criterion))
 
-        # Create the new learning objective
         new_learning_objective = LearningObjective(
             name=objective_name,
             description=description,
@@ -73,7 +48,6 @@ class LearningObjectivesManager(ManagerBase):
             learning_outcomes=criterion_objects,
         )
 
-        # Get the existing project
         project = ShareStorage.read_share(share_id)
         if not project:
             # Create a new project if it doesn't exist
@@ -86,13 +60,10 @@ class LearningObjectivesManager(ManagerBase):
                 log=None,
             )
         else:
-            # Add the learning objective to the existing project
             project.learning_objectives.append(new_learning_objective)
 
-        # Save the updated project
         ShareStorage.write_share(share_id, project)
 
-        # Log the learning objective addition
         await ShareStorage.log_share_event(
             context=context,
             share_id=share_id,
@@ -100,133 +71,149 @@ class LearningObjectivesManager(ManagerBase):
             message=f"Added learning objective: {objective_name}",
         )
 
-        # Notify linked conversations
-        await ProjectNotifier.notify_project_update(
-            context=context,
-            share_id=share_id,
-            update_type="learning objective",
-            message=f"learning objective added: {objective_name}",
-        )
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' was added")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return new_learning_objective
 
     @staticmethod
+    async def update_learning_objective(
+        context: ConversationContext,
+        objective_id: str,
+        objective_name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """Update an existing learning objective's name or description."""
+        share_id = await ShareManagement.get_share_id(context)
+        if not share_id:
+            logger.error("Cannot update learning objective: no project associated with this conversation")
+            return False, "No project associated with this conversation."
+
+        current_user_id = await require_current_user(context, "update learning objective")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        project = ShareStorage.read_share(share_id)
+        if not project or not project.learning_objectives:
+            return False, "No learning objectives found."
+
+        # Find objective by ID
+        objective = None
+        for obj in project.learning_objectives:
+            if obj.id == objective_id:
+                objective = obj
+                break
+
+        if not objective:
+            available_ids = [obj.id for obj in project.learning_objectives]
+            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+
+        original_name = objective.name
+        changes_made = []
+
+        # Update fields if provided
+        if objective_name and objective_name.strip():
+            objective.name = objective_name.strip()
+            changes_made.append(f"name: '{original_name}' → '{objective_name.strip()}'")
+
+        if description and description.strip():
+            objective.description = description.strip()
+            changes_made.append("description updated")
+
+        if not changes_made:
+            return True, "No changes specified"
+
+        ShareStorage.write_share(share_id, project)
+
+        changes_text = ", ".join(changes_made)
+        await ShareStorage.log_share_event(
+            context=context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Updated learning objective '{objective.name}': {changes_text}",
+            metadata={
+                "objective_id": objective_id,
+                "objective_name": objective.name,
+                "changes": changes_text,
+            },
+        )
+
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective.name}' has been updated")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+
+        return True, f"Learning objective '{objective.name}' has been successfully updated: {changes_text}."
+
+    @staticmethod
     async def delete_learning_objective(
         context: ConversationContext,
-        objective_index: int,
+        objective_id: str,
     ) -> Tuple[bool, Optional[str]]:
-        """
-        Deletes a learning objective from the project.
-
-        Args:
-            context: Current conversation context
-            objective_index: The index of the learning objective to delete (0-based)
-
-        Returns:
-            Tuple of (success, objective_name_or_error_message)
-        """
-        from .share_management import ShareManagement
-        
-        # Get project ID
+        """Delete a learning objective by ID."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             logger.error("Cannot delete learning objective: no project associated with this conversation")
             return False, "No project associated with this conversation."
 
-        # Get user information
         current_user_id = await require_current_user(context, "delete learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        # Get the existing project
         project = ShareStorage.read_share(share_id)
         if not project or not project.learning_objectives:
-            return False, "No project learning objectives found."
+            return False, "No learning objectives found."
 
-        # Validate index
-        if objective_index < 0 or objective_index >= len(project.learning_objectives):
-            return (
-                False,
-                f"Invalid learning objective index {objective_index}. Valid indexes are 0 to {len(project.learning_objectives) - 1}. There are {len(project.learning_objectives)} learning objectives.",
-            )
+        # Find objective by ID
+        objective = None
+        objective_index = -1
+        for idx, obj in enumerate(project.learning_objectives):
+            if obj.id == objective_id:
+                objective = obj
+                objective_index = idx
+                break
 
-        # Get the learning objective to delete
-        learning_objective = project.learning_objectives[objective_index]
-        learning_objective_name = learning_objective.name
+        if not objective:
+            available_ids = [obj.id for obj in project.learning_objectives]
+            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
-        # Remove the learning objective from the list
+        objective_name = objective.name
+
+        # Clean up any achievement records for all outcomes in this objective across all team conversations
+        for outcome in objective.learning_outcomes:
+            for team_info in project.team_conversations.values():
+                team_info.outcome_achievements = [
+                    achievement for achievement in team_info.outcome_achievements
+                    if achievement.outcome_id != outcome.id
+                ]
+
+        # Remove the objective from the project
         project.learning_objectives.pop(objective_index)
 
-        # Save the updated project
         ShareStorage.write_share(share_id, project)
 
-        # Log the learning objective deletion
         await ShareStorage.log_share_event(
             context=context,
             share_id=share_id,
-            entry_type=LogEntryType.LEARNING_OBJECTIVE_DELETED.value,
-            message=f"Deleted learning objective: {learning_objective_name}",
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Deleted learning objective '{objective_name}' and all its outcomes",
+            metadata={
+                "objective_id": objective_id,
+                "objective_name": objective_name,
+                "outcomes_count": len(objective.learning_outcomes),
+            },
         )
 
-        # Notify linked conversations
-        await ProjectNotifier.notify_project_update(
-            context=context,
-            share_id=share_id,
-            update_type="learning objective",
-            message=f"learning objective deleted: {learning_objective_name}",
-        )
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' has been deleted")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
-        # Update project info with new criteria counts
-        project_info = ShareStorage.read_share_info(share_id)
-        if project_info:
-            # Count all completed criteria
-            completed_criteria = 0
-            total_criteria = 0
-
-            # Get the updated project to access learning objectives
-            updated_project = ShareStorage.read_share(share_id)
-            if updated_project:
-                # Use the new overall completion calculation
-                completed_criteria, total_criteria = updated_project.get_overall_completion()
-
-                # Calculate progress percentage
-                if total_criteria > 0:
-                    project_info.completion_percentage = int((completed_criteria / total_criteria) * 100)
-                else:
-                    project_info.completion_percentage = 0
-
-            # Update metadata
-            project_info.updated_at = datetime.utcnow()
-            project_info.updated_by = current_user_id
-            project_info.version += 1
-
-            # Save the updated project info
-            ShareStorage.write_share_info(share_id, project_info)
-
-        # Update all project UI inspectors
-        await ShareStorage.refresh_all_share_uis(context, share_id)
-
-        return True, learning_objective_name
+        return True, f"Learning objective '{objective_name}' has been successfully deleted from the knowledge package."
 
     @staticmethod
     async def get_learning_outcomes(context: ConversationContext) -> List[LearningOutcome]:
-        """
-        Gets the learning outcomes for the current knowledge share.
 
-        Args:
-            context: Current conversation context
-            completed_only: If True, only return completed criteria
-
-        Returns:
-            List of LearningOutcome objects
-        """
-        from .share_management import ShareManagement
-        
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             return []
 
-        # Get the project which contains learning objectives and success criteria
         project = ShareStorage.read_share(share_id)
         if not project:
             return []
@@ -234,7 +221,212 @@ class LearningObjectivesManager(ManagerBase):
         objectives = project.learning_objectives
         outcomes = []
         for objective in objectives:
-            # Add success criteria from each learning objective
             outcomes.extend(objective.learning_outcomes)
 
         return outcomes
+
+    @staticmethod
+    async def add_learning_outcome(
+        context: ConversationContext,
+        objective_id: str,
+        outcome_description: str,
+    ) -> Tuple[bool, Optional[str]]:
+        """Add a new learning outcome to an existing learning objective."""
+        share_id = await ShareManagement.get_share_id(context)
+        if not share_id:
+            logger.error("Cannot add learning outcome: no project associated with this conversation")
+            return False, "No knowledge package associated with this conversation."
+
+        current_user_id = await require_current_user(context, "add learning outcome")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        project = ShareStorage.read_share(share_id)
+        if not project or not project.learning_objectives:
+            return False, "No learning objectives found. Please add objectives before adding outcomes."
+
+        # Find the objective by ID
+        objective = None
+        for obj in project.learning_objectives:
+            if obj.id == objective_id:
+                objective = obj
+                break
+
+        if objective is None:
+            available_ids = [obj.id for obj in project.learning_objectives]
+            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+
+        # Create the new outcome
+        new_outcome = LearningOutcome(description=outcome_description.strip())
+
+        # Add the outcome to the objective
+        objective.learning_outcomes.append(new_outcome)
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, project)
+
+        # Log the outcome addition
+        await ShareStorage.log_share_event(
+            context=context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Added learning outcome to objective '{objective.name}': {outcome_description}",
+            metadata={
+                "objective_id": objective_id,
+                "objective_name": objective.name,
+                "outcome_added": outcome_description,
+                "outcome_id": new_outcome.id,
+            },
+        )
+
+        # Notify linked conversations
+        await Notifications.notify_all(context, share_id, f"Learning outcome '{outcome_description}' has been added")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+
+        return True, f"Learning outcome added successfully to objective '{objective.name}': {outcome_description}"
+
+    @staticmethod
+    async def update_learning_outcome(
+        context: ConversationContext,
+        outcome_id: str,
+        new_description: str,
+    ) -> Tuple[bool, Optional[str]]:
+        """Update the description of an existing learning outcome."""
+        share_id = await ShareManagement.get_share_id(context)
+        if not share_id:
+            logger.error("Cannot update learning outcome: no project associated with this conversation")
+            return False, "No knowledge package associated with this conversation."
+
+        current_user_id = await require_current_user(context, "update learning outcome")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        project = ShareStorage.read_share(share_id)
+        if not project or not project.learning_objectives:
+            return False, "No learning objectives found. Please add objectives before updating outcomes."
+
+        # Find the outcome by ID across all objectives
+        objective = None
+        outcome = None
+        for obj in project.learning_objectives:
+            for out in obj.learning_outcomes:
+                if out.id == outcome_id:
+                    objective = obj
+                    outcome = out
+                    break
+            if outcome:
+                break
+
+        if outcome is None or objective is None:
+            # Collect available outcome IDs for error message
+            available_outcome_ids = []
+            for obj in project.learning_objectives:
+                for out in obj.learning_outcomes:
+                    available_outcome_ids.append(out.id)
+            return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+
+        old_description = outcome.description
+
+        # Update the outcome description
+        outcome.description = new_description.strip()
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, project)
+
+        # Log the outcome update
+        await ShareStorage.log_share_event(
+            context=context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Updated learning outcome in objective '{objective.name}': '{old_description}' → '{new_description}'",
+            metadata={
+                "objective_id": objective.id,
+                "objective_name": objective.name,
+                "outcome_id": outcome_id,
+                "old_description": old_description,
+                "new_description": new_description,
+            },
+        )
+
+        # Notify linked conversations
+        await Notifications.notify_all(context, share_id, f"Learning outcome '{new_description}' has been updated")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+
+        return True, f"Learning outcome updated successfully in objective '{objective.name}': {new_description}"
+
+    @staticmethod
+    async def delete_learning_outcome(
+        context: ConversationContext,
+        outcome_id: str,
+    ) -> Tuple[bool, Optional[str]]:
+        """Delete a learning outcome from a learning objective."""
+        share_id = await ShareManagement.get_share_id(context)
+        if not share_id:
+            logger.error("Cannot delete learning outcome: no project associated with this conversation")
+            return False, "No knowledge package associated with this conversation."
+
+        current_user_id = await require_current_user(context, "delete learning outcome")
+        if not current_user_id:
+            return False, "Could not identify current user."
+
+        project = ShareStorage.read_share(share_id)
+        if not project or not project.learning_objectives:
+            return False, "No learning objectives found. Please add objectives before deleting outcomes."
+
+        # Find the outcome by ID across all objectives
+        objective = None
+        outcome_to_delete = None
+        outcome_index = -1
+        for obj in project.learning_objectives:
+            for idx, out in enumerate(obj.learning_outcomes):
+                if out.id == outcome_id:
+                    objective = obj
+                    outcome_to_delete = out
+                    outcome_index = idx
+                    break
+            if outcome_to_delete:
+                break
+
+        if outcome_to_delete is None or objective is None:
+            # Collect available outcome IDs for error message
+            available_outcome_ids = []
+            for obj in project.learning_objectives:
+                for out in obj.learning_outcomes:
+                    available_outcome_ids.append(out.id)
+            return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+
+        deleted_description = outcome_to_delete.description
+
+        # Remove the outcome from the objective
+        objective.learning_outcomes.pop(outcome_index)
+
+        # Clean up any achievement records for this outcome across all team conversations
+        for team_info in project.team_conversations.values():
+            team_info.outcome_achievements = [
+                achievement for achievement in team_info.outcome_achievements
+                if achievement.outcome_id != outcome_id
+            ]
+
+        # Save the updated knowledge package
+        ShareStorage.write_share(share_id, project)
+
+        # Log the outcome deletion
+        await ShareStorage.log_share_event(
+            context=context,
+            share_id=share_id,
+            entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
+            message=f"Deleted learning outcome from objective '{objective.name}': {deleted_description}",
+            metadata={
+                "objective_id": objective.id,
+                "objective_name": objective.name,
+                "outcome_index": outcome_index,
+                "outcome_id": outcome_id,
+                "deleted_description": deleted_description,
+            },
+        )
+
+        # Notify linked conversations
+        await Notifications.notify_all(context, share_id, f"Learning outcome '{deleted_description}' has been removed")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+
+        return True, f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}"

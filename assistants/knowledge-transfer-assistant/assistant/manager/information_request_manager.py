@@ -4,28 +4,19 @@ Information request management for Knowledge Transfer Assistant.
 Handles information request creation, resolution, and retrieval.
 """
 
-from .base import (
-    ManagerBase,
-    datetime,
-    Optional,
-    List,
-    Tuple,
-    ConversationContext,
-    InformationRequest,
-    RequestPriority,
-    RequestStatus,
-    ShareStorage,
-    LogEntryType,
-    ProjectNotifier,
-    ConversationClientManager,
-    NewConversationMessage,
-    MessageType,
-    require_current_user,
-    logger,
-)
+from datetime import datetime
+from typing import List, Optional, Tuple
 
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
-class InformationRequestManager(ManagerBase):
+from ..data import InformationRequest, InspectorTab, LogEntryType, RequestPriority, RequestStatus
+from ..logging import logger
+from ..notifications import Notifications
+from ..storage import ShareStorage
+from ..utils import require_current_user
+from .share_management import ShareManagement
+
+class InformationRequestManager:
     """Manages information request operations."""
 
     @staticmethod
@@ -34,7 +25,7 @@ class InformationRequestManager(ManagerBase):
     ) -> List[InformationRequest]:
         """Gets all information requests for the current conversation's project."""
         from .share_management import ShareManagement
-        
+
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             return []
@@ -49,34 +40,17 @@ class InformationRequestManager(ManagerBase):
         priority: RequestPriority = RequestPriority.MEDIUM,
         related_objective_ids: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[InformationRequest]]:
-        """
-        Creates a new information request.
-
-        Args:
-            context: Current conversation context
-            title: Title of the request
-            description: Description of the request
-            priority: Priority level
-            related_objective_ids: Optional list of related learning objective IDs
-
-        Returns:
-            Tuple of (success, information_request)
-        """
         try:
-            from .share_management import ShareManagement
-            
-            # Get project ID
+
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
                 logger.error("Cannot create information request: no project associated with this conversation")
                 return False, None
 
-            # Get user information
             current_user_id = await require_current_user(context, "create information request")
             if not current_user_id:
                 return False, None
 
-            # Create the information request
             information_request = InformationRequest(
                 title=title,
                 description=description,
@@ -87,10 +61,8 @@ class InformationRequestManager(ManagerBase):
                 conversation_id=str(context.id),
             )
 
-            # Save the request
             ShareStorage.write_information_request(share_id, information_request)
 
-            # Log the creation
             await ShareStorage.log_share_event(
                 context=context,
                 share_id=share_id,
@@ -103,19 +75,8 @@ class InformationRequestManager(ManagerBase):
                 },
             )
 
-            # For high priority requests, we could update project info or add an indicator
-            # in the future if needed
-
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                share_id=share_id,
-                update_type="information_request",
-                message=f"New information request: {title} (Priority: {priority.value})",
-            )
-
-            # Update all project UI inspectors
-            await ShareStorage.refresh_all_share_uis(context, share_id)
+            await Notifications.notify_self_and_other(context, share_id, f"Information request '{title}' was created")
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
 
             return True, information_request
 
@@ -129,27 +90,13 @@ class InformationRequestManager(ManagerBase):
         request_id: str,
         resolution: str,
     ) -> Tuple[bool, Optional[InformationRequest]]:
-        """
-        Resolves an information request.
-
-        Args:
-            context: Current conversation context
-            request_id: ID of the request to resolve
-            resolution: Resolution information
-
-        Returns:
-            Tuple of (success, information_request)
-        """
         try:
-            from .share_management import ShareManagement
-            
-            # Get project ID
+
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
                 logger.error("Cannot resolve information request: no project associated with this conversation")
                 return False, None
 
-            # Get user information
             current_user_id = await require_current_user(context, "resolve information request")
             if not current_user_id:
                 return False, None
@@ -211,40 +158,96 @@ class InformationRequestManager(ManagerBase):
                 },
             )
 
-            # High priority request has been resolved, could update project info
-            # in the future if needed
-
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                share_id=share_id,
-                update_type="information_request_resolved",
-                message=f"Information request resolved: {information_request.title}",
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
+            await Notifications.notify_self_and_other(
+                context,
+                share_id,
+                f"Information request '{information_request.title}' has been resolved: {resolution}",
+                information_request.conversation_id if information_request.conversation_id != str(context.id) else None,
             )
-
-            # Send direct notification to requestor's conversation
-            if information_request.conversation_id != str(context.id):
-                try:
-                    # Get client for requestor's conversation
-                    client = ConversationClientManager.get_conversation_client(
-                        context, information_request.conversation_id
-                    )
-
-                    # Send notification message
-                    await client.send_messages(
-                        NewConversationMessage(
-                            content=f"Coordinator has resolved your request '{information_request.title}': {resolution}",
-                            message_type=MessageType.notice,
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Could not send notification to requestor: {e}")
-
-            # Update all project UI inspectors
-            await ShareStorage.refresh_all_share_uis(context, share_id)
 
             return True, information_request
 
         except Exception as e:
             logger.exception(f"Error resolving information request: {e}")
             return False, None
+
+    @staticmethod
+    async def delete_information_request(
+        context: ConversationContext,
+        request_id: str,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Delete an information request.
+
+        Args:
+            context: Current conversation context
+            request_id: ID of the request to delete
+
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            share_id = await ShareManagement.get_share_id(context)
+            if not share_id:
+                logger.error("Cannot delete information request: no project associated with this conversation")
+                return False, "No knowledge package associated with this conversation."
+
+            current_user_id = await require_current_user(context, "delete information request")
+            if not current_user_id:
+                return False, "Could not identify current user."
+
+            # Get information request by ID
+            cleaned_request_id = request_id.strip().replace('"', "").replace("'", "")
+            information_request = ShareStorage.read_information_request(share_id, cleaned_request_id)
+            if not information_request:
+                return False, f"Information request with ID '{request_id}' not found."
+
+            # Check ownership - only allow deletion by the creator
+            if information_request.conversation_id != str(context.id):
+                return False, "You can only delete information requests that you created."
+
+            # Get user info for logging
+            participants = await context.get_participants()
+            current_username = "Team Member"
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_username = participant.name
+                    break
+
+            request_title = information_request.title
+            actual_request_id = information_request.request_id
+
+            # Log the deletion
+            await ShareStorage.log_share_event(
+                context=context,
+                share_id=share_id,
+                entry_type=LogEntryType.REQUEST_DELETED.value,
+                message=f"Information request '{request_title}' was deleted by {current_username}",
+                related_entity_id=actual_request_id,
+                metadata={
+                    "request_title": request_title,
+                    "deleted_by": current_user_id,
+                    "deleted_by_name": current_username,
+                },
+            )
+
+            # Delete the information request from the main share data
+            package = ShareStorage.read_share(share_id)
+            if package and package.requests:
+                package.requests = [req for req in package.requests if req.request_id != actual_request_id]
+                ShareStorage.write_share(share_id, package)
+
+            # Notify about the deletion
+            await Notifications.notify_self_and_other(
+                context,
+                share_id,
+                f"Information request '{request_title}' has been deleted.",
+            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
+
+            return True, f"Information request '{request_title}' has been successfully deleted."
+
+        except Exception as e:
+            logger.exception(f"Error deleting information request: {e}")
+            return False, f"Error deleting information request: {str(e)}. Please try again later."

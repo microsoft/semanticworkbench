@@ -4,27 +4,26 @@ Share/Project management operations for Knowledge Transfer Assistant.
 Handles creation, joining, and basic share operations.
 """
 
-from .base import (
-    ManagerBase,
-    uuid,
-    datetime,
-    Optional,
-    ConversationContext,
-    ConversationRole,
+import uuid
+from datetime import datetime
+from typing import Optional
+
+from semantic_workbench_api_model.workbench_model import (
     ConversationPermission,
-    NewConversation,
+    NewConversation, 
     NewConversationShare,
-    get_current_user,
-    logger,
-    KnowledgePackage,
-    ShareStorage,
-    ShareStorageManager,
-    ConversationKnowledgePackageManager,
-    KnowledgePackageLog,
 )
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..conversation_share_link import ConversationKnowledgePackageManager
+from ..data import KnowledgePackage, KnowledgePackageLog
+from ..logging import logger
+from ..storage import ShareStorage, ShareStorageManager
+from ..storage_models import ConversationRole
+from ..utils import get_current_user
 
 
-class ShareManagement(ManagerBase):
+class ShareManagement:
     """Manages share/project creation, joining, and basic operations."""
 
     @staticmethod

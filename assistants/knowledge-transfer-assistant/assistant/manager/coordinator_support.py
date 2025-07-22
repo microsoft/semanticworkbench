@@ -4,17 +4,16 @@ Coordinator support and helper functions for Knowledge Transfer Assistant.
 Provides next action suggestions and other coordinator utilities.
 """
 
-from .base import (
-    ManagerBase,
-    Optional,
-    ConversationContext,
-    ShareStorage,
-    RequestStatus,
-    logger,
-)
+from typing import Optional
+
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..data import RequestStatus
+from ..logging import logger
+from ..storage import ShareStorage
 
 
-class CoordinatorSupport(ManagerBase):
+class CoordinatorSupport:
     """Provides support utilities for coordinators."""
 
     @staticmethod

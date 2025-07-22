@@ -11,9 +11,9 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 
-from ..data import LearningOutcomeAchievement, LogEntryType
+from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
 from ..manager import KnowledgeTransferManager
-from ..notifications import ProjectNotifier
+from ..notifications import Notifications
 from ..storage import ShareStorage
 from ..storage_models import ConversationRole
 from .base import ToolsBase
@@ -125,17 +125,6 @@ class ProgressTrackingTools(ToolsBase):
         knowledge_package = ShareStorage.read_share(share_id)
 
         if knowledge_package:
-            # Get overall completion statistics
-            achieved_outcomes, total_outcomes = knowledge_package.get_overall_completion()
-
-            # Update knowledge package with outcome stats
-            knowledge_package.achieved_outcomes = achieved_outcomes
-            knowledge_package.total_outcomes = total_outcomes
-
-            # Calculate progress percentage
-            if total_outcomes > 0:
-                knowledge_package.completion_percentage = int((achieved_outcomes / total_outcomes) * 100)
-
             # Update metadata
             knowledge_package.updated_at = datetime.utcnow()
             knowledge_package.updated_by = current_user_id
@@ -145,15 +134,11 @@ class ProgressTrackingTools(ToolsBase):
             ShareStorage.write_share(share_id, knowledge_package)
 
             # Notify linked conversations with a message
-            await ProjectNotifier.notify_project_update(
-                context=self.context,
-                share_id=share_id,
-                update_type="share_info",
-                message=f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
-            )
+            await Notifications.notify_all(self.context, share_id, f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.")
+            await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
             # Update all share UI inspectors
-            await ShareStorage.refresh_all_share_uis(self.context, share_id)
+            await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
@@ -162,7 +147,7 @@ class ProgressTrackingTools(ToolsBase):
                 # Automatically complete the transfer
                 success, share_info = await KnowledgeTransferManager.complete_project(
                     context=self.context,
-                    summary=f"All {total_outcomes} learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
+                    summary="All learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
                 )
 
                 if success:
@@ -221,8 +206,9 @@ class ProgressTrackingTools(ToolsBase):
             return "No knowledge package found. Cannot complete transfer without package information."
 
         # Check if all outcomes are achieved
-        if package.achieved_outcomes < package.total_outcomes:
-            remaining = package.total_outcomes - package.achieved_outcomes
+        achieved_outcomes, total_outcomes = package.get_overall_completion()
+        if achieved_outcomes < total_outcomes:
+            remaining = total_outcomes - achieved_outcomes
             return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."
 
         # Get current user information
@@ -237,16 +223,10 @@ class ProgressTrackingTools(ToolsBase):
         if not current_user_id:
             return "Could not identify current user."
 
-        # Update knowledge package to completed
-        package.completion_percentage = 100
         package.transfer_notes = "Project is now complete"
-
-        # Update metadata
         package.updated_at = datetime.utcnow()
         package.updated_by = current_user_id
         package.version += 1
-
-        # Save the updated knowledge package
         ShareStorage.write_share(share_id, package)
 
         # Log the milestone transition
@@ -259,15 +239,11 @@ class ProgressTrackingTools(ToolsBase):
         )
 
         # Notify linked conversations with a message
-        await ProjectNotifier.notify_project_update(
-            context=self.context,
-            share_id=share_id,
-            update_type="project_completed",
-            message="🎉 **Project Complete**: Team has reported that all project objectives have been achieved. The project is now complete.",
-        )
+        await Notifications.notify_all(self.context, share_id, "🎉 **Project Complete**: Team has reported that all project objectives have been achieved. The project is now complete.")
+        await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.BRIEF])
 
         # Update all project UI inspectors
-        await ShareStorage.refresh_all_share_uis(self.context, share_id)
+        await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.BRIEF])
 
         await self.context.send_messages(
             NewConversationMessage(

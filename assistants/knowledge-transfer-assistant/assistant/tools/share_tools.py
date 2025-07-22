@@ -30,15 +30,13 @@ class ShareTools:
         self.context = context
         self.role = role
         self.tool_functions = ToolFunctions()
-        
-        # Initialize tool modules
+
         self.project_setup = ProjectSetupTools(context, role)
         self.learning_objectives = LearningObjectiveTools(context, role)
         self.learning_outcomes = LearningOutcomeTools(context, role)
         self.information_requests = InformationRequestTools(context, role)
         self.progress_tracking = ProgressTrackingTools(context, role)
 
-        # Register role-specific tools
         if role == "coordinator":
             self._register_coordinator_tools()
         else:
@@ -46,6 +44,7 @@ class ShareTools:
 
     def _register_coordinator_tools(self):
         """Register coordinator-specific tools."""
+
         # 1. Setup phase - Define audience and organize knowledge
         self.tool_functions.add_function(
             self.project_setup.update_audience,

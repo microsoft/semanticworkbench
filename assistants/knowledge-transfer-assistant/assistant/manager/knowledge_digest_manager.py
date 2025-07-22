@@ -4,40 +4,33 @@ Knowledge digest management for Knowledge Transfer Assistant.
 Handles knowledge digest operations including auto-updating from conversations.
 """
 
-from .base import (
-    ManagerBase,
-    re,
-    datetime,
-    Optional,
-    Tuple,
-    ConversationContext,
-    ParticipantRole,
-    KnowledgeDigest,
-    InspectorTab,
-    LogEntryType,
-    ShareStorage,
-    ProjectNotifier,
-    assistant_config,
-    openai_client,
-    require_current_user,
-    logger,
-)
+import re
+from datetime import datetime
+from typing import Optional, Tuple
+
+import openai_client
+from semantic_workbench_api_model.workbench_model import ParticipantRole
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..config import assistant_config
+from ..data import InspectorTab, KnowledgeDigest, LogEntryType
+from ..logging import logger
+from ..notifications import Notifications
+from ..storage import ShareStorage
+from ..utils import require_current_user
+from .share_management import ShareManagement
 
 
-class KnowledgeDigestManager(ManagerBase):
+class KnowledgeDigestManager:
     """Manages knowledge digest operations."""
 
     @staticmethod
     async def get_knowledge_digest(
         context: ConversationContext,
     ) -> Optional[KnowledgeDigest]:
-        """Gets the knowledge digest for the current conversation's knowledge share."""
-        from .share_management import ShareManagement
-        
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             return None
-
         return ShareStorage.read_knowledge_digest(share_id)
 
     @staticmethod
@@ -45,35 +38,17 @@ class KnowledgeDigestManager(ManagerBase):
         context: ConversationContext,
         content: str,
         is_auto_generated: bool = True,
-        send_notification: bool = False,  # Add parameter to control notifications
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
-        """
-        Updates the knowledge digest content.
-
-        Args:
-            context: Current conversation context
-            content: Whiteboard content in markdown format
-            is_auto_generated: Whether the content was automatically generated
-            send_notification: Whether to send notifications about the update (default: False)
-
-        Returns:
-            Tuple of (success, project_kb)
-        """
         try:
-            from .share_management import ShareManagement
-            
-            # Get project ID
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
                 logger.error("Cannot update knowledge digest: no project associated with this conversation")
                 return False, None
 
-            # Get user information
             current_user_id = await require_current_user(context, "update knowledge digest")
             if not current_user_id:
                 return False, None
 
-            # Get existing knowledge digest or create new one
             digest = ShareStorage.read_knowledge_digest(share_id)
             is_new = False
 
@@ -86,16 +61,11 @@ class KnowledgeDigestManager(ManagerBase):
                 )
                 is_new = True
 
-            # Update the content
             digest.content = content
             digest.is_auto_generated = is_auto_generated
-
-            # Update metadata
             digest.updated_at = datetime.utcnow()
             digest.updated_by = current_user_id
             digest.version += 1
-
-            # Save the knowledge digest
             ShareStorage.write_knowledge_digest(share_id, digest)
 
             # Log the update
@@ -110,18 +80,11 @@ class KnowledgeDigestManager(ManagerBase):
                 message=message,
             )
 
-            # Only notify linked conversations if explicitly requested
-            # This prevents auto-updates from generating notifications
-            if send_notification:
-                await ProjectNotifier.notify_project_update(
-                    context=context,
-                    share_id=share_id,
-                    update_type="knowledge_digest",
-                    message="KnowledgePackage knowledge digest updated",
-                )
-            else:
-                # Just refresh the UI without sending notifications
-                await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.BRIEF])
+            await Notifications.notify_all_state_update(
+                context,
+                share_id,
+                [InspectorTab.BRIEF],
+            )
 
             return True, digest
 
@@ -135,32 +98,16 @@ class KnowledgeDigestManager(ManagerBase):
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         """
         Automatically updates the knowledge digest by analyzing chat history.
-
-        This method:
-        1. Retrieves recent conversation messages
-        2. Sends them to the LLM with a prompt to extract important info
-        3. Updates the knowledge digest with the extracted content
-
-        Args:
-            context: Current conversation context
-            chat_history: Recent chat messages to analyze
-
-        Returns:
-            Tuple of (success, project_kb)
         """
         try:
-            from .share_management import ShareManagement
-            
             messages = await context.get_messages()
             chat_history = messages.messages
 
-            # Get project ID
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
                 logger.error("Cannot auto-update knowledge digest: no project associated with this conversation")
                 return False, None
 
-            # Get user information for storage purposes
             current_user_id = await require_current_user(context, "auto-update knowledge digest")
             if not current_user_id:
                 return False, None
@@ -178,10 +125,8 @@ class KnowledgeDigestManager(ManagerBase):
                 )
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
 
-            # Get config for the LLM call
-            config = await assistant_config.get(context.assistant)
-
             # Construct the knowledge digest prompt with the chat history
+            config = await assistant_config.get(context.assistant)
             digest_prompt = f"""
             {config.prompt_config.knowledge_digest_prompt}
 
@@ -190,7 +135,6 @@ class KnowledgeDigestManager(ManagerBase):
             </CHAT_HISTORY>
             """
 
-            # Create a completion with the knowledge digest prompt
             async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
@@ -198,47 +142,25 @@ class KnowledgeDigestManager(ManagerBase):
                     max_tokens=config.coordinator_config.max_digest_tokens,
                 )
 
-                # Extract the content from the completion
                 content = completion.choices[0].message.content or ""
-
-                # Extract just the knowledge digest content
                 digest_content = ""
-
-                # Look for content between <KNOWLEDGE_DIGEST> tags
                 match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
                 if match:
                     digest_content = match.group(1).strip()
                 else:
-                    # If no tags, use the whole content
                     digest_content = content.strip()
 
-            # Only update if we have content
             if not digest_content:
                 logger.warning("No content extracted from knowledge digest LLM analysis")
                 return False, None
 
-            # Update the knowledge digest with the extracted content
-            # Use send_notification=False to avoid sending notifications for automatic updates
             result = await KnowledgeDigestManager.update_knowledge_digest(
                 context=context,
                 content=digest_content,
                 is_auto_generated=True,
-                send_notification=False,
             )
-            
-            # Ensure debug panel refreshes after auto-update completes
-            await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.DEBUG])
-            
             return result
 
         except Exception as e:
             logger.exception(f"Error auto-updating knowledge digest: {e}")
-            # Ensure debug panel refreshes even on error, but only if we have a share_id
-            try:
-                from .share_management import ShareManagement
-                share_id = await ShareManagement.get_share_id(context)
-                if share_id:
-                    await ShareStorage.refresh_all_share_uis(context, share_id, [InspectorTab.DEBUG])
-            except Exception as refresh_error:
-                logger.warning(f"Failed to refresh UI after auto-update error: {refresh_error}")
             return False, None
