@@ -128,6 +128,17 @@ class ConversationContext:
     async def update_conversation(self, metadata: dict[str, Any]) -> workbench_model.Conversation:
         return await self._conversation_client.update_conversation(metadata)
 
+    async def update_conversation_title(self, title: str) -> workbench_model.Conversation:
+        """Update the conversation's title."""
+        update_data = workbench_model.UpdateConversation(title=title)
+        http_response = await self._conversation_client._client.patch(
+            f"/conversations/{self.id}",
+            json=update_data.model_dump(mode="json", exclude_unset=True, exclude_defaults=True),
+            headers=self._conversation_client._headers,
+        )
+        http_response.raise_for_status()
+        return workbench_model.Conversation.model_validate(http_response.json())
+
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
         return await self._conversation_client.get_participants(include_inactive=include_inactive)
 
