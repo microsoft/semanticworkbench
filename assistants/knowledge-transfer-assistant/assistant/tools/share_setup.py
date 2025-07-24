@@ -6,19 +6,18 @@ Tools for initializing and configuring knowledge packages.
 
 from datetime import datetime
 
-
 from ..manager import KnowledgeTransferManager
 from ..storage import ShareStorage
 from ..storage_models import ConversationRole
 from .base import ToolsBase
 
 
-class ProjectSetupTools(ToolsBase):
-    """Tools for project setup and configuration."""
+class ShareSetupTools(ToolsBase):
+    """Tools for the knowledge transfer setup and configuration."""
 
     async def update_audience(self, audience_description: str) -> str:
         """
-        Update the target audience description for this knowledge package.
+        Update the target audience description for this knowledge transfer.
 
         Args:
             audience_description: Description of the intended audience and their existing knowledge level
@@ -29,24 +28,12 @@ class ProjectSetupTools(ToolsBase):
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can update the audience description."
 
-        # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+        success, message = await KnowledgeTransferManager.update_audience(
+            context=self.context,
+            audience_description=audience_description,
+        )
 
-        # Get existing knowledge package
-        package = ShareStorage.read_share(share_id)
-        if not package:
-            return "No knowledge package found. Please create a knowledge brief first."
-
-        # Update the audience
-        package.audience = audience_description.strip()
-        package.updated_at = datetime.utcnow()
-
-        # Save the updated package
-        ShareStorage.write_share(share_id, package)
-
-        return f"Target audience updated successfully: {audience_description}"
+        return message if message else ("Audience updated successfully." if success else "Failed to update audience.")
 
     async def set_knowledge_organized(self, is_organized: bool) -> str:
         """
@@ -68,7 +55,7 @@ class ProjectSetupTools(ToolsBase):
         # Get share ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
-            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
+            return "No knowledge package associated with this conversation."
 
         # Get existing knowledge package
         package = ShareStorage.read_share(share_id)
@@ -96,7 +83,7 @@ class ProjectSetupTools(ToolsBase):
 
         Args:
             title: The title of the brief
-            description: A description of the context bundle or project. The brief should avoid filler words and unnecessary content.
+            description: A description of the knowledge share to be given to recipients as context.
 
         Returns:
             A message indicating success or failure

@@ -1,7 +1,7 @@
 """
-Manages associations between conversations and projects.
+Manages associations between conversations in a knowledge transfer.
 
-This module handles the linking of conversations to projects,
+This module handles the linking of conversations to knowledge transfer shares,
 defining roles (Coordinator/Team) and maintaining relationships.
 """
 
@@ -19,27 +19,26 @@ from .utils import get_current_user
 
 
 class ConversationKnowledgePackageManager:
-    """Manages the association between conversations and projects."""
+    """Manages the association between conversations and knowledge transfers."""
 
     class ConversationRoleInfo(BaseModel):
-        """Stores a conversation's role in a project."""
+        """Stores a conversation's role in a knowledge transfer share."""
 
         share_id: str
         role: ConversationRole
         conversation_id: str
 
-    class ProjectAssociation(BaseModel):
-        """Stores a conversation's project association."""
+    class ShareAssociation(BaseModel):
+        """Stores a conversation's share association."""
 
         share_id: str
 
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
         """
-        Gets all conversations linked to this one through the same project.
+        Gets all conversations linked to this one through the same knowledge transfer share.
         """
         try:
-            # Get project ID
             share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
             if not share_id:
                 return []
@@ -62,7 +61,7 @@ class ConversationKnowledgePackageManager:
     @staticmethod
     async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
         """
-        Sets the role of a conversation in a project.
+        Sets the role of a conversation in a knowledge transfer share.
         """
         role_data = ConversationKnowledgePackageManager.ConversationRoleInfo(
             share_id=share_id, role=role, conversation_id=str(context.id)
@@ -73,7 +72,7 @@ class ConversationKnowledgePackageManager:
     @staticmethod
     async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
-        Gets the role of a conversation in a project.
+        Gets the role of a conversation in a knowledge transfer.
         """
         role_path = ShareStorageManager.get_conversation_role_file_path(context)
         role_data = read_model(role_path, ConversationKnowledgePackageManager.ConversationRoleInfo)
@@ -86,23 +85,23 @@ class ConversationKnowledgePackageManager:
     @staticmethod
     async def associate_conversation_with_share(context: ConversationContext, share_id: str) -> None:
         """
-        Associates a conversation with a project and captures redeemer information.
+        Associates a conversation with a knowledge share and captures redeemer information.
         """
-        logger.debug(f"Associating conversation {context.id} with project {share_id}")
+        logger.debug(f"Associating conversation {context.id} with share {share_id}")
 
         try:
-            # 1. Store the project association in the conversation's storage directory
-            project_data = ConversationKnowledgePackageManager.ProjectAssociation(share_id=share_id)
-            project_path = ShareStorageManager.get_conversation_share_file_path(context)
-            logger.debug(f"Writing project association to {project_path}")
-            write_model(project_path, project_data)
+            # 1. Store the share association in the conversation's storage directory
+            share_data = ConversationKnowledgePackageManager.ShareAssociation(share_id=share_id)
+            share_path = ShareStorageManager.get_conversation_share_file_path(context)
+            logger.debug(f"Writing share association to {share_path}")
+            write_model(share_path, share_data)
 
             # 2. Capture redeemer information and store in knowledge package
             # This method will now handle storing the conversation in JSON instead of file system
             await ConversationKnowledgePackageManager._capture_redeemer_info(context, share_id)
 
         except Exception as e:
-            logger.error(f"Error associating conversation with project: {e}")
+            logger.error(f"Error associating conversation with share: {e}")
             raise
 
     @staticmethod
@@ -159,12 +158,12 @@ class ConversationKnowledgePackageManager:
     @staticmethod
     async def get_associated_share_id(context: ConversationContext) -> Optional[str]:
         """
-        Gets the project ID associated with a conversation.
+        Gets the share ID associated with a conversation.
         """
-        project_path = ShareStorageManager.get_conversation_share_file_path(context)
-        project_data = read_model(project_path, ConversationKnowledgePackageManager.ProjectAssociation)
+        share_path = ShareStorageManager.get_conversation_share_file_path(context)
+        share_data = read_model(share_path, ConversationKnowledgePackageManager.ShareAssociation)
 
-        if project_data:
-            return project_data.share_id
+        if share_data:
+            return share_data.share_id
 
         return None

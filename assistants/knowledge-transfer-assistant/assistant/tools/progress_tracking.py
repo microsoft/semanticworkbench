@@ -145,7 +145,7 @@ class ProgressTrackingTools(ToolsBase):
             knowledge_package = ShareStorage.read_share(share_id)
             if knowledge_package and knowledge_package._is_transfer_complete():
                 # Automatically complete the transfer
-                success, share_info = await KnowledgeTransferManager.complete_project(
+                success, share_info = await KnowledgeTransferManager.complete_transfer(
                     context=self.context,
                     summary="All learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
                 )
@@ -186,7 +186,7 @@ class ProgressTrackingTools(ToolsBase):
 
         This is a significant milestone that indicates the knowledge transfer has successfully
         achieved all its learning objectives. Before using this tool, verify that all learning outcomes
-        have been marked as achieved using get_project_info().
+        have been marked as achieved.
 
         Returns:
             A message indicating success or failure
@@ -195,12 +195,10 @@ class ProgressTrackingTools(ToolsBase):
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can report knowledge transfer completion."
 
-        # Get project ID
         share_id = await KnowledgeTransferManager.get_share_id(self.context)
         if not share_id:
             return "No knowledge package associated with this conversation. Unable to report transfer completion."
 
-        # Get existing knowledge package
         package = ShareStorage.read_share(share_id)
         if not package:
             return "No knowledge package found. Cannot complete transfer without package information."
@@ -223,7 +221,7 @@ class ProgressTrackingTools(ToolsBase):
         if not current_user_id:
             return "Could not identify current user."
 
-        package.transfer_notes = "Project is now complete"
+        package.transfer_notes = "Knowledge transfer is now complete"
         package.updated_at = datetime.utcnow()
         package.updated_by = current_user_id
         package.version += 1
@@ -234,20 +232,19 @@ class ProgressTrackingTools(ToolsBase):
             context=self.context,
             share_id=share_id,
             entry_type=LogEntryType.SHARE_COMPLETED.value,
-            message="Project marked as COMPLETED",
-            metadata={"milestone": "project_completed"},
+            message="Transfer marked as COMPLETED",
+            metadata={"milestone": "transfer_completed"},
         )
 
         # Notify linked conversations with a message
-        await Notifications.notify_all(self.context, share_id, "🎉 **Project Complete**: Team has reported that all project objectives have been achieved. The project is now complete.")
+        await Notifications.notify_all(self.context, share_id, "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.")
         await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.BRIEF])
 
-        # Update all project UI inspectors
         await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.BRIEF])
 
         await self.context.send_messages(
             NewConversationMessage(
-                content="🎉 **Project Complete**: All objectives have been achieved and the project is now complete. The Coordinator has been notified.",
+                content="🎉 **Knowledge Transfer Complete**: All learning objectives have been achieved and the knowledge transfer is now complete. The Coordinator has been notified.",
                 message_type=MessageType.chat,
             )
         )

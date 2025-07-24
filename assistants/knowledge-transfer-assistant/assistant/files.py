@@ -43,7 +43,7 @@ def safe_extra(log_data):
 
 
 class ShareFile(BaseModel):
-    """Metadata for a file shared within a project."""
+    """Metadata for a file shared within a share."""
 
     file_id: str
     filename: str
@@ -57,26 +57,26 @@ class ShareFile(BaseModel):
 
 
 class ShareCollection(BaseModel):
-    """Collection of file metadata for a project."""
+    """Collection of file metadata for a share."""
 
     files: List[ShareFile] = Field(default_factory=list)
 
 
 class ShareManager:
     """
-    Manages shared project files.
+    Manages shared knowledge transfer files.
 
     Provides functionality for copying files between conversations and maintaining
-    a synchronized file repository for each project.
+    a synchronized file repository for each knowledge share.
     """
 
     @staticmethod
     def get_share_files_dir(share_id: str) -> pathlib.Path:
         """
-        Gets the directory for project files.
+        Gets the directory for share files.
         """
-        project_dir = ShareStorageManager.get_share_dir(share_id)
-        files_dir = project_dir / "files"
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        files_dir = share_dir / "files"
         files_dir.mkdir(parents=True, exist_ok=True)
         return files_dir
 
@@ -91,7 +91,7 @@ class ShareManager:
     @staticmethod
     def get_file_path(share_id: str, filename: str) -> pathlib.Path:
         """
-        Gets the path to a specific file in the project.
+        Gets the path to a specific file in the share.
         """
         files_dir = ShareManager.get_share_files_dir(share_id)
         return files_dir / filename
@@ -99,7 +99,7 @@ class ShareManager:
     @staticmethod
     def read_file_metadata(share_id: str) -> ShareCollection:
         """
-        Reads file metadata for a project.
+        Reads file metadata for a share.
         """
         path = ShareManager.get_file_metadata_path(share_id)
         return read_model(path, ShareCollection) or ShareCollection(
@@ -109,21 +109,21 @@ class ShareManager:
     @staticmethod
     def write_file_metadata(share_id: str, metadata: ShareCollection) -> pathlib.Path:
         """
-        Writes file metadata for a project.
+        Writes file metadata for a share.
         """
         path = ShareManager.get_file_metadata_path(share_id)
         write_model(path, metadata)
         return path
 
     @staticmethod
-    async def copy_file_to_project_storage(
+    async def copy_file_to_share_storage(
         context: ConversationContext,
         share_id: str,
         file: workbench_model.File,
         is_coordinator_file: bool = True,
     ) -> bool:
         """
-        Copies a file from a conversation to project storage.
+        Copies a file from a conversation to share storage.
         """
         # Create safe log data for debugging
         log_extra = {
@@ -140,10 +140,10 @@ class ShareManager:
                 logger.error("Missing filename in file metadata", extra=safe_extra(log_extra))
                 return False
 
-            # Check if project storage directory exists
+            # Check if share storage directory exists
             files_dir = ShareManager.get_share_files_dir(share_id)
             if not files_dir.exists():
-                logger.debug(f"Creating project files directory: {files_dir}", extra=safe_extra(log_extra))
+                logger.debug(f"Creating knowledge transfer files directory: {files_dir}", extra=safe_extra(log_extra))
                 files_dir.mkdir(parents=True, exist_ok=True)
 
             # Read the file from the conversation with error handling
@@ -167,7 +167,7 @@ class ShareManager:
 
             buffer.seek(0)
 
-            # Write the file to project storage
+            # Write the file to share storage
             file_path = ShareManager.get_file_path(share_id, file.filename)
             try:
                 with open(file_path, "wb") as f:
@@ -176,13 +176,13 @@ class ShareManager:
                 # Verify file was written
                 if not file_path.exists() or file_path.stat().st_size == 0:
                     logger.error(
-                        "Failed to write file to project storage - file is missing or empty",
+                        "Failed to write file to share storage - file is missing or empty",
                         extra=safe_extra(log_extra),
                     )
                     return False
 
             except Exception as write_error:
-                logger.error(f"Error writing file to project storage: {write_error}", extra=safe_extra(log_extra))
+                logger.error(f"Error writing file to share storage: {write_error}", extra=safe_extra(log_extra))
                 return False
 
             # Store file metadata
@@ -245,7 +245,7 @@ class ShareManager:
             return True
 
         except Exception as e:
-            logger.exception(f"Error copying file to project storage: {e}", extra=safe_extra(log_extra))
+            logger.exception(f"Error copying file to share storage: {e}", extra=safe_extra(log_extra))
             return False
 
     @staticmethod
@@ -253,7 +253,7 @@ class ShareManager:
         context: ConversationContext, share_id: str, filename: str
     ) -> bool:
         """
-        Deletes a file from project storage.
+        Deletes a file from share storage.
         """
         try:
             # Get the file path
@@ -284,7 +284,7 @@ class ShareManager:
             return True
 
         except Exception as e:
-            logger.exception(f"Error deleting file from project storage: {e}")
+            logger.exception(f"Error deleting file from share storage: {e}")
             return False
 
     @staticmethod
@@ -335,19 +335,19 @@ class ShareManager:
         target_conversation_id: str,
     ) -> bool:
         """
-        Copies a file from project storage to a target conversation.
+        Copies a file from share storage to a target conversation.
         """
         try:
-            # Check if the file exists in project storage
+            # Check if the file exists in share storage
             file_path = ShareManager.get_file_path(share_id, filename)
             if not file_path.exists():
-                logger.warning(f"File {filename} not found in project storage")
+                logger.warning(f"File {filename} not found in share storage")
                 return False
 
             # Get file metadata
             metadata = ShareManager.read_file_metadata(share_id)
             if not metadata:
-                logger.warning(f"No file metadata found for project {share_id}")
+                logger.warning(f"No file metadata found for share {share_id}")
                 return False
 
             # Find the file metadata
@@ -414,7 +414,7 @@ class ShareManager:
     @staticmethod
     async def get_team_conversations(context: ConversationContext, share_id: str) -> List[str]:
         """
-        Gets all Team conversation IDs for a project.
+        Gets all Team conversation IDs for a share.
         """
         try:
             # Get linked conversations
@@ -458,11 +458,11 @@ class ShareManager:
         share_id: str,
     ) -> None:
         """
-        Synchronize all project files to a Team conversation.
+        Synchronize all share files to a Team conversation.
         """
-        logger.debug(f"Starting file synchronization for project {share_id}")
+        logger.debug(f"Starting file synchronization for share {share_id}")
 
-        # Get file metadata for the project
+        # Get file metadata for the share
         metadata = ShareManager.read_file_metadata(share_id)
 
         if not metadata or not metadata.files:
@@ -552,10 +552,10 @@ class ShareManager:
     @staticmethod
     async def get_shared_files(context: ConversationContext, share_id: str) -> Dict[str, ShareFile]:
         """
-        Gets all shared files for a project with filename as key.
+        Gets all shared files for a share with filename as key.
         """
         try:
-            # Get file metadata for the project
+            # Get file metadata for the share
             metadata = ShareManager.read_file_metadata(share_id)
             if not metadata or not metadata.files:
                 return {}
@@ -585,7 +585,7 @@ class ShareManager:
 
             # Process based on update type
             if update_type == "file_created" or update_type == "file_updated":
-                # Synchronize the specific file from project storage
+                # Synchronize the specific file from share storage
                 success = await ShareManager.copy_file_to_conversation(
                     context=context, share_id=share_id, filename=filename, target_conversation_id=str(context.id)
                 )

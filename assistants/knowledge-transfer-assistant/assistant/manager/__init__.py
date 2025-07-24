@@ -9,7 +9,7 @@ from .information_request_manager import InformationRequestManager
 from .knowledge_brief_manager import KnowledgeBriefManager
 from .knowledge_digest_manager import KnowledgeDigestManager
 from .learning_objectives_manager import LearningObjectivesManager
-from .project_lifecycle_manager import ProjectLifecycleManager
+from .project_lifecycle_manager import TransferLifecycleManager
 from .share_management import ShareManagement
 
 
@@ -63,9 +63,10 @@ class KnowledgeTransferManager:
     auto_update_knowledge_digest = KnowledgeDigestManager.auto_update_knowledge_digest
 
     # Project Lifecycle Management
-    update_share_state = ProjectLifecycleManager.update_share_state
-    update_share_info = ProjectLifecycleManager.update_share_info
-    complete_project = ProjectLifecycleManager.complete_project
+    update_share_state = TransferLifecycleManager.update_share_state
+    update_share_info = TransferLifecycleManager.update_share_info
+    update_audience = TransferLifecycleManager.update_audience
+    complete_transfer = TransferLifecycleManager.complete_transfer
 
     # Coordinator Support
     get_coordinator_next_action_suggestion = CoordinatorSupport.get_coordinator_next_action_suggestion
@@ -74,11 +75,11 @@ class KnowledgeTransferManager:
 # Export individual managers for direct access if needed
 __all__ = [
     "KnowledgeTransferManager",
-    "CoordinatorSupport", 
+    "CoordinatorSupport",
     "InformationRequestManager",
     "KnowledgeBriefManager",
-    "KnowledgeDigestManager", 
+    "KnowledgeDigestManager",
     "LearningObjectivesManager",
-    "ProjectLifecycleManager",
+    "TransferLifecycleManager",
     "ShareManagement",
 ]

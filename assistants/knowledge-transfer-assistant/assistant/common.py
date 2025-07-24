@@ -1,5 +1,5 @@
 """
-Common utilities shared between project assistant modes.
+Common utilities shared between knowledge transfer assistant modes.
 
 This module provides shared functionality for team and coordinator conversation handlers,
 helping to reduce code duplication and maintain consistency.
@@ -20,9 +20,9 @@ async def detect_assistant_role(context: ConversationContext) -> ConversationRol
     """
     Detects whether this conversation is in Coordinator or Team mode.
 
-    This method examines the conversation metadata to determine the role
-    of the current conversation in the project. The role is always stored
-    in the conversation metadata as "share_role".
+    This method examines the conversation metadata to determine the role of the
+    current conversation in the knowledge transfer. The role is always stored in
+    the conversation metadata as "share_role".
 
     Args:
         context: The conversation context to examine
@@ -45,7 +45,7 @@ async def detect_assistant_role(context: ConversationContext) -> ConversationRol
         return ConversationRole.COORDINATOR
 
 
-async def log_project_action(
+async def log_transfer_action(
     context: ConversationContext,
     entry_type: LogEntryType,
     message: str,
@@ -53,9 +53,9 @@ async def log_project_action(
     additional_metadata: Optional[Dict] = None,
 ) -> None:
     """
-    Log an action to the project log.
+    Log an action to the knowledge transfer log.
 
-    This utility function handles retrieving the project ID and logging the event
+    This utility function handles retrieving the share ID and logging the event
     using the appropriate storage mechanism. It's used by both Coordinator and Team mode
     handlers to maintain consistent logging.
 

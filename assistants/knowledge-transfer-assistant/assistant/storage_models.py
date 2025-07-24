@@ -1,8 +1,8 @@
 """
-Models for project storage entities.
+Models for knowledge transfer share storage entities.
 
 This module contains data models specific to storage operations,
-separate from the core project data models.
+separate from the core share data models.
 """
 
 from datetime import datetime
@@ -14,11 +14,11 @@ from pydantic import BaseModel, Field
 
 class ConversationRole(str, Enum):
     """
-    Enumeration of conversation roles in a project.
+    Enumeration of conversation roles in a knowledge transfer.
 
-    This enum represents the role that a conversation plays in a project,
-    either as a Coordinator (managing the project) or as a Team member
-    (participating in the project).
+    This enum represents the role that a conversation plays in a knowledge transfer,
+    either as a Coordinator (managing the knowledge transfer) or as a Team member
+    (participating in the knowledge transfer).
     """
 
     COORDINATOR = "coordinator"

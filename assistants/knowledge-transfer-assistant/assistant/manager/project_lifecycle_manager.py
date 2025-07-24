@@ -1,7 +1,7 @@
 """
-Project lifecycle management for Knowledge Transfer Assistant.
+Knowledge transfer lifecycle management for Knowledge Transfer Assistant.
 
-Handles project state updates, completion, and lifecycle operations.
+Handles knowledge transfer state updates, completion, and lifecycle operations.
 """
 
 from datetime import datetime
@@ -18,8 +18,8 @@ from ..utils import require_current_user
 from .share_management import ShareManagement
 
 
-class ProjectLifecycleManager:
-    """Manages project lifecycle and state operations."""
+class TransferLifecycleManager:
+    """Manages knowledge transfer lifecycle and state operations."""
 
     @staticmethod
     async def update_share_state(
@@ -30,23 +30,23 @@ class ProjectLifecycleManager:
 
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot update project state: no project associated with this conversation")
+                logger.error("Cannot update share state: no share associated with this conversation")
                 return False, None
 
-            current_user_id = await require_current_user(context, "update project state")
+            current_user_id = await require_current_user(context, "update share state")
             if not current_user_id:
                 return False, None
 
-            project_info = ShareStorage.read_share_info(share_id)
-            if not project_info:
-                logger.error(f"Cannot update project state: no project info found for {share_id}")
+            share_info = ShareStorage.read_share_info(share_id)
+            if not share_info:
+                logger.error(f"Cannot update share state: no share info found for {share_id}")
                 return False, None
 
             if status_message:
-                project_info.transfer_notes = status_message
+                share_info.transfer_notes = status_message
 
-            project_info.updated_at = datetime.utcnow()
-            ShareStorage.write_share_info(share_id, project_info)
+            share_info.updated_at = datetime.utcnow()
+            ShareStorage.write_share_info(share_id, share_info)
 
             event_type = LogEntryType.STATUS_CHANGED
             message = "Updated status"
@@ -63,10 +63,10 @@ class ProjectLifecycleManager:
                 },
             )
 
-            return True, project_info
+            return True, share_info
 
         except Exception as e:
-            logger.exception(f"Error updating project state: {e}")
+            logger.exception(f"Error updating share state: {e}")
             return False, None
 
     @staticmethod
@@ -79,31 +79,31 @@ class ProjectLifecycleManager:
 
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update project info: no project associated with this conversation")
+            logger.error("Cannot update share info: no share associated with this conversation")
             return None
 
-        current_user_id = await require_current_user(context, "update project info")
+        current_user_id = await require_current_user(context, "update share info")
         if not current_user_id:
             return None
 
-        project_info = ShareStorage.read_share_info(share_id)
-        if not project_info:
-            logger.error(f"Cannot update project info: no project info found for {share_id}")
+        share_info = ShareStorage.read_share_info(share_id)
+        if not share_info:
+            logger.error(f"Cannot update share info: no share info found for {share_id}")
             return None
 
         if status_message:
-            project_info.transfer_notes = status_message
+            share_info.transfer_notes = status_message
 
         if next_actions:
-            project_info.next_learning_actions = next_actions
+            share_info.next_learning_actions = next_actions
 
-        project_info.updated_at = datetime.utcnow()
-        project_info.updated_by = current_user_id
+        share_info.updated_at = datetime.utcnow()
+        share_info.updated_by = current_user_id
 
-        if hasattr(project_info, "version"):
-            project_info.version += 1
+        if hasattr(share_info, "version"):
+            share_info.version += 1
 
-        ShareStorage.write_share_info(share_id, project_info)
+        ShareStorage.write_share_info(share_id, share_info)
 
         event_type = LogEntryType.STATUS_CHANGED
         message = "Updated status"
@@ -120,10 +120,10 @@ class ProjectLifecycleManager:
             },
         )
 
-        return project_info
+        return share_info
 
     @staticmethod
-    async def complete_project(
+    async def complete_transfer(
         context: ConversationContext,
         summary: Optional[str] = None,
     ) -> Tuple[bool, Optional[KnowledgePackage]]:
@@ -131,21 +131,21 @@ class ProjectLifecycleManager:
 
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot complete project: no project associated with this conversation")
+                logger.error("Cannot complete transfer: no share associated with this conversation")
                 return False, None
 
             role = await ShareManagement.get_share_role(context)
             if role != ConversationRole.COORDINATOR:
-                logger.error("Only Coordinator can complete a project")
+                logger.error("Only Coordinator can complete a transfer")
                 return False, None
 
             status_message = summary if summary else "KnowledgePackage completed successfully"
-            success, project_info = await ProjectLifecycleManager.update_share_state(
+            success, share_info = await TransferLifecycleManager.update_share_state(
                 context=context,
                 status_message=status_message,
             )
 
-            if not success or not project_info:
+            if not success or not share_info:
                 return False, None
 
             await ShareStorage.log_share_event(
@@ -155,11 +155,62 @@ class ProjectLifecycleManager:
                 message=f"KnowledgePackage completed: {status_message}",
             )
 
-            await Notifications.notify_all(context, share_id, f"🎉 **Project Completed**: {status_message}")
+            await Notifications.notify_all(context, share_id, f"🎉 **knowledge Transfer Completed**: {status_message}")
             await Notifications.notify_all_state_update(context, share_id, [InspectorTab.BRIEF, InspectorTab.LEARNING, InspectorTab.SHARING, InspectorTab.DEBUG])
 
-            return True, project_info
+            return True, share_info
 
         except Exception as e:
-            logger.exception(f"Error completing project: {e}")
+            logger.exception(f"Error completing knowledge transfer: {e}")
             return False, None
+
+    @staticmethod
+    async def update_audience(
+        context: ConversationContext,
+        audience_description: str,
+    ) -> Tuple[bool, str]:
+        """
+        Update the target audience description for a knowledge package.
+
+        Args:
+            context: Current conversation context
+            audience_description: Description of the intended audience and their existing knowledge level
+
+        Returns:
+            Tuple of (success, message) where:
+            - success: Boolean indicating if the update was successful
+            - message: Result message
+        """
+        try:
+            share_id = await ShareManagement.get_share_id(context)
+            if not share_id:
+                return False, "No knowledge package associated with this conversation. Please create a knowledge brief first."
+
+            # Get existing knowledge package
+            package = ShareStorage.read_share(share_id)
+            if not package:
+                return False, "No knowledge package found. Please create a knowledge brief first."
+
+            # Update the audience
+            package.audience = audience_description.strip()
+            package.updated_at = datetime.utcnow()
+
+            # Save the updated package
+            ShareStorage.write_share(share_id, package)
+
+            # Log the event
+            await ShareStorage.log_share_event(
+                context=context,
+                share_id=share_id,
+                entry_type=LogEntryType.STATUS_CHANGED.value,
+                message=f"Updated target audience: {audience_description}",
+                metadata={
+                    "audience": audience_description,
+                },
+            )
+
+            return True, f"Target audience updated successfully: {audience_description}"
+
+        except Exception as e:
+            logger.exception(f"Error updating audience: {e}")
+            return False, "Failed to update the audience. Please try again."

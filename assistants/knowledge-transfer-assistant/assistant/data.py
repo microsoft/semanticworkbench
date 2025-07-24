@@ -1,7 +1,7 @@
 """
-Data models for project entities (briefs, information requests, logs, etc.)
+Data models for knowledge transfer share entities (briefs, information requests, logs, etc.)
 
-This module provides the core data structures for the project assistant,
+This module provides the core data structures for the knowledge transfer assistant,
 without any artifact abstraction or unnecessary complexity.
 """
 
@@ -21,10 +21,10 @@ class InspectorTab(str, Enum):
     and for sending state events to update specific inspector panels.
     """
 
-    BRIEF = "brief"              # Knowledge brief and project overview
+    BRIEF = "brief"              # Knowledge brief and knowledge transfer overview
     LEARNING = "learning"    # Learning objectives and outcomes
     SHARING = "sharing"        # Information requests and sharing status
-    DEBUG = "debug"             # Debug information and project state
+    DEBUG = "debug"             # Debug information and knowledge transfer state
 
 
 class RequestPriority(str, Enum):
@@ -60,9 +60,9 @@ class RequestStatus(str, Enum):
 
 class BaseEntity(BaseModel):
     """
-    Base class for all project entities.
+    Base class for all knowledge transfer entities.
 
-    Provides common fields and behavior that all project-related data models inherit.
+    Provides common fields and behavior that all knowledge transfer-related data models inherit.
     This ensures consistency in how entities are created, versioned, and tracked.
     All derived classes will have proper timestamps and creator information.
     """
@@ -100,7 +100,7 @@ class TeamConversationInfo(BaseModel):
     conversation_id: str  # The conversation ID for this team member
     redeemer_user_id: str  # User ID of the first non-assistant participant (the redeemer)
     redeemer_name: str  # Display name of the redeemer
-    joined_at: datetime = Field(default_factory=datetime.utcnow)  # When this conversation joined the project
+    joined_at: datetime = Field(default_factory=datetime.utcnow)  # When this conversation joined the knowledge transfer
     last_active_at: datetime = Field(default_factory=datetime.utcnow)  # Last activity timestamp
 
     # Each team conversation tracks its own achievements independently
@@ -193,7 +193,7 @@ class InformationRequest(BaseEntity):
 
     Information requests are the primary communication mechanism for team members
     to request assistance, information, or resources from the Coordinator. They represent
-    questions, blockers, or needs that arise during project execution.
+    questions, blockers, or needs that arise during knowledge transfer.
 
     The lifecycle of an information request typically follows:
     1. Created by a team member (NEW status)
@@ -228,10 +228,10 @@ class InformationRequest(BaseEntity):
 
 class LogEntryType(str, Enum):
     """
-    Types of log entries in the project log.
+    Types of log entries in the knowledge transfer log.
 
-    These entry types categorize all events that can occur during a project.
-    Log entries provide a chronological history of actions and events in the project,
+    These entry types categorize all events that can occur during a knowledge transfer.
+    Log entries provide a chronological history of actions and events in the knowledge transfer,
     allowing both Coordinators and team members to track progress and changes.
     """
 
@@ -278,14 +278,14 @@ class LogEntryType(str, Enum):
 
 class LogEntry(BaseModel):
     """
-    Individual entry in the project log.
+    Individual entry in the knowledge transfer log.
 
-    Log entries record all significant events that occur during a project.
+    Log entries record all significant events that occur during a knowledge transfer.
     Each entry has a specific type, message, and associated metadata.
 
     The chronological sequence of log entries forms a complete audit trail
-    of the project's progress, actions taken, and events that occurred.
-    This provides accountability and helps with post-project review.
+    of the knowledge transfer's progress, actions taken, and events that occurred.
+    This provides accountability and helps with post-knowledge transfer review.
 
     Log entries are typically created automatically by the system when
     certain actions are taken, but can also be manually added by participants.
@@ -306,21 +306,21 @@ class LogEntry(BaseModel):
 
 class KnowledgePackageLog(BaseModel):
     """
-    A chronological record of all actions and interactions during the project,
+    A chronological record of all actions and interactions during the knowledge transfer,
     including updates and progress reports.
 
-    The project log serves as the comprehensive history of everything that
-    happened during a project. It contains a chronological list of log entries
+    The knowledge transfer log serves as the comprehensive history of everything that
+    happened during a knowledge transfer. It contains a chronological list of log entries
     describing actions, state changes, and significant events.
 
     The log is used for:
-    - Real-time monitoring of project activity
-    - Post-project review and analysis
+    - Real-time monitoring of knowledge transfer activity
+    - Post-knowledge transfer review and analysis
     - Accountability and documentation purposes
     - Tracking the sequence of events leading to outcomes
 
-    Both the Coordinator and team members can view the project log, providing transparency
-    into what has occurred during the project.
+    Both the Coordinator and team members can view the knowledge transfer log, providing transparency
+    into what has occurred during the knowledge transfer.
     """
 
     entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
@@ -347,7 +347,6 @@ class KnowledgePackage(BaseModel):
     share_url: Optional[str] = None  # Shareable URL for inviting team members
     next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
     transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Transfer lifecycle metadata
-    audience: Optional[str] = None  # Description of the intended audience and their existing knowledge level
     archived: bool = False  # Whether this knowledge package has been archived
     is_intended_to_accomplish_outcomes: bool = (
         True  # Whether this package is intended for specific learning outcomes vs general exploration
@@ -361,8 +360,12 @@ class KnowledgePackage(BaseModel):
     updated_by: Optional[str] = None  # User ID who last updated the package
 
     # Package components
+    audience: Optional[str] = None  # Description of the intended audience and their existing knowledge level
     brief: Optional[KnowledgeBrief]
     learning_objectives: List[LearningObjective] = Field(default_factory=list)
+    takeaways: List[str] = Field(default_factory=list)  # Key takeaways from the knowledge package
+    preferred_communication_style: Optional[str] = None  # Preferred communication style for the audience
+
     requests: List[InformationRequest] = Field(default_factory=list)
     digest: Optional[KnowledgeDigest]
     log: Optional[KnowledgePackageLog] = Field(default_factory=lambda: KnowledgePackageLog())

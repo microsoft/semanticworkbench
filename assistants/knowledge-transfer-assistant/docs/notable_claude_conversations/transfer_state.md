@@ -90,14 +90,14 @@
 
   3. Command Processor (assistant/command_processor.py)
 
-- Shows current status in project info display
+- Shows current status in share info display
 - Again, purely informational
 
   4. Tools (assistant/tools.py)
 
 - Sets initial state to ORGANIZING when creating a new package
 - Updates to READY_FOR_TRANSFER when marking ready
-- Updates to COMPLETED when project is finished
+- Updates to COMPLETED when knowledge transfer is finished
 - These are explicit state transitions triggered by tool calls
 
   5. Manager (assistant/manager.py)
@@ -143,7 +143,7 @@
   I'm exploring potential alternative approaches to state management. The current state tracking seems overly complex for its actual usage. Most state changes appear to be manual tool-driven transitions, with
   minimal automated logic.
 
-  The core challenge is determining precise conditions for state changes. Potential improvements could involve more dynamic, condition-based state transitions that automatically update based on project
+  The core challenge is determining precise conditions for state changes. Potential improvements could involve more dynamic, condition-based state transitions that automatically update based on knowledge transfer
   completeness and prerequisite fulfillment.
 
   Interesting observations emerge about the granularity of state tracking. While multiple states exist, the actual business logic relies on very simple binary checks - essentially whether a package is ready for

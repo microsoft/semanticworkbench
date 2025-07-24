@@ -42,7 +42,7 @@ class KnowledgeDigestManager:
         try:
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot update knowledge digest: no project associated with this conversation")
+                logger.error("Cannot update knowledge digest: no share associated with this conversation")
                 return False, None
 
             current_user_id = await require_current_user(context, "update knowledge digest")
@@ -105,7 +105,7 @@ class KnowledgeDigestManager:
 
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot auto-update knowledge digest: no project associated with this conversation")
+                logger.error("Cannot auto-update knowledge digest: no share associated with this conversation")
                 return False, None
 
             current_user_id = await require_current_user(context, "auto-update knowledge digest")

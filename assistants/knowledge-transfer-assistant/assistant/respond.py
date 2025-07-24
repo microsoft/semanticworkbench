@@ -117,8 +117,8 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    project_id = await KnowledgeTransferManager.get_share_id(context)
-    if not project_id:
+    share_id = await KnowledgeTransferManager.get_share_id(context)
+    if not share_id:
         raise ValueError("Project ID not found in context")
 
     token_budget = TokenBudget(config.request_config.max_tokens)
@@ -178,9 +178,9 @@ async def respond_to_conversation(
     ###
 
     # Project info
-    project_info = ShareStorage.read_share_info(project_id)
-    if project_info:
-        data = project_info.model_dump()
+    share_info = ShareStorage.read_share_info(share_id)
+    if share_info:
+        data = share_info.model_dump()
 
         # Delete fields that are not relevant to the knowledge transfer assistant.
         # FIXME: Reintroduce these properly.
@@ -195,25 +195,25 @@ async def respond_to_conversation(
         if "lifecycle" in data:
             del data["lifecycle"]
 
-        project_info_text = project_info.model_dump_json(indent=2)
-        prompt.contexts.append(Context("Knowledge Info", project_info_text))
+        share_info_text = share_info.model_dump_json(indent=2)
+        prompt.contexts.append(Context("Knowledge Info", share_info_text))
 
     # Brief
-    briefing = ShareStorage.read_knowledge_brief(project_id)
-    project_brief_text = ""
+    briefing = ShareStorage.read_knowledge_brief(share_id)
+    brief_text = ""
     if briefing:
-        project_brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.content}"
+        brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.content}"
         prompt.contexts.append(
             Context(
                 "Knowledge Brief",
-                project_brief_text,
+                brief_text,
             )
         )
 
     # Audience (for coordinators to understand target audience)
-    if role == ConversationRole.COORDINATOR and project_info and project_info.audience:
-        audience_context = project_info.audience
-        if not project_info.is_intended_to_accomplish_outcomes:
+    if role == ConversationRole.COORDINATOR and share_info and share_info.audience:
+        audience_context = share_info.audience
+        if not share_info.is_intended_to_accomplish_outcomes:
             audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
 
         prompt.contexts.append(
@@ -225,7 +225,7 @@ async def respond_to_conversation(
         )
 
     # Learning objectives
-    share = ShareStorage.read_share(project_id)
+    share = ShareStorage.read_share(share_id)
     if share and share.learning_objectives:
         learning_objectives_text = ""
         conversation_id = str(context.id)
@@ -247,7 +247,7 @@ async def respond_to_conversation(
                 )
 
         for i, objective in enumerate(share.learning_objectives):
-            project_brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
             if objective.learning_outcomes:
                 for criterion in objective.learning_outcomes:
                     if role == ConversationRole.COORDINATOR:
@@ -271,14 +271,14 @@ async def respond_to_conversation(
         )
 
     # Knowledge digest
-    knowledge_digest = ShareStorage.read_knowledge_digest(project_id)
+    knowledge_digest = ShareStorage.read_knowledge_digest(share_id)
     if knowledge_digest and knowledge_digest.content:
         prompt.contexts.append(
             Context("Knowledge digest", knowledge_digest.content, "The assistant-maintained knowledge digest.")
         )
 
     # Information requests
-    all_requests = ShareStorage.get_all_information_requests(project_id)
+    all_requests = ShareStorage.get_all_information_requests(share_id)
     if role == ConversationRole.COORDINATOR:
         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
         if active_requests:
@@ -291,7 +291,7 @@ async def respond_to_conversation(
                 coordinator_requests += f"   **Description:** {req.description}\n\n"
 
             if len(active_requests) > 10:
-                coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
+                coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_share_info(info_type="requests") to see all.*\n'
         else:
             coordinator_requests = "No active information requests."
         prompt.contexts.append(
@@ -349,7 +349,7 @@ async def respond_to_conversation(
     ###
 
     # Get the coordinator conversation and add it as an attachment.
-    coordinator_conversation = ShareStorage.read_coordinator_conversation(project_id)
+    coordinator_conversation = ShareStorage.read_coordinator_conversation(share_id)
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
@@ -560,12 +560,12 @@ async def respond_to_conversation(
                 "response_format": CoordinatorOutput if role == ConversationRole.COORDINATOR else TeamOutput,
             }
 
-            project_tools = ShareTools(context, role)
+            share_tools = ShareTools(context, role)
             response_start_time = time.time()
             completion_response, additional_messages = await complete_with_tool_calls(
                 async_client=client,
                 completion_args=completion_args,
-                tool_functions=project_tools.tool_functions,
+                tool_functions=share_tools.tool_functions,
                 metadata=metadata["debug"],
             )
             response_end_time = time.time()

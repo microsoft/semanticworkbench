@@ -23,7 +23,7 @@ class InformationRequestManager:
     async def get_information_requests(
         context: ConversationContext,
     ) -> List[InformationRequest]:
-        """Gets all information requests for the current conversation's project."""
+        """Gets all information requests for the current conversation's share."""
         from .share_management import ShareManagement
 
         share_id = await ShareManagement.get_share_id(context)
@@ -44,7 +44,7 @@ class InformationRequestManager:
 
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot create information request: no project associated with this conversation")
+                logger.error("Cannot create information request: no share associated with this conversation")
                 return False, None
 
             current_user_id = await require_current_user(context, "create information request")
@@ -94,7 +94,7 @@ class InformationRequestManager:
 
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot resolve information request: no project associated with this conversation")
+                logger.error("Cannot resolve information request: no share associated with this conversation")
                 return False, None
 
             current_user_id = await require_current_user(context, "resolve information request")
@@ -190,7 +190,7 @@ class InformationRequestManager:
         try:
             share_id = await ShareManagement.get_share_id(context)
             if not share_id:
-                logger.error("Cannot delete information request: no project associated with this conversation")
+                logger.error("Cannot delete information request: no share associated with this conversation")
                 return False, "No knowledge package associated with this conversation."
 
             current_user_id = await require_current_user(context, "delete information request")
