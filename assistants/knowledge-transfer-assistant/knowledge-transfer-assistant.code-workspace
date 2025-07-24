@@ -15,7 +15,7 @@
         "configurations": [
           "app: semantic-workbench-app",
           "service: semantic-workbench-service",
-          "assistants: project-assistant"
+          "assistants: knowledge-transfer-assistant"
         ]
       }
     ]

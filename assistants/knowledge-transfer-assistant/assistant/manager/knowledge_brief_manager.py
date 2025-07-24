@@ -36,7 +36,7 @@ class KnowledgeBriefManager:
 
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update brief: no project associated with this conversation")
+            logger.error("Cannot update brief: no share associated with this conversation")
             return
 
         current_user_id = await require_current_user(context, "update brief")

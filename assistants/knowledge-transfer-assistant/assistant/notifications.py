@@ -119,7 +119,7 @@ class Notifications:
 
     @staticmethod
     async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: List[InspectorTab]) -> None:
-        """Send state update notifications to refresh UI across all project conversations."""
+        """Send state update notifications to refresh UI across all share conversations."""
 
         # Refresh current conversation first
         await Notifications.notify_state_update(context, tabs)

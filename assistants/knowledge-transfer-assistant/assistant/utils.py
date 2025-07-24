@@ -1,7 +1,7 @@
 """
-Utility functions for the project assistant module.
+Utility functions for the knowledge transfer assistant module.
 
-This module provides common utility functions used across the project assistant
+This module provides common utility functions used across the knowledge transfer assistant
 codebase, helping to reduce code duplication and maintain consistency.
 """
 

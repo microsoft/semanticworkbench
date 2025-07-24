@@ -1,7 +1,7 @@
 """
-Logging utilities for project assistant.
+Logging utilities for knowledge transfer assistant.
 
-This module provides enhanced logging capabilities for the project assistant,
+This module provides enhanced logging capabilities for the knowledge transfer assistant,
 including JSON formatting and file logging.
 """
 
@@ -17,7 +17,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 # Configure the root logger
-logger = logging.getLogger("project-assistant")
+logger = logging.getLogger("knowledge-transfer-assistant")
 logger.setLevel(logging.DEBUG)
 
 # Ensure propagation is enabled to allow logs to reach the root handler
@@ -75,7 +75,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "conversation_id": record_dict.get("conversation_id", None),
-            "project_id": record_dict.get("project_id", None),
+            "share_id": record_dict.get("share_id", None),
             "message": record.getMessage(),
             "data": record_dict.get("data", None),
             "module": record.module,
@@ -100,7 +100,7 @@ class JsonFormatter(logging.Formatter):
                 "message",
                 "asctime",
                 "conversation_id",
-                "project_id",
+                "share_id",
                 "data",
             ]
         }
@@ -126,19 +126,16 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
     Set up file logging with JSON formatting.
 
     Args:
-        log_dir: Directory for log files. If None, uses the project's .data/logs/ directory
+        log_dir: Directory for log files. If None, uses the knowledge transfer's .data/logs/ directory
 
     Returns:
         Path to the log file
     """
-    # By default, store logs in the project's .data directory
     if log_dir is None:
-        # Get the directory where the current module is located
         current_file = Path(__file__)
-        project_dir = current_file.parent.parent  # Go up to project-assistant directory
-        log_path = project_dir / ".data" / "logs"
+        share_dir = current_file.parent.parent
+        log_path = share_dir / ".data" / "logs"
     else:
-        # Use the provided directory
         log_path = Path(log_dir)
 
     # Ensure directory exists
@@ -146,8 +143,8 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
 
     # Create log file path with timestamp to avoid conflicts
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_path / f"project_assistant_{timestamp}.json"
-    line_log_file = log_path / f"project_assistant_{timestamp}.log"  # Add a regular log file too
+    log_file = log_path / f"log_{timestamp}.json"
+    line_log_file = log_path / f"log_{timestamp}.log"  # Add a regular log file too
 
     try:
         # Remove any existing file handlers to avoid duplicates
@@ -172,7 +169,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             extra={
                 "system": platform.system(),
                 "python_version": platform.python_version(),
-                "app": "project-assistant",
+                "app": "knowledge-transfer-assistant",
                 "path": str(log_file.absolute()),
             },
         )
@@ -200,11 +197,11 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
         try:
             # Try a different subfolder in the .data directory
             current_file = Path(__file__)
-            project_dir = current_file.parent.parent  # Go up to project-assistant directory
-            fallback_dir = project_dir / ".data" / "fallback_logs"
+            share_dir = current_file.parent.parent
+            fallback_dir = share_dir / ".data" / "fallback_logs"
             os.makedirs(fallback_dir, exist_ok=True)
-            log_file = Path(fallback_dir) / f"project_assistant_{timestamp}.json"
-            line_log_file = Path(fallback_dir) / f"project_assistant_{timestamp}.log"
+            log_file = Path(fallback_dir) / f"log_{timestamp}.json"
+            line_log_file = Path(fallback_dir) / f"log_{timestamp}.log"
 
             json_file_handler = logging.FileHandler(log_file)
             json_file_handler.setLevel(logging.DEBUG)

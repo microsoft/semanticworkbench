@@ -1,7 +1,7 @@
 """
-Analysis and detection functions for the project assistant.
+Analysis and detection functions for the knowledge transfer assistant.
 
-This module contains functions for analyzing messages and project content
+This module contains functions for analyzing messages and knowledge transfer content
 to detect specific conditions, such as information request needs.
 """
 

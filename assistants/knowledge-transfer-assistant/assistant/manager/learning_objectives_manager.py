@@ -29,7 +29,7 @@ class LearningObjectivesManager:
 
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot add learning objective: no project associated with this conversation")
+            logger.error("Cannot add learning objective: no share associated with this conversation")
             return None
 
         current_user_id = await require_current_user(context, "add learning objective")
@@ -48,10 +48,10 @@ class LearningObjectivesManager:
             learning_outcomes=criterion_objects,
         )
 
-        project = ShareStorage.read_share(share_id)
-        if not project:
-            # Create a new project if it doesn't exist
-            project = KnowledgePackage(
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            # Create a new share if it doesn't exist
+            share = KnowledgePackage(
                 share_id=share_id,
                 brief=None,
                 learning_objectives=[new_learning_objective],
@@ -60,9 +60,9 @@ class LearningObjectivesManager:
                 log=None,
             )
         else:
-            project.learning_objectives.append(new_learning_objective)
+            share.learning_objectives.append(new_learning_objective)
 
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         await ShareStorage.log_share_event(
             context=context,
@@ -86,26 +86,26 @@ class LearningObjectivesManager:
         """Update an existing learning objective's name or description."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update learning objective: no project associated with this conversation")
-            return False, "No project associated with this conversation."
+            logger.error("Cannot update learning objective: no share associated with this conversation")
+            return False, "No share associated with this conversation."
 
         current_user_id = await require_current_user(context, "update learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        project = ShareStorage.read_share(share_id)
-        if not project or not project.learning_objectives:
+        share = ShareStorage.read_share(share_id)
+        if not share or not share.learning_objectives:
             return False, "No learning objectives found."
 
         # Find objective by ID
         objective = None
-        for obj in project.learning_objectives:
+        for obj in share.learning_objectives:
             if obj.id == objective_id:
                 objective = obj
                 break
 
         if not objective:
-            available_ids = [obj.id for obj in project.learning_objectives]
+            available_ids = [obj.id for obj in share.learning_objectives]
             return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
         original_name = objective.name
@@ -123,7 +123,7 @@ class LearningObjectivesManager:
         if not changes_made:
             return True, "No changes specified"
 
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         changes_text = ", ".join(changes_made)
         await ShareStorage.log_share_event(
@@ -151,44 +151,44 @@ class LearningObjectivesManager:
         """Delete a learning objective by ID."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot delete learning objective: no project associated with this conversation")
-            return False, "No project associated with this conversation."
+            logger.error("Cannot delete learning objective: no share associated with this conversation")
+            return False, "No share associated with this conversation."
 
         current_user_id = await require_current_user(context, "delete learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        project = ShareStorage.read_share(share_id)
-        if not project or not project.learning_objectives:
+        share = ShareStorage.read_share(share_id)
+        if not share or not share.learning_objectives:
             return False, "No learning objectives found."
 
         # Find objective by ID
         objective = None
         objective_index = -1
-        for idx, obj in enumerate(project.learning_objectives):
+        for idx, obj in enumerate(share.learning_objectives):
             if obj.id == objective_id:
                 objective = obj
                 objective_index = idx
                 break
 
         if not objective:
-            available_ids = [obj.id for obj in project.learning_objectives]
+            available_ids = [obj.id for obj in share.learning_objectives]
             return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
         objective_name = objective.name
 
         # Clean up any achievement records for all outcomes in this objective across all team conversations
         for outcome in objective.learning_outcomes:
-            for team_info in project.team_conversations.values():
+            for team_info in share.team_conversations.values():
                 team_info.outcome_achievements = [
                     achievement for achievement in team_info.outcome_achievements
                     if achievement.outcome_id != outcome.id
                 ]
 
-        # Remove the objective from the project
-        project.learning_objectives.pop(objective_index)
+        # Remove the objective from the share
+        share.learning_objectives.pop(objective_index)
 
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         await ShareStorage.log_share_event(
             context=context,
@@ -214,11 +214,11 @@ class LearningObjectivesManager:
         if not share_id:
             return []
 
-        project = ShareStorage.read_share(share_id)
-        if not project:
+        share = ShareStorage.read_share(share_id)
+        if not share:
             return []
 
-        objectives = project.learning_objectives
+        objectives = share.learning_objectives
         outcomes = []
         for objective in objectives:
             outcomes.extend(objective.learning_outcomes)
@@ -234,26 +234,26 @@ class LearningObjectivesManager:
         """Add a new learning outcome to an existing learning objective."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot add learning outcome: no project associated with this conversation")
+            logger.error("Cannot add learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "add learning outcome")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        project = ShareStorage.read_share(share_id)
-        if not project or not project.learning_objectives:
+        share = ShareStorage.read_share(share_id)
+        if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before adding outcomes."
 
         # Find the objective by ID
         objective = None
-        for obj in project.learning_objectives:
+        for obj in share.learning_objectives:
             if obj.id == objective_id:
                 objective = obj
                 break
 
         if objective is None:
-            available_ids = [obj.id for obj in project.learning_objectives]
+            available_ids = [obj.id for obj in share.learning_objectives]
             return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
 
         # Create the new outcome
@@ -263,7 +263,7 @@ class LearningObjectivesManager:
         objective.learning_outcomes.append(new_outcome)
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         # Log the outcome addition
         await ShareStorage.log_share_event(
@@ -294,21 +294,21 @@ class LearningObjectivesManager:
         """Update the description of an existing learning outcome."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update learning outcome: no project associated with this conversation")
+            logger.error("Cannot update learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "update learning outcome")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        project = ShareStorage.read_share(share_id)
-        if not project or not project.learning_objectives:
+        share = ShareStorage.read_share(share_id)
+        if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before updating outcomes."
 
         # Find the outcome by ID across all objectives
         objective = None
         outcome = None
-        for obj in project.learning_objectives:
+        for obj in share.learning_objectives:
             for out in obj.learning_outcomes:
                 if out.id == outcome_id:
                     objective = obj
@@ -320,7 +320,7 @@ class LearningObjectivesManager:
         if outcome is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
-            for obj in project.learning_objectives:
+            for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
             return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
@@ -331,7 +331,7 @@ class LearningObjectivesManager:
         outcome.description = new_description.strip()
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         # Log the outcome update
         await ShareStorage.log_share_event(
@@ -362,22 +362,22 @@ class LearningObjectivesManager:
         """Delete a learning outcome from a learning objective."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
-            logger.error("Cannot delete learning outcome: no project associated with this conversation")
+            logger.error("Cannot delete learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "delete learning outcome")
         if not current_user_id:
             return False, "Could not identify current user."
 
-        project = ShareStorage.read_share(share_id)
-        if not project or not project.learning_objectives:
+        share = ShareStorage.read_share(share_id)
+        if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before deleting outcomes."
 
         # Find the outcome by ID across all objectives
         objective = None
         outcome_to_delete = None
         outcome_index = -1
-        for obj in project.learning_objectives:
+        for obj in share.learning_objectives:
             for idx, out in enumerate(obj.learning_outcomes):
                 if out.id == outcome_id:
                     objective = obj
@@ -390,7 +390,7 @@ class LearningObjectivesManager:
         if outcome_to_delete is None or objective is None:
             # Collect available outcome IDs for error message
             available_outcome_ids = []
-            for obj in project.learning_objectives:
+            for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
             return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
@@ -401,14 +401,14 @@ class LearningObjectivesManager:
         objective.learning_outcomes.pop(outcome_index)
 
         # Clean up any achievement records for this outcome across all team conversations
-        for team_info in project.team_conversations.values():
+        for team_info in share.team_conversations.values():
             team_info.outcome_achievements = [
                 achievement for achievement in team_info.outcome_achievements
                 if achievement.outcome_id != outcome_id
             ]
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, project)
+        ShareStorage.write_share(share_id, share)
 
         # Log the outcome deletion
         await ShareStorage.log_share_event(

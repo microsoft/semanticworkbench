@@ -10,7 +10,7 @@ from typing import Optional
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationPermission,
-    NewConversation, 
+    NewConversation,
     NewConversationShare,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -24,7 +24,7 @@ from ..utils import get_current_user
 
 
 class ShareManagement:
-    """Manages share/project creation, joining, and basic operations."""
+    """Manages knowledge share creation, joining, and basic operations."""
 
     @staticmethod
     async def create_shareable_team_conversation(context: ConversationContext, share_id: str) -> str:
@@ -38,11 +38,11 @@ class ShareManagement:
         team conversations.
 
         The conversation is tagged with metadata indicating its purpose and gets a
-        share URL that can be used by team members to join the project.
+        share URL that can be used by team members to join the knowledge transfer.
 
         Args:
             context: Current conversation context
-            share_id: ID of the project
+            share_id: ID of the share
 
         Returns:
             share_url: URL for joining a team conversation
@@ -93,23 +93,23 @@ class ShareManagement:
             knowledge_package.updated_at = datetime.utcnow()
             ShareStorage.write_share(share_id, knowledge_package)
         else:
-            raise ValueError(f"KnowledgePackage info not found for project ID: {share_id}")
+            raise ValueError(f"KnowledgePackage info not found for share ID: {share_id}")
 
         return share_url
 
     @staticmethod
     async def create_share(context: ConversationContext) -> str:
         """
-        Creates a new project and associates the current conversation with it.
+        Creates a new knowledge share and associates the current conversation with it.
 
-        This is the initial step in project creation. It:
-        1. Generates a unique project ID
-        2. Associates the current conversation with that project
-        3. Sets the current conversation as Coordinator for the project
-        4. Creates empty project data structures (brief, knowledge digest, etc.)
-        5. Logs the project creation event
+        This is the initial step in knowledge transfer creation. It:
+        1. Generates a unique knowledge share ID
+        2. Associates the current conversation with that share
+        3. Sets the current conversation as Coordinator for the share
+        4. Creates empty share data structures (brief, knowledge digest, etc.)
+        5. Logs the creation event
 
-        After creating a project, the Coordinator should proceed to create a project brief
+        After creating a share, the Coordinator should proceed to create a knowledge brief
         with specific learning objectives and success criteria.
 
         Args:
@@ -118,15 +118,13 @@ class ShareManagement:
         Returns:
             Tuple of (success, share_id) where:
             - success: Boolean indicating if the creation was successful
-            - share_id: If successful, the UUID of the newly created project
+            - share_id: If successful, the UUID of the newly created share
         """
 
-        # Generate a unique project ID
         share_id = str(uuid.uuid4())
 
-        # Create the project directory structure first
-        project_dir = ShareStorageManager.get_share_dir(share_id)
-        logger.debug(f"Created project directory: {project_dir}")
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        logger.debug(f"Created share directory: {share_dir}")
 
         # Create and save the initial knowledge package
         knowledge_package = KnowledgePackage(
@@ -140,12 +138,12 @@ class ShareManagement:
         ShareStorage.write_share(share_id, knowledge_package)
         logger.debug(f"Created and saved knowledge package: {knowledge_package}")
 
-        # Associate the conversation with the project
-        logger.debug(f"Associating conversation {context.id} with project {share_id}")
+        # Associate the conversation with the share
+        logger.debug(f"Associating conversation {context.id} with share {share_id}")
         await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
-        # No need to set conversation role in project storage, as we use metadata
-        logger.debug(f"Conversation {context.id} is Coordinator for project {share_id}")
+        # No need to set conversation role in share storage, as we use metadata
+        logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
 
         # Note: Conversation linking is now handled via JSON data, no directory needed
 
@@ -158,32 +156,31 @@ class ShareManagement:
         role: ConversationRole = ConversationRole.TEAM,
     ) -> bool:
         """
-        Joins an existing project.
+        Joins an existing share.
 
         Args:
             context: Current conversation context
-            share_id: ID of the project to join
+            share_id: ID of the share to join
             role: Role for this conversation (COORDINATOR or TEAM)
 
         Returns:
             True if joined successfully, False otherwise
         """
         try:
-            # Check if project exists
             if not ShareStorageManager.share_exists(share_id):
-                logger.error(f"Cannot join project: project {share_id} does not exist")
+                logger.error(f"Cannot join share: share {share_id} does not exist")
                 return False
 
-            # Associate the conversation with the project
+            # Associate the conversation with the share
             await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
 
             # Role is set in metadata, not in storage
 
-            logger.info(f"Joined project {share_id} as {role.value}")
+            logger.info(f"Joined share {share_id} as {role.value}")
             return True
 
         except Exception as e:
-            logger.exception(f"Error joining project: {e}")
+            logger.exception(f"Error joining share: {e}")
             return False
 
     @staticmethod
@@ -191,29 +188,30 @@ class ShareManagement:
         """
         Gets the share ID associated with the current conversation.
 
-        Every conversation that's part of a project has an associated project ID.
-        This method retrieves that ID, which is used for accessing project-related
-        data structures.
+        Every conversation that's part of a knowledge transfer share has an
+        associated share ID. This method retrieves that ID, which is used for
+        accessing share-related data structures.
 
         Args:
             context: Current conversation context
 
         Returns:
-            The project ID string if the conversation is part of a project, None otherwise
+            The share ID string if the conversation is part of a share, None
+            otherwise
         """
         return await ConversationKnowledgePackageManager.get_associated_share_id(context)
 
     @staticmethod
     async def get_share_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
-        Gets the role of the current conversation in its project.
+        Gets the role of the current conversation in its share.
 
-        Each conversation participating in a project has a specific role:
-        - COORDINATOR: The primary conversation that created and manages the project
-        - TEAM: Conversations where team members are carrying out the project tasks
+        Each conversation participating in a share has a specific role:
+        - COORDINATOR: The primary conversation that created and manages the share
+        - TEAM: Conversations where team members are carrying out the share tasks
 
         This method examines the conversation metadata to determine the role
-        of the current conversation in the project. The role is stored in the
+        of the current conversation in the share. The role is stored in the
         conversation metadata as "project_role".
 
         Args:
@@ -221,7 +219,7 @@ class ShareManagement:
 
         Returns:
             The role (KnowledgePackageRole.COORDINATOR or KnowledgePackageRole.TEAM) if the conversation
-            is part of a project, None otherwise
+            is part of a share, None otherwise
         """
         try:
             conversation = await context.get_conversation()
@@ -235,13 +233,13 @@ class ShareManagement:
             else:
                 return None
         except Exception as e:
-            logger.exception(f"Error detecting project role: {e}")
+            logger.exception(f"Error detecting share role: {e}")
             # Default to None if we can't determine
             return None
 
     @staticmethod
     async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
-        """Gets the project log for the current conversation's project."""
+        """Gets the knowledge transfer log for the current conversation's share."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             return None
@@ -250,45 +248,43 @@ class ShareManagement:
 
     @staticmethod
     async def get_share(context: ConversationContext) -> Optional[KnowledgePackage]:
-        """Gets the project information for the current conversation's project."""
+        """Gets the share information for the current conversation's share."""
         share_id = await ShareManagement.get_share_id(context)
         if not share_id:
             return None
-        project = ShareStorage.read_share(share_id)
-        if project:
+        share = ShareStorage.read_share(share_id)
+        if share:
             # Load the separate log file if not already loaded
-            if not project.log:
-                project.log = ShareStorage.read_share_log(share_id)
+            if not share.log:
+                share.log = ShareStorage.read_share_log(share_id)
         else:
             # Create a new package if it doesn't exist, but this should be rare in get_share
             return None
-        return project
+        return share
 
     @staticmethod
     async def get_share_info(
         context: ConversationContext, share_id: Optional[str] = None
     ) -> Optional[KnowledgePackage]:
         """
-        Gets the project information including share URL and team conversation details.
+        Gets the share information including share URL and team conversation details.
 
         Args:
             context: Current conversation context
-            share_id: Optional project ID (if not provided, will be retrieved from context)
+            share_id: Optional share ID (if not provided, will be retrieved from context)
 
         Returns:
             KnowledgePackageInfo object or None if not found
         """
         try:
-            # Get project ID if not provided
             if not share_id:
                 share_id = await ShareManagement.get_share_id(context)
                 if not share_id:
                     return None
 
-            # Read project info
-            project_info = ShareStorage.read_share_info(share_id)
-            return project_info
+            share_info = ShareStorage.read_share_info(share_id)
+            return share_info
 
         except Exception as e:
-            logger.exception(f"Error getting project info: {e}")
+            logger.exception(f"Error getting share info: {e}")
             return None

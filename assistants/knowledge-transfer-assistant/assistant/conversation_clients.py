@@ -1,7 +1,7 @@
 """
 Project assistant functionality for cross-conversation communication.
 
-This module handles the project assistant's core functionality for managing
+This module handles the knowledge transfer assistant's core functionality for managing
 communication between conversations. It provides utilities for creating temporary
 contexts and accessing other conversations.
 """
@@ -23,7 +23,7 @@ class ConversationClientManager:
     Manages API clients for accessing other conversations.
 
     This utility class provides methods for creating API clients and temporary contexts
-    that can be used to interact with other conversations in the same project.
+    that can be used to interact with other conversations in the same knowledge transfer.
     """
 
     @staticmethod
@@ -34,14 +34,14 @@ class ConversationClientManager:
         return context.for_conversation(conversation_id)._conversation_client
 
     @staticmethod
-    async def get_coordinator_client_for_project(
-        context: ConversationContext, project_id: str
+    async def get_coordinator_client_for_share(
+        context: ConversationContext, share_id: str
     ) -> Tuple[Optional[Any], Optional[str]]:
         """
-        Gets a client for accessing the Coordinator conversation for a project.
+        Gets a client for accessing the Coordinator conversation for a knowledge transfer.
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = ShareStorageManager.get_share_dir(project_id) / ConversationRole.COORDINATOR
+        coordinator_dir = ShareStorageManager.get_share_dir(share_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 

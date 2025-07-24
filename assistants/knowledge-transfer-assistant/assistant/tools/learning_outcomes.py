@@ -79,7 +79,7 @@ class LearningOutcomeTools(ToolsBase):
         - When removing outcomes that were added by mistake
         - When simplifying objectives by removing overly specific outcomes
 
-        NOTE: This action is irreversible. Use get_project_info() first to see the current outcomes and their IDs.
+        NOTE: This action is irreversible.
 
         Args:
             outcome_id: The unique ID of the learning outcome to delete

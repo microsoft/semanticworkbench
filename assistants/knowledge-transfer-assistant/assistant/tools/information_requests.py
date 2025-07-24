@@ -28,7 +28,7 @@ class InformationRequestTools(ToolsBase):
         - When you need specific information or clarification from the Coordinator
         - When encountering a blocker that prevents progress on a learning objective
         - When requesting additional resources or documentation
-        - When you need a decision from the project Coordinator
+        - When you need a decision from the Coordinator
         - When a user expressly asks for information or help with something unclear
 
         Set an appropriate priority based on how critical the information is:
@@ -78,15 +78,8 @@ class InformationRequestTools(ToolsBase):
         - When you've gathered enough details to unblock a team member
         - When a request is no longer relevant and should be closed with explanation
 
-        IMPORTANT WORKFLOW:
-        1. ALWAYS call get_project_info(info_type="requests") first to see all pending requests
-        2. Identify the request you want to resolve and find its exact Request ID
-        3. Use the exact ID in your request_id parameter - not the title
-        4. Provide a clear resolution that addresses the team member's needs
-
         Args:
-            request_id: IMPORTANT! Use the exact Request ID value from get_project_info output
-                       (looks like "012345-abcd-67890"), NOT the title of the request
+            request_id: IMPORTANT! Use the exact Request ID (looks like "012345-abcd-67890"), NOT the title of the request
             resolution: Complete information that addresses the team member's question or blocker
 
         Returns:
@@ -113,14 +106,7 @@ class InformationRequestTools(ToolsBase):
             return f"Information request '{information_request.title}' has been resolved."
         else:
             logger.warning(f"Failed to resolve information request. Invalid ID provided: '{request_id}'")
-            return f'''ERROR: Could not resolve information request with ID "{request_id}".
-
-IMPORTANT STEPS TO RESOLVE INFORMATION REQUESTS:
-1. FIRST run get_project_info(info_type="requests") to see the full list of requests
-2. Find the request you want to resolve and copy its exact Request ID (looks like "abc123-def-456")
-3. Then use resolve_information_request with the EXACT ID from step 2, NOT the title of the request
-
-Example: resolve_information_request(request_id="abc123-def-456", resolution="Your solution here")"'''
+            return f'ERROR: Could not resolve information request with ID "{request_id}".'
 
     async def delete_information_request(self, request_id: str) -> str:
         """

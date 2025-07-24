@@ -53,7 +53,7 @@ class RequestConfig(BaseModel):
     openai_model: Annotated[
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
-    ] = "gpt-4o"
+    ] = "gpt-4.1"
 
 
 class PromptConfig(BaseModel):
@@ -144,7 +144,7 @@ class CoordinatorConfig(BaseModel):
         str,
         Field(
             title="Coordinator Welcome Message",
-            description="The message to display when a coordinator starts a new project. {share_url} will be replaced with the actual URL.",
+            description="The message to display when a coordinator starts a new knowledge transfer. {share_url} will be replaced with the actual URL.",
         ),
         UISchema(widget="textarea"),
     ] = """# Welcome to Knowledge Transfer
@@ -184,10 +184,10 @@ class TeamConfig(BaseModel):
         str,
         Field(
             title="Team Welcome Message",
-            description="The message to display when a user joins a project as a Team member. Shown after successfully joining a project.",
+            description="The message to display when a user joins a knowledge transfer as a Team member. Shown after successfully joining a knowledge transfer.",
         ),
         UISchema(widget="textarea"),
-    ] = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
+    ] = "# Welcome to Your Team Conversation\n\nYou've joined as a team member. This is your personal conversation for exploring the knowledge share. You can communicate with the assistant, make information requests, and track your progress here."
 
 
 # Base Assistant Configuration - shared by all templates
