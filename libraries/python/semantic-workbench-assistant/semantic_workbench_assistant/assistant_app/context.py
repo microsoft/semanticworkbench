@@ -128,6 +128,9 @@ class ConversationContext:
     async def update_conversation(self, metadata: dict[str, Any]) -> workbench_model.Conversation:
         return await self._conversation_client.update_conversation(metadata)
 
+    async def update_conversation_title(self, title: str) -> workbench_model.Conversation:
+        return await self._conversation_client.update_conversation_title(title)
+
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
         return await self._conversation_client.get_participants(include_inactive=include_inactive)
 

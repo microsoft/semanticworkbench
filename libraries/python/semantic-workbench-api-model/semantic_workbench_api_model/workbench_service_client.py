@@ -143,6 +143,16 @@ class ConversationAPIClient:
         http_response.raise_for_status()
         return workbench_model.Conversation.model_validate(http_response.json())
 
+    async def update_conversation_title(self, title: str) -> workbench_model.Conversation:
+        update_data = workbench_model.UpdateConversation(title=title)
+        http_response = await self._client.patch(
+            f"/conversations/{self._conversation_id}",
+            json=update_data.model_dump(mode="json", exclude_unset=True, exclude_defaults=True),
+            headers=self._headers,
+        )
+        http_response.raise_for_status()
+        return workbench_model.Conversation.model_validate(http_response.json())
+
     async def get_participant_me(self) -> workbench_model.ConversationParticipant:
         http_response = await self._client.get(
             f"/conversations/{self._conversation_id}/participants/me", headers=self._headers

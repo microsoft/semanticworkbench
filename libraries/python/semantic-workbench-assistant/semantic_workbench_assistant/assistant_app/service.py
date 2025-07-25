@@ -696,6 +696,13 @@ class AssistantService(FastAPIAssistantService):
                     file,
                 )
 
+            case workbench_model.ConversationEventType.conversation_updated:
+                # Conversation metadata updates (title, metadata, etc.)
+                await self.assistant_app.events.conversation._on_updated_handlers(
+                    True,  # event_originated_externally (always True for workbench updates)
+                    conversation_context,
+                )
+
     @translate_assistant_errors
     async def get_conversation_state_descriptions(
         self, assistant_id: str, conversation_id: str
