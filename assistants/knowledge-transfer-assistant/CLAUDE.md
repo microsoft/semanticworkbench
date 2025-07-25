@@ -75,17 +75,22 @@ make docker-run-local
 - `config.py`: Role-specific prompt templates and configuration
 - `storage.py` & `storage_models.py`: Persistent state management
 - `conversation_share_link.py`: Cross-conversation linking and synchronization
-- `files.py`: File synchronization via ShareManager
+- `files.py`: File synchronization via ShareFilesManager
 - `respond.py`: Response generation logic
 - `common.py`: Role detection and common utilities
 
+### Agentic (`/assistant/agentic/`)
+- `team_welcome.py`: Team welcome message generation
+- `coordinator_support.py`: Coordinator guidance and support
+- `analysis.py`: Analysis functionality
+
 ### Domain Logic (`/assistant/domain/`)
-- `transfer_lifecycle_manager.py`: Overall transfer orchestration
-- `knowledge_brief_manager.py`: Brief creation and management
-- `knowledge_digest_manager.py`: Auto-updating digest system
-- `learning_objectives_manager.py`: Learning goal tracking
-- `information_request_manager.py`: Team question handling
-- `share_management.py`: Cross-conversation coordination
+- `share_manager.py`: Share creation, joining, and cross-conversation coordination (`ShareManager` class)
+- `knowledge_brief_manager.py`: Brief creation and management (`KnowledgeBriefManager` class)
+- `knowledge_digest_manager.py`: Auto-updating digest system (`KnowledgeDigestManager` class)
+- `learning_objectives_manager.py`: Learning goal tracking (`LearningObjectivesManager` class)
+- `information_request_manager.py`: Team question handling (`InformationRequestManager` class)
+- `audience_manager.py`: Audience definition and management (`AudienceManager` class)
 
 ### Tools (`/assistant/tools/`)
 - `information_requests.py`: Information request handling
