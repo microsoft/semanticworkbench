@@ -9,9 +9,11 @@ from typing import Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.notifications import Notifications
+
 from .share_manager import ShareManager
 
-from ..data import LogEntryType
+from ..data import InspectorTab, LogEntryType
 from ..logging import logger
 from ..storage import ShareStorage
 
@@ -66,6 +68,9 @@ class AudienceManager:
                     "audience": audience_description,
                 },
             )
+
+            await Notifications.notify(context, "Audience updated.")
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
 
             return True, f"Target audience updated successfully: {audience_description}"
 
