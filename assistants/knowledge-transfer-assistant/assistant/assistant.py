@@ -27,7 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.respond import respond_to_conversation
-from assistant.team_welcome import generate_team_welcome_message
+from assistant.agents.team_welcome import generate_team_welcome_message
 from assistant.utils import (
     DEFAULT_TEMPLATE_ID,
     load_text_include,
@@ -37,11 +37,11 @@ from .common import detect_assistant_role, detect_conversation_type, get_shared_
 from .config import assistant_config
 from .conversation_share_link import ConversationKnowledgePackageManager
 from .data import InspectorTab, LogEntryType
-from .files import ShareManager
+from .files import ShareFilesManager
 from .logging import logger
-from .manager import KnowledgeTransferManager
+from .domain import KnowledgeTransferManager
 from .notifications import Notifications
-from .inspectors import BriefInspector, LearningInspector, SharingInspector, DebugInspector
+from .ui_tabs import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
 from .storage_models import ConversationRole
 
@@ -139,7 +139,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
             await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
             await ConversationKnowledgePackageManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
-            await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+            await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
             welcome_message, debug = await generate_team_welcome_message(context)
             await context.send_messages(
@@ -360,7 +360,7 @@ async def on_file_created(
             # For Coordinator files:
             # 1. Store in share storage (marked as coordinator file)
 
-            success = await ShareManager.copy_file_to_share_storage(
+            success = await ShareFilesManager.copy_file_to_share_storage(
                 context=context,
                 share_id=share_id,
                 file=file,
@@ -373,11 +373,11 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ShareManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
 
             if team_conversations:
                 for team_conv_id in team_conversations:
-                    await ShareManager.copy_file_to_conversation(
+                    await ShareFilesManager.copy_file_to_conversation(
                         context=context,
                         share_id=share_id,
                         filename=file.filename,
@@ -421,7 +421,7 @@ async def on_file_updated(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in share storage
-            success = await ShareManager.copy_file_to_share_storage(
+            success = await ShareFilesManager.copy_file_to_share_storage(
                 context=context,
                 share_id=share_id,
                 file=file,
@@ -432,9 +432,9 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in share storage: {file.filename}")
                 return
 
-            team_conversations = await ShareManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
             for team_conv_id in team_conversations:
-                await ShareManager.copy_file_to_conversation(
+                await ShareFilesManager.copy_file_to_conversation(
                     context=context,
                     share_id=share_id,
                     filename=file.filename,
@@ -476,7 +476,7 @@ async def on_file_deleted(
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from share storage
-            success = await ShareManager.delete_file_from_knowledge_share_storage(
+            success = await ShareFilesManager.delete_file_from_knowledge_share_storage(
                 context=context, share_id=share_id, filename=file.filename
             )
 
@@ -530,7 +530,7 @@ async def on_participant_joined(
         if not share_id:
             return
 
-        await ShareManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+        await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
         await ShareStorage.log_share_event(
             context=context,

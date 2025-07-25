@@ -9,10 +9,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..manager import KnowledgeTransferManager
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage_models import ConversationRole
 
 
 # Default instructional text to show when no brief has been created

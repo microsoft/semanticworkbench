@@ -9,10 +9,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 
 
 class LearningInspector:

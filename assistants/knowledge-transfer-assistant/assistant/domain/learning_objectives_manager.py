@@ -13,7 +13,7 @@ from ..logging import logger
 from ..notifications import Notifications
 from ..storage import ShareStorage
 from ..utils import require_current_user
-from .share_management import ShareManagement
+from .share_manager import ShareManager
 
 class LearningObjectivesManager:
     """Manages learning objectives and outcomes operations."""
@@ -27,7 +27,7 @@ class LearningObjectivesManager:
         priority: int = 1,
     ) -> Optional[LearningObjective]:
 
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot add learning objective: no share associated with this conversation")
             return None
@@ -84,7 +84,7 @@ class LearningObjectivesManager:
         description: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """Update an existing learning objective's name or description."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot update learning objective: no share associated with this conversation")
             return False, "No share associated with this conversation."
@@ -149,7 +149,7 @@ class LearningObjectivesManager:
         objective_id: str,
     ) -> Tuple[bool, Optional[str]]:
         """Delete a learning objective by ID."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot delete learning objective: no share associated with this conversation")
             return False, "No share associated with this conversation."
@@ -210,7 +210,7 @@ class LearningObjectivesManager:
     @staticmethod
     async def get_learning_outcomes(context: ConversationContext) -> List[LearningOutcome]:
 
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return []
 
@@ -232,7 +232,7 @@ class LearningObjectivesManager:
         outcome_description: str,
     ) -> Tuple[bool, Optional[str]]:
         """Add a new learning outcome to an existing learning objective."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot add learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
@@ -292,7 +292,7 @@ class LearningObjectivesManager:
         new_description: str,
     ) -> Tuple[bool, Optional[str]]:
         """Update the description of an existing learning outcome."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot update learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
@@ -360,7 +360,7 @@ class LearningObjectivesManager:
         outcome_id: str,
     ) -> Tuple[bool, Optional[str]]:
         """Delete a learning outcome from a learning objective."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot delete learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."

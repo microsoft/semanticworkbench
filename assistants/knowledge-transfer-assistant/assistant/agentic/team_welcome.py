@@ -12,11 +12,11 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.manager import KnowledgeTransferManager
+from assistant.domain import KnowledgeTransferManager
 from assistant.storage import ShareStorage
 
-from .config import assistant_config
-from .logging import logger
+from ..config import assistant_config
+from ..logging import logger
 
 
 async def generate_team_welcome_message(context: ConversationContext) -> tuple[str, dict[str, Any]]:

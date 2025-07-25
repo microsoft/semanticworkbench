@@ -4,13 +4,12 @@ Manager directory for Knowledge Transfer Assistant.
 This module provides the main KnowledgeTransferManager class for project management.
 """
 
-from .coordinator_support import CoordinatorSupport
 from .information_request_manager import InformationRequestManager
 from .knowledge_brief_manager import KnowledgeBriefManager
 from .knowledge_digest_manager import KnowledgeDigestManager
 from .learning_objectives_manager import LearningObjectivesManager
-from .transfer_lifecycle_manager import TransferLifecycleManager
-from .share_management import ShareManagement
+from .audience_manager import AudienceManager
+from .share_manager import ShareManager
 
 
 class KnowledgeTransferManager:
@@ -30,14 +29,14 @@ class KnowledgeTransferManager:
     """
 
     # Share/Project Management
-    create_shareable_team_conversation = ShareManagement.create_shareable_team_conversation
-    create_share = ShareManagement.create_share
-    join_share = ShareManagement.join_share
-    get_share_id = ShareManagement.get_share_id
-    get_share_role = ShareManagement.get_share_role
-    get_share_log = ShareManagement.get_share_log
-    get_share = ShareManagement.get_share
-    get_share_info = ShareManagement.get_share_info
+    create_shareable_team_conversation = ShareManager.create_shareable_team_conversation
+    create_share = ShareManager.create_share
+    join_share = ShareManager.join_share
+    get_share_id = ShareManager.get_share_id
+    get_share_role = ShareManager.get_share_role
+    get_share_log = ShareManager.get_share_log
+    get_share = ShareManager.get_share
+    get_share_info = ShareManager.get_share_info
 
     # Knowledge Brief Operations
     get_knowledge_brief = KnowledgeBriefManager.get_knowledge_brief
@@ -56,6 +55,7 @@ class KnowledgeTransferManager:
     get_information_requests = InformationRequestManager.get_information_requests
     create_information_request = InformationRequestManager.create_information_request
     resolve_information_request = InformationRequestManager.resolve_information_request
+    delete_information_request = InformationRequestManager.delete_information_request
 
     # Knowledge Digest Operations
     get_knowledge_digest = KnowledgeDigestManager.get_knowledge_digest
@@ -63,23 +63,16 @@ class KnowledgeTransferManager:
     auto_update_knowledge_digest = KnowledgeDigestManager.auto_update_knowledge_digest
 
     # Project Lifecycle Management
-    update_share_state = TransferLifecycleManager.update_share_state
-    update_share_info = TransferLifecycleManager.update_share_info
-    update_audience = TransferLifecycleManager.update_audience
-    complete_transfer = TransferLifecycleManager.complete_transfer
-
-    # Coordinator Support
-    get_coordinator_next_action_suggestion = CoordinatorSupport.get_coordinator_next_action_suggestion
+    update_audience = AudienceManager.update_audience
 
 
 # Export individual managers for direct access if needed
 __all__ = [
     "KnowledgeTransferManager",
-    "CoordinatorSupport",
     "InformationRequestManager",
     "KnowledgeBriefManager",
     "KnowledgeDigestManager",
     "LearningObjectivesManager",
-    "TransferLifecycleManager",
-    "ShareManagement",
+    "AudienceManager",
+    "ShareManager",
 ]

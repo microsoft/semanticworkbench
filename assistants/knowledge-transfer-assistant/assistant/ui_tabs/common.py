@@ -2,7 +2,7 @@
 Common utilities for inspector modules.
 """
 
-from ..data import RequestPriority, RequestStatus
+from assistant.data import RequestPriority, RequestStatus
 
 def get_status_emoji(status: RequestStatus) -> str:
     """Get emoji representation for request status."""

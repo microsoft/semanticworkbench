@@ -12,10 +12,10 @@ from semantic_workbench_api_model.workbench_model import (
 )
 
 from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
-from ..manager import KnowledgeTransferManager
-from ..notifications import Notifications
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.domain import KnowledgeTransferManager
+from assistant.notifications import Notifications
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 from .base import ToolsBase
 
 
@@ -144,26 +144,12 @@ class ProgressTrackingTools(ToolsBase):
             # Get the knowledge package to check completion status
             knowledge_package = ShareStorage.read_share(share_id)
             if knowledge_package and knowledge_package._is_transfer_complete():
-                # Automatically complete the transfer
-                success, share_info = await KnowledgeTransferManager.complete_transfer(
-                    context=self.context,
-                    summary="All learning outcomes have been achieved! Knowledge transfer has been automatically marked as complete.",
+                await self.context.send_messages(
+                    NewConversationMessage(
+                        content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
+                        message_type=MessageType.notice,
+                    )
                 )
-
-                if success:
-                    await self.context.send_messages(
-                        NewConversationMessage(
-                            content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
-                            message_type=MessageType.notice,
-                        )
-                    )
-                else:
-                    await self.context.send_messages(
-                        NewConversationMessage(
-                            content="🎉 All learning outcomes have been achieved! Would you like me to formally complete the knowledge transfer?",
-                            message_type=MessageType.notice,
-                        )
-                    )
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -221,7 +207,6 @@ class ProgressTrackingTools(ToolsBase):
         if not current_user_id:
             return "Could not identify current user."
 
-        package.transfer_notes = "Knowledge transfer is now complete"
         package.updated_at = datetime.utcnow()
         package.updated_by = current_user_id
         package.version += 1

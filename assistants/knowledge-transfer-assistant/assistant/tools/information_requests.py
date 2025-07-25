@@ -6,12 +6,10 @@ Tools for creating, managing, and resolving information requests between coordin
 
 from typing import Literal
 
-from assistant.manager.information_request_manager import InformationRequestManager
-
-from ..data import RequestPriority
-from ..logging import logger
-from ..manager import KnowledgeTransferManager
-from ..storage_models import ConversationRole
+from assistant.data import RequestPriority
+from assistant.logging import logger
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage_models import ConversationRole
 from .base import ToolsBase
 
 
@@ -122,7 +120,7 @@ class InformationRequestTools(ToolsBase):
         if self.role is not ConversationRole.TEAM:
             return "This tool is only available to Team members."
 
-        success, message = await InformationRequestManager.delete_information_request(
+        success, message = await KnowledgeTransferManager.delete_information_request(
             context=self.context, request_id=request_id
         )
         return message if message else ("Request deleted successfully." if success else "Failed to delete request.")

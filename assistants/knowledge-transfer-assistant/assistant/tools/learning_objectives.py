@@ -6,7 +6,7 @@ Tools for creating, updating, and managing learning objectives and outcomes.
 
 from typing import List
 
-from ..manager.learning_objectives_manager import LearningObjectivesManager
+from assistant.domain import LearningObjectivesManager
 from ..storage_models import ConversationRole
 from .base import ToolsBase
 

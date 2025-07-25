@@ -342,7 +342,6 @@ class KnowledgePackage(BaseModel):
     # Core package identification and state (formerly from KnowledgePackageInfo)
     share_id: str  # Unique identifier for the knowledge package
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
-    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     shared_conversation_id: Optional[str] = None  # ID of the shareable template conversation for generating share URLs
     share_url: Optional[str] = None  # Shareable URL for inviting team members
     next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions

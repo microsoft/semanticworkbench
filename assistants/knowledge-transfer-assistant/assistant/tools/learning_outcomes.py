@@ -5,8 +5,8 @@ Tools for managing individual learning outcomes within objectives.
 """
 
 
-from ..manager.learning_objectives_manager import LearningObjectivesManager
-from ..storage_models import ConversationRole
+from assistant.domain import LearningObjectivesManager
+from assistant.storage_models import ConversationRole
 from .base import ToolsBase
 
 

@@ -9,9 +9,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..manager import KnowledgeTransferManager
-from ..storage import ShareStorage
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage import ShareStorage
 
 
 class DebugInspector:

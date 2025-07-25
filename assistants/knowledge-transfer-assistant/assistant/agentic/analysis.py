@@ -12,8 +12,8 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .config import assistant_config
-from .logging import logger
+from ..config import assistant_config
+from ..logging import logger
 
 
 async def detect_information_request_needs(context: ConversationContext, message: str) -> Dict[str, Any]:

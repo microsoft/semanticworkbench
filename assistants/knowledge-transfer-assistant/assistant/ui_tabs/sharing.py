@@ -9,12 +9,12 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..data import RequestStatus
-from ..manager import KnowledgeTransferManager
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.data import RequestStatus
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 from .common import get_priority_emoji, get_status_emoji
 
 
