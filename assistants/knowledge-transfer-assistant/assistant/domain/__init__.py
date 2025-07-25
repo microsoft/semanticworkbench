@@ -9,7 +9,7 @@ from .information_request_manager import InformationRequestManager
 from .knowledge_brief_manager import KnowledgeBriefManager
 from .knowledge_digest_manager import KnowledgeDigestManager
 from .learning_objectives_manager import LearningObjectivesManager
-from .project_lifecycle_manager import TransferLifecycleManager
+from .transfer_lifecycle_manager import TransferLifecycleManager
 from .share_management import ShareManagement
 
 
