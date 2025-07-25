@@ -16,6 +16,7 @@ from ..storage import ShareStorage
 from ..utils import require_current_user
 from .share_manager import ShareManager
 
+
 class InformationRequestManager:
     """Manages information request operations."""
 
@@ -40,7 +41,6 @@ class InformationRequestManager:
         related_objective_ids: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[InformationRequest]]:
         try:
-
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot create information request: no share associated with this conversation")
@@ -90,7 +90,6 @@ class InformationRequestManager:
         resolution: str,
     ) -> Tuple[bool, Optional[InformationRequest]]:
         try:
-
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot resolve information request: no share associated with this conversation")

@@ -15,6 +15,7 @@ from ..storage import ShareStorage
 from ..utils import require_current_user
 from .share_manager import ShareManager
 
+
 class LearningObjectivesManager:
     """Manages learning objectives and outcomes operations."""
 
@@ -26,7 +27,6 @@ class LearningObjectivesManager:
         outcomes: Optional[List[str]] = None,
         priority: int = 1,
     ) -> Optional[LearningObjective]:
-
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot add learning objective: no share associated with this conversation")
@@ -106,7 +106,10 @@ class LearningObjectivesManager:
 
         if not objective:
             available_ids = [obj.id for obj in share.learning_objectives]
-            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+            return (
+                False,
+                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}",
+            )
 
         original_name = objective.name
         changes_made = []
@@ -173,7 +176,10 @@ class LearningObjectivesManager:
 
         if not objective:
             available_ids = [obj.id for obj in share.learning_objectives]
-            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+            return (
+                False,
+                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}",
+            )
 
         objective_name = objective.name
 
@@ -181,7 +187,8 @@ class LearningObjectivesManager:
         for outcome in objective.learning_outcomes:
             for team_info in share.team_conversations.values():
                 team_info.outcome_achievements = [
-                    achievement for achievement in team_info.outcome_achievements
+                    achievement
+                    for achievement in team_info.outcome_achievements
                     if achievement.outcome_id != outcome.id
                 ]
 
@@ -209,7 +216,6 @@ class LearningObjectivesManager:
 
     @staticmethod
     async def get_learning_outcomes(context: ConversationContext) -> List[LearningOutcome]:
-
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return []
@@ -254,7 +260,10 @@ class LearningObjectivesManager:
 
         if objective is None:
             available_ids = [obj.id for obj in share.learning_objectives]
-            return False, f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
+            return (
+                False,
+                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}",
+            )
 
         # Create the new outcome
         new_outcome = LearningOutcome(description=outcome_description.strip())
@@ -323,7 +332,10 @@ class LearningObjectivesManager:
             for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
-            return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+            return (
+                False,
+                f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}",
+            )
 
         old_description = outcome.description
 
@@ -393,7 +405,10 @@ class LearningObjectivesManager:
             for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
-            return False, f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
+            return (
+                False,
+                f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}",
+            )
 
         deleted_description = outcome_to_delete.description
 
@@ -403,8 +418,7 @@ class LearningObjectivesManager:
         # Clean up any achievement records for this outcome across all team conversations
         for team_info in share.team_conversations.values():
             team_info.outcome_achievements = [
-                achievement for achievement in team_info.outcome_achievements
-                if achievement.outcome_id != outcome_id
+                achievement for achievement in team_info.outcome_achievements if achievement.outcome_id != outcome_id
             ]
 
         # Save the updated knowledge package

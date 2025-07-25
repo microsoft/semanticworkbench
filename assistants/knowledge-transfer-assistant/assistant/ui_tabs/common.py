@@ -4,6 +4,7 @@ Common utilities for inspector modules.
 
 from assistant.data import RequestPriority, RequestStatus
 
+
 def get_status_emoji(status: RequestStatus) -> str:
     """Get emoji representation for request status."""
     status_emojis = {

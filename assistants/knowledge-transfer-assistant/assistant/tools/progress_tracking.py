@@ -134,11 +134,19 @@ class ProgressTrackingTools(ToolsBase):
             ShareStorage.write_share(share_id, knowledge_package)
 
             # Notify linked conversations with a message
-            await Notifications.notify_all(self.context, share_id, f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.")
-            await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+            await Notifications.notify_all(
+                self.context,
+                share_id,
+                f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
+            )
+            await Notifications.notify_all_state_update(
+                self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
+            )
 
             # Update all share UI inspectors
-            await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+            await ShareStorage.refresh_all_share_uis(
+                self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
+            )
 
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
@@ -222,7 +230,11 @@ class ProgressTrackingTools(ToolsBase):
         )
 
         # Notify linked conversations with a message
-        await Notifications.notify_all(self.context, share_id, "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.")
+        await Notifications.notify_all(
+            self.context,
+            share_id,
+            "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",
+        )
         await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.BRIEF])
 
         await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.BRIEF])

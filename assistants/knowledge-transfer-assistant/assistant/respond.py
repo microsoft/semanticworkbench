@@ -26,19 +26,18 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.agents.coordinator_support import CoordinatorSupport
-
-from .agents.analysis import detect_information_request_needs
+from .agentic.analysis import detect_information_request_needs
+from .agentic.coordinator_support import CoordinatorSupport
 from .common import detect_assistant_role
 from .config import assistant_config
 from .data import RequestStatus
-from .logging import logger
 from .domain import KnowledgeTransferManager
-from .ui_tabs.common import get_priority_emoji, get_status_emoji
+from .logging import logger
 from .storage import ShareStorage
 from .storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
 from .tools import ShareTools
+from .ui_tabs.common import get_priority_emoji, get_status_emoji
 from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"

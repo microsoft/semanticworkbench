@@ -101,9 +101,7 @@ class InformationRequest(BaseArtifact):
 
 
 class ProjectDashboard(BaseArtifact):
-    def __init__(
-        self, state=None, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
-    ):
+    def __init__(self, state=None, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs):
         super().__init__(artifact_type=ArtifactType.PROJECT_DASHBOARD, **kwargs)
         # transfer_state field removed - using derived state logic instead
         self.state = state or ProjectState.PLANNING

@@ -33,7 +33,6 @@ class KnowledgeBriefManager:
         description: str,
         timeline: Optional[str] = None,
     ) -> Optional[KnowledgeBrief]:
-
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot update brief: no share associated with this conversation")

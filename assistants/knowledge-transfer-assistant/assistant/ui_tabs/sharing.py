@@ -102,7 +102,7 @@ class SharingInspector:
             for request in resolved_requests[:5]:  # Show only first 5 resolved
                 lines.append(f"✅ **{request.title}**")
                 lines.append(f"*From:* {request.conversation_id}")
-                if hasattr(request, 'resolution') and request.resolution:
+                if hasattr(request, "resolution") and request.resolution:
                     lines.append(f"*Resolution:* {request.resolution}")
                 lines.append("")
 
@@ -166,6 +166,8 @@ class SharingInspector:
         else:
             lines.append("You haven't created any information requests yet.")
             lines.append("")
-            lines.append("_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._")
+            lines.append(
+                "_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._"
+            )
 
         return "\n".join(lines)

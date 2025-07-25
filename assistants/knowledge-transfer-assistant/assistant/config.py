@@ -166,11 +166,10 @@ To get started, let's discuss your audience. Who are you going to be sharing you
         int,
         Field(
             title="Maximum Digest Tokens",
-            description=(
-                "The number of tokens to use for the knowledge digest. Default: 4096"
-            ),
+            description=("The number of tokens to use for the knowledge digest. Default: 4096"),
         ),
     ] = 4_096
+
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(

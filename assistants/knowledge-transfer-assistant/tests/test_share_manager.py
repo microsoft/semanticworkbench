@@ -10,7 +10,7 @@ from assistant.data import (
     LearningObjective,
     LearningOutcome,
 )
-from assistant.manager import KnowledgeTransferManager
+from assistant.domain import KnowledgeTransferManager
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 

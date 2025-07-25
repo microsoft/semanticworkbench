@@ -39,7 +39,10 @@ class AudienceManager:
         try:
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                return False, "No knowledge package associated with this conversation. Please create a knowledge brief first."
+                return (
+                    False,
+                    "No knowledge package associated with this conversation. Please create a knowledge brief first.",
+                )
 
             # Get existing knowledge package
             package = ShareStorage.read_share(share_id)

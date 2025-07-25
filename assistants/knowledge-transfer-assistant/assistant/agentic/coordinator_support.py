@@ -29,7 +29,6 @@ class CoordinatorSupport:
             A user-facing suggestion string, or None if no suggestion is needed.
         """
         try:
-
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.warning("No share ID found for this conversation")

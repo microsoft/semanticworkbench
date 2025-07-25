@@ -93,8 +93,12 @@ class DebugInspector:
                 lines.append(f"- **Share ID:** `{share_id}`")
                 lines.append(f"- **Created:** {share.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
                 lines.append(f"- **Last Updated:** {share.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                lines.append(f"- **Team Conversations:** {len(share.team_conversations) if share.team_conversations else 0}")
-                lines.append(f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}")
+                lines.append(
+                    f"- **Team Conversations:** {len(share.team_conversations) if share.team_conversations else 0}"
+                )
+                lines.append(
+                    f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}"
+                )
                 lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
                 lines.append(f"- **Ready for Transfer:** {share.is_ready_for_transfer()}")
                 lines.append(f"- **Actively Sharing:** {share.is_actively_sharing()}")

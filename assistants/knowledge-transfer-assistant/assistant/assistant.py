@@ -26,13 +26,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.respond import respond_to_conversation
-from assistant.agents.team_welcome import generate_team_welcome_message
-from assistant.utils import (
-    DEFAULT_TEMPLATE_ID,
-    load_text_include,
-)
-
+from .agentic.team_welcome import generate_team_welcome_message
 from .common import detect_assistant_role, detect_conversation_type, get_shared_conversation_id, ConversationType
 from .config import assistant_config
 from .conversation_share_link import ConversationKnowledgePackageManager
@@ -41,9 +35,14 @@ from .files import ShareFilesManager
 from .logging import logger
 from .domain import KnowledgeTransferManager
 from .notifications import Notifications
+from .respond import respond_to_conversation
 from .ui_tabs import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
 from .storage_models import ConversationRole
+from .utils import (
+    DEFAULT_TEMPLATE_ID,
+    load_text_include,
+)
 
 service_id = "knowledge-transfer-assistant.made-exploration"
 service_name = "Knowledge Transfer Assistant"
@@ -97,6 +96,7 @@ attachments_extension = attachments.AttachmentsExtension(assistant)
 
 app = assistant.fastapi_app()
 
+
 @assistant.events.conversation.on_created_including_mine
 async def on_conversation_created(context: ConversationContext) -> None:
     """
@@ -115,7 +115,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
     match conversation_type:
         case ConversationType.SHAREABLE_TEMPLATE:
-
             # Associate the shareable template with a share ID
             if not share_id:
                 logger.error("No share ID found for shareable team conversation.")
@@ -124,7 +123,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
             return
 
         case ConversationType.TEAM:
-
             if not share_id:
                 logger.error("No share ID found for team conversation.")
                 return
@@ -197,6 +195,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
+
 @assistant.events.conversation.on_updated
 async def on_conversation_updated(context: ConversationContext) -> None:
     """
@@ -218,7 +217,9 @@ async def on_conversation_updated(context: ConversationContext) -> None:
             target_conversation = await target_context.get_conversation()
             if target_conversation.title != conversation.title:
                 await target_context.update_conversation_title(conversation.title)
-                logger.debug(f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'")
+                logger.debug(
+                    f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'"
+                )
             else:
                 logger.debug(f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'")
         except Exception as title_update_error:
@@ -546,6 +547,3 @@ async def on_participant_joined(
 
     except Exception as e:
         logger.exception(f"Error handling participant join event: {e}")
-
-
-

@@ -353,7 +353,9 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
-        await Notifications.notify_state_update(self.context, [InspectorTab.BRIEF, InspectorTab.LEARNING, InspectorTab.SHARING, InspectorTab.DEBUG])
+        await Notifications.notify_state_update(
+            self.context, [InspectorTab.BRIEF, InspectorTab.LEARNING, InspectorTab.SHARING, InspectorTab.DEBUG]
+        )
 
         # Verify that send_conversation_state_event was called 4 times (once per inspector tab)
         self.assertEqual(self.context.send_conversation_state_event.call_count, 4)

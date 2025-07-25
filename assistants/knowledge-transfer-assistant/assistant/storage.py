@@ -53,7 +53,6 @@ class ShareStorageManager:
         share_dir.mkdir(parents=True, exist_ok=True)
         return share_dir
 
-
     @staticmethod
     def get_share_log_path(share_id: str) -> pathlib.Path:
         """Gets the path to the knowledge transfer log file."""
@@ -294,6 +293,7 @@ class ShareStorage:
         """
 
         from .notifications import Notifications
+
         await Notifications.notify_all_state_update(context, share_id, tabs)
 
     @staticmethod

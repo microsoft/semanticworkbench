@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 from assistant.conversation_share_link import ConversationKnowledgePackageManager
 from assistant.data import KnowledgeBrief, KnowledgePackage, LearningObjective, LearningOutcome
-from assistant.manager import KnowledgeTransferManager
+from assistant.domain import KnowledgeTransferManager
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.storage_models import ConversationRole
 from semantic_workbench_assistant import settings
