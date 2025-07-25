@@ -18,7 +18,7 @@ from ..logging import logger
 from ..notifications import Notifications
 from ..storage import ShareStorage
 from ..utils import require_current_user
-from .share_management import ShareManagement
+from .share_manager import ShareManager
 
 
 class KnowledgeDigestManager:
@@ -28,7 +28,7 @@ class KnowledgeDigestManager:
     async def get_knowledge_digest(
         context: ConversationContext,
     ) -> Optional[KnowledgeDigest]:
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
         return ShareStorage.read_knowledge_digest(share_id)
@@ -40,7 +40,7 @@ class KnowledgeDigestManager:
         is_auto_generated: bool = True,
     ) -> Tuple[bool, Optional[KnowledgeDigest]]:
         try:
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot update knowledge digest: no share associated with this conversation")
                 return False, None
@@ -103,7 +103,7 @@ class KnowledgeDigestManager:
             messages = await context.get_messages()
             chat_history = messages.messages
 
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot auto-update knowledge digest: no share associated with this conversation")
                 return False, None

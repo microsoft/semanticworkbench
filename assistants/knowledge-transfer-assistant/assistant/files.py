@@ -62,7 +62,7 @@ class ShareCollection(BaseModel):
     files: List[ShareFile] = Field(default_factory=list)
 
 
-class ShareManager:
+class ShareFilesManager:
     """
     Manages shared knowledge transfer files.
 
@@ -85,7 +85,7 @@ class ShareManager:
         """
         Gets the path to the file metadata JSON.
         """
-        files_dir = ShareManager.get_share_files_dir(share_id)
+        files_dir = ShareFilesManager.get_share_files_dir(share_id)
         return files_dir / "file_metadata.json"
 
     @staticmethod
@@ -93,7 +93,7 @@ class ShareManager:
         """
         Gets the path to a specific file in the share.
         """
-        files_dir = ShareManager.get_share_files_dir(share_id)
+        files_dir = ShareFilesManager.get_share_files_dir(share_id)
         return files_dir / filename
 
     @staticmethod
@@ -101,7 +101,7 @@ class ShareManager:
         """
         Reads file metadata for a share.
         """
-        path = ShareManager.get_file_metadata_path(share_id)
+        path = ShareFilesManager.get_file_metadata_path(share_id)
         return read_model(path, ShareCollection) or ShareCollection(
             files=[],
         )
@@ -111,7 +111,7 @@ class ShareManager:
         """
         Writes file metadata for a share.
         """
-        path = ShareManager.get_file_metadata_path(share_id)
+        path = ShareFilesManager.get_file_metadata_path(share_id)
         write_model(path, metadata)
         return path
 
@@ -141,7 +141,7 @@ class ShareManager:
                 return False
 
             # Check if share storage directory exists
-            files_dir = ShareManager.get_share_files_dir(share_id)
+            files_dir = ShareFilesManager.get_share_files_dir(share_id)
             if not files_dir.exists():
                 logger.debug(f"Creating knowledge transfer files directory: {files_dir}", extra=safe_extra(log_extra))
                 files_dir.mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ class ShareManager:
             buffer.seek(0)
 
             # Write the file to share storage
-            file_path = ShareManager.get_file_path(share_id, file.filename)
+            file_path = ShareFilesManager.get_file_path(share_id, file.filename)
             try:
                 with open(file_path, "wb") as f:
                     f.write(buffer.getvalue())
@@ -200,7 +200,7 @@ class ShareManager:
 
             # Add to metadata collection with error handling
             try:
-                metadata_path = ShareManager.get_file_metadata_path(share_id)
+                metadata_path = ShareFilesManager.get_file_metadata_path(share_id)
                 logger.debug(f"Reading metadata from {metadata_path}", extra=safe_extra(log_extra))
 
                 metadata = read_model(metadata_path, ShareCollection)
@@ -218,7 +218,7 @@ class ShareManager:
                     metadata.files.append(file_metadata)
 
                 # Save metadata
-                ShareManager.write_file_metadata(share_id, metadata)
+                ShareFilesManager.write_file_metadata(share_id, metadata)
 
                 # Verify metadata was written
                 if not metadata_path.exists():
@@ -257,7 +257,7 @@ class ShareManager:
         """
         try:
             # Get the file path
-            file_path = ShareManager.get_file_path(share_id, filename)
+            file_path = ShareFilesManager.get_file_path(share_id, filename)
             if not file_path.exists():
                 return True  # File doesn't exist, nothing to delete
 
@@ -265,7 +265,7 @@ class ShareManager:
             file_path.unlink()
 
             # Update metadata
-            metadata_path = ShareManager.get_file_metadata_path(share_id)
+            metadata_path = ShareFilesManager.get_file_metadata_path(share_id)
             metadata = read_model(metadata_path, ShareCollection)
             if not metadata:
                 return True  # No metadata to update
@@ -274,10 +274,10 @@ class ShareManager:
             metadata.files = [f for f in metadata.files if f.filename != filename]
 
             # Save metadata
-            ShareManager.write_file_metadata(share_id, metadata)
+            ShareFilesManager.write_file_metadata(share_id, metadata)
 
             # Also notify Team conversations to delete their copies
-            await ShareManager.notify_team_conversations_file_deleted(
+            await ShareFilesManager.notify_team_conversations_file_deleted(
                 context=context, share_id=share_id, filename=filename
             )
 
@@ -296,7 +296,7 @@ class ShareManager:
         """
         try:
             # Get Team conversations
-            team_conversations = await ShareManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
             if not team_conversations:
                 return
 
@@ -339,13 +339,13 @@ class ShareManager:
         """
         try:
             # Check if the file exists in share storage
-            file_path = ShareManager.get_file_path(share_id, filename)
+            file_path = ShareFilesManager.get_file_path(share_id, filename)
             if not file_path.exists():
                 logger.warning(f"File {filename} not found in share storage")
                 return False
 
             # Get file metadata
-            metadata = ShareManager.read_file_metadata(share_id)
+            metadata = ShareFilesManager.read_file_metadata(share_id)
             if not metadata:
                 logger.warning(f"No file metadata found for share {share_id}")
                 return False
@@ -424,7 +424,7 @@ class ShareManager:
             team_conversations = []
             for conv_id in linked_conversations:
                 # Check if this is a team conversation
-                temp_context = await ShareManager.create_temporary_context(context, conv_id)
+                temp_context = await ShareFilesManager.create_temporary_context(context, conv_id)
                 if temp_context:
                     role = await ConversationKnowledgePackageManager.get_conversation_role(temp_context)
                     if role == ConversationRole.TEAM:
@@ -463,7 +463,7 @@ class ShareManager:
         logger.debug(f"Starting file synchronization for share {share_id}")
 
         # Get file metadata for the share
-        metadata = ShareManager.read_file_metadata(share_id)
+        metadata = ShareFilesManager.read_file_metadata(share_id)
 
         if not metadata or not metadata.files:
             # No metadata found
@@ -495,7 +495,7 @@ class ShareManager:
                 continue
 
             # Try to copy the file
-            success = await ShareManager.copy_file_to_conversation(
+            success = await ShareFilesManager.copy_file_to_conversation(
                 context=context,
                 share_id=share_id,
                 filename=file_meta.filename,
@@ -556,7 +556,7 @@ class ShareManager:
         """
         try:
             # Get file metadata for the share
-            metadata = ShareManager.read_file_metadata(share_id)
+            metadata = ShareFilesManager.read_file_metadata(share_id)
             if not metadata or not metadata.files:
                 return {}
 
@@ -586,7 +586,7 @@ class ShareManager:
             # Process based on update type
             if update_type == "file_created" or update_type == "file_updated":
                 # Synchronize the specific file from share storage
-                success = await ShareManager.copy_file_to_conversation(
+                success = await ShareFilesManager.copy_file_to_conversation(
                     context=context, share_id=share_id, filename=filename, target_conversation_id=str(context.id)
                 )
 

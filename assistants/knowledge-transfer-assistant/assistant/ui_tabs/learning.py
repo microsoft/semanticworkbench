@@ -9,10 +9,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 
 
 class LearningInspector:
@@ -61,7 +61,9 @@ class LearningInspector:
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
             lines.append("")
-            lines.append("_No learning objectives have been set up yet. When shared, the assistant will help your recipients explore the knowledge in a more open way, helping them discover the important aspects of the knowledge without specific objectives or outcomes. If you would like to have a more formal process, ask your assistant to help you create learning objectives and outcomes._")
+            lines.append(
+                "_No learning objectives have been set up yet. When shared, the assistant will help your recipients explore the knowledge in a more open way, helping them discover the important aspects of the knowledge without specific objectives or outcomes. If you would like to have a more formal process, ask your assistant to help you create learning objectives and outcomes._"
+            )
             lines.append("")
             return "\n".join(lines)
 
@@ -119,7 +121,9 @@ class LearningInspector:
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
             lines.append("")
-            lines.append("_The coordinator hasn't set up specific learning objectives for this shared knowledge. Enjoy exploring at your own pace! The assistant will guide you towards important information as you go._")
+            lines.append(
+                "_The coordinator hasn't set up specific learning objectives for this shared knowledge. Enjoy exploring at your own pace! The assistant will guide you towards important information as you go._"
+            )
             lines.append("")
             return "\n".join(lines)
 

@@ -6,7 +6,7 @@ Tools for creating, updating, and managing learning objectives and outcomes.
 
 from typing import List
 
-from ..manager.learning_objectives_manager import LearningObjectivesManager
+from assistant.domain import LearningObjectivesManager
 from ..storage_models import ConversationRole
 from .base import ToolsBase
 
@@ -79,7 +79,11 @@ class LearningObjectiveTools(ToolsBase):
             description=description if description.strip() else None,
         )
 
-        return message if message else ("Learning objective updated successfully." if success else "Failed to update learning objective.")
+        return (
+            message
+            if message
+            else ("Learning objective updated successfully." if success else "Failed to update learning objective.")
+        )
 
     async def delete_learning_objective(self, objective_id: str) -> str:
         """
@@ -108,4 +112,8 @@ class LearningObjectiveTools(ToolsBase):
             objective_id=objective_id,
         )
 
-        return message if message else ("Learning objective deleted successfully." if success else "Failed to delete learning objective.")
+        return (
+            message
+            if message
+            else ("Learning objective deleted successfully." if success else "Failed to delete learning objective.")
+        )

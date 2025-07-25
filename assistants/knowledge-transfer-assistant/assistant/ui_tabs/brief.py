@@ -9,14 +9,15 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..manager import KnowledgeTransferManager
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage_models import ConversationRole
 
 
 # Default instructional text to show when no brief has been created
 DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
+
 
 class BriefInspector:
     """
@@ -57,7 +58,9 @@ class BriefInspector:
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_coordinator_brief(self, share_id: str, brief: Any, share_info: Any, context: ConversationContext) -> str:
+    async def _format_coordinator_brief(
+        self, share_id: str, brief: Any, share_info: Any, context: ConversationContext
+    ) -> str:
         """Format brief information for coordinator."""
 
         lines: List[str] = []
@@ -90,7 +93,6 @@ class BriefInspector:
             lines.append("")
             lines.append(DEFAULT_BRIEF_INSTRUCTION)
             lines.append("")
-
 
         return "\n".join(lines)
 

@@ -10,7 +10,6 @@ from .storage import ShareStorage
 
 
 class Notifications:
-
     @staticmethod
     async def notify(context: ConversationContext, message: str) -> None:
         """Send text message notification to current conversation only."""
@@ -23,10 +22,7 @@ class Notifications:
 
     @staticmethod
     async def notify_self_and_other(
-        context: ConversationContext,
-        share_id: str,
-        message: str,
-        other_conversation_id: Optional[str] = None
+        context: ConversationContext, share_id: str, message: str, other_conversation_id: Optional[str] = None
     ) -> None:
         """
         Send text message notification to current conversation and one other.
@@ -46,7 +42,10 @@ class Notifications:
         # Determine the other conversation to notify
         if other_conversation_id:
             target_id = other_conversation_id
-        elif knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
+        elif (
+            knowledge_package.coordinator_conversation_id
+            and knowledge_package.coordinator_conversation_id != current_id
+        ):
             target_id = knowledge_package.coordinator_conversation_id
         else:
             return
@@ -76,7 +75,10 @@ class Notifications:
         current_id = str(context.id)
 
         # Notify coordinator conversation
-        if knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
+        if (
+            knowledge_package.coordinator_conversation_id
+            and knowledge_package.coordinator_conversation_id != current_id
+        ):
             try:
                 client = ConversationClientManager.get_conversation_client(
                     context, knowledge_package.coordinator_conversation_id
@@ -133,7 +135,10 @@ class Notifications:
         assistant_id = context.assistant.id
 
         # Refresh coordinator conversation
-        if knowledge_package.coordinator_conversation_id and knowledge_package.coordinator_conversation_id != current_id:
+        if (
+            knowledge_package.coordinator_conversation_id
+            and knowledge_package.coordinator_conversation_id != current_id
+        ):
             try:
                 client = ConversationClientManager.get_conversation_client(
                     context, knowledge_package.coordinator_conversation_id

@@ -13,7 +13,7 @@ from ..logging import logger
 from ..notifications import Notifications
 from ..storage import ShareStorage
 from ..utils import require_current_user
-from .share_management import ShareManagement
+from .share_manager import ShareManager
 
 
 class KnowledgeBriefManager:
@@ -21,7 +21,7 @@ class KnowledgeBriefManager:
 
     @staticmethod
     async def get_knowledge_brief(context: ConversationContext) -> Optional[KnowledgeBrief]:
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
         return ShareStorage.read_knowledge_brief(share_id)
@@ -33,8 +33,7 @@ class KnowledgeBriefManager:
         description: str,
         timeline: Optional[str] = None,
     ) -> Optional[KnowledgeBrief]:
-
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             logger.error("Cannot update brief: no share associated with this conversation")
             return

@@ -30,10 +30,10 @@ async def test_inspector():
 
     # Test all four tabbed inspectors
     inspector_ids = ["brief", "objectives", "requests", "debug"]  # Note: "requests" tab now shows as "Sharing"
-    
+
     for inspector_id in inspector_ids:
         logger.info(f"Testing {inspector_id} inspector...")
-        
+
         # Create state event
         state_event = AssistantStateEvent(state_id=inspector_id, event="focus", state=None)
 
@@ -55,7 +55,7 @@ async def test_inspector():
             logger.info(f"State data: {state_data}")
         except Exception as e:
             logger.error(f"Error getting state data: {e}")
-        
+
         logger.info(f"--- {inspector_id} inspector test completed ---")
 
 

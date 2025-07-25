@@ -17,10 +17,12 @@ from .storage import ShareStorage
 from .storage_models import ConversationRole
 from semantic_workbench_api_model.workbench_model import Conversation
 
+
 class ConversationType(Enum):
     COORDINATOR = "coordinator"
     TEAM = "team"
     SHAREABLE_TEMPLATE = "shareable_template"
+
 
 def detect_conversation_type(conversation: Conversation) -> ConversationType:
     conversation_metadata = conversation.metadata or {}
@@ -44,6 +46,7 @@ def detect_conversation_type(conversation: Conversation) -> ConversationType:
         else:
             conversation_type = ConversationType.SHAREABLE_TEMPLATE
     return conversation_type
+
 
 async def detect_assistant_role(context: ConversationContext) -> ConversationRole:
     """
@@ -77,13 +80,13 @@ async def detect_assistant_role(context: ConversationContext) -> ConversationRol
 async def get_shared_conversation_id(context: ConversationContext) -> Optional[str]:
     """
     Get the shared conversation ID for a coordinator conversation.
-    
+
     This utility function retrieves the share ID and finds the associated
     shareable template conversation ID from the knowledge package.
-    
+
     Args:
         context: The conversation context (should be a coordinator conversation)
-        
+
     Returns:
         The shared conversation ID if found, None otherwise
     """
@@ -91,11 +94,11 @@ async def get_shared_conversation_id(context: ConversationContext) -> Optional[s
         share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
         if not share_id:
             return None
-            
+
         knowledge_package = ShareStorage.read_share(share_id)
         if not knowledge_package or not knowledge_package.shared_conversation_id:
             return None
-            
+
         return knowledge_package.shared_conversation_id
     except Exception as e:
         logger.error(f"Error getting shared conversation ID: {e}")

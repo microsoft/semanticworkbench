@@ -6,9 +6,9 @@ Tools for initializing and configuring knowledge packages.
 
 from datetime import datetime
 
-from ..manager import KnowledgeTransferManager
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 from .base import ToolsBase
 
 

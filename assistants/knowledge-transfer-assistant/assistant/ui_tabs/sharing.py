@@ -9,12 +9,12 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from ..common import detect_assistant_role
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..data import RequestStatus
-from ..manager import KnowledgeTransferManager
-from ..storage import ShareStorage
-from ..storage_models import ConversationRole
+from assistant.common import detect_assistant_role
+from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.data import RequestStatus
+from assistant.domain import KnowledgeTransferManager
+from assistant.storage import ShareStorage
+from assistant.storage_models import ConversationRole
 from .common import get_priority_emoji, get_status_emoji
 
 
@@ -102,7 +102,7 @@ class SharingInspector:
             for request in resolved_requests[:5]:  # Show only first 5 resolved
                 lines.append(f"✅ **{request.title}**")
                 lines.append(f"*From:* {request.conversation_id}")
-                if hasattr(request, 'resolution') and request.resolution:
+                if hasattr(request, "resolution") and request.resolution:
                     lines.append(f"*Resolution:* {request.resolution}")
                 lines.append("")
 
@@ -166,6 +166,8 @@ class SharingInspector:
         else:
             lines.append("You haven't created any information requests yet.")
             lines.append("")
-            lines.append("_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._")
+            lines.append(
+                "_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._"
+            )
 
         return "\n".join(lines)

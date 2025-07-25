@@ -23,7 +23,7 @@ from ..storage_models import ConversationRole
 from ..utils import get_current_user
 
 
-class ShareManagement:
+class ShareManager:
     """Manages knowledge share creation, joining, and basic operations."""
 
     @staticmethod
@@ -240,7 +240,7 @@ class ShareManagement:
     @staticmethod
     async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
         """Gets the knowledge transfer log for the current conversation's share."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
 
@@ -249,7 +249,7 @@ class ShareManagement:
     @staticmethod
     async def get_share(context: ConversationContext) -> Optional[KnowledgePackage]:
         """Gets the share information for the current conversation's share."""
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
         share = ShareStorage.read_share(share_id)
@@ -278,7 +278,7 @@ class ShareManagement:
         """
         try:
             if not share_id:
-                share_id = await ShareManagement.get_share_id(context)
+                share_id = await ShareManager.get_share_id(context)
                 if not share_id:
                     return None
 

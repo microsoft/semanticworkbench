@@ -4,9 +4,8 @@ Learning outcomes management tools for Knowledge Transfer Assistant.
 Tools for managing individual learning outcomes within objectives.
 """
 
-
-from ..manager.learning_objectives_manager import LearningObjectivesManager
-from ..storage_models import ConversationRole
+from assistant.domain import LearningObjectivesManager
+from assistant.storage_models import ConversationRole
 from .base import ToolsBase
 
 
@@ -39,7 +38,11 @@ class LearningOutcomeTools(ToolsBase):
             outcome_description=outcome_description,
         )
 
-        return message if message else ("Learning outcome added successfully." if success else "Failed to add learning outcome.")
+        return (
+            message
+            if message
+            else ("Learning outcome added successfully." if success else "Failed to add learning outcome.")
+        )
 
     async def update_learning_outcome(self, outcome_id: str, new_description: str) -> str:
         """
@@ -67,7 +70,11 @@ class LearningOutcomeTools(ToolsBase):
             new_description=new_description,
         )
 
-        return message if message else ("Learning outcome updated successfully." if success else "Failed to update learning outcome.")
+        return (
+            message
+            if message
+            else ("Learning outcome updated successfully." if success else "Failed to update learning outcome.")
+        )
 
     async def delete_learning_outcome(self, outcome_id: str) -> str:
         """
@@ -95,4 +102,8 @@ class LearningOutcomeTools(ToolsBase):
             outcome_id=outcome_id,
         )
 
-        return message if message else ("Learning outcome deleted successfully." if success else "Failed to delete learning outcome.")
+        return (
+            message
+            if message
+            else ("Learning outcome deleted successfully." if success else "Failed to delete learning outcome.")
+        )

@@ -21,10 +21,10 @@ class InspectorTab(str, Enum):
     and for sending state events to update specific inspector panels.
     """
 
-    BRIEF = "brief"              # Knowledge brief and knowledge transfer overview
-    LEARNING = "learning"    # Learning objectives and outcomes
-    SHARING = "sharing"        # Information requests and sharing status
-    DEBUG = "debug"             # Debug information and knowledge transfer state
+    BRIEF = "brief"  # Knowledge brief and knowledge transfer overview
+    LEARNING = "learning"  # Learning objectives and outcomes
+    SHARING = "sharing"  # Information requests and sharing status
+    DEBUG = "debug"  # Debug information and knowledge transfer state
 
 
 class RequestPriority(str, Enum):
@@ -342,7 +342,6 @@ class KnowledgePackage(BaseModel):
     # Core package identification and state (formerly from KnowledgePackageInfo)
     share_id: str  # Unique identifier for the knowledge package
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
-    transfer_notes: Optional[str] = None  # Notes about the knowledge transfer progress
     shared_conversation_id: Optional[str] = None  # ID of the shareable template conversation for generating share URLs
     share_url: Optional[str] = None  # Shareable URL for inviting team members
     next_learning_actions: List[str] = Field(default_factory=list)  # List of next learning actions
@@ -365,6 +364,7 @@ class KnowledgePackage(BaseModel):
     learning_objectives: List[LearningObjective] = Field(default_factory=list)
     takeaways: List[str] = Field(default_factory=list)  # Key takeaways from the knowledge package
     preferred_communication_style: Optional[str] = None  # Preferred communication style for the audience
+    transfer_notes: Optional[str] = None  # Status message or notes about the knowledge transfer
 
     requests: List[InformationRequest] = Field(default_factory=list)
     digest: Optional[KnowledgeDigest]
@@ -388,11 +388,7 @@ class KnowledgePackage(BaseModel):
         Returns:
             bool: True if ready for transfer, False otherwise
         """
-        has_basic_requirements = (
-            self.knowledge_organized and
-            self.brief is not None and
-            self.audience is not None
-        )
+        has_basic_requirements = self.knowledge_organized and self.brief is not None and self.audience is not None
 
         if not has_basic_requirements:
             return False

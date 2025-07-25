@@ -14,7 +14,8 @@ from ..logging import logger
 from ..notifications import Notifications
 from ..storage import ShareStorage
 from ..utils import require_current_user
-from .share_management import ShareManagement
+from .share_manager import ShareManager
+
 
 class InformationRequestManager:
     """Manages information request operations."""
@@ -24,9 +25,8 @@ class InformationRequestManager:
         context: ConversationContext,
     ) -> List[InformationRequest]:
         """Gets all information requests for the current conversation's share."""
-        from .share_management import ShareManagement
 
-        share_id = await ShareManagement.get_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return []
 
@@ -41,8 +41,7 @@ class InformationRequestManager:
         related_objective_ids: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[InformationRequest]]:
         try:
-
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot create information request: no share associated with this conversation")
                 return False, None
@@ -91,8 +90,7 @@ class InformationRequestManager:
         resolution: str,
     ) -> Tuple[bool, Optional[InformationRequest]]:
         try:
-
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot resolve information request: no share associated with this conversation")
                 return False, None
@@ -188,7 +186,7 @@ class InformationRequestManager:
             Tuple of (success, message)
         """
         try:
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.error("Cannot delete information request: no share associated with this conversation")
                 return False, "No knowledge package associated with this conversation."

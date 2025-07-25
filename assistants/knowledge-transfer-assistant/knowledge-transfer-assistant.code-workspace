@@ -103,5 +103,8 @@
       "ms-vscode.vscode-node-azure-pack",
       "tamasfe.even-better-toml"
     ]
+  },
+  "settings": {
+    "cSpell.words": ["agentic"]
   }
 }

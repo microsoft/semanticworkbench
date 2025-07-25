@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import openai_client
 import pytest
-from assistant.analysis import detect_information_request_needs
+from assistant.agentic.analysis import detect_information_request_needs
 from assistant.storage_models import ConversationRole
 from assistant.tools import ShareTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -151,7 +151,7 @@ class TestShareTools:
         # Patch assistant_config.get
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        monkeypatch.setattr("assistant.analysis.assistant_config", mock_assistant_config)
+        monkeypatch.setattr("assistant.agentic.analysis.assistant_config", mock_assistant_config)
 
         # Create a mock message for the message history
         mock_msg = MagicMock()

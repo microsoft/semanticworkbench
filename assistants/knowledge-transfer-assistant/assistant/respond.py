@@ -26,17 +26,18 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .analysis import detect_information_request_needs
+from .agentic.analysis import detect_information_request_needs
+from .agentic.coordinator_support import CoordinatorSupport
 from .common import detect_assistant_role
 from .config import assistant_config
 from .data import RequestStatus
+from .domain import KnowledgeTransferManager
 from .logging import logger
-from .manager import KnowledgeTransferManager
-from .inspectors.common import get_priority_emoji, get_status_emoji
 from .storage import ShareStorage
 from .storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
 from .tools import ShareTools
+from .ui_tabs.common import get_priority_emoji, get_status_emoji
 from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
@@ -325,7 +326,7 @@ async def respond_to_conversation(
 
     # Add next action suggestions for coordinator
     if role == ConversationRole.COORDINATOR:
-        next_action_suggestion = await KnowledgeTransferManager.get_coordinator_next_action_suggestion(context)
+        next_action_suggestion = await CoordinatorSupport.get_coordinator_next_action_suggestion(context)
         if next_action_suggestion:
             prompt.contexts.append(
                 Context(

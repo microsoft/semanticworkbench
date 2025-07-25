@@ -11,6 +11,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from ..data import RequestStatus
 from ..logging import logger
 from ..storage import ShareStorage
+from ..domain.share_manager import ShareManager
 
 
 class CoordinatorSupport:
@@ -28,9 +29,7 @@ class CoordinatorSupport:
             A user-facing suggestion string, or None if no suggestion is needed.
         """
         try:
-            from .share_management import ShareManagement
-            
-            share_id = await ShareManagement.get_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 logger.warning("No share ID found for this conversation")
                 return None
