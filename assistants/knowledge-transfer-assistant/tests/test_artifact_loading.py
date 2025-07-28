@@ -10,11 +10,11 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain.share_manager import ShareManager
 from assistant.data import KnowledgeBrief, KnowledgePackage, LearningObjective, LearningOutcome
 from assistant.domain import KnowledgeTransferManager
 from assistant.storage import ShareStorage, ShareStorageManager
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
 from semantic_workbench_assistant import settings
 
 # Type variable for better type annotations
@@ -70,7 +70,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             return self.share_id
 
         patch2 = unittest.mock.patch.object(
-            ConversationKnowledgePackageManager, "get_associated_share_id", side_effect=mock_get_associated_share_id
+            ShareManager, "get_associated_share_id", side_effect=mock_get_associated_share_id
         )
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)
@@ -80,7 +80,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             return ConversationRole.COORDINATOR
 
         patch3 = unittest.mock.patch.object(
-            ConversationKnowledgePackageManager, "get_conversation_role", side_effect=mock_get_conversation_role
+            ShareManager, "get_conversation_role", side_effect=mock_get_conversation_role
         )
         self.mock_get_role = patch3.start()
         self.patches.append(patch3)

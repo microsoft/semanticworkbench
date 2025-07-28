@@ -9,8 +9,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain.share_manager import ShareManager
 from assistant.domain import KnowledgeTransferManager
+from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.storage import ShareStorage
 
 
@@ -35,7 +36,7 @@ class DebugInspector:
         """Get debug information for display."""
 
         # Get share information
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_associated_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}
@@ -100,8 +101,8 @@ class DebugInspector:
                     f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}"
                 )
                 lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
-                lines.append(f"- **Ready for Transfer:** {share.is_ready_for_transfer()}")
-                lines.append(f"- **Actively Sharing:** {share.is_actively_sharing()}")
+                lines.append(f"- **Ready for Transfer:** {KnowledgePackageManager.is_ready_for_transfer(share)}")
+                lines.append(f"- **Actively Sharing:** {KnowledgePackageManager.is_actively_sharing(share)}")
                 if share.coordinator_conversation_id:
                     lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
                 lines.append("")

@@ -4,7 +4,7 @@ Base classes for Knowledge Transfer Assistant tools.
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
 
 
 class ToolsBase:

@@ -29,7 +29,7 @@ from semantic_workbench_assistant.assistant_app import (
 from .agentic.team_welcome import generate_team_welcome_message
 from .common import detect_assistant_role, detect_conversation_type, get_shared_conversation_id, ConversationType
 from .config import assistant_config
-from .conversation_share_link import ConversationKnowledgePackageManager
+from .domain.share_manager import ShareManager
 from .data import InspectorTab, LogEntryType
 from .files import ShareFilesManager
 from .logging import logger
@@ -38,7 +38,7 @@ from .notifications import Notifications
 from .respond import respond_to_conversation
 from .ui_tabs import BriefInspector, LearningInspector, SharingInspector, DebugInspector
 from .storage import ShareStorage
-from .storage_models import ConversationRole
+from .data import ConversationRole
 from .utils import (
     DEFAULT_TEMPLATE_ID,
     load_text_include,
@@ -119,7 +119,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             if not share_id:
                 logger.error("No share ID found for shareable team conversation.")
                 return
-            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
+            await ShareManager.set_conversation_role(context, share_id, ConversationRole.SHAREABLE_TEMPLATE)
             return
 
         case ConversationType.TEAM:
@@ -135,8 +135,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
-            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
-            await ConversationKnowledgePackageManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
+            await ShareManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
             await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
             welcome_message, debug = await generate_team_welcome_message(context)
@@ -527,7 +526,7 @@ async def on_participant_joined(
         if role != ConversationRole.TEAM:
             return
 
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_associated_share_id(context)
         if not share_id:
             return
 

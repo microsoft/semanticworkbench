@@ -9,7 +9,7 @@ import unittest.mock
 import uuid
 from datetime import datetime
 
-from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain.share_manager import ShareManager
 from assistant.data import (
     InformationRequest,
     InspectorTab,
@@ -24,12 +24,13 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
+from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage, ShareStorageManager
-from assistant.storage_models import (
+from assistant.data import (
     ConversationRole,
     CoordinatorConversationMessage,
-    CoordinatorConversationStorage,
+    CoordinatorConversationMessages,
 )
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant import settings
@@ -252,7 +253,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             ),
         ]
 
-        conv_storage = CoordinatorConversationStorage(
+        conv_storage = CoordinatorConversationMessages(
             knowledge_share_id=self.share_id,
             messages=messages,
         )
@@ -415,31 +416,32 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(package.team_conversations, dict)
 
             # Verify helper methods work
-            linked_conversations = package.get_all_linked_conversations()
+            linked_conversations = KnowledgePackageManager.get_all_linked_conversations(package)
             self.assertIsInstance(linked_conversations, list)
 
-            notification_conversations = package.get_notification_conversations()
+            notification_conversations = KnowledgePackageManager.get_notification_conversations(package)
             self.assertIsInstance(notification_conversations, list)
 
     async def test_conversation_association(self):
-        """Test conversation association with project."""
-        # Mock ConversationKnowledgePackageManager.associate_conversation_with_share
-        with unittest.mock.patch("assistant.conversation_share_link.write_model") as mock_write_model:
-            # Mock conversation project path
-            conversation_project_file = ShareStorageManager.get_conversation_share_file_path(self.context)
+        """Test conversation role setting."""
+        # Mock ShareManager.set_conversation_role
+        with unittest.mock.patch("assistant.domain.share_manager.write_model") as mock_write_model:
+            # Mock conversation role path
+            conversation_role_file = ShareStorageManager.get_conversation_role_file_path(self.context)
 
-            # Call associate_conversation_with_share
-            await ConversationKnowledgePackageManager.associate_conversation_with_share(self.context, self.share_id)
+            # Call set_conversation_role
+            await ShareManager.set_conversation_role(self.context, self.share_id, ConversationRole.COORDINATOR)
 
             # Verify write_model was called
             mock_write_model.assert_called_once()
 
             # Verify the file path in the call
             call_args = mock_write_model.call_args[0]
-            self.assertEqual(call_args[0], conversation_project_file)
+            self.assertEqual(call_args[0], conversation_role_file)
 
-            # Verify the ProjectAssociation object created
+            # Verify the ConversationShareInfo object created
             self.assertEqual(call_args[1].share_id, self.share_id)
+            self.assertEqual(call_args[1].role, ConversationRole.COORDINATOR)
 
     async def test_log_project_event(self):
         """Test logging a project event."""

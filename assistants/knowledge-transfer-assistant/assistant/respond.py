@@ -32,9 +32,10 @@ from .common import detect_assistant_role
 from .config import assistant_config
 from .data import RequestStatus
 from .domain import KnowledgeTransferManager
+from .domain.knowledge_package_manager import KnowledgePackageManager
 from .logging import logger
 from .storage import ShareStorage
-from .storage_models import ConversationRole, CoordinatorConversationMessage
+from .data import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
 from .tools import ShareTools
 from .ui_tabs.common import get_priority_emoji, get_status_emoji
@@ -179,9 +180,9 @@ async def respond_to_conversation(
     ###
 
     # Project info
-    share_info = ShareStorage.read_share_info(share_id)
-    if share_info:
-        data = share_info.model_dump()
+    share = ShareStorage.read_share(share_id)
+    if share:
+        data = share.model_dump()
 
         # Delete fields that are not relevant to the knowledge transfer assistant.
         # FIXME: Reintroduce these properly.
@@ -196,7 +197,7 @@ async def respond_to_conversation(
         if "lifecycle" in data:
             del data["lifecycle"]
 
-        share_info_text = share_info.model_dump_json(indent=2)
+        share_info_text = share.model_dump_json(indent=2)
         prompt.contexts.append(Context("Knowledge Info", share_info_text))
 
     # Brief
@@ -212,9 +213,9 @@ async def respond_to_conversation(
         )
 
     # Audience (for coordinators to understand target audience)
-    if role == ConversationRole.COORDINATOR and share_info and share_info.audience:
-        audience_context = share_info.audience
-        if not share_info.is_intended_to_accomplish_outcomes:
+    if role == ConversationRole.COORDINATOR and share and share.audience:
+        audience_context = share.audience
+        if not share.is_intended_to_accomplish_outcomes:
             audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
 
         prompt.contexts.append(
@@ -234,14 +235,16 @@ async def respond_to_conversation(
         # Show progress based on role
         if role == ConversationRole.COORDINATOR:
             # Coordinator sees overall progress across all team members
-            achieved_overall, total_overall = share.get_overall_completion()
+            achieved_overall, total_overall = KnowledgePackageManager.get_overall_completion(share)
             learning_objectives_text += (
                 f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
             )
         else:
             # Team member sees their personal progress
             if conversation_id in share.team_conversations:
-                achieved_personal, total_personal = share.get_completion_for_conversation(conversation_id)
+                achieved_personal, total_personal = KnowledgePackageManager.get_completion_for_conversation(
+                    share, conversation_id
+                )
                 progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
                 learning_objectives_text += (
                     f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
@@ -254,13 +257,15 @@ async def respond_to_conversation(
                     if role == ConversationRole.COORDINATOR:
                         # Show if achieved by any team member
                         achieved_by_any = any(
-                            share.is_outcome_achieved_by_conversation(criterion.id, conv_id)
+                            KnowledgePackageManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
                             for conv_id in share.team_conversations.keys()
                         )
                         check = "✅" if achieved_by_any else "⬜"
                     else:
                         # Show if achieved by this team member
-                        achieved_by_me = share.is_outcome_achieved_by_conversation(criterion.id, conversation_id)
+                        achieved_by_me = KnowledgePackageManager.is_outcome_achieved_by_conversation(
+                            share, criterion.id, conversation_id
+                        )
                         check = "✅" if achieved_by_me else "⬜"
 
                     learning_objectives_text += f"   {check} {criterion.description}\n"
@@ -292,7 +297,7 @@ async def respond_to_conversation(
                 coordinator_requests += f"   **Description:** {req.description}\n\n"
 
             if len(active_requests) > 10:
-                coordinator_requests += f'*...and {len(active_requests) - 10} more requests. Use get_share_info(info_type="requests") to see all.*\n'
+                coordinator_requests += f'*...and {len(active_requests) - 10} more requests.*\n'
         else:
             coordinator_requests = "No active information requests."
         prompt.contexts.append(

@@ -10,9 +10,10 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.common import detect_assistant_role
-from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain.share_manager import ShareManager
 from assistant.domain import KnowledgeTransferManager
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
+from .common import get_stage_label
 
 
 # Default instructional text to show when no brief has been created
@@ -42,14 +43,14 @@ class BriefInspector:
         conversation_role = await detect_assistant_role(context)
 
         # Get share information
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_associated_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
         brief = await KnowledgeTransferManager.get_knowledge_brief(context)
-        share_info = await KnowledgeTransferManager.get_share_info(context)
+        share_info = await KnowledgeTransferManager.get_share(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_brief(share_id, brief, share_info, context)
@@ -70,7 +71,7 @@ class BriefInspector:
         # Display knowledge transfer stage
         stage_label = "📋 Organizing Knowledge"
         if share_info:
-            stage_label = share_info.get_stage_label(for_coordinator=True)
+            stage_label = get_stage_label(share_info, for_coordinator=True)
         lines.append(f"**Stage:** {stage_label}")
 
         if share_info and share_info.transfer_notes:
@@ -106,7 +107,7 @@ class BriefInspector:
         # Display knowledge transfer stage for team members
         stage_label = "📚 Learning Mode"
         if share_info:
-            stage_label = share_info.get_stage_label(for_coordinator=False)
+            stage_label = get_stage_label(share_info, for_coordinator=False)
         lines.append(f"**Stage:** {stage_label}")
 
         # Add status message if available

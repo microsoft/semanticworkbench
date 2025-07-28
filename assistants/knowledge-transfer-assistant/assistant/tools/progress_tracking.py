@@ -13,9 +13,10 @@ from semantic_workbench_api_model.workbench_model import (
 
 from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
 from assistant.domain import KnowledgeTransferManager
+from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
 from .base import ToolsBase
 
 
@@ -35,11 +36,8 @@ class ProgressTrackingTools(ToolsBase):
         Each completed outcome moves the knowledge transfer closer to completion. When all outcomes
         are achieved, the transfer can be marked as complete.
 
-        IMPORTANT: Always use get_share_info() first to see the current objectives, outcomes, and their indices
-        before marking anything as complete.
-
         Args:
-            objective_index: The index of the objective (0-based integer) from get_share_info() output
+            objective_index: The index of the objective (0-based integer)
             criterion_index: The index of the outcome within the objective (0-based integer)
 
         Returns:
@@ -80,7 +78,7 @@ class ProgressTrackingTools(ToolsBase):
         conversation_id = str(self.context.id)
 
         # Check if already achieved by this conversation
-        if knowledge_package.is_outcome_achieved_by_conversation(outcome.id, conversation_id):
+        if KnowledgePackageManager.is_outcome_achieved_by_conversation(knowledge_package, outcome.id, conversation_id):
             return f"Outcome '{outcome.description}' is already marked as achieved by this team member."
 
         # Get current user information
@@ -151,7 +149,7 @@ class ProgressTrackingTools(ToolsBase):
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
             knowledge_package = ShareStorage.read_share(share_id)
-            if knowledge_package and knowledge_package._is_transfer_complete():
+            if knowledge_package and KnowledgePackageManager._is_transfer_complete(knowledge_package):
                 await self.context.send_messages(
                     NewConversationMessage(
                         content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
@@ -198,7 +196,7 @@ class ProgressTrackingTools(ToolsBase):
             return "No knowledge package found. Cannot complete transfer without package information."
 
         # Check if all outcomes are achieved
-        achieved_outcomes, total_outcomes = package.get_overall_completion()
+        achieved_outcomes, total_outcomes = KnowledgePackageManager.get_overall_completion(package)
         if achieved_outcomes < total_outcomes:
             remaining = total_outcomes - achieved_outcomes
             return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."

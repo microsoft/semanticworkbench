@@ -33,10 +33,8 @@ class KnowledgeTransferManager:
     create_share = ShareManager.create_share
     join_share = ShareManager.join_share
     get_share_id = ShareManager.get_share_id
-    get_share_role = ShareManager.get_share_role
     get_share_log = ShareManager.get_share_log
     get_share = ShareManager.get_share
-    get_share_info = ShareManager.get_share_info
 
     # Knowledge Brief Operations
     get_knowledge_brief = KnowledgeBriefManager.get_knowledge_brief

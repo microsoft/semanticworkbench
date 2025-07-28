@@ -26,7 +26,7 @@ from .data import (
     LogEntry,
     LogEntryType,
 )
-from .storage_models import CoordinatorConversationMessage, CoordinatorConversationStorage
+from .data import CoordinatorConversationMessage, CoordinatorConversationMessages
 from .utils import get_current_user
 
 
@@ -84,27 +84,21 @@ class ShareStorageManager:
         storage_dir.mkdir(parents=True, exist_ok=True)
         return storage_dir / "share_role.json"
 
-    @staticmethod
-    def get_conversation_share_file_path(context: ConversationContext) -> pathlib.Path:
-        """Gets the path to the file that stores a conversation's share association."""
-        storage_dir = storage_directory_for_context(context)
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        file_path = storage_dir / "share_association.json"
-        return file_path
-
-
 class ShareStorage:
     """Unified storage operations for knowledge transfer share data."""
 
     @staticmethod
-    def read_share_info(share_id: str) -> Optional[KnowledgePackage]:
-        """Reads the knowledge package (alias for read_share)."""
-        return ShareStorage.read_share(share_id)
+    def read_share(share_id: str) -> Optional[KnowledgePackage]:
+        """Reads the complete KnowledgePackage data."""
+        path = ShareStorageManager.get_share_path(share_id)
+        return read_model(path, KnowledgePackage)
 
     @staticmethod
-    def write_share_info(share_id: str, package: KnowledgePackage) -> pathlib.Path:
-        """Writes the knowledge package (alias for write_share)."""
-        return ShareStorage.write_share(share_id, package)
+    def write_share(share_id: str, package: KnowledgePackage) -> pathlib.Path:
+        """Writes the complete KnowledgePackage data."""
+        path = ShareStorageManager.get_share_path(share_id)
+        write_model(path, package)
+        return path
 
     @staticmethod
     def read_knowledge_brief(share_id: str) -> Optional[KnowledgeBrief]:
@@ -145,12 +139,12 @@ class ShareStorage:
         return package.digest if package else None
 
     @staticmethod
-    def read_coordinator_conversation(share_id: str) -> Optional[CoordinatorConversationStorage]:
+    def read_coordinator_conversation(share_id: str) -> Optional[CoordinatorConversationMessages]:
         path = ShareStorageManager.get_coordinator_conversation_path(share_id)
-        return read_model(path, CoordinatorConversationStorage)
+        return read_model(path, CoordinatorConversationMessages)
 
     @staticmethod
-    def write_coordinator_conversation(share_id: str, conversation: CoordinatorConversationStorage) -> pathlib.Path:
+    def write_coordinator_conversation(share_id: str, conversation: CoordinatorConversationMessages) -> pathlib.Path:
         path = ShareStorageManager.get_coordinator_conversation_path(share_id)
         write_model(path, conversation)
         return path
@@ -177,7 +171,7 @@ class ShareStorage:
         """
         conversation = ShareStorage.read_coordinator_conversation(share_id)
         if not conversation:
-            conversation = CoordinatorConversationStorage(knowledge_share_id=share_id)
+            conversation = CoordinatorConversationMessages(knowledge_share_id=share_id)
 
         new_message = CoordinatorConversationMessage(
             message_id=message_id,
@@ -257,18 +251,7 @@ class ShareStorage:
 
         return ShareStorage.write_share(share_id, package)
 
-    @staticmethod
-    def read_share(share_id: str) -> Optional[KnowledgePackage]:
-        """Reads the complete KnowledgePackage data."""
-        path = ShareStorageManager.get_share_path(share_id)
-        return read_model(path, KnowledgePackage)
 
-    @staticmethod
-    def write_share(share_id: str, package: KnowledgePackage) -> pathlib.Path:
-        """Writes the complete KnowledgePackage data."""
-        path = ShareStorageManager.get_share_path(share_id)
-        write_model(path, package)
-        return path
 
     @staticmethod
     def get_all_information_requests(share_id: str) -> List[InformationRequest]:

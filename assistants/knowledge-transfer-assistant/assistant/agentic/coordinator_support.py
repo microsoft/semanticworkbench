@@ -9,6 +9,7 @@ from typing import Optional
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ..data import RequestStatus
+from ..domain.knowledge_package_manager import KnowledgePackageManager
 from ..logging import logger
 from ..storage import ShareStorage
 from ..domain.share_manager import ShareManager
@@ -74,12 +75,16 @@ class CoordinatorSupport:
                     return f"The learning objective '{name}' doesn't have any outcomes yet. Let's define what your team should accomplish to meet it."
 
             # 7. Ready for transfer but not yet shared
-            if package.is_ready_for_transfer() and not package.is_actively_sharing():
+            if KnowledgePackageManager.is_ready_for_transfer(
+                package
+            ) and not KnowledgePackageManager.is_actively_sharing(package):
                 return "Your knowledge package is ready to share. Would you like to create a message and generate the invitation link?"
 
             # 8. Actively sharing - monitor and support ongoing transfer
-            if package.is_actively_sharing():
-                if package.is_intended_to_accomplish_outcomes and not package._is_transfer_complete():
+            if KnowledgePackageManager.is_actively_sharing(package):
+                if package.is_intended_to_accomplish_outcomes and not KnowledgePackageManager._is_transfer_complete(
+                    package
+                ):
                     team_count = len(package.team_conversations)
                     return f"Great! Your knowledge is being shared with {team_count} team member{'s' if team_count != 1 else ''}. You can continue improving the package or respond to information requests as they come in."
                 else:

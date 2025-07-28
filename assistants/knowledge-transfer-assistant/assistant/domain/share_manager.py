@@ -6,7 +6,7 @@ Handles creation, joining, and basic share operations.
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationPermission,
@@ -15,13 +15,13 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..conversation_share_link import ConversationKnowledgePackageManager
-from ..data import KnowledgePackage, KnowledgePackageLog
+from assistant.domain.knowledge_package_manager import KnowledgePackageManager
+
+from ..data import ConversationShareInfo, KnowledgePackage, KnowledgePackageLog, ConversationRole, TeamConversationInfo
 from ..logging import logger
 from ..storage import ShareStorage, ShareStorageManager
-from ..storage_models import ConversationRole
 from ..utils import get_current_user
-
+from semantic_workbench_assistant.storage import read_model, write_model
 
 class ShareManager:
     """Manages knowledge share creation, joining, and basic operations."""
@@ -140,7 +140,7 @@ class ShareManager:
 
         # Associate the conversation with the share
         logger.debug(f"Associating conversation {context.id} with share {share_id}")
-        await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
+        await ShareManager.set_conversation_role(context, share_id, ConversationRole.COORDINATOR)
 
         # No need to set conversation role in share storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
@@ -172,7 +172,7 @@ class ShareManager:
                 return False
 
             # Associate the conversation with the share
-            await ConversationKnowledgePackageManager.associate_conversation_with_share(context, share_id)
+            await ShareManager.set_conversation_role(context, share_id, role)
 
             # Role is set in metadata, not in storage
 
@@ -199,43 +199,9 @@ class ShareManager:
             The share ID string if the conversation is part of a share, None
             otherwise
         """
-        return await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        return await ShareManager.get_associated_share_id(context)
 
-    @staticmethod
-    async def get_share_role(context: ConversationContext) -> Optional[ConversationRole]:
-        """
-        Gets the role of the current conversation in its share.
 
-        Each conversation participating in a share has a specific role:
-        - COORDINATOR: The primary conversation that created and manages the share
-        - TEAM: Conversations where team members are carrying out the share tasks
-
-        This method examines the conversation metadata to determine the role
-        of the current conversation in the share. The role is stored in the
-        conversation metadata as "project_role".
-
-        Args:
-            context: Current conversation context
-
-        Returns:
-            The role (KnowledgePackageRole.COORDINATOR or KnowledgePackageRole.TEAM) if the conversation
-            is part of a share, None otherwise
-        """
-        try:
-            conversation = await context.get_conversation()
-            metadata = conversation.metadata or {}
-            role_str = metadata.get("project_role", "coordinator")
-
-            if role_str == "team":
-                return ConversationRole.TEAM
-            elif role_str == "coordinator":
-                return ConversationRole.COORDINATOR
-            else:
-                return None
-        except Exception as e:
-            logger.exception(f"Error detecting share role: {e}")
-            # Default to None if we can't determine
-            return None
 
     @staticmethod
     async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
@@ -263,28 +229,112 @@ class ShareManager:
         return share
 
     @staticmethod
-    async def get_share_info(
-        context: ConversationContext, share_id: Optional[str] = None
-    ) -> Optional[KnowledgePackage]:
+    async def get_linked_conversations(context: ConversationContext) -> List[str]:
         """
-        Gets the share information including share URL and team conversation details.
-
-        Args:
-            context: Current conversation context
-            share_id: Optional share ID (if not provided, will be retrieved from context)
-
-        Returns:
-            KnowledgePackageInfo object or None if not found
+        Gets all conversations linked to this one through the same knowledge transfer share.
         """
         try:
+            share_id = await ShareManager.get_associated_share_id(context)
             if not share_id:
-                share_id = await ShareManager.get_share_id(context)
-                if not share_id:
-                    return None
+                return []
 
-            share_info = ShareStorage.read_share_info(share_id)
-            return share_info
+            # Load the knowledge package
+            from ..storage import ShareStorage
+
+            knowledge_package = ShareStorage.read_share(share_id)
+            if not knowledge_package:
+                return []
+
+            # Get all linked conversations, excluding current conversation
+            conversation_id = str(context.id)
+            return KnowledgePackageManager.get_all_linked_conversations(
+                knowledge_package, exclude_current=conversation_id
+            )
 
         except Exception as e:
-            logger.exception(f"Error getting share info: {e}")
-            return None
+            logger.error(f"Error getting linked conversations: {e}")
+            return []
+
+    @staticmethod
+    async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
+        """
+        Sets the role of a conversation in a knowledge transfer share.
+        """
+        role_data = ConversationShareInfo(
+            share_id=share_id, role=role, conversation_id=str(context.id)
+        )
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
+        write_model(role_path, role_data)
+
+    @staticmethod
+    async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
+        """
+        Gets the role of a conversation in a knowledge transfer.
+        """
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
+        role_data = read_model(role_path, ConversationShareInfo)
+
+        if role_data:
+            return role_data.role
+
+        return None
+
+    @staticmethod
+    async def _capture_redeemer_info(context: ConversationContext, share_id: str) -> None:
+        """
+        Captures the redeemer (first non-assistant participant) information and stores it in the knowledge package.
+        Only captures info for actual team member conversations, not coordinator or shared conversations.
+        """
+        try:
+
+            knowledge_package = ShareStorage.read_share(share_id)
+            if not knowledge_package:
+                logger.warning(f"Could not load knowledge package {share_id} to capture redeemer info")
+                return
+
+            conversation_id = str(context.id)
+
+            # Skip if this is the coordinator conversation
+            if conversation_id == knowledge_package.coordinator_conversation_id:
+                logger.debug(f"Skipping redeemer capture for coordinator conversation {conversation_id}")
+                return
+
+            # Skip if this is the shared conversation template
+            if conversation_id == knowledge_package.shared_conversation_id:
+                logger.debug(f"Skipping redeemer capture for shared conversation template {conversation_id}")
+                return
+
+            # If we get here, it's a team member conversation - capture redeemer info
+            # Get current user information (the redeemer)
+            user_id, user_name = await get_current_user(context)
+
+            if not user_id or not user_name:
+                logger.warning(f"Could not identify redeemer for conversation {conversation_id}")
+                return
+
+            # Create team conversation info
+            team_conversation_info = TeamConversationInfo(
+                conversation_id=conversation_id, redeemer_user_id=user_id, redeemer_name=user_name
+            )
+
+            # Add to knowledge package
+            knowledge_package.team_conversations[conversation_id] = team_conversation_info
+
+            # Save the updated knowledge package
+            ShareStorage.write_share(share_id, knowledge_package)
+            logger.debug(f"Captured redeemer info for team conversation {conversation_id}: {user_name} ({user_id})")
+
+        except Exception as e:
+            logger.error(f"Error capturing redeemer info: {e}")
+            # Don't re-raise - this is not critical for the association process
+
+    @staticmethod
+    async def get_associated_share_id(context: ConversationContext) -> Optional[str]:
+        """
+        Gets the share ID associated with a conversation.
+        """
+        share_path = ShareStorageManager.get_conversation_role_file_path(context)
+        share_data = read_model(share_path, ConversationShareInfo)
+        if share_data:
+            return share_data.share_id
+        return None

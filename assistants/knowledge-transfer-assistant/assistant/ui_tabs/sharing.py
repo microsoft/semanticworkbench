@@ -10,11 +10,11 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.common import detect_assistant_role
-from assistant.conversation_share_link import ConversationKnowledgePackageManager
+from assistant.domain.share_manager import ShareManager
 from assistant.data import RequestStatus
 from assistant.domain import KnowledgeTransferManager
-from assistant.storage import ShareStorage
-from assistant.storage_models import ConversationRole
+from assistant.domain.knowledge_package_manager import KnowledgePackageManager
+from assistant.data import ConversationRole
 from .common import get_priority_emoji, get_status_emoji
 
 
@@ -41,7 +41,7 @@ class SharingInspector:
         conversation_role = await detect_assistant_role(context)
 
         # Get share information
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_associated_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}
@@ -61,12 +61,9 @@ class SharingInspector:
 
         lines: List[str] = []
 
-        # Get share information first
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
-
         # Share URL section at the top
-        share_info = await KnowledgeTransferManager.get_share_info(context, share_id)
-        share_url = share_info.share_url if share_info else None
+        share = await KnowledgeTransferManager.get_share(context)
+        share_url = share.share_url if share else None
         if share_url:
             lines.append("## Share Link")
             lines.append("")
@@ -112,17 +109,13 @@ class SharingInspector:
             lines.append("_Team members can ask questions and create information requests that will appear here._")
 
         # Team summary
-        if share_id:
-            share = ShareStorage.read_share(share_id)
-        else:
-            share = None
         if share and share.team_conversations:
             lines.append("## Team Summary")
             lines.append(f"**Active team members:** {len(share.team_conversations)}")
             lines.append("")
 
             for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = share.get_completion_for_conversation(conv_id)
+                achieved, total = KnowledgePackageManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int((achieved / total * 100)) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
                 lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")

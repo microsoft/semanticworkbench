@@ -9,7 +9,7 @@ from typing import Literal
 from assistant.data import RequestPriority
 from assistant.logging import logger
 from assistant.domain import KnowledgeTransferManager
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
 from .base import ToolsBase
 
 

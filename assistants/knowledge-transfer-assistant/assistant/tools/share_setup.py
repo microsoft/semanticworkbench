@@ -8,7 +8,7 @@ from datetime import datetime
 
 from assistant.domain import KnowledgeTransferManager
 from assistant.storage import ShareStorage
-from assistant.storage_models import ConversationRole
+from assistant.data import ConversationRole
 from .base import ToolsBase
 
 

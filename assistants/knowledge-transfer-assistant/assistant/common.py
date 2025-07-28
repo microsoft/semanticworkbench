@@ -10,11 +10,11 @@ from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .conversation_share_link import ConversationKnowledgePackageManager
+from .domain.share_manager import ShareManager
 from .data import LogEntryType
 from .logging import logger
 from .storage import ShareStorage
-from .storage_models import ConversationRole
+from .data import ConversationRole
 from semantic_workbench_api_model.workbench_model import Conversation
 
 
@@ -91,7 +91,7 @@ async def get_shared_conversation_id(context: ConversationContext) -> Optional[s
         The shared conversation ID if found, None otherwise
     """
     try:
-        share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_associated_share_id(context)
         if not share_id:
             return None
 
@@ -126,7 +126,7 @@ async def log_transfer_action(
         related_entity_id: Optional ID of a related entity (e.g., request ID)
         additional_metadata: Optional additional metadata to include in the log
     """
-    share_id = await ConversationKnowledgePackageManager.get_associated_share_id(context)
+    share_id = await ShareManager.get_associated_share_id(context)
     if not share_id:
         return
 

@@ -18,11 +18,11 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .common import detect_assistant_role
 from .conversation_clients import ConversationClientManager
-from .conversation_share_link import ConversationKnowledgePackageManager
+from .domain.share_manager import ShareManager
 from .data import LogEntryType
 from .logging import logger
 from .storage import ShareStorage, ShareStorageManager, read_model, write_model
-from .storage_models import ConversationRole
+from .data import ConversationRole
 
 
 # Define helper function for safe logging without 'filename' conflict
@@ -418,7 +418,7 @@ class ShareFilesManager:
         """
         try:
             # Get linked conversations
-            linked_conversations = await ConversationKnowledgePackageManager.get_linked_conversations(context)
+            linked_conversations = await ShareManager.get_linked_conversations(context)
 
             # Filter for team conversations
             team_conversations = []
@@ -426,7 +426,7 @@ class ShareFilesManager:
                 # Check if this is a team conversation
                 temp_context = await ShareFilesManager.create_temporary_context(context, conv_id)
                 if temp_context:
-                    role = await ConversationKnowledgePackageManager.get_conversation_role(temp_context)
+                    role = await ShareManager.get_conversation_role(temp_context)
                     if role == ConversationRole.TEAM:
                         team_conversations.append(conv_id)
 

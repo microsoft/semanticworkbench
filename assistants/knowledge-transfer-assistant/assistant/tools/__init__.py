@@ -8,7 +8,7 @@ and registers role-specific tools with the LLM.
 from openai_client.tools import ToolFunctions
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..storage_models import ConversationRole
+from ..data import ConversationRole
 from .information_requests import InformationRequestTools
 from .learning_objectives import LearningObjectiveTools
 from .learning_outcomes import LearningOutcomeTools
