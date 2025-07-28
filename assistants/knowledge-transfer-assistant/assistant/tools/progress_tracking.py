@@ -23,7 +23,7 @@ from .base import ToolsBase
 class ProgressTrackingTools(ToolsBase):
     """Tools for tracking learning progress."""
 
-    async def mark_learning_outcome_achieved(self, objective_index: int, criterion_index: int) -> str:
+    async def mark_learning_outcome_achieved(self, objective_id: str, outcome_id: str) -> str:
         """
         Mark a learning outcome as achieved for tracking knowledge transfer progress.
 
@@ -37,8 +37,8 @@ class ProgressTrackingTools(ToolsBase):
         are achieved, the transfer can be marked as complete.
 
         Args:
-            objective_index: The index of the objective (0-based integer)
-            criterion_index: The index of the outcome within the objective (0-based integer)
+            objective_id: The UUID of the learning objective
+            outcome_id: The UUID of the learning outcome within the objective
 
         Returns:
             A message indicating success or failure
@@ -57,24 +57,31 @@ class ProgressTrackingTools(ToolsBase):
         if not brief:
             return "No knowledge brief found."
 
-        # Using 0-based indexing directly, no adjustment needed
-
         # Get the knowledge package to access objectives
         knowledge_package = ShareStorage.read_share(share_id)
         if not knowledge_package or not knowledge_package.learning_objectives:
             return "No learning objectives found."
 
-        # Validate indices
-        if objective_index < 0 or objective_index >= len(knowledge_package.learning_objectives):
-            return f"Invalid objective index {objective_index}. Valid indexes are 0 to {len(knowledge_package.learning_objectives) - 1}. There are {len(knowledge_package.learning_objectives)} objectives."
+        # Find the objective by ID
+        objective = None
+        for obj in knowledge_package.learning_objectives:
+            if obj.id == objective_id:
+                objective = obj
+                break
+        
+        if not objective:
+            return f"Learning objective with ID '{objective_id}' not found."
 
-        objective = knowledge_package.learning_objectives[objective_index]
-
-        if criterion_index < 0 or criterion_index >= len(objective.learning_outcomes):
-            return f"Invalid outcome index {criterion_index}. Valid indexes for objective '{objective.name}' are 0 to {len(objective.learning_outcomes) - 1}. Objective '{objective.name}' has {len(objective.learning_outcomes)} outcomes."
-
-        # Update the outcome
-        outcome = objective.learning_outcomes[criterion_index]
+        # Find the outcome by ID within the objective
+        outcome = None
+        for out in objective.learning_outcomes:
+            if out.id == outcome_id:
+                outcome = out
+                break
+        
+        if not outcome:
+            return f"Learning outcome with ID '{outcome_id}' not found in objective '{objective.name}'."
+        
         conversation_id = str(self.context.id)
 
         # Check if already achieved by this conversation

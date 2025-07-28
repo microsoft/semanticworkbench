@@ -380,7 +380,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_knowledge_package_info(self):
         """Test reading and writing knowledge package info."""
         # Read existing knowledge package
-        package = ShareStorage.read_share_info(self.share_id)
+        package = ShareStorage.read_share(self.share_id)
 
         # Verify it was loaded correctly
         self.assertIsNotNone(package, "Should load knowledge package")
@@ -393,10 +393,10 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             package.next_learning_actions = ["Action 1", "Action 2"]
 
             # Write updated knowledge package
-            ShareStorage.write_share_info(self.share_id, package)
+            ShareStorage.write_share(self.share_id, package)
 
             # Read updated knowledge package
-            updated_package = ShareStorage.read_share_info(self.share_id)
+            updated_package = ShareStorage.read_share(self.share_id)
 
             # Verify updates were saved
             self.assertIsNotNone(updated_package, "Should load updated knowledge package")
