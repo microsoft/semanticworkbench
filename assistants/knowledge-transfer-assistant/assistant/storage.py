@@ -264,19 +264,6 @@ class ShareStorage:
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
 
-    @staticmethod
-    async def refresh_all_share_uis(context: ConversationContext, share_id: str, tabs: List["InspectorTab"]) -> None:
-        """
-        Refreshes the UI inspector panels of all conversations in a knowledge transfer.
-        Args:
-            context: Current conversation context
-            share_id: The share ID
-            tabs: List of InspectorTab values to update. If None, updates all tabs.
-        """
-
-        from .notifications import Notifications
-
-        await Notifications.notify_all_state_update(context, share_id, tabs)
 
     @staticmethod
     async def log_share_event(

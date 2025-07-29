@@ -148,11 +148,6 @@ class ProgressTrackingTools(ToolsBase):
                 self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
             )
 
-            # Update all share UI inspectors
-            await ShareStorage.refresh_all_share_uis(
-                self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-            )
-
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
             knowledge_package = ShareStorage.read_share(share_id)
@@ -241,8 +236,6 @@ class ProgressTrackingTools(ToolsBase):
             "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",
         )
         await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.BRIEF])
-
-        await ShareStorage.refresh_all_share_uis(self.context, share_id, [InspectorTab.BRIEF])
 
         await self.context.send_messages(
             NewConversationMessage(
