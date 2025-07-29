@@ -6,8 +6,8 @@ Tools for creating, managing, and resolving information requests between coordin
 
 from typing import Literal
 
-from assistant.data import ConversationRole, RequestPriority
-from assistant.domain import InformationRequestManager, ShareManager
+from assistant.data import RequestPriority
+from assistant.domain import InformationRequestManager
 from assistant.logging import logger
 
 from .base import ToolsBase
@@ -46,12 +46,6 @@ class InformationRequestTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.TEAM:
-            return "Only Team members can create information requests."
-
-        share = await ShareManager.get_share(self.context)
-        if not share:
-            return "No knowledge package associated with this conversation. Unable to create information request."
 
         priority_map = {
             "low": RequestPriority.LOW,
@@ -61,20 +55,19 @@ class InformationRequestTools(ToolsBase):
         }
         priority_enum = priority_map.get(priority.lower(), RequestPriority.MEDIUM)
 
-        success, request = await InformationRequestManager.create_information_request(
-            context=self.context,
-            title=title,
-            description=description,
-            priority=priority_enum,
-        )
-        if success and request:
+        try:
+            await InformationRequestManager.create_information_request(
+                context=self.context,
+                title=title,
+                description=description,
+                priority=priority_enum,
+            )
             return f"Information request '{title}' created successfully. The Coordinator has been notified."
-        else:
-            return "Failed to create information request. Please try again."
+        except Exception as e:
+            logger.exception(f"Failed to create information request: {e}")
+            return f"Failed to create information request: {str(e)}"
 
-    async def resolve_information_request(
-        self, request_id: str, resolution: str
-    ) -> str:
+    async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
         Resolve an information request when you have the needed information to address it. Only use for active information requests. If there are no active information requests, this should never be called.
 
@@ -91,39 +84,14 @@ class InformationRequestTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            # Add more detailed error message with guidance
-            error_message = (
-                "ERROR: Only Coordinator can resolve information requests. As a Team member, you should use "
-                "create_information_request to send requests to the Coordinator, not try to resolve them yourself. "
-                "The Coordinator must use resolve_information_request to respond to your requests."
+        try:
+            information_request = await InformationRequestManager.resolve_information_request(
+                context=self.context, request_id=request_id, resolution=resolution
             )
-            logger.warning(
-                f"Team member attempted to use resolve_information_request: {request_id}"
-            )
-            return error_message
-
-        share = await ShareManager.get_share(self.context)
-        if not share:
-            return "No knowledge package associated with this conversation. Unable to resolve information request."
-
-        (
-            success,
-            information_request,
-        ) = await InformationRequestManager.resolve_information_request(
-            context=self.context, request_id=request_id, resolution=resolution
-        )
-        if success and information_request:
-            return (
-                f"Information request '{information_request.title}' has been resolved."
-            )
-        else:
-            logger.warning(
-                f"Failed to resolve information request. Invalid ID provided: '{request_id}'"
-            )
-            return (
-                f'ERROR: Could not resolve information request with ID "{request_id}".'
-            )
+            return f"Information request '{information_request.title}' has been resolved."
+        except Exception as e:
+            logger.exception(f"Failed to resolve information request: {e}")
+            return f"ERROR: Could not resolve information request with ID '{request_id}': {str(e)}"
 
     async def delete_information_request(self, request_id: str) -> str:
         """
@@ -136,18 +104,11 @@ class InformationRequestTools(ToolsBase):
         Returns:
             Message indicating success or failure
         """
-        if self.role is not ConversationRole.TEAM:
-            return "This tool is only available to Team members."
-
-        success, message = await InformationRequestManager.delete_information_request(
-            context=self.context, request_id=request_id
-        )
-        return (
-            message
-            if message
-            else (
-                "Request deleted successfully."
-                if success
-                else "Failed to delete request."
+        try:
+            message = await InformationRequestManager.delete_information_request(
+                context=self.context, request_id=request_id
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to delete information request: {e}")
+            return f"Failed to delete information request: {str(e)}"

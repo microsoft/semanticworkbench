@@ -6,8 +6,8 @@ Tools for creating, updating, and managing learning objectives and outcomes.
 
 from typing import List
 
-from assistant.data import ConversationRole
 from assistant.domain import LearningObjectivesManager
+from assistant.logging import logger
 
 from .base import ToolsBase
 
@@ -15,9 +15,7 @@ from .base import ToolsBase
 class LearningObjectiveTools(ToolsBase):
     """Tools for managing learning objectives and outcomes."""
 
-    async def add_learning_objective(
-        self, objective_name: str, description: str, learning_outcomes: List[str]
-    ) -> str:
+    async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
         """
         Add a learning objective with measurable learning outcomes.
 
@@ -39,10 +37,6 @@ class LearningObjectiveTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can add learning objectives."
-
         objective = await LearningObjectivesManager.add_learning_objective(
             context=self.context,
             objective_name=objective_name,
@@ -72,25 +66,17 @@ class LearningObjectiveTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can update learning objectives."
-
-        success, message = await LearningObjectivesManager.update_learning_objective(
-            context=self.context,
-            objective_id=objective_id,
-            objective_name=objective_name if objective_name.strip() else None,
-            description=description if description.strip() else None,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Learning objective updated successfully."
-                if success
-                else "Failed to update learning objective."
+        try:
+            message = await LearningObjectivesManager.update_learning_objective(
+                context=self.context,
+                objective_id=objective_id,
+                objective_name=objective_name if objective_name.strip() else None,
+                description=description if description.strip() else None,
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to update learning objective: {e}")
+            return f"Failed to update learning objective: {str(e)}"
 
     async def delete_learning_objective(self, objective_id: str) -> str:
         """
@@ -110,21 +96,12 @@ class LearningObjectiveTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can delete learning objectives."
-
-        success, message = await LearningObjectivesManager.delete_learning_objective(
-            context=self.context,
-            objective_id=objective_id,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Learning objective deleted successfully."
-                if success
-                else "Failed to delete learning objective."
+        try:
+            message = await LearningObjectivesManager.delete_learning_objective(
+                context=self.context,
+                objective_id=objective_id,
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to delete learning objective: {e}")
+            return f"Failed to delete learning objective: {str(e)}"

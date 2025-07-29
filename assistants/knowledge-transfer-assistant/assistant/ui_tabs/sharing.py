@@ -36,9 +36,7 @@ class SharingInspector:
     async def is_enabled(self, context: ConversationContext) -> bool:
         return True
 
-    async def get(
-        self, context: ConversationContext
-    ) -> AssistantConversationInspectorStateDataModel:
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """Get information requests for display."""
 
         conversation_role = await ShareManager.get_conversation_role(context)
@@ -47,9 +45,7 @@ class SharingInspector:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
-                data={
-                    "content": "No active knowledge package. Start a conversation to create one."
-                }
+                data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
         requests = await InformationRequestManager.get_information_requests(context)
@@ -61,9 +57,7 @@ class SharingInspector:
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_coordinator_requests(
-        self, requests: List[Any], context: ConversationContext
-    ) -> str:
+    async def _format_coordinator_requests(self, requests: List[Any], context: ConversationContext) -> str:
         """Format sharing information and requests for coordinator."""
 
         lines: List[str] = []
@@ -77,18 +71,12 @@ class SharingInspector:
             lines.append("**Share this link with your team members:**")
             lines.append(f"[Knowledge Transfer link]({share_url})")
             lines.append("")
-            lines.append(
-                "The link never expires and can be used by multiple team members."
-            )
+            lines.append("The link never expires and can be used by multiple team members.")
             lines.append("")
 
         # Filter requests by status
-        pending_requests = [
-            req for req in requests if req.status != RequestStatus.RESOLVED
-        ]
-        resolved_requests = [
-            req for req in requests if req.status == RequestStatus.RESOLVED
-        ]
+        pending_requests = [req for req in requests if req.status != RequestStatus.RESOLVED]
+        resolved_requests = [req for req in requests if req.status == RequestStatus.RESOLVED]
 
         lines.append("## Information Requests")
         lines.append("")
@@ -119,9 +107,7 @@ class SharingInspector:
         if not pending_requests and not resolved_requests:
             lines.append("No information requests yet.")
             lines.append("")
-            lines.append(
-                "_Team members can ask questions and create information requests that will appear here._"
-            )
+            lines.append("_Team members can ask questions and create information requests that will appear here._")
 
         # Team summary
         if share and share.team_conversations:
@@ -130,28 +116,16 @@ class SharingInspector:
             lines.append("")
 
             for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = (
-                    LearningObjectivesManager.get_completion_for_conversation(
-                        share, conv_id
-                    )
-                )
+                achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int((achieved / total * 100)) if total > 0 else 0
-                lines.append(
-                    f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)"
-                )
-                lines.append(
-                    f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}"
-                )
-                lines.append(
-                    f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}"
-                )
+                lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
+                lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")
+                lines.append(f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}")
                 lines.append("")
 
         return "\n".join(lines)
 
-    async def _format_team_requests(
-        self, requests: List[Any], context: ConversationContext
-    ) -> str:
+    async def _format_team_requests(self, requests: List[Any], context: ConversationContext) -> str:
         """Format sharing information and requests for team members."""
 
         lines: List[str] = []

@@ -45,9 +45,7 @@ async def test_inspector():
         logger.info(f"Testing {inspector_id} inspector...")
 
         # Create state event
-        state_event = AssistantStateEvent(
-            state_id=inspector_id, event="focus", state=None
-        )
+        state_event = AssistantStateEvent(state_id=inspector_id, event="focus", state=None)
 
         # Send event
         logger.info("Sending state event...")

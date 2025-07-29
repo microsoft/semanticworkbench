@@ -9,7 +9,6 @@ from typing import Optional
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import InspectorTab, KnowledgeBrief, LogEntryType
-from assistant.logging import logger
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage
 from assistant.utils import require_current_user
@@ -25,8 +24,6 @@ class KnowledgeBriefManager:
         context: ConversationContext,
     ) -> Optional[KnowledgeBrief]:
         share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            return None
         return ShareStorage.read_knowledge_brief(share_id)
 
     @staticmethod
@@ -35,17 +32,9 @@ class KnowledgeBriefManager:
         title: str,
         description: str,
         timeline: Optional[str] = None,
-    ) -> Optional[KnowledgeBrief]:
+    ) -> KnowledgeBrief:
         share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            logger.error(
-                "Cannot update brief: no share associated with this conversation"
-            )
-            return
-
         current_user_id = await require_current_user(context, "update brief")
-        if not current_user_id:
-            return
 
         brief = KnowledgeBrief(
             title=title,
@@ -75,11 +64,7 @@ class KnowledgeBriefManager:
                 message=f"Created brief: {title}",
             )
 
-        await Notifications.notify_all(
-            context, share_id, "Knowledge brief has been updated"
-        )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all(context, share_id, "Knowledge brief has been updated")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.BRIEF])
 
         return brief

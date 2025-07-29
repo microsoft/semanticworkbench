@@ -26,9 +26,7 @@ class ConversationClientManager:
     """
 
     @staticmethod
-    def get_conversation_client(
-        context: ConversationContext, conversation_id: str
-    ) -> ConversationAPIClient:
+    def get_conversation_client(context: ConversationContext, conversation_id: str) -> ConversationAPIClient:
         """
         Gets a client for accessing another conversation.
         """
@@ -42,9 +40,7 @@ class ConversationClientManager:
         Gets a client for accessing the Coordinator conversation for a knowledge transfer.
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = (
-            ShareStorageManager.get_share_dir(share_id) / ConversationRole.COORDINATOR
-        )
+        coordinator_dir = ShareStorageManager.get_share_dir(share_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 
@@ -68,9 +64,7 @@ class ConversationClientManager:
             return None, coordinator_conversation_id
 
         # Create a client for the Coordinator conversation
-        client = ConversationClientManager.get_conversation_client(
-            context, coordinator_conversation_id
-        )
+        client = ConversationClientManager.get_conversation_client(context, coordinator_conversation_id)
         return client, coordinator_conversation_id
 
     @staticmethod

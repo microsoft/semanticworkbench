@@ -136,9 +136,7 @@ class TestKnowledgeTransferManager:
             nonlocal write_project_info_called
             assert proj_id == project_id
             # Verify package was updated
-            assert (
-                package.achieved_outcomes == 0
-            )  # Completed criterion was in the deleted goal
+            assert package.achieved_outcomes == 0  # Completed criterion was in the deleted goal
             assert package.total_outcomes == 0  # All criteria were in the deleted goal
             # Note: completion_percentage removed from model
             assert package.version == 2  # Incremented
@@ -189,9 +187,7 @@ class TestKnowledgeTransferManager:
         (
             success,
             goal_name_result,
-        ) = await LearningObjectivesManager.delete_learning_objective(
-            context, objective_index
-        )
+        ) = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
 
         # Verify the result
         assert success is True
@@ -206,9 +202,7 @@ class TestKnowledgeTransferManager:
 
     # DISABLED: delete_project_goal functionality has been removed from the codebase
     # @pytest.mark.asyncio
-    async def disabled_test_delete_project_goal_invalid_index(
-        self, context, monkeypatch
-    ):
+    async def disabled_test_delete_project_goal_invalid_index(self, context, monkeypatch):
         """Test deleting a goal with an invalid index."""
         # Setup
         project_id = "test-project-id"
@@ -269,9 +263,7 @@ class TestKnowledgeTransferManager:
         (
             success,
             error_message,
-        ) = await LearningObjectivesManager.delete_learning_objective(
-            context, objective_index
-        )
+        ) = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False
@@ -296,9 +288,7 @@ class TestKnowledgeTransferManager:
         (
             success,
             error_message,
-        ) = await LearningObjectivesManager.delete_learning_objective(
-            context, "test-objective-id"
-        )
+        ) = await LearningObjectivesManager.delete_learning_objective(context, "test-objective-id")
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

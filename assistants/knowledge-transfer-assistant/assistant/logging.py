@@ -161,9 +161,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
         # Also set up a regular text file handler for easier debugging
         text_file_handler = logging.FileHandler(line_log_file)
         text_file_handler.setLevel(logging.DEBUG)
-        text_file_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s")
-        )
+        text_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s"))
         logger.addHandler(text_file_handler)
 
         logger.debug(
@@ -185,12 +183,8 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
         try:
             import stat
 
-            os.chmod(
-                log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-            )
-            os.chmod(
-                line_log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-            )
+            os.chmod(log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            os.chmod(line_log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         except Exception as e:
             logger.warning(f"Could not set log file permissions: {e}")
             print(f"Permission error: {e}")
@@ -216,11 +210,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
 
             text_file_handler = logging.FileHandler(line_log_file)
             text_file_handler.setLevel(logging.DEBUG)
-            text_file_handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - [%(levelname)s] %(message)s"
-                )
-            )
+            text_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s"))
             logger.addHandler(text_file_handler)
 
             logger.warning(f"Using fallback log location: {log_file}")

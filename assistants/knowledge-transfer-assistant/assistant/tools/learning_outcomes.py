@@ -4,8 +4,8 @@ Learning outcomes management tools for Knowledge Transfer Assistant.
 Tools for managing individual learning outcomes within objectives.
 """
 
-from assistant.data import ConversationRole
 from assistant.domain import LearningObjectivesManager
+from assistant.logging import logger
 
 from .base import ToolsBase
 
@@ -13,9 +13,7 @@ from .base import ToolsBase
 class LearningOutcomeTools(ToolsBase):
     """Tools for managing learning outcomes."""
 
-    async def add_learning_outcome(
-        self, objective_id: str, outcome_description: str
-    ) -> str:
+    async def add_learning_outcome(self, objective_id: str, outcome_description: str) -> str:
         """
         Add a new learning outcome to an existing learning objective.
 
@@ -32,28 +30,18 @@ class LearningOutcomeTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can add learning outcomes."
-
-        success, message = await LearningObjectivesManager.add_learning_outcome(
-            context=self.context,
-            objective_id=objective_id,
-            outcome_description=outcome_description,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Learning outcome added successfully."
-                if success
-                else "Failed to add learning outcome."
+        try:
+            message = await LearningObjectivesManager.add_learning_outcome(
+                context=self.context,
+                objective_id=objective_id,
+                outcome_description=outcome_description,
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to add learning outcome: {e}")
+            return f"Failed to add learning outcome: {str(e)}"
 
-    async def update_learning_outcome(
-        self, outcome_id: str, new_description: str
-    ) -> str:
+    async def update_learning_outcome(self, outcome_id: str, new_description: str) -> str:
         """
         Update the description of an existing learning outcome.
 
@@ -70,24 +58,16 @@ class LearningOutcomeTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can update learning outcomes."
-
-        success, message = await LearningObjectivesManager.update_learning_outcome(
-            context=self.context,
-            outcome_id=outcome_id,
-            new_description=new_description,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Learning outcome updated successfully."
-                if success
-                else "Failed to update learning outcome."
+        try:
+            message = await LearningObjectivesManager.update_learning_outcome(
+                context=self.context,
+                outcome_id=outcome_id,
+                new_description=new_description,
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to update learning outcome: {e}")
+            return f"Failed to update learning outcome: {str(e)}"
 
     async def delete_learning_outcome(self, outcome_id: str) -> str:
         """
@@ -107,20 +87,12 @@ class LearningOutcomeTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can delete learning outcomes."
-
-        success, message = await LearningObjectivesManager.delete_learning_outcome(
-            context=self.context,
-            outcome_id=outcome_id,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Learning outcome deleted successfully."
-                if success
-                else "Failed to delete learning outcome."
+        try:
+            message = await LearningObjectivesManager.delete_learning_outcome(
+                context=self.context,
+                outcome_id=outcome_id,
             )
-        )
+            return message
+        except Exception as e:
+            logger.exception(f"Failed to delete learning outcome: {e}")
+            return f"Failed to delete learning outcome: {str(e)}"

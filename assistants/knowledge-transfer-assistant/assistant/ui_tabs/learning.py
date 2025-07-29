@@ -30,9 +30,7 @@ class LearningInspector:
     async def is_enabled(self, context: ConversationContext) -> bool:
         return True
 
-    async def get(
-        self, context: ConversationContext
-    ) -> AssistantConversationInspectorStateDataModel:
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """Get learning objectives and progress information."""
 
         conversation_role = await ShareManager.get_conversation_role(context)
@@ -41,9 +39,7 @@ class LearningInspector:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
-                data={
-                    "content": "No active knowledge package. Start a conversation to create one."
-                }
+                data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
         share = await ShareManager.get_share(context)
@@ -55,9 +51,7 @@ class LearningInspector:
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_coordinator_objectives(
-        self, share: Any, context: ConversationContext
-    ) -> str:
+    async def _format_coordinator_objectives(self, share: Any, context: ConversationContext) -> str:
         """Format learning objectives for coordinator."""
 
         lines: List[str] = []
@@ -75,22 +69,12 @@ class LearningInspector:
         lines.append("")
 
         # Overall progress summary
-        total_outcomes = sum(
-            len(obj.learning_outcomes)
-            for obj in share.learning_objectives
-            if obj.learning_outcomes
-        )
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in share.learning_objectives if obj.learning_outcomes)
         if total_outcomes > 0 and share.team_conversations:
             for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = (
-                    LearningObjectivesManager.get_completion_for_conversation(
-                        share, conv_id
-                    )
-                )
+                achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int((achieved / total * 100)) if total > 0 else 0
-                lines.append(
-                    f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)"
-                )
+                lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
             lines.append("")
 
         # Detailed objectives
@@ -105,9 +89,7 @@ class LearningInspector:
                 for criterion in objective.learning_outcomes:
                     # Check if any team conversation has achieved this outcome
                     achieved_by_any = any(
-                        LearningObjectivesManager.is_outcome_achieved_by_conversation(
-                            share, criterion.id, conv_id
-                        )
+                        LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
                         for conv_id in share.team_conversations.keys()
                     )
                     status_emoji = "✅" if achieved_by_any else "⬜"
@@ -117,25 +99,19 @@ class LearningInspector:
                     total_team_count = len(share.team_conversations)
 
                     for conv_id in share.team_conversations.keys():
-                        if LearningObjectivesManager.is_outcome_achieved_by_conversation(
-                            share, criterion.id, conv_id
-                        ):
+                        if LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id):
                             achieved_count += 1
 
                     achievement_info = ""
                     if total_team_count > 0:
                         achievement_info = f" ({achieved_count}/{total_team_count})"
 
-                    lines.append(
-                        f"- {status_emoji} {criterion.description}{achievement_info}"
-                    )
+                    lines.append(f"- {status_emoji} {criterion.description}{achievement_info}")
             lines.append("")
 
         return "\n".join(lines)
 
-    async def _format_team_objectives(
-        self, share: Any, context: ConversationContext
-    ) -> str:
+    async def _format_team_objectives(self, share: Any, context: ConversationContext) -> str:
         """Format learning objectives for team members."""
 
         lines: List[str] = []
@@ -154,17 +130,11 @@ class LearningInspector:
 
         # Show my personal progress
         conversation_id = str(context.id)
-        achieved_outcomes, total_outcomes = (
-            LearningObjectivesManager.get_completion_for_conversation(
-                share, conversation_id
-            )
+        achieved_outcomes, total_outcomes = LearningObjectivesManager.get_completion_for_conversation(
+            share, conversation_id
         )
-        progress_pct = (
-            int((achieved_outcomes / total_outcomes * 100)) if total_outcomes > 0 else 0
-        )
-        lines.append(
-            f"**My Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved ({progress_pct}%)"
-        )
+        progress_pct = int((achieved_outcomes / total_outcomes * 100)) if total_outcomes > 0 else 0
+        lines.append(f"**My Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved ({progress_pct}%)")
         lines.append("")
 
         for objective in share.learning_objectives:
@@ -176,32 +146,23 @@ class LearningInspector:
                 lines.append("#### Learning Outcomes")
                 for criterion in objective.learning_outcomes:
                     # Check if I've achieved this outcome
-                    achieved_by_me = (
-                        LearningObjectivesManager.is_outcome_achieved_by_conversation(
-                            share, criterion.id, conversation_id
-                        )
+                    achieved_by_me = LearningObjectivesManager.is_outcome_achieved_by_conversation(
+                        share, criterion.id, conversation_id
                     )
                     status_emoji = "✅" if achieved_by_me else "⬜"
 
                     completion_info = ""
                     if achieved_by_me:
                         # Find my achievement record
-                        my_achievements = (
-                            LearningObjectivesManager.get_achievements_for_conversation(
-                                share, conversation_id
-                            )
+                        my_achievements = LearningObjectivesManager.get_achievements_for_conversation(
+                            share, conversation_id
                         )
                         for achievement in my_achievements:
-                            if (
-                                achievement.outcome_id == criterion.id
-                                and achievement.achieved
-                            ):
+                            if achievement.outcome_id == criterion.id and achievement.achieved:
                                 completion_info = f" (achieved on {achievement.achieved_at.strftime('%Y-%m-%d')})"
                                 break
 
-                    lines.append(
-                        f"- {status_emoji} {criterion.description}{completion_info}"
-                    )
+                    lines.append(f"- {status_emoji} {criterion.description}{completion_info}")
             lines.append("")
 
         return "\n".join(lines)

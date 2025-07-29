@@ -4,9 +4,8 @@ Project setup tools for Knowledge Transfer Assistant.
 Tools for initializing and configuring knowledge packages.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from assistant.data import ConversationRole
 from assistant.domain.audience_manager import AudienceManager
 from assistant.domain.knowledge_brief_manager import KnowledgeBriefManager
 from assistant.domain.share_manager import ShareManager
@@ -27,23 +26,14 @@ class ShareSetupTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can update the audience description."
-
-        success, message = await AudienceManager.update_audience(
-            context=self.context,
-            audience_description=audience_description,
-        )
-
-        return (
-            message
-            if message
-            else (
-                "Audience updated successfully."
-                if success
-                else "Failed to update audience."
+        try:
+            await AudienceManager.update_audience(
+                context=self.context,
+                audience_description=audience_description,
             )
-        )
+            return "Audience updated successfully"
+        except Exception as e:
+            return f"Failed to update audience: {str(e)}"
 
     async def set_knowledge_organized(self, is_organized: bool) -> str:
         """
@@ -59,28 +49,20 @@ class ShareSetupTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can mark knowledge as organized."
+        try:
+            share = await ShareManager.get_share(self.context)
+            share.knowledge_organized = is_organized
+            share.updated_at = datetime.now(timezone.utc)
+            await ShareManager.set_share(self.context, share)
 
-        # Get existing knowledge package
-        share = await ShareManager.get_share(self.context)
-        if not share:
-            return "No knowledge package found. Please create a knowledge brief first."
+            if is_organized:
+                guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."
+            else:
+                guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."
+            return f"Knowledge organization status updated successfully. {guidance}"
 
-        # Update the knowledge organized flag
-        share.knowledge_organized = is_organized
-        share.updated_at = datetime.utcnow()
-
-        # Save the updated package
-        await ShareManager.set_share(self.context, share)
-
-        # Provide appropriate feedback
-        if is_organized:
-            guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."
-        else:
-            guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."
-
-        return f"Knowledge organization status updated successfully. {guidance}"
+        except Exception as e:
+            return f"Failed to update knowledge organization status: {str(e)}"
 
     async def update_brief(self, title: str, description: str) -> str:
         """
@@ -93,19 +75,15 @@ class ShareSetupTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can create knowledge briefs."
-
-        brief = await KnowledgeBriefManager.update_knowledge_brief(
-            context=self.context,
-            title=title,
-            description=description,
-        )
-
-        if brief:
-            return f"Brief '{title}' updated successfully."
-        else:
-            return "Failed to update the brief. Please try again."
+        try:
+            await KnowledgeBriefManager.update_knowledge_brief(
+                context=self.context,
+                title=title,
+                description=description,
+            )
+            return "Brief updated successfully."
+        except Exception as e:
+            return f"Failed to update brief: {str(e)}"
 
     async def set_learning_intention(self, is_for_specific_outcomes: bool) -> str:
         """
@@ -118,24 +96,19 @@ class ShareSetupTools(ToolsBase):
         Returns:
             A message indicating success or failure
         """
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can set learning intention."
+        try:
+            share = await ShareManager.get_share(self.context)
+            share.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
+            share.updated_at = datetime.utcnow()
+            await ShareManager.set_share(self.context, share)
 
-        share = await ShareManager.get_share(self.context)
-        if not share:
-            return "No knowledge package found. Please create a knowledge brief first."
+            # Provide appropriate guidance based on the choice
+            if is_for_specific_outcomes:
+                guidance = "This knowledge package is now set for specific learning outcomes. You'll need to add learning objectives with measurable outcomes."
+            else:
+                guidance = "This knowledge package is now set for general exploration. No specific learning objectives are required."
 
-        # Update the intention
-        share.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
-        share.updated_at = datetime.utcnow()
+            return f"Learning intention updated successfully. {guidance}"
 
-        # Save the updated package
-        await ShareManager.set_share(self.context, share)
-
-        # Provide appropriate guidance based on the choice
-        if is_for_specific_outcomes:
-            guidance = "This knowledge package is now set for specific learning outcomes. You'll need to add learning objectives with measurable outcomes."
-        else:
-            guidance = "This knowledge package is now set for general exploration. No specific learning objectives are required."
-
-        return f"Learning intention updated successfully. {guidance}"
+        except Exception as e:
+            return f"Failed to update learning intention: {str(e)}"
