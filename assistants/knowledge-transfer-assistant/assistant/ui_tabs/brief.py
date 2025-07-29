@@ -35,7 +35,9 @@ class BriefInspector:
     async def is_enabled(self, context: ConversationContext) -> bool:
         return True
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
         """Get brief and status information for display."""
 
         conversation_role = await ShareManager.get_conversation_role(context)
@@ -44,16 +46,22 @@ class BriefInspector:
         share = await ShareManager.get_share(context)
         if not share:
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active knowledge package. Start a conversation to create one."}
+                data={
+                    "content": "No active knowledge package. Start a conversation to create one."
+                }
             )
 
         brief = share.brief
         share_info = await ShareManager.get_share(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_coordinator_brief(
+                share.share_id, brief, share_info, context
+            )
         else:
-            markdown = await self._format_team_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_team_brief(
+                share.share_id, brief, share_info, context
+            )
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
@@ -95,7 +103,9 @@ class BriefInspector:
 
         return "\n".join(lines)
 
-    async def _format_team_brief(self, share_id: str, brief: Any, share_info: Any, context: ConversationContext) -> str:
+    async def _format_team_brief(
+        self, share_id: str, brief: Any, share_info: Any, context: ConversationContext
+    ) -> str:
         """Format brief information for team members."""
 
         lines: List[str] = []
@@ -126,7 +136,9 @@ class BriefInspector:
         else:
             lines.append("## Knowledge Brief")
             lines.append("")
-            lines.append("_The coordinator is still setting up the knowledge brief. Check back soon!_")
+            lines.append(
+                "_The coordinator is still setting up the knowledge brief. Check back soon!_"
+            )
             lines.append("")
 
         return "\n".join(lines)

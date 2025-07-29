@@ -18,7 +18,9 @@ def render(template: str, vars: dict[str, Any]) -> str:
     return parsed
 
 
-def create_system_message(content: str, delimiter: str | None = None) -> ChatCompletionMessageParam:
+def create_system_message(
+    content: str, delimiter: str | None = None
+) -> ChatCompletionMessageParam:
     if delimiter:
         content = f"<{delimiter}>\n{content}\n</{delimiter}>"
 
@@ -58,7 +60,9 @@ class Instructions:
             s += f"{hashes} {self.title}\n\n"
         s += self.content
         if self.subsections:
-            s += "\n\n" + "\n\n".join(str(subsection) for subsection in self.subsections)
+            s += "\n\n" + "\n\n".join(
+                str(subsection) for subsection in self.subsections
+            )
 
         return s
 

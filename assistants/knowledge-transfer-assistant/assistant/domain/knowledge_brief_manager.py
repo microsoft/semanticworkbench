@@ -38,7 +38,9 @@ class KnowledgeBriefManager:
     ) -> Optional[KnowledgeBrief]:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update brief: no share associated with this conversation")
+            logger.error(
+                "Cannot update brief: no share associated with this conversation"
+            )
             return
 
         current_user_id = await require_current_user(context, "update brief")
@@ -73,7 +75,11 @@ class KnowledgeBriefManager:
                 message=f"Created brief: {title}",
             )
 
-        await Notifications.notify_all(context, share_id, "Knowledge brief has been updated")
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.BRIEF])
+        await Notifications.notify_all(
+            context, share_id, "Knowledge brief has been updated"
+        )
+        await Notifications.notify_all_state_update(
+            context, share_id, [InspectorTab.BRIEF]
+        )
 
         return brief

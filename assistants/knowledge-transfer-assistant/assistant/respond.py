@@ -42,13 +42,21 @@ from .utils import load_text_include
 SILENCE_TOKEN = "{{SILENCE}}"
 
 
-def format_message(participants: ConversationParticipantList, message: ConversationMessage) -> str:
+def format_message(
+    participants: ConversationParticipantList, message: ConversationMessage
+) -> str:
     """Consistent formatter that includes the participant name for multi-participant and name references"""
     conversation_participant = next(
-        (participant for participant in participants.participants if participant.id == message.sender.participant_id),
+        (
+            participant
+            for participant in participants.participants
+            if participant.id == message.sender.participant_id
+        ),
         None,
     )
-    participant_name = conversation_participant.name if conversation_participant else "unknown"
+    participant_name = (
+        conversation_participant.name if conversation_participant else "unknown"
+    )
     message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     return f"[{participant_name} - {message_datetime}]: {message.content}"
 
@@ -115,7 +123,10 @@ async def respond_to_conversation(
     model = config.request_config.openai_model
 
     # Requirements
-    role = await ShareManager.get_conversation_role(context) or ConversationRole.COORDINATOR
+    role = (
+        await ShareManager.get_conversation_role(context)
+        or ConversationRole.COORDINATOR
+    )
     metadata["debug"]["role"] = role
 
     token_budget = TokenBudget(config.request_config.max_tokens)
@@ -148,11 +159,13 @@ async def respond_to_conversation(
             "\n\n"
             f"There are {len(participants.participants)} participants in the conversation,"
             " including you as the assistant and the following users:"
-            + ",".join([
-                f' "{participant.name}"'
-                for participant in participants.participants
-                if participant.id != context.assistant.id
-            ])
+            + ",".join(
+                [
+                    f' "{participant.name}"'
+                    for participant in participants.participants
+                    if participant.id != context.assistant.id
+                ]
+            )
             + "\n\nYou do not need to respond to every message. Do not respond if the last thing said was a closing"
             " statement such as 'bye' or 'goodbye', or just a general acknowledgement like 'ok' or 'thanks'. Do not"
             f' respond as another user in the conversation, only as "{context.assistant.name}".'
@@ -160,7 +173,11 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{SILENCE_TOKEN}" to skip'
             " your turn."
         )
-        instructions.add_subsection(Instructions(participant_text, "Multi-participant conversation instructions"))
+        instructions.add_subsection(
+            Instructions(
+                participant_text, "Multi-participant conversation instructions"
+            )
+        )
 
     prompt = Prompt(
         role=assistant_role,
@@ -198,7 +215,9 @@ async def respond_to_conversation(
     # Brief
     if share and share.brief:
         brief_text = ""
-        brief_text = f"**Title:** {share.brief.title}\n**Description:** {share.brief.content}"
+        brief_text = (
+            f"**Title:** {share.brief.title}\n**Description:** {share.brief.content}"
+        )
         prompt.contexts.append(
             Context(
                 "Knowledge Brief",
@@ -228,29 +247,37 @@ async def respond_to_conversation(
         # Show progress based on role
         if role == ConversationRole.COORDINATOR:
             # Coordinator sees overall progress across all team members
-            achieved_overall, total_overall = LearningObjectivesManager.get_overall_completion(share)
-            learning_objectives_text += (
-                f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
+            achieved_overall, total_overall = (
+                LearningObjectivesManager.get_overall_completion(share)
             )
+            learning_objectives_text += f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
         else:
             # Team member sees their personal progress
             if conversation_id in share.team_conversations:
-                achieved_personal, total_personal = LearningObjectivesManager.get_completion_for_conversation(
-                    share, conversation_id
+                achieved_personal, total_personal = (
+                    LearningObjectivesManager.get_completion_for_conversation(
+                        share, conversation_id
+                    )
                 )
-                progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
-                learning_objectives_text += (
-                    f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
+                progress_pct = (
+                    int((achieved_personal / total_personal * 100))
+                    if total_personal > 0
+                    else 0
                 )
+                learning_objectives_text += f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
 
         for i, objective in enumerate(share.learning_objectives):
-            learning_objectives_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            learning_objectives_text += (
+                f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            )
             if objective.learning_outcomes:
                 for criterion in objective.learning_outcomes:
                     if role == ConversationRole.COORDINATOR:
                         # Show if achieved by any team member
                         achieved_by_any = any(
-                            LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
+                            LearningObjectivesManager.is_outcome_achieved_by_conversation(
+                                share, criterion.id, conv_id
+                            )
                             for conv_id in share.team_conversations.keys()
                         )
                         check = "✅" if achieved_by_any else "⬜"
@@ -283,20 +310,24 @@ async def respond_to_conversation(
     if share:
         all_requests = share.requests
         if role == ConversationRole.COORDINATOR:
-            active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
+            active_requests = [
+                r for r in all_requests if r.status != RequestStatus.RESOLVED
+            ]
             if active_requests:
-                coordinator_requests = (
-                    "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-                )
+                coordinator_requests = "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
                 for req in active_requests[:10]:  # Limit to 10 for brevity
                     priority_emoji = get_priority_emoji(req.priority)
                     status_emoji = get_status_emoji(req.status)
-                    coordinator_requests += f"{priority_emoji} **{req.title}** {status_emoji}\n"
+                    coordinator_requests += (
+                        f"{priority_emoji} **{req.title}** {status_emoji}\n"
+                    )
                     coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
                     coordinator_requests += f"   **Description:** {req.description}\n\n"
 
                 if len(active_requests) > 10:
-                    coordinator_requests += f"*...and {len(active_requests) - 10} more requests.*\n"
+                    coordinator_requests += (
+                        f"*...and {len(active_requests) - 10} more requests.*\n"
+                    )
             else:
                 coordinator_requests = "No active information requests."
             prompt.contexts.append(
@@ -311,15 +342,16 @@ async def respond_to_conversation(
 
             # Filter for requests from this conversation that aren't resolved.
             my_requests = [
-                r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+                r
+                for r in all_requests
+                if r.conversation_id == str(context.id)
+                and r.status != RequestStatus.RESOLVED
             ]
 
             if my_requests:
                 information_requests_info = ""
                 for req in my_requests:
-                    information_requests_info += (
-                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-                    )
+                    information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
             else:
                 information_requests_info = "No active information requests."
 
@@ -332,7 +364,9 @@ async def respond_to_conversation(
 
     # Add next action suggestions for coordinator
     if role == ConversationRole.COORDINATOR:
-        next_action_suggestion = await CoordinatorSupport.get_coordinator_next_action_suggestion(context)
+        next_action_suggestion = (
+            await CoordinatorSupport.get_coordinator_next_action_suggestion(context)
+        )
         if next_action_suggestion:
             prompt.contexts.append(
                 Context(
@@ -360,9 +394,13 @@ async def respond_to_conversation(
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
-        selected_coordinator_conversation_messages: List[CoordinatorConversationMessage] = []
+        selected_coordinator_conversation_messages: List[
+            CoordinatorConversationMessage
+        ] = []
         for msg in reversed(coordinator_conversation.messages):
-            tokens = openai_client.num_tokens_from_string(msg.model_dump_json(), model=model)
+            tokens = openai_client.num_tokens_from_string(
+                msg.model_dump_json(), model=model
+            )
             if (
                 total_coordinator_conversation_tokens + tokens
                 > config.request_config.coordinator_conversation_token_limit
@@ -376,7 +414,9 @@ async def respond_to_conversation(
             messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
 
         selected_coordinator_conversation_messages.reverse()
-        coordinator_message_list = CoordinatorMessageList(messages=selected_coordinator_conversation_messages)
+        coordinator_message_list = CoordinatorMessageList(
+            messages=selected_coordinator_conversation_messages
+        )
         coordinator_conversation_message = ChatCompletionSystemMessageParam(
             role="system",
             content=(
@@ -400,10 +440,12 @@ async def respond_to_conversation(
     # in the proper flow of the conversation rather than as .
 
     # Generate the attachment messages.
-    attachment_messages: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
-        await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config=config.attachments_config,
+    attachment_messages: List[ChatCompletionMessageParam] = (
+        openai_client.convert_from_completion_messages(
+            await attachments_extension.get_completion_messages_for_attachments(
+                context,
+                config=config.attachments_config,
+            )
         )
     )
 
@@ -528,9 +570,14 @@ async def respond_to_conversation(
     # For team role, analyze message for possible information request needs.
     # Send a notification if we think it might be one.
     if role is ConversationRole.TEAM:
-        detection_result = await detect_information_request_needs(context, new_message.content)
+        detection_result = await detect_information_request_needs(
+            context, new_message.content
+        )
 
-        if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
+        if (
+            detection_result.get("is_information_request", False)
+            and detection_result.get("confidence", 0) > 0.8
+        ):
             suggested_title = detection_result.get("potential_title", "")
             suggested_priority = detection_result.get("suggested_priority", "medium")
             potential_description = detection_result.get("potential_description", "")
@@ -564,7 +611,9 @@ async def respond_to_conversation(
                 "messages": completion_messages,
                 "model": model,
                 "max_tokens": config.request_config.response_tokens,
-                "response_format": CoordinatorOutput if role == ConversationRole.COORDINATOR else TeamOutput,
+                "response_format": CoordinatorOutput
+                if role == ConversationRole.COORDINATOR
+                else TeamOutput,
             }
 
             share_tools = ShareTools(context, role)
@@ -580,7 +629,11 @@ async def respond_to_conversation(
 
             # Add the token usage message to the footer items
             if completion_response:
-                response_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
+                response_tokens = (
+                    completion_response.usage.completion_tokens
+                    if completion_response.usage
+                    else 0
+                )
                 request_tokens = token_budget.used
                 footer_items.append(
                     get_token_usage_message(
@@ -600,7 +653,9 @@ async def respond_to_conversation(
                     }
                 )
 
-            footer_items.append(get_response_duration_message(response_end_time - response_start_time))
+            footer_items.append(
+                get_response_duration_message(response_end_time - response_start_time)
+            )
             metadata["footer_items"] = footer_items
 
             content = message_content_from_completion(completion_response)

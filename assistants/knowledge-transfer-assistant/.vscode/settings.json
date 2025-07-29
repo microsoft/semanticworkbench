@@ -58,6 +58,9 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "addopts",
+    "asctime",
+    "asyncio",
     "Codespaces",
     "contentsafety",
     "debugpy",
@@ -70,11 +73,13 @@
     "GIPHY",
     "jsonschema",
     "Langchain",
+    "levelname",
     "modelcontextprotocol",
     "moderations",
     "mzxrai",
     "openai",
     "pdfplumber",
+    "pycache",
     "pydantic",
     "pyproject",
     "pyright",
@@ -83,6 +88,7 @@
     "semanticworkbenchteam",
     "tiktoken",
     "updown",
+    "venv",
     "virtualenvs",
     "webresearch"
   ]

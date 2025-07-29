@@ -147,7 +147,9 @@ class ShareStorage:
         return read_model(path, CoordinatorConversationMessages)
 
     @staticmethod
-    def write_coordinator_conversation(share_id: str, conversation: CoordinatorConversationMessages) -> pathlib.Path:
+    def write_coordinator_conversation(
+        share_id: str, conversation: CoordinatorConversationMessages
+    ) -> pathlib.Path:
         path = ShareStorageManager.get_coordinator_conversation_path(share_id)
         write_model(path, conversation)
         return path
@@ -209,7 +211,9 @@ class ShareStorage:
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
-    def read_information_request(share_id: str, request_id: str) -> Optional[InformationRequest]:
+    def read_information_request(
+        share_id: str, request_id: str
+    ) -> Optional[InformationRequest]:
         """Reads an information request from the main share data."""
         package = ShareStorage.read_share(share_id)
         if not package or not package.requests:
@@ -222,7 +226,9 @@ class ShareStorage:
         return None
 
     @staticmethod
-    def write_information_request(share_id: str, request: InformationRequest) -> pathlib.Path:
+    def write_information_request(
+        share_id: str, request: InformationRequest
+    ) -> pathlib.Path:
         """Writes an information request to the main share data."""
         # Information requests must have an ID
         if not request.request_id:

@@ -4,7 +4,7 @@ Knowledge transfer lifecycle management for Knowledge Transfer Assistant.
 Handles knowledge transfer state updates, completion, and lifecycle operations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -47,7 +47,7 @@ class AudienceManager:
 
             # Update the audience
             share.audience = audience_description.strip()
-            share.updated_at = datetime.utcnow()
+            share.updated_at = datetime.now(timezone.utc)
 
             # Save the updated package
             await ShareManager.set_share(context, share)
@@ -63,7 +63,9 @@ class AudienceManager:
             )
 
             await Notifications.notify(context, "Audience updated.")
-            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(
+                context, share.share_id, [InspectorTab.DEBUG]
+            )
 
             return True, f"Target audience updated successfully: {audience_description}"
 

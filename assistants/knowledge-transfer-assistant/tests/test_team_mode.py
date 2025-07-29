@@ -89,7 +89,9 @@ class BaseArtifact:
 
 
 class InformationRequest(BaseArtifact):
-    def __init__(self, title=None, description=None, priority=None, status=None, **kwargs):
+    def __init__(
+        self, title=None, description=None, priority=None, status=None, **kwargs
+    ):
         super().__init__(artifact_type=ArtifactType.INFORMATION_REQUEST, **kwargs)
         self.title = title or "Test Request"
         self.description = description or "Test Description"
@@ -129,7 +131,9 @@ class LearningOutcome:
 
 
 class LearningObjective:
-    def __init__(self, id=None, name=None, description=None, priority=1, success_criteria=None):
+    def __init__(
+        self, id=None, name=None, description=None, priority=1, success_criteria=None
+    ):
         self.id = id or "test-goal-id"
         self.name = name or "Test Goal"
         self.description = description or "Test Goal Description"
@@ -151,7 +155,9 @@ class MockTeamConversationHandler:
         self.context = context
         self.log_action = AsyncMock()
 
-    async def create_information_request(self, title, description, priority=RequestPriority.MEDIUM):
+    async def create_information_request(
+        self, title, description, priority=RequestPriority.MEDIUM
+    ):
         # Mock implementation
         request = InformationRequest(
             title=title,
@@ -194,7 +200,9 @@ class MockTeamConversationHandler:
         dashboard.transfer_notes = status_message
 
         # Call mocked log_action for state change and progress update
-        await self.log_action(LogEntryType.MILESTONE_PASSED, "KnowledgePackage is now in progress")
+        await self.log_action(
+            LogEntryType.MILESTONE_PASSED, "KnowledgePackage is now in progress"
+        )
 
         await self.log_action(
             LogEntryType.STATUS_CHANGED,
@@ -262,7 +270,9 @@ class MockTeamConversationHandler:
         dashboard.transfer_notes = completion_summary
 
         # Call mocked log_action
-        await self.log_action(LogEntryType.PROJECT_COMPLETED, "KnowledgePackage marked as completed")
+        await self.log_action(
+            LogEntryType.PROJECT_COMPLETED, "KnowledgePackage marked as completed"
+        )
 
         # Send notification
         await self.context.send_messages(
@@ -345,7 +355,9 @@ class TestTeamConversationHandler:
     async def test_update_project_info(self, team_handler, mock_context):
         """Test updating the project information."""
         # Call the method
-        success, message, dashboard = await team_handler.update_project_info(50, "Making progress in the team")
+        success, message, dashboard = await team_handler.update_project_info(
+            50, "Making progress in the team"
+        )
 
         # Assertions
         assert success is True
@@ -369,7 +381,9 @@ class TestTeamConversationHandler:
             success,
             message,
             updated_dashboard,
-        ) = await team_handler.mark_criterion_completed("test-goal-id", "test-criterion-id")
+        ) = await team_handler.mark_criterion_completed(
+            "test-goal-id", "test-criterion-id"
+        )
 
         # Assertions
         assert success is True
@@ -400,7 +414,8 @@ class TestTeamConversationHandler:
         assert dashboard.state == ProjectState.COMPLETED
         # Note: completion_percentage removed from model
         assert (
-            dashboard.transfer_notes == "KnowledgePackage has been successfully completed with all objectives achieved."
+            dashboard.transfer_notes
+            == "KnowledgePackage has been successfully completed with all objectives achieved."
         )
 
         # Verify that a notification was sent

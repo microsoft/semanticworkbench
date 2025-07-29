@@ -51,11 +51,17 @@ def get_stage_label(package: KnowledgePackage, for_coordinator: bool = True) -> 
             return "📋 Organizing Knowledge"
         elif not package.brief:
             return "📝 Creating Brief"
-        elif package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
+        elif (
+            package.is_intended_to_accomplish_outcomes
+            and not package.learning_objectives
+        ):
             return "📚 Adding Objectives"
         elif not TransferManager.is_ready_for_transfer(package):
             return "📋 Finalizing Setup"
-        elif package.is_intended_to_accomplish_outcomes and TransferManager._is_transfer_complete(package):
+        elif (
+            package.is_intended_to_accomplish_outcomes
+            and TransferManager._is_transfer_complete(package)
+        ):
             return "✅ Transfer Complete"
         elif TransferManager.is_actively_sharing(package):
             return "📤 Sharing in Progress"

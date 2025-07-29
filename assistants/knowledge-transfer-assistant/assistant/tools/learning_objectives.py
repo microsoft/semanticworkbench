@@ -15,7 +15,9 @@ from .base import ToolsBase
 class LearningObjectiveTools(ToolsBase):
     """Tools for managing learning objectives and outcomes."""
 
-    async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
+    async def add_learning_objective(
+        self, objective_name: str, description: str, learning_outcomes: List[str]
+    ) -> str:
         """
         Add a learning objective with measurable learning outcomes.
 
@@ -83,7 +85,11 @@ class LearningObjectiveTools(ToolsBase):
         return (
             message
             if message
-            else ("Learning objective updated successfully." if success else "Failed to update learning objective.")
+            else (
+                "Learning objective updated successfully."
+                if success
+                else "Failed to update learning objective."
+            )
         )
 
     async def delete_learning_objective(self, objective_id: str) -> str:
@@ -116,5 +122,9 @@ class LearningObjectiveTools(ToolsBase):
         return (
             message
             if message
-            else ("Learning objective deleted successfully." if success else "Failed to delete learning objective.")
+            else (
+                "Learning objective deleted successfully."
+                if success
+                else "Failed to delete learning objective."
+            )
         )

@@ -6,9 +6,10 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-from assistant.assistant import assistant
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.assistant import assistant
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -44,7 +45,9 @@ async def test_inspector():
         logger.info(f"Testing {inspector_id} inspector...")
 
         # Create state event
-        state_event = AssistantStateEvent(state_id=inspector_id, event="focus", state=None)
+        state_event = AssistantStateEvent(
+            state_id=inspector_id, event="focus", state=None
+        )
 
         # Send event
         logger.info("Sending state event...")

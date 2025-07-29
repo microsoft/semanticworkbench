@@ -35,7 +35,15 @@ class ShareSetupTools(ToolsBase):
             audience_description=audience_description,
         )
 
-        return message if message else ("Audience updated successfully." if success else "Failed to update audience.")
+        return (
+            message
+            if message
+            else (
+                "Audience updated successfully."
+                if success
+                else "Failed to update audience."
+            )
+        )
 
     async def set_knowledge_organized(self, is_organized: bool) -> str:
         """

@@ -29,10 +29,10 @@ async def generate_team_welcome_message(
 
     share = await ShareManager.get_share(context)
     if not share:
-        logger.warning("No active knowledge package found for welcome message generation")
+        logger.warning(
+            "No active knowledge package found for welcome message generation"
+        )
         return config.team_config.default_welcome_message, debug
-
-    share_id = share.share_id
 
     share_data: dict[str, str] = {}
 
@@ -92,9 +92,13 @@ async def generate_team_welcome_message(
     try:
         # Chat completion
         async with openai_client.create_client(config.service_config) as client:
-            share_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(share_data.values())
+            share_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(
+                share_data.values()
+            )
 
-            instructions = f"{config.prompt_config.welcome_message_generation}\n\n{share_info}"
+            instructions = (
+                f"{config.prompt_config.welcome_message_generation}\n\n{share_info}"
+            )
             messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": instructions},
             ]
@@ -105,7 +109,9 @@ async def generate_team_welcome_message(
                 "max_tokens": 500,
                 "temperature": 0.7,  # Low temperature for more consistent analysis
             }
-            debug["completion_args"] = openai_client.make_completion_args_serializable(completion_args)
+            debug["completion_args"] = openai_client.make_completion_args_serializable(
+                completion_args
+            )
 
             # LLM call
             response = await client.chat.completions.create(
