@@ -9,7 +9,6 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.common import detect_assistant_role
 from assistant.domain.share_manager import ShareManager
 from assistant.data import RequestStatus
 from assistant.domain import KnowledgeTransferManager
@@ -38,10 +37,10 @@ class SharingInspector:
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """Get information requests for display."""
 
-        conversation_role = await detect_assistant_role(context)
+        conversation_role = await ShareManager.get_conversation_role(context)
 
         # Get share information
-        share_id = await ShareManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}

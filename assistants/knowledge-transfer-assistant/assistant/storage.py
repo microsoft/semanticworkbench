@@ -84,6 +84,7 @@ class ShareStorageManager:
         storage_dir.mkdir(parents=True, exist_ok=True)
         return storage_dir / "share_role.json"
 
+
 class ShareStorage:
     """Unified storage operations for knowledge transfer share data."""
 
@@ -250,8 +251,6 @@ class ShareStorage:
             package.requests = existing_requests
 
         return ShareStorage.write_share(share_id, package)
-
-
 
     @staticmethod
     def get_all_information_requests(share_id: str) -> List[InformationRequest]:

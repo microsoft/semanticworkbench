@@ -68,7 +68,7 @@ class ProgressTrackingTools(ToolsBase):
             if obj.id == objective_id:
                 objective = obj
                 break
-        
+
         if not objective:
             return f"Learning objective with ID '{objective_id}' not found."
 
@@ -78,10 +78,10 @@ class ProgressTrackingTools(ToolsBase):
             if out.id == outcome_id:
                 outcome = out
                 break
-        
+
         if not outcome:
             return f"Learning outcome with ID '{outcome_id}' not found in objective '{objective.name}'."
-        
+
         conversation_id = str(self.context.id)
 
         # Check if already achieved by this conversation

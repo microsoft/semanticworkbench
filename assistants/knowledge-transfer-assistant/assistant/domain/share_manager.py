@@ -17,14 +17,74 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 
-from ..data import ConversationShareInfo, KnowledgePackage, KnowledgePackageLog, ConversationRole, TeamConversationInfo
+from ..data import (
+    ConversationShareInfo,
+    CoordinatorConversationMessages,
+    KnowledgePackage,
+    KnowledgePackageLog,
+    ConversationRole,
+    TeamConversationInfo,
+)
 from ..logging import logger
 from ..storage import ShareStorage, ShareStorageManager
 from ..utils import get_current_user
 from semantic_workbench_assistant.storage import read_model, write_model
 
+
 class ShareManager:
     """Manages knowledge share creation, joining, and basic operations."""
+
+    @staticmethod
+    async def create_share(context: ConversationContext) -> str:
+        """
+        Creates a new knowledge share and associates the current conversation with it.
+
+        This is the initial step in knowledge transfer creation. It:
+        1. Generates a unique knowledge share ID
+        2. Associates the current conversation with that share
+        3. Sets the current conversation as Coordinator for the share
+        4. Creates empty share data structures (brief, knowledge digest, etc.)
+        5. Logs the creation event
+
+        After creating a share, the Coordinator should proceed to create a knowledge brief
+        with specific learning objectives and success criteria.
+
+        Args:
+            context: Current conversation context containing user/assistant information
+
+        Returns:
+            Tuple of (success, share_id) where:
+            - success: Boolean indicating if the creation was successful
+            - share_id: If successful, the UUID of the newly created share
+        """
+
+        share_id = str(uuid.uuid4())
+
+        share_dir = ShareStorageManager.get_share_dir(share_id)
+        logger.debug(f"Created share directory: {share_dir}")
+
+        # Create and save the initial knowledge package
+        knowledge_package = KnowledgePackage(
+            share_id=share_id,
+            coordinator_conversation_id=str(context.id),
+            brief=None,
+            digest=None,
+        )
+
+        # Save the knowledge package
+        ShareStorage.write_share(share_id, knowledge_package)
+        logger.debug(f"Created and saved knowledge package: {knowledge_package}")
+
+        # Associate the conversation with the share
+        logger.debug(f"Associating conversation {context.id} with share {share_id}")
+        await ShareManager.set_conversation_role(context, share_id, ConversationRole.COORDINATOR)
+
+        # No need to set conversation role in share storage, as we use metadata
+        logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
+
+        # Note: Conversation linking is now handled via JSON data, no directory needed
+
+        return share_id
 
     @staticmethod
     async def create_shareable_team_conversation(context: ConversationContext, share_id: str) -> str:
@@ -98,56 +158,18 @@ class ShareManager:
         return share_url
 
     @staticmethod
-    async def create_share(context: ConversationContext) -> str:
+    async def get_shared_conversation_id(context: ConversationContext) -> Optional[str]:
         """
-        Creates a new knowledge share and associates the current conversation with it.
-
-        This is the initial step in knowledge transfer creation. It:
-        1. Generates a unique knowledge share ID
-        2. Associates the current conversation with that share
-        3. Sets the current conversation as Coordinator for the share
-        4. Creates empty share data structures (brief, knowledge digest, etc.)
-        5. Logs the creation event
-
-        After creating a share, the Coordinator should proceed to create a knowledge brief
-        with specific learning objectives and success criteria.
-
-        Args:
-            context: Current conversation context containing user/assistant information
-
-        Returns:
-            Tuple of (success, share_id) where:
-            - success: Boolean indicating if the creation was successful
-            - share_id: If successful, the UUID of the newly created share
+        Retrieves the share ID and finds the associated shareable template conversation ID.
         """
-
-        share_id = str(uuid.uuid4())
-
-        share_dir = ShareStorageManager.get_share_dir(share_id)
-        logger.debug(f"Created share directory: {share_dir}")
-
-        # Create and save the initial knowledge package
-        knowledge_package = KnowledgePackage(
-            share_id=share_id,
-            coordinator_conversation_id=str(context.id),
-            brief=None,
-            digest=None,
-        )
-
-        # Save the knowledge package
-        ShareStorage.write_share(share_id, knowledge_package)
-        logger.debug(f"Created and saved knowledge package: {knowledge_package}")
-
-        # Associate the conversation with the share
-        logger.debug(f"Associating conversation {context.id} with share {share_id}")
-        await ShareManager.set_conversation_role(context, share_id, ConversationRole.COORDINATOR)
-
-        # No need to set conversation role in share storage, as we use metadata
-        logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
-
-        # Note: Conversation linking is now handled via JSON data, no directory needed
-
-        return share_id
+        try:
+            share = await ShareManager.get_share(context)
+            if not share or not share.shared_conversation_id:
+                return None
+            return share.shared_conversation_id
+        except Exception as e:
+            logger.error(f"Error getting shared conversation ID: {e}")
+            return None
 
     @staticmethod
     async def join_share(
@@ -199,18 +221,11 @@ class ShareManager:
             The share ID string if the conversation is part of a share, None
             otherwise
         """
-        return await ShareManager.get_associated_share_id(context)
-
-
-
-    @staticmethod
-    async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
-        """Gets the knowledge transfer log for the current conversation's share."""
-        share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            return None
-
-        return ShareStorage.read_share_log(share_id)
+        share_path = ShareStorageManager.get_conversation_role_file_path(context)
+        share_data = read_model(share_path, ConversationShareInfo)
+        if share_data:
+            return share_data.share_id
+        return None
 
     @staticmethod
     async def get_share(context: ConversationContext) -> Optional[KnowledgePackage]:
@@ -234,7 +249,7 @@ class ShareManager:
         Gets all conversations linked to this one through the same knowledge transfer share.
         """
         try:
-            share_id = await ShareManager.get_associated_share_id(context)
+            share_id = await ShareManager.get_share_id(context)
             if not share_id:
                 return []
 
@@ -260,9 +275,7 @@ class ShareManager:
         """
         Sets the role of a conversation in a knowledge transfer share.
         """
-        role_data = ConversationShareInfo(
-            share_id=share_id, role=role, conversation_id=str(context.id)
-        )
+        role_data = ConversationShareInfo(share_id=share_id, role=role, conversation_id=str(context.id))
         role_path = ShareStorageManager.get_conversation_role_file_path(context)
         write_model(role_path, role_data)
 
@@ -286,7 +299,6 @@ class ShareManager:
         Only captures info for actual team member conversations, not coordinator or shared conversations.
         """
         try:
-
             knowledge_package = ShareStorage.read_share(share_id)
             if not knowledge_package:
                 logger.warning(f"Could not load knowledge package {share_id} to capture redeemer info")
@@ -329,12 +341,20 @@ class ShareManager:
             # Don't re-raise - this is not critical for the association process
 
     @staticmethod
-    async def get_associated_share_id(context: ConversationContext) -> Optional[str]:
+    async def get_share_log(context: ConversationContext) -> Optional[KnowledgePackageLog]:
+        """Gets the knowledge transfer log for the current conversation's share."""
+        share_id = await ShareManager.get_share_id(context)
+        if not share_id:
+            return None
+
+        return ShareStorage.read_share_log(share_id)
+
+    @staticmethod
+    async def get_coordinator_conversation(context: ConversationContext) -> Optional[CoordinatorConversationMessages]:
         """
-        Gets the share ID associated with a conversation.
+        Gets the coordinator conversation.
         """
-        share_path = ShareStorageManager.get_conversation_role_file_path(context)
-        share_data = read_model(share_path, ConversationShareInfo)
-        if share_data:
-            return share_data.share_id
+        share_id = await ShareManager.get_share_id(context)
+        if share_id:
+            return ShareStorage.read_coordinator_conversation(share_id)
         return None

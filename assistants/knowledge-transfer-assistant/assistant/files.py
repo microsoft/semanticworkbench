@@ -16,7 +16,6 @@ from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .common import detect_assistant_role
 from .conversation_clients import ConversationClientManager
 from .domain.share_manager import ShareManager
 from .data import LogEntryType
@@ -577,7 +576,7 @@ class ShareFilesManager:
         """
         try:
             # First verify that this is a Team conversation
-            role = await detect_assistant_role(context)
+            role = await ShareManager.get_conversation_role(context)
 
             if role != ConversationRole.TEAM:
                 logger.warning("Only Team conversations should process file update notifications")

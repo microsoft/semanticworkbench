@@ -36,7 +36,7 @@ class DebugInspector:
         """Get debug information for display."""
 
         # Get share information
-        share_id = await ShareManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}

@@ -18,10 +18,12 @@ class ConversationRole(str, Enum):
     TEAM = "team"
     SHAREABLE_TEMPLATE = "shareable_template"
 
+
 class ConversationShareInfo(BaseModel):
     share_id: str
     conversation_id: str
     role: ConversationRole
+
 
 class InspectorTab(str, Enum):
     BRIEF = "brief"
@@ -206,4 +208,3 @@ class CoordinatorConversationMessages(BaseModel):
     knowledge_share_id: str
     last_updated: datetime = Field(default_factory=datetime.utcnow)
     messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
-

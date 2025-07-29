@@ -26,16 +26,15 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.share_manager import ShareManager
+
 from .agentic.analysis import detect_information_request_needs
 from .agentic.coordinator_support import CoordinatorSupport
-from .common import detect_assistant_role
 from .config import assistant_config
-from .data import RequestStatus
+from .data import ConversationRole, CoordinatorConversationMessage, RequestStatus
 from .domain import KnowledgeTransferManager
 from .domain.knowledge_package_manager import KnowledgePackageManager
 from .logging import logger
-from .storage import ShareStorage
-from .data import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
 from .tools import ShareTools
 from .ui_tabs.common import get_priority_emoji, get_status_emoji
@@ -117,7 +116,7 @@ async def respond_to_conversation(
     model = config.request_config.openai_model
 
     # Requirements
-    role = await detect_assistant_role(context)
+    role = await ShareManager.get_conversation_role(context) or ConversationRole.COORDINATOR
     metadata["debug"]["role"] = role
     share_id = await KnowledgeTransferManager.get_share_id(context)
     if not share_id:
@@ -180,31 +179,30 @@ async def respond_to_conversation(
     ###
 
     # Project info
-    share = ShareStorage.read_share(share_id)
+    share = await ShareManager.get_share(context)
     if share:
-        data = share.model_dump()
-
-        # Delete fields that are not relevant to the knowledge transfer assistant.
-        # FIXME: Reintroduce these properly.
-        if "state" in data:
-            del data["state"]
-        if "progress_percentage" in data:
-            del data["progress_percentage"]
-        if "completed_criteria" in data:
-            del data["completed_criteria"]
-        if "total_criteria" in data:
-            del data["total_criteria"]
-        if "lifecycle" in data:
-            del data["lifecycle"]
-
-        share_info_text = share.model_dump_json(indent=2)
+        share_info_text = share.model_dump_json(
+            indent=2,
+            exclude={
+                "brief",
+                "learning_objectives",
+                "takeaways",
+                "preferred_communication_style",
+                "transfer_notes",
+                "digest",
+                "next_learning_actions",
+                "transfer_lifecycle",
+                "archived",
+                "requests",
+                "log",
+            },
+        )
         prompt.contexts.append(Context("Knowledge Info", share_info_text))
 
     # Brief
-    briefing = ShareStorage.read_knowledge_brief(share_id)
-    brief_text = ""
-    if briefing:
-        brief_text = f"**Title:** {briefing.title}\n**Description:** {briefing.content}"
+    if share and share.brief:
+        brief_text = ""
+        brief_text = f"**Title:** {share.brief.title}\n**Description:** {share.brief.content}"
         prompt.contexts.append(
             Context(
                 "Knowledge Brief",
@@ -227,7 +225,6 @@ async def respond_to_conversation(
         )
 
     # Learning objectives
-    share = ShareStorage.read_share(share_id)
     if share and share.learning_objectives:
         learning_objectives_text = ""
         conversation_id = str(context.id)
@@ -251,7 +248,7 @@ async def respond_to_conversation(
                 )
 
         for i, objective in enumerate(share.learning_objectives):
-            brief_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
+            learning_objectives_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
             if objective.learning_outcomes:
                 for criterion in objective.learning_outcomes:
                     if role == ConversationRole.COORDINATOR:
@@ -277,57 +274,61 @@ async def respond_to_conversation(
         )
 
     # Knowledge digest
-    knowledge_digest = ShareStorage.read_knowledge_digest(share_id)
-    if knowledge_digest and knowledge_digest.content:
+    if share and share.digest and share.digest.content:
         prompt.contexts.append(
-            Context("Knowledge digest", knowledge_digest.content, "The assistant-maintained knowledge digest.")
+            Context("Knowledge digest", share.digest.content, "The assistant-maintained knowledge digest.")
         )
 
     # Information requests
-    all_requests = ShareStorage.get_all_information_requests(share_id)
-    if role == ConversationRole.COORDINATOR:
-        active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
-        if active_requests:
-            coordinator_requests = "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-            for req in active_requests[:10]:  # Limit to 10 for brevity
-                priority_emoji = get_priority_emoji(req.priority)
-                status_emoji = get_status_emoji(req.status)
-                coordinator_requests += f"{priority_emoji} **{req.title}** {status_emoji}\n"
-                coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
-                coordinator_requests += f"   **Description:** {req.description}\n\n"
+    if share:
+        all_requests = share.requests
+        if role == ConversationRole.COORDINATOR:
+            active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
+            if active_requests:
+                coordinator_requests = (
+                    "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
+                )
+                for req in active_requests[:10]:  # Limit to 10 for brevity
+                    priority_emoji = get_priority_emoji(req.priority)
+                    status_emoji = get_status_emoji(req.status)
+                    coordinator_requests += f"{priority_emoji} **{req.title}** {status_emoji}\n"
+                    coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
+                    coordinator_requests += f"   **Description:** {req.description}\n\n"
 
-            if len(active_requests) > 10:
-                coordinator_requests += f'*...and {len(active_requests) - 10} more requests.*\n'
-        else:
-            coordinator_requests = "No active information requests."
-        prompt.contexts.append(
-            Context(
-                "Information Requests",
-                coordinator_requests,
+                if len(active_requests) > 10:
+                    coordinator_requests += f"*...and {len(active_requests) - 10} more requests.*\n"
+            else:
+                coordinator_requests = "No active information requests."
+            prompt.contexts.append(
+                Context(
+                    "Information Requests",
+                    coordinator_requests,
+                )
             )
-        )
-    else:  # team role
-        information_requests_info = ""
-        my_requests = []
-
-        # Filter for requests from this conversation that aren't resolved.
-        my_requests = [
-            r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
-        ]
-
-        if my_requests:
+        else:  # team role
             information_requests_info = ""
-            for req in my_requests:
-                information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-        else:
-            information_requests_info = "No active information requests."
+            my_requests = []
 
-        prompt.contexts.append(
-            Context(
-                "Information Requests",
-                information_requests_info,
+            # Filter for requests from this conversation that aren't resolved.
+            my_requests = [
+                r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+            ]
+
+            if my_requests:
+                information_requests_info = ""
+                for req in my_requests:
+                    information_requests_info += (
+                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
+                    )
+            else:
+                information_requests_info = "No active information requests."
+
+            prompt.contexts.append(
+                Context(
+                    "Information Requests",
+                    information_requests_info,
+                )
             )
-        )
 
     # Add next action suggestions for coordinator
     if role == ConversationRole.COORDINATOR:
@@ -355,7 +356,7 @@ async def respond_to_conversation(
     ###
 
     # Get the coordinator conversation and add it as an attachment.
-    coordinator_conversation = ShareStorage.read_coordinator_conversation(share_id)
+    coordinator_conversation = await ShareManager.get_coordinator_conversation(context)
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0

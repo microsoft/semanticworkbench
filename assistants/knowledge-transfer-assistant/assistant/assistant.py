@@ -27,13 +27,13 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .agentic.team_welcome import generate_team_welcome_message
-from .common import detect_assistant_role, detect_conversation_type, get_shared_conversation_id, ConversationType
 from .config import assistant_config
 from .domain.share_manager import ShareManager
 from .data import InspectorTab, LogEntryType
 from .files import ShareFilesManager
 from .logging import logger
 from .domain import KnowledgeTransferManager
+from .domain.share_manager import ShareManager
 from .notifications import Notifications
 from .respond import respond_to_conversation
 from .ui_tabs import BriefInspector, LearningInspector, SharingInspector, DebugInspector
@@ -111,10 +111,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     share_id = conversation_metadata.get("share_id")
 
     config = await assistant_config.get(context.assistant)
-    conversation_type = detect_conversation_type(conversation)
+    conversation_type = await ShareManager.get_conversation_role(context)
 
     match conversation_type:
-        case ConversationType.SHAREABLE_TEMPLATE:
+        case ConversationRole.SHAREABLE_TEMPLATE:
             # Associate the shareable template with a share ID
             if not share_id:
                 logger.error("No share ID found for shareable team conversation.")
@@ -122,7 +122,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ShareManager.set_conversation_role(context, share_id, ConversationRole.SHAREABLE_TEMPLATE)
             return
 
-        case ConversationType.TEAM:
+        case ConversationRole.TEAM:
             if not share_id:
                 logger.error("No share ID found for team conversation.")
                 return
@@ -161,7 +161,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
             return
 
-        case ConversationType.COORDINATOR:
+        case ConversationRole.COORDINATOR:
             try:
                 # In the beginning, we created a share...
                 share_id = await KnowledgeTransferManager.create_share(context)
@@ -202,11 +202,11 @@ async def on_conversation_updated(context: ConversationContext) -> None:
     """
     try:
         conversation = await context.get_conversation()
-        conversation_type = detect_conversation_type(conversation)
-        if conversation_type != ConversationType.COORDINATOR:
+        conversation_type = await ShareManager.get_conversation_role(context)
+        if conversation_type != ConversationRole.COORDINATOR:
             return
 
-        shared_conversation_id = await get_shared_conversation_id(context)
+        shared_conversation_id = await ShareManager.get_shared_conversation_id(context)
         if not shared_conversation_id:
             return
 
@@ -246,7 +246,7 @@ async def on_message_created(
 
         # If this is a Coordinator conversation, store the message for Team access
         async with context.set_status("jotting..."):
-            role = await detect_assistant_role(context)
+            role = await ShareManager.get_conversation_role(context)
             if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
                 try:
                     if share_id:
@@ -353,7 +353,7 @@ async def on_file_created(
             logger.warning(f"No share ID found or missing filename: share_id={share_id}, filename={file.filename}")
             return
 
-        role = await detect_assistant_role(context)
+        role = await ShareManager.get_conversation_role(context)
 
         # Process based on role
         if role == ConversationRole.COORDINATOR:
@@ -397,7 +397,7 @@ async def on_file_created(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator",
+                "is_coordinator_file": role == ConversationRole.COORDINATOR,
             },
         )
 
@@ -417,7 +417,7 @@ async def on_file_updated(
         if not share_id or not file.filename:
             return
 
-        role = await detect_assistant_role(context)
+        role = await ShareManager.get_conversation_role(context)
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in share storage
@@ -452,7 +452,7 @@ async def on_file_updated(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator",
+                "is_coordinator_file": role == ConversationRole.COORDINATOR,
             },
         )
 
@@ -472,7 +472,7 @@ async def on_file_deleted(
         if not share_id or not file.filename:
             return
 
-        role = await detect_assistant_role(context)
+        role = await ShareManager.get_conversation_role(context)
         if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from share storage
@@ -495,7 +495,7 @@ async def on_file_deleted(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator",
+                "is_coordinator_file": role == ConversationRole.COORDINATOR,
             },
         )
 
@@ -522,11 +522,11 @@ async def on_participant_joined(
             )
         )
 
-        role = await detect_assistant_role(context)
+        role = await ShareManager.get_conversation_role(context)
         if role != ConversationRole.TEAM:
             return
 
-        share_id = await ShareManager.get_associated_share_id(context)
+        share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return
 

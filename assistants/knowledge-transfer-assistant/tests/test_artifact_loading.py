@@ -65,13 +65,11 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)
 
-        # Patch get_associated_share_id
-        async def mock_get_associated_share_id(context):
+        # Patch get_share_id
+        async def mock_get_share_id(context):
             return self.share_id
 
-        patch2 = unittest.mock.patch.object(
-            ShareManager, "get_associated_share_id", side_effect=mock_get_associated_share_id
-        )
+        patch2 = unittest.mock.patch.object(ShareManager, "get_share_id", side_effect=mock_get_share_id)
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)
 
