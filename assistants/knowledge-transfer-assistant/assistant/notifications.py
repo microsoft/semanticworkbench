@@ -3,10 +3,11 @@ from typing import List, Optional
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.domain.share_manager import ShareManager
+
 from .data import InspectorTab
 from .logging import logger
 from .conversation_clients import ConversationClientManager
-from .storage import ShareStorage
 
 
 class Notifications:
@@ -33,7 +34,7 @@ class Notifications:
         # Always notify current conversation
         await Notifications.notify(context, message)
 
-        knowledge_package = ShareStorage.read_share(share_id)
+        knowledge_package = await ShareManager.get_share(context)
         if not knowledge_package:
             return
 
@@ -65,7 +66,7 @@ class Notifications:
     async def notify_all(context: ConversationContext, share_id: str, message: str) -> None:
         """Send text message notification to all knowledge transfer conversations."""
 
-        knowledge_package = ShareStorage.read_share(share_id)
+        knowledge_package = await ShareManager.get_share(context)
         if not knowledge_package:
             return
 
@@ -127,7 +128,7 @@ class Notifications:
         await Notifications.notify_state_update(context, tabs)
 
         # Refresh other conversations
-        knowledge_package = ShareStorage.read_share(share_id)
+        knowledge_package = await ShareManager.get_share(context)
         if not knowledge_package:
             return
 

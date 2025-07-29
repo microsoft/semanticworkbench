@@ -62,9 +62,8 @@ class InformationRequestManager:
 
             ShareStorage.write_information_request(share_id, information_request)
 
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_CREATED.value,
                 message=f"Created information request: {title}",
                 related_entity_id=information_request.request_id,
@@ -141,9 +140,8 @@ class InformationRequestManager:
             ShareStorage.write_information_request(share_id, information_request)
 
             # Log the resolution
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_RESOLVED.value,
                 message=f"Resolved information request: {information_request.title}",
                 related_entity_id=information_request.request_id,
@@ -217,9 +215,8 @@ class InformationRequestManager:
             actual_request_id = information_request.request_id
 
             # Log the deletion
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.REQUEST_DELETED.value,
                 message=f"Information request '{request_title}' was deleted by {current_username}",
                 related_entity_id=actual_request_id,
@@ -231,10 +228,10 @@ class InformationRequestManager:
             )
 
             # Delete the information request from the main share data
-            package = ShareStorage.read_share(share_id)
-            if package and package.requests:
-                package.requests = [req for req in package.requests if req.request_id != actual_request_id]
-                ShareStorage.write_share(share_id, package)
+            share = await ShareManager.get_share(context)
+            if share and share.requests:
+                share.requests = [req for req in share.requests if req.request_id != actual_request_id]
+                await ShareManager.set_share(context, share)
 
             # Notify about the deletion
             await Notifications.notify_self_and_other(

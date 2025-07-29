@@ -11,7 +11,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from assistant.domain.share_manager import ShareManager
 from assistant.domain.knowledge_package_manager import KnowledgePackageManager
-from assistant.storage import ShareStorage
 from assistant.data import ConversationRole
 
 
@@ -44,7 +43,7 @@ class LearningInspector:
                 data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_objectives(share, context)

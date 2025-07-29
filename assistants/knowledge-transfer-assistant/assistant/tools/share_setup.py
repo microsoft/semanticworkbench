@@ -7,7 +7,7 @@ Tools for initializing and configuring knowledge packages.
 from datetime import datetime
 
 from assistant.domain import KnowledgeTransferManager
-from assistant.storage import ShareStorage
+from assistant.domain.share_manager import ShareManager
 from assistant.data import ConversationRole
 from .base import ToolsBase
 
@@ -52,22 +52,17 @@ class ShareSetupTools(ToolsBase):
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can mark knowledge as organized."
 
-        # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation."
-
         # Get existing knowledge package
-        package = ShareStorage.read_share(share_id)
-        if not package:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package found. Please create a knowledge brief first."
 
         # Update the knowledge organized flag
-        package.knowledge_organized = is_organized
-        package.updated_at = datetime.utcnow()
+        share.knowledge_organized = is_organized
+        share.updated_at = datetime.utcnow()
 
         # Save the updated package
-        ShareStorage.write_share(share_id, package)
+        await ShareManager.set_share(self.context, share)
 
         # Provide appropriate feedback
         if is_organized:
@@ -90,10 +85,6 @@ class ShareSetupTools(ToolsBase):
         """
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can create knowledge briefs."
-
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation. Please create a knowledge package first."
 
         brief = await KnowledgeTransferManager.update_knowledge_brief(
             context=self.context,
@@ -120,22 +111,16 @@ class ShareSetupTools(ToolsBase):
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can set learning intention."
 
-        # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation. Please create a knowledge brief first."
-
-        # Get existing knowledge package
-        package = ShareStorage.read_share(share_id)
-        if not package:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package found. Please create a knowledge brief first."
 
         # Update the intention
-        package.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
-        package.updated_at = datetime.utcnow()
+        share.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
+        share.updated_at = datetime.utcnow()
 
         # Save the updated package
-        ShareStorage.write_share(share_id, package)
+        await ShareManager.set_share(self.context, share)
 
         # Provide appropriate guidance based on the choice
         if is_for_specific_outcomes:

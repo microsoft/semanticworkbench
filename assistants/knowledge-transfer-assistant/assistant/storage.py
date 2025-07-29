@@ -6,10 +6,7 @@ Provides direct access to knowledge transfer data with a clean, simple storage a
 
 import pathlib
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .data import InspectorTab
+from typing import Any, Dict, List, Optional
 
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -263,7 +260,6 @@ class ShareStorage:
         requests = package.requests or []
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
-
 
     @staticmethod
     async def log_share_event(

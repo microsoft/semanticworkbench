@@ -11,7 +11,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from ..data import InspectorTab, KnowledgePackage, LearningObjective, LearningOutcome, LogEntryType
 from ..logging import logger
 from ..notifications import Notifications
-from ..storage import ShareStorage
 from ..utils import require_current_user
 from .share_manager import ShareManager
 
@@ -48,7 +47,7 @@ class LearningObjectivesManager:
             learning_outcomes=criterion_objects,
         )
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share:
             # Create a new share if it doesn't exist
             share = KnowledgePackage(
@@ -62,11 +61,10 @@ class LearningObjectivesManager:
         else:
             share.learning_objectives.append(new_learning_objective)
 
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_ADDED.value,
             message=f"Added learning objective: {objective_name}",
         )
@@ -93,7 +91,7 @@ class LearningObjectivesManager:
         if not current_user_id:
             return False, "Could not identify current user."
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share or not share.learning_objectives:
             return False, "No learning objectives found."
 
@@ -126,12 +124,11 @@ class LearningObjectivesManager:
         if not changes_made:
             return True, "No changes specified"
 
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
         changes_text = ", ".join(changes_made)
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Updated learning objective '{objective.name}': {changes_text}",
             metadata={
@@ -161,7 +158,7 @@ class LearningObjectivesManager:
         if not current_user_id:
             return False, "Could not identify current user."
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share or not share.learning_objectives:
             return False, "No learning objectives found."
 
@@ -195,11 +192,10 @@ class LearningObjectivesManager:
         # Remove the objective from the share
         share.learning_objectives.pop(objective_index)
 
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Deleted learning objective '{objective_name}' and all its outcomes",
             metadata={
@@ -220,7 +216,7 @@ class LearningObjectivesManager:
         if not share_id:
             return []
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share:
             return []
 
@@ -247,7 +243,7 @@ class LearningObjectivesManager:
         if not current_user_id:
             return False, "Could not identify current user."
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before adding outcomes."
 
@@ -272,12 +268,11 @@ class LearningObjectivesManager:
         objective.learning_outcomes.append(new_outcome)
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
         # Log the outcome addition
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Added learning outcome to objective '{objective.name}': {outcome_description}",
             metadata={
@@ -310,7 +305,7 @@ class LearningObjectivesManager:
         if not current_user_id:
             return False, "Could not identify current user."
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before updating outcomes."
 
@@ -343,12 +338,11 @@ class LearningObjectivesManager:
         outcome.description = new_description.strip()
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
         # Log the outcome update
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Updated learning outcome in objective '{objective.name}': '{old_description}' → '{new_description}'",
             metadata={
@@ -381,7 +375,7 @@ class LearningObjectivesManager:
         if not current_user_id:
             return False, "Could not identify current user."
 
-        share = ShareStorage.read_share(share_id)
+        share = await ShareManager.get_share(context)
         if not share or not share.learning_objectives:
             return False, "No learning objectives found. Please add objectives before deleting outcomes."
 
@@ -422,12 +416,11 @@ class LearningObjectivesManager:
             ]
 
         # Save the updated knowledge package
-        ShareStorage.write_share(share_id, share)
+        await ShareManager.set_share(context, share)
 
         # Log the outcome deletion
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
             message=f"Deleted learning outcome from objective '{objective.name}': {deleted_description}",
             metadata={

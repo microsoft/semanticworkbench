@@ -37,7 +37,6 @@ from .domain.share_manager import ShareManager
 from .notifications import Notifications
 from .respond import respond_to_conversation
 from .ui_tabs import BriefInspector, LearningInspector, SharingInspector, DebugInspector
-from .storage import ShareStorage
 from .data import ConversationRole
 from .utils import (
     DEFAULT_TEMPLATE_ID,
@@ -260,8 +259,8 @@ async def on_message_created(
                                     break
 
                         # Store the message for Team access
-                        ShareStorage.append_coordinator_message(
-                            share_id=share_id,
+                        await ShareManager.append_coordinator_message(
+                            context=context,
                             message_id=str(message.id),
                             content=message.content,
                             sender_name=sender_name,
@@ -389,9 +388,8 @@ async def on_file_created(
         # Team files don't need special handling as they're already in the conversation
 
         # Log file creation to knowledge transfer log for all files
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type="file_shared",
             message=f"File shared: {file.filename}",
             metadata={
@@ -444,9 +442,8 @@ async def on_file_updated(
             # 3. Update all UIs but don't send notifications to reduce noise
             await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
 
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type="file_shared",
             message=f"File updated: {file.filename}",
             metadata={
@@ -487,9 +484,8 @@ async def on_file_deleted(
             await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling
 
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type="file_deleted",
             message=f"File deleted: {file.filename}",
             metadata={
@@ -532,9 +528,8 @@ async def on_participant_joined(
 
         await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=context,
-            share_id=share_id,
             entry_type=LogEntryType.PARTICIPANT_JOINED,
             message=f"Participant joined: {participant.name}",
             metadata={

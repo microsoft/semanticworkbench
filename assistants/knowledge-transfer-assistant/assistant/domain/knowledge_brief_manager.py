@@ -57,17 +57,15 @@ class KnowledgeBriefManager:
         existing_brief = ShareStorage.read_knowledge_brief(share_id)
         if existing_brief:
             # This is an update
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.BRIEFING_UPDATED.value,
                 message=f"Updated brief: {title}",
             )
         else:
             # This is a creation
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.BRIEFING_CREATED.value,
                 message=f"Created brief: {title}",
             )

@@ -20,7 +20,7 @@ from .conversation_clients import ConversationClientManager
 from .domain.share_manager import ShareManager
 from .data import LogEntryType
 from .logging import logger
-from .storage import ShareStorage, ShareStorageManager, read_model, write_model
+from .storage import ShareStorageManager, read_model, write_model
 from .data import ConversationRole
 
 
@@ -536,9 +536,8 @@ class ShareFilesManager:
                 f"Synchronized files to Team conversation: {len(successful_files)} new, {len(skipped_files)} existing"
             )
 
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.FILE_SHARED,
                 message=sync_message,
                 metadata={

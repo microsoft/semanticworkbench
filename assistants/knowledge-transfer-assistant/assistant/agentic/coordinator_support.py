@@ -11,7 +11,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from ..data import RequestStatus
 from ..domain.knowledge_package_manager import KnowledgePackageManager
 from ..logging import logger
-from ..storage import ShareStorage
 from ..domain.share_manager import ShareManager
 
 
@@ -35,12 +34,12 @@ class CoordinatorSupport:
                 logger.warning("No share ID found for this conversation")
                 return None
 
-            package = ShareStorage.read_share(share_id)
+            package = await ShareManager.get_share(context)
             if not package:
                 return None
 
-            brief = ShareStorage.read_knowledge_brief(share_id)
-            requests = ShareStorage.get_all_information_requests(share_id)
+            brief = package.brief
+            requests = package.requests
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
 
             # 1. Unresolved requests come first

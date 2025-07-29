@@ -11,11 +11,12 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 
+from assistant.domain.share_manager import ShareManager
+
 from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
 from assistant.domain import KnowledgeTransferManager
 from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.notifications import Notifications
-from assistant.storage import ShareStorage
 from assistant.data import ConversationRole
 from .base import ToolsBase
 
@@ -58,8 +59,8 @@ class ProgressTrackingTools(ToolsBase):
             return "No knowledge brief found."
 
         # Get the knowledge package to access objectives
-        knowledge_package = ShareStorage.read_share(share_id)
-        if not knowledge_package or not knowledge_package.learning_objectives:
+        knowledge_package = await ShareManager.get_share(self.context)
+        if not knowledge_package or not knowledge_package:
             return "No learning objectives found."
 
         # Find the objective by ID
@@ -114,12 +115,11 @@ class ProgressTrackingTools(ToolsBase):
         knowledge_package.team_conversations[conversation_id].last_active_at = datetime.utcnow()
 
         # Save the updated knowledge package with the achieved outcome
-        ShareStorage.write_share(share_id, knowledge_package)
+        await ShareManager.set_share(self.context, knowledge_package)
 
         # Log the outcome achievement
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=self.context,
-            share_id=share_id,
             entry_type=LogEntryType.OUTCOME_ATTAINED.value,
             message=f"Learning outcome achieved: {outcome.description}",
             related_entity_id=None,
@@ -127,8 +127,6 @@ class ProgressTrackingTools(ToolsBase):
         )
 
         # Update knowledge package
-        knowledge_package = ShareStorage.read_share(share_id)
-
         if knowledge_package:
             # Update metadata
             knowledge_package.updated_at = datetime.utcnow()
@@ -136,7 +134,7 @@ class ProgressTrackingTools(ToolsBase):
             knowledge_package.version += 1
 
             # Save the updated knowledge package
-            ShareStorage.write_share(share_id, knowledge_package)
+            await ShareManager.set_share(self.context, knowledge_package)
 
             # Notify linked conversations with a message
             await Notifications.notify_all(
@@ -150,7 +148,7 @@ class ProgressTrackingTools(ToolsBase):
 
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
-            knowledge_package = ShareStorage.read_share(share_id)
+            knowledge_package = await ShareManager.get_share(self.context)
             if knowledge_package and KnowledgePackageManager._is_transfer_complete(knowledge_package):
                 await self.context.send_messages(
                     NewConversationMessage(
@@ -193,7 +191,7 @@ class ProgressTrackingTools(ToolsBase):
         if not share_id:
             return "No knowledge package associated with this conversation. Unable to report transfer completion."
 
-        package = ShareStorage.read_share(share_id)
+        package = await ShareManager.get_share(self.context)
         if not package:
             return "No knowledge package found. Cannot complete transfer without package information."
 
@@ -218,12 +216,11 @@ class ProgressTrackingTools(ToolsBase):
         package.updated_at = datetime.utcnow()
         package.updated_by = current_user_id
         package.version += 1
-        ShareStorage.write_share(share_id, package)
+        await ShareManager.set_share(self.context, package)
 
         # Log the milestone transition
-        await ShareStorage.log_share_event(
+        await ShareManager.log_share_event(
             context=self.context,
-            share_id=share_id,
             entry_type=LogEntryType.SHARE_COMPLETED.value,
             message="Transfer marked as COMPLETED",
             metadata={"milestone": "transfer_completed"},

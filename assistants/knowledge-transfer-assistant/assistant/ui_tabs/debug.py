@@ -12,7 +12,6 @@ from semantic_workbench_assistant.assistant_app import (
 from assistant.domain.share_manager import ShareManager
 from assistant.domain import KnowledgeTransferManager
 from assistant.domain.knowledge_package_manager import KnowledgePackageManager
-from assistant.storage import ShareStorage
 
 
 class DebugInspector:
@@ -87,7 +86,7 @@ class DebugInspector:
 
         # Add share metadata for debugging
         try:
-            share = ShareStorage.read_share(share_id)
+            share = await ShareManager.get_share(context)
             if share:
                 lines.append("## Share Metadata")
                 lines.append("")

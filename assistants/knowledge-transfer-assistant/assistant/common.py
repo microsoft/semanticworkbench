@@ -11,7 +11,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .domain.share_manager import ShareManager
 from .data import LogEntryType
-from .storage import ShareStorage
 
 
 async def log_transfer_action(
@@ -35,13 +34,8 @@ async def log_transfer_action(
         related_entity_id: Optional ID of a related entity (e.g., request ID)
         additional_metadata: Optional additional metadata to include in the log
     """
-    share_id = await ShareManager.get_share_id(context)
-    if not share_id:
-        return
-
-    await ShareStorage.log_share_event(
+    await ShareManager.log_share_event(
         context=context,
-        share_id=share_id,
         entry_type=entry_type.value,
         message=message,
         related_entity_id=related_entity_id,

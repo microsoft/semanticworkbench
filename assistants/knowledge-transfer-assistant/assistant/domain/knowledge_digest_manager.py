@@ -73,9 +73,8 @@ class KnowledgeDigestManager:
             update_type = "auto-generated" if is_auto_generated else "manual"
             message = f"{'Created' if is_new else 'Updated'} knowledge digest ({update_type})"
 
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=event_type.value,
                 message=message,
             )

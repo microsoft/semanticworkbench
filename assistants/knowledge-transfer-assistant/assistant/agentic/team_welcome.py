@@ -12,8 +12,7 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.domain import KnowledgeTransferManager
-from assistant.storage import ShareStorage
+from assistant.domain.share_manager import ShareManager
 
 from ..config import assistant_config
 from ..logging import logger
@@ -27,14 +26,17 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     config = await assistant_config.get(context.assistant)
 
-    share_id = await KnowledgeTransferManager.get_share_id(context)
-    if not share_id:
-        raise ValueError("Project ID not found in context")
+    share = await ShareManager.get_share(context)
+    if not share:
+        logger.warning("No active knowledge package found for welcome message generation")
+        return config.team_config.default_welcome_message, debug
+
+    share_id = share.share_id
 
     share_data: dict[str, str] = {}
 
     # Knowledge Brief
-    briefing = ShareStorage.read_knowledge_brief(share_id)
+    briefing = share.brief
     brief_text = ""
     if briefing:
         brief_text = dedent(f"""
@@ -47,7 +49,6 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         share_data["briefing"] = brief_text
 
     # Learning Objectives
-    share = ShareStorage.read_share(share_id)
     if share and share.learning_objectives:
         brief_text += "\n#### LEARNING OBJECTIVES:\n\n"
 
@@ -61,7 +62,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
         share_data["learning_objectives"] = brief_text
 
     # Knowledge Digest
-    knowledge_digest = ShareStorage.read_knowledge_digest(share_id)
+    knowledge_digest = share.digest
     if knowledge_digest and knowledge_digest.content:
         knowledge_digest_text = dedent(f"""
             ### ASSISTANT KNOWLEDGE DIGEST - KEY KNOWLEDGE SHARE INFORMATION

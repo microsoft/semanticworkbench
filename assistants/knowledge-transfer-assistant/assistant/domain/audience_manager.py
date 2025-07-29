@@ -15,7 +15,6 @@ from .share_manager import ShareManager
 
 from ..data import InspectorTab, LogEntryType
 from ..logging import logger
-from ..storage import ShareStorage
 
 
 class AudienceManager:
@@ -39,29 +38,21 @@ class AudienceManager:
             - message: Result message
         """
         try:
-            share_id = await ShareManager.get_share_id(context)
-            if not share_id:
-                return (
-                    False,
-                    "No knowledge package associated with this conversation. Please create a knowledge brief first.",
-                )
-
             # Get existing knowledge package
-            package = ShareStorage.read_share(share_id)
-            if not package:
+            share = await ShareManager.get_share(context)
+            if not share:
                 return False, "No knowledge package found. Please create a knowledge brief first."
 
             # Update the audience
-            package.audience = audience_description.strip()
-            package.updated_at = datetime.utcnow()
+            share.audience = audience_description.strip()
+            share.updated_at = datetime.utcnow()
 
             # Save the updated package
-            ShareStorage.write_share(share_id, package)
+            await ShareManager.set_share(context, share)
 
             # Log the event
-            await ShareStorage.log_share_event(
+            await ShareManager.log_share_event(
                 context=context,
-                share_id=share_id,
                 entry_type=LogEntryType.STATUS_CHANGED.value,
                 message=f"Updated target audience: {audience_description}",
                 metadata={
@@ -70,7 +61,7 @@ class AudienceManager:
             )
 
             await Notifications.notify(context, "Audience updated.")
-            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
 
             return True, f"Target audience updated successfully: {audience_description}"
 

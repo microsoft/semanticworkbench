@@ -146,7 +146,7 @@ class ShareManager:
         share_url = f"/conversation-share/{share.id}/redeem"
 
         # Store shared conversation info in KnowledgePackage
-        knowledge_package = ShareStorage.read_share(share_id)
+        knowledge_package = await ShareManager.get_share(context)
         if knowledge_package:
             knowledge_package.shared_conversation_id = str(conversation.id)
             knowledge_package.share_url = share_url
@@ -242,6 +242,23 @@ class ShareManager:
             # Create a new package if it doesn't exist, but this should be rare in get_share
             return None
         return share
+
+    @staticmethod
+    async def set_share(context: ConversationContext, share: KnowledgePackage) -> None:
+        """
+        Sets the share information for the current conversation's share.
+
+        This updates the share data in storage, including the log if it exists.
+        """
+        share_id = await ShareManager.get_share_id(context)
+        if not share_id:
+            raise ValueError("Cannot set share: no share ID found for this conversation")
+
+        ShareStorage.write_share(share_id, share)
+
+        # If the log exists, write it as well
+        if share.log:
+            ShareStorage.write_share_log(share_id, share.log)
 
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
@@ -350,6 +367,33 @@ class ShareManager:
         return ShareStorage.read_share_log(share_id)
 
     @staticmethod
+    async def append_coordinator_message(
+        context: ConversationContext,
+        message_id: str,
+        content: str,
+        sender_name: str,
+        is_assistant: bool = False,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
+        """
+        Appends a message to the coordinator conversation log.
+
+        This is used to log messages sent by the coordinator in the knowledge transfer process.
+        """
+        share_id = await ShareManager.get_share_id(context)
+        if not share_id:
+            raise ValueError("Cannot append message: no share ID found for this conversation")
+
+        ShareStorage.append_coordinator_message(
+            share_id=share_id,
+            message_id=message_id,
+            content=content,
+            sender_name=sender_name,
+            is_assistant=is_assistant,
+            timestamp=timestamp or datetime.utcnow(),
+        )
+
+    @staticmethod
     async def get_coordinator_conversation(context: ConversationContext) -> Optional[CoordinatorConversationMessages]:
         """
         Gets the coordinator conversation.
@@ -358,3 +402,37 @@ class ShareManager:
         if share_id:
             return ShareStorage.read_coordinator_conversation(share_id)
         return None
+
+    @staticmethod
+    async def log_share_event(
+        context: ConversationContext,
+        entry_type: str,
+        message: str,
+        related_entity_id: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> bool:
+        """
+        Logs an event to the knowledge transfer log.
+
+        Args:
+            context: Current conversation context
+            entry_type: Type of log entry
+            message: Log message
+            related_entity_id: Optional ID of a related entity
+            metadata: Optional additional metadata
+
+        Returns:
+            True if logged successfully, False otherwise
+        """
+        share_id = await ShareManager.get_share_id(context)
+        if not share_id:
+            return False
+
+        return await ShareStorage.log_share_event(
+            context=context,
+            share_id=share_id,
+            entry_type=entry_type,
+            message=message,
+            related_entity_id=related_entity_id,
+            metadata=metadata,
+        )
