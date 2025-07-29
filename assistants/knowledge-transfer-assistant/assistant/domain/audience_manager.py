@@ -21,7 +21,7 @@ class AudienceManager:
         audience_description: str,
     ) -> None:
         """
-        Update the target audience description for a knowledge package.
+        Update the target audience description for a knowledge share.
         """
         share = await ShareManager.get_share(context)
         share.audience = audience_description.strip()
