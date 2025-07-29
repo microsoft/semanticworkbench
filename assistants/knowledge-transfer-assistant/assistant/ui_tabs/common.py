@@ -3,7 +3,7 @@ Common utilities for inspector modules.
 """
 
 from assistant.data import KnowledgePackage, RequestPriority, RequestStatus
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
+from assistant.domain.knowledge_transfer_manager import KnowledgeTransferManager
 
 
 def get_status_emoji(status: RequestStatus) -> str:
@@ -53,11 +53,11 @@ def get_stage_label(package: KnowledgePackage, for_coordinator: bool = True) -> 
             return "📝 Creating Brief"
         elif package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
             return "📚 Adding Objectives"
-        elif not KnowledgePackageManager.is_ready_for_transfer(package):
+        elif not KnowledgeTransferManager.is_ready_for_transfer(package):
             return "📋 Finalizing Setup"
-        elif package.is_intended_to_accomplish_outcomes and KnowledgePackageManager._is_transfer_complete(package):
+        elif package.is_intended_to_accomplish_outcomes and KnowledgeTransferManager._is_transfer_complete(package):
             return "✅ Transfer Complete"
-        elif KnowledgePackageManager.is_actively_sharing(package):
+        elif KnowledgeTransferManager.is_actively_sharing(package):
             return "📤 Sharing in Progress"
         else:
             return "🚀 Ready for Transfer"
@@ -65,7 +65,7 @@ def get_stage_label(package: KnowledgePackage, for_coordinator: bool = True) -> 
         # Team perspective
         if package.archived:
             return "📦 Archived"
-        elif not KnowledgePackageManager.is_ready_for_transfer(package):
+        elif not KnowledgeTransferManager.is_ready_for_transfer(package):
             return "⏳ Knowledge Being Organized"
         elif not package.is_intended_to_accomplish_outcomes:
             return "🔍 Exploring Knowledge"

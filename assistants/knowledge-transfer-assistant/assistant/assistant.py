@@ -26,13 +26,14 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.knowledge_digest_manager import KnowledgeDigestManager
+
 from .agentic.team_welcome import generate_team_welcome_message
 from .config import assistant_config
 from .domain.share_manager import ShareManager
 from .data import InspectorTab, LogEntryType
 from .files import ShareFilesManager
 from .logging import logger
-from .domain import KnowledgeTransferManager
 from .domain.share_manager import ShareManager
 from .notifications import Notifications
 from .respond import respond_to_conversation
@@ -163,10 +164,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
         case ConversationRole.COORDINATOR:
             try:
                 # In the beginning, we created a share...
-                share_id = await KnowledgeTransferManager.create_share(context)
+                share_id = await ShareManager.create_share(context)
 
                 # And it was good. So we then created a sharable conversation that we use as a template.
-                share_url = await KnowledgeTransferManager.create_shareable_team_conversation(
+                share_url = await ShareManager.create_shareable_team_conversation(
                     context=context, share_id=share_id
                 )
 
@@ -240,23 +241,25 @@ async def on_message_created(
     }
 
     try:
-        share_id = await KnowledgeTransferManager.get_share_id(context)
-        metadata["debug"]["share_id"] = share_id
+        share = await ShareManager.get_share(context)
+        if not share:
+            return
+
+        metadata["debug"]["share_id"] = share.share_id
 
         # If this is a Coordinator conversation, store the message for Team access
         async with context.set_status("jotting..."):
             role = await ShareManager.get_conversation_role(context)
             if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
                 try:
-                    if share_id:
-                        # Get the sender's name
-                        sender_name = "Coordinator"
-                        if message.sender:
-                            participants = await context.get_participants()
-                            for participant in participants.participants:
-                                if participant.id == message.sender.participant_id:
-                                    sender_name = participant.name
-                                    break
+                    # Get the sender's name
+                    sender_name = "Coordinator"
+                    if message.sender:
+                        participants = await context.get_participants()
+                        for participant in participants.participants:
+                            if participant.id == message.sender.participant_id:
+                                sender_name = participant.name
+                                break
 
                         # Store the message for Team access
                         await ShareManager.append_coordinator_message(
@@ -292,7 +295,7 @@ async def on_message_created(
 
         # If the message is from a Coordinator, update the whiteboard in the background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            asyncio.create_task(KnowledgeTransferManager.auto_update_knowledge_digest(context))
+            asyncio.create_task(KnowledgeDigestManager.auto_update_knowledge_digest(context))
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")
@@ -347,9 +350,9 @@ async def on_file_created(
     1. Use as-is without copying to share storage
     """
     try:
-        share_id = await KnowledgeTransferManager.get_share_id(context)
-        if not share_id or not file.filename:
-            logger.warning(f"No share ID found or missing filename: share_id={share_id}, filename={file.filename}")
+        share = await ShareManager.get_share(context)
+        if not share or not file.filename:
+            logger.warning(f"No share found or missing filename. filename={file.filename}")
             return
 
         role = await ShareManager.get_conversation_role(context)
@@ -361,7 +364,7 @@ async def on_file_created(
 
             success = await ShareFilesManager.copy_file_to_share_storage(
                 context=context,
-                share_id=share_id,
+                share_id=share.share_id,
                 file=file,
                 is_coordinator_file=True,
             )
@@ -372,19 +375,19 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
 
             if team_conversations:
                 for team_conv_id in team_conversations:
                     await ShareFilesManager.copy_file_to_conversation(
                         context=context,
-                        share_id=share_id,
+                        share_id=share.share_id,
                         filename=file.filename,
                         target_conversation_id=team_conv_id,
                     )
 
             # 3. Update all UIs but don't send notifications to reduce noise
-            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling as they're already in the conversation
 
         # Log file creation to knowledge transfer log for all files
@@ -411,8 +414,8 @@ async def on_file_updated(
 ) -> None:
     try:
         # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(context)
-        if not share_id or not file.filename:
+        share = await ShareManager.get_share(context)
+        if not share or not file.filename:
             return
 
         role = await ShareManager.get_conversation_role(context)
@@ -421,7 +424,7 @@ async def on_file_updated(
             # 1. Update in share storage
             success = await ShareFilesManager.copy_file_to_share_storage(
                 context=context,
-                share_id=share_id,
+                share_id=share.share_id,
                 file=file,
                 is_coordinator_file=True,
             )
@@ -430,17 +433,17 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in share storage: {file.filename}")
                 return
 
-            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
             for team_conv_id in team_conversations:
                 await ShareFilesManager.copy_file_to_conversation(
                     context=context,
-                    share_id=share_id,
+                    share_id=share.share_id,
                     filename=file.filename,
                     target_conversation_id=team_conv_id,
                 )
 
             # 3. Update all UIs but don't send notifications to reduce noise
-            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
 
         await ShareManager.log_share_event(
             context=context,
@@ -465,8 +468,8 @@ async def on_file_deleted(
 ) -> None:
     try:
         # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(context)
-        if not share_id or not file.filename:
+        share = await ShareManager.get_share(context)
+        if not share or not file.filename:
             return
 
         role = await ShareManager.get_conversation_role(context)
@@ -474,14 +477,14 @@ async def on_file_deleted(
             # For Coordinator files:
             # 1. Delete from share storage
             success = await ShareFilesManager.delete_file_from_knowledge_share_storage(
-                context=context, share_id=share_id, filename=file.filename
+                context=context, share_id=share.share_id, filename=file.filename
             )
 
             if not success:
                 logger.error(f"Failed to delete file from share storage: {file.filename}")
 
             # 2. Update all UIs about the deletion but don't send notifications to reduce noise
-            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
         # Team files don't need special handling
 
         await ShareManager.log_share_event(

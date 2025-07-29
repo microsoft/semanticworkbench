@@ -9,8 +9,9 @@ from assistant.data import (
     KnowledgePackage,
     LearningObjective,
     LearningOutcome,
+
 )
-from assistant.domain import KnowledgeTransferManager
+from assistant.domain import LearningObjectivesManager
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
@@ -163,7 +164,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, goal_name_result = await KnowledgeTransferManager.delete_learning_objective(context, objective_index)
+        success, goal_name_result = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
 
         # Verify the result
         assert success is True
@@ -224,7 +225,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested with an invalid index
-        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, objective_index)
+        success, error_message = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
 
         # Verify the result indicates failure with appropriate error message
         assert success is False
@@ -246,7 +247,7 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, error_message = await KnowledgeTransferManager.delete_learning_objective(context, "test-objective-id")
+        success, error_message = await LearningObjectivesManager.delete_learning_objective(context, "test-objective-id")
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

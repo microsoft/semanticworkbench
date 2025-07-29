@@ -10,9 +10,8 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.domain.share_manager import ShareManager
+from assistant.domain import ShareManager, KnowledgeBriefManager
 from assistant.data import KnowledgeBrief, KnowledgePackage, LearningObjective, LearningOutcome
-from assistant.domain import KnowledgeTransferManager
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.data import ConversationRole
 from semantic_workbench_assistant import settings
@@ -127,20 +126,17 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Write the project to storage using ShareStorage to ensure proper consolidated format
         ShareStorage.write_share(self.share_id, project)
 
-        # Brief is now stored as part of the consolidated project data
 
     async def test_get_project_brief(self) -> None:
         """Test that get_project_brief correctly loads the brief from storage"""
         # Mock the KnowledgeTransferManager to use our test context
-        with unittest.mock.patch.object(KnowledgeTransferManager, "get_share_id", return_value=self.share_id):
+        with unittest.mock.patch.object(ShareManager, "get_share_id", return_value=self.share_id):
             # Using Any here to satisfy type checker with our mock
             context: Any = self.context
 
-            # Get the brief using the KnowledgeTransferManager
-            brief = await KnowledgeTransferManager.get_knowledge_brief(context)
+            brief = await KnowledgeBriefManager.get_knowledge_brief(context)
             project = ShareStorage.read_share(self.share_id)
 
-            # Verify the brief was loaded correctly
             self.assertIsNotNone(brief, "Should load the brief")
             if brief:  # Type checking guard
                 self.assertEqual(brief.title, self.title)

@@ -26,14 +26,13 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
 
 from .agentic.analysis import detect_information_request_needs
 from .agentic.coordinator_support import CoordinatorSupport
 from .config import assistant_config
 from .data import ConversationRole, CoordinatorConversationMessage, RequestStatus
-from .domain import KnowledgeTransferManager
-from .domain.knowledge_package_manager import KnowledgePackageManager
 from .logging import logger
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
 from .tools import ShareTools
@@ -118,9 +117,6 @@ async def respond_to_conversation(
     # Requirements
     role = await ShareManager.get_conversation_role(context) or ConversationRole.COORDINATOR
     metadata["debug"]["role"] = role
-    share_id = await KnowledgeTransferManager.get_share_id(context)
-    if not share_id:
-        raise ValueError("Project ID not found in context")
 
     token_budget = TokenBudget(config.request_config.max_tokens)
 
@@ -232,14 +228,14 @@ async def respond_to_conversation(
         # Show progress based on role
         if role == ConversationRole.COORDINATOR:
             # Coordinator sees overall progress across all team members
-            achieved_overall, total_overall = KnowledgePackageManager.get_overall_completion(share)
+            achieved_overall, total_overall = LearningObjectivesManager.get_overall_completion(share)
             learning_objectives_text += (
                 f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
             )
         else:
             # Team member sees their personal progress
             if conversation_id in share.team_conversations:
-                achieved_personal, total_personal = KnowledgePackageManager.get_completion_for_conversation(
+                achieved_personal, total_personal = LearningObjectivesManager.get_completion_for_conversation(
                     share, conversation_id
                 )
                 progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
@@ -254,13 +250,13 @@ async def respond_to_conversation(
                     if role == ConversationRole.COORDINATOR:
                         # Show if achieved by any team member
                         achieved_by_any = any(
-                            KnowledgePackageManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
+                            LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
                             for conv_id in share.team_conversations.keys()
                         )
                         check = "✅" if achieved_by_any else "⬜"
                     else:
                         # Show if achieved by this team member
-                        achieved_by_me = KnowledgePackageManager.is_outcome_achieved_by_conversation(
+                        achieved_by_me = LearningObjectivesManager.is_outcome_achieved_by_conversation(
                             share, criterion.id, conversation_id
                         )
                         check = "✅" if achieved_by_me else "⬜"

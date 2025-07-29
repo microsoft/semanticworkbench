@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..data import InspectorTab, KnowledgePackage, LearningObjective, LearningOutcome, LogEntryType
+from ..data import InspectorTab, KnowledgePackage, LearningObjective, LearningOutcome, LogEntryType, LearningOutcomeAchievement
 from ..logging import logger
 from ..notifications import Notifications
 from ..utils import require_current_user
@@ -437,3 +437,40 @@ class LearningObjectivesManager:
         await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return True, f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}"
+
+    @staticmethod
+    def get_achievements_for_conversation(
+        package: KnowledgePackage, conversation_id: str
+    ) -> List[LearningOutcomeAchievement]:
+        team_conv = package.team_conversations.get(conversation_id)
+        return team_conv.outcome_achievements if team_conv else []
+
+    @staticmethod
+    def get_completion_for_conversation(package: KnowledgePackage, conversation_id: str) -> Tuple[int, int]:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
+        achieved_outcome_ids = {a.outcome_id for a in achievements if a.achieved}
+
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
+        achieved_outcomes = len(achieved_outcome_ids)
+
+        return achieved_outcomes, total_outcomes
+
+    @staticmethod
+    def is_outcome_achieved_by_conversation(package: KnowledgePackage, outcome_id: str, conversation_id: str) -> bool:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
+        return any(a.outcome_id == outcome_id and a.achieved for a in achievements)
+
+    @staticmethod
+    def get_overall_completion(package: KnowledgePackage) -> Tuple[int, int]:
+        """
+        Get overall completion across all team conversations.
+        Returns:
+            Tuple of (unique_achieved_outcomes, total_outcomes) across all team conversations
+        """
+        all_achieved_outcomes = set()
+        for team_conv in package.team_conversations.values():
+            achieved_ids = {a.outcome_id for a in team_conv.outcome_achievements if a.achieved}
+            all_achieved_outcomes.update(achieved_ids)
+
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
+        return len(all_achieved_outcomes), total_outcomes

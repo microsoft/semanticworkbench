@@ -10,7 +10,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.domain.share_manager import ShareManager
-from assistant.domain import KnowledgeTransferManager
 from assistant.data import ConversationRole
 from .common import get_stage_label
 
@@ -42,19 +41,19 @@ class BriefInspector:
         conversation_role = await ShareManager.get_conversation_role(context)
 
         # Get share information
-        share_id = await ShareManager.get_share_id(context)
-        if not share_id:
+        share = await ShareManager.get_share(context)
+        if not share:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
-        brief = await KnowledgeTransferManager.get_knowledge_brief(context)
-        share_info = await KnowledgeTransferManager.get_share(context)
+        brief = share.brief
+        share_info = await ShareManager.get_share(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_brief(share_id, brief, share_info, context)
+            markdown = await self._format_coordinator_brief(share.share_id, brief, share_info, context)
         else:
-            markdown = await self._format_team_brief(share_id, brief, share_info, context)
+            markdown = await self._format_team_brief(share.share_id, brief, share_info, context)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 

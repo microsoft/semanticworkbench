@@ -6,7 +6,9 @@ Tools for initializing and configuring knowledge packages.
 
 from datetime import datetime
 
-from assistant.domain import KnowledgeTransferManager
+
+from assistant.domain.audience_manager import AudienceManager
+from assistant.domain.knowledge_brief_manager import KnowledgeBriefManager
 from assistant.domain.share_manager import ShareManager
 from assistant.data import ConversationRole
 from .base import ToolsBase
@@ -28,7 +30,7 @@ class ShareSetupTools(ToolsBase):
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can update the audience description."
 
-        success, message = await KnowledgeTransferManager.update_audience(
+        success, message = await AudienceManager.update_audience(
             context=self.context,
             audience_description=audience_description,
         )
@@ -86,7 +88,7 @@ class ShareSetupTools(ToolsBase):
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can create knowledge briefs."
 
-        brief = await KnowledgeTransferManager.update_knowledge_brief(
+        brief = await KnowledgeBriefManager.update_knowledge_brief(
             context=self.context,
             title=title,
             description=description,

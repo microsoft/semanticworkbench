@@ -15,7 +15,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 
 from ..data import (
     ConversationShareInfo,
@@ -85,6 +84,28 @@ class ShareManager:
         # Note: Conversation linking is now handled via JSON data, no directory needed
 
         return share_id
+
+    @staticmethod
+    async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
+        """
+        Sets the role of a conversation in a knowledge transfer share.
+        """
+        role_data = ConversationShareInfo(share_id=share_id, role=role, conversation_id=str(context.id))
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
+        write_model(role_path, role_data)
+
+    @staticmethod
+    async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
+        """
+        Gets the role of a conversation in a knowledge transfer.
+        """
+        role_path = ShareStorageManager.get_conversation_role_file_path(context)
+        role_data = read_model(role_path, ConversationShareInfo)
+
+        if role_data:
+            return role_data.role
+
+        return None
 
     @staticmethod
     async def create_shareable_team_conversation(context: ConversationContext, share_id: str) -> str:
@@ -266,48 +287,31 @@ class ShareManager:
         Gets all conversations linked to this one through the same knowledge transfer share.
         """
         try:
-            share_id = await ShareManager.get_share_id(context)
-            if not share_id:
-                return []
-
-            # Load the knowledge package
-            from ..storage import ShareStorage
-
-            knowledge_package = ShareStorage.read_share(share_id)
-            if not knowledge_package:
+            share = await ShareManager.get_share(context)
+            if not share:
                 return []
 
             # Get all linked conversations, excluding current conversation
             conversation_id = str(context.id)
-            return KnowledgePackageManager.get_all_linked_conversations(
-                knowledge_package, exclude_current=conversation_id
-            )
+
+            conversations = []
+            # Add coordinator conversation
+            if share.coordinator_conversation_id:
+                conversations.append(share.coordinator_conversation_id)
+
+            # Add shared template conversation (though usually excluded from notifications)
+            if share.shared_conversation_id and share.shared_conversation_id:
+                conversations.append(share.shared_conversation_id)
+
+            # Add all team conversations
+            for conversation_id in share.team_conversations.keys():
+                conversations.append(conversation_id)
+
+            return []
 
         except Exception as e:
             logger.error(f"Error getting linked conversations: {e}")
             return []
-
-    @staticmethod
-    async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
-        """
-        Sets the role of a conversation in a knowledge transfer share.
-        """
-        role_data = ConversationShareInfo(share_id=share_id, role=role, conversation_id=str(context.id))
-        role_path = ShareStorageManager.get_conversation_role_file_path(context)
-        write_model(role_path, role_data)
-
-    @staticmethod
-    async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
-        """
-        Gets the role of a conversation in a knowledge transfer.
-        """
-        role_path = ShareStorageManager.get_conversation_role_file_path(context)
-        role_data = read_model(role_path, ConversationShareInfo)
-
-        if role_data:
-            return role_data.role
-
-        return None
 
     @staticmethod
     async def _capture_redeemer_info(context: ConversationContext, share_id: str) -> None:

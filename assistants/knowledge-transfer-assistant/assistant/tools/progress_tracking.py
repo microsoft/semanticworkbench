@@ -11,11 +11,11 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 
+from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
 
 from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
-from assistant.domain import KnowledgeTransferManager
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
+from assistant.domain.knowledge_transfer_manager import KnowledgeTransferManager
 from assistant.notifications import Notifications
 from assistant.data import ConversationRole
 from .base import ToolsBase
@@ -49,12 +49,12 @@ class ProgressTrackingTools(ToolsBase):
             return "Only Team members can mark criteria as completed."
 
         # Get share ID
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package associated with this conversation. Unable to mark outcome as achieved."
 
         # Get existing knowledge brief
-        brief = await KnowledgeTransferManager.get_knowledge_brief(self.context)
+        brief = share.brief
         if not brief:
             return "No knowledge brief found."
 
@@ -86,7 +86,7 @@ class ProgressTrackingTools(ToolsBase):
         conversation_id = str(self.context.id)
 
         # Check if already achieved by this conversation
-        if KnowledgePackageManager.is_outcome_achieved_by_conversation(knowledge_package, outcome.id, conversation_id):
+        if LearningObjectivesManager.is_outcome_achieved_by_conversation(knowledge_package, outcome.id, conversation_id):
             return f"Outcome '{outcome.description}' is already marked as achieved by this team member."
 
         # Get current user information
@@ -139,17 +139,17 @@ class ProgressTrackingTools(ToolsBase):
             # Notify linked conversations with a message
             await Notifications.notify_all(
                 self.context,
-                share_id,
+                share.share_id,
                 f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
             )
             await Notifications.notify_all_state_update(
-                self.context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
+                self.context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
             )
 
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
             knowledge_package = await ShareManager.get_share(self.context)
-            if knowledge_package and KnowledgePackageManager._is_transfer_complete(knowledge_package):
+            if knowledge_package and KnowledgeTransferManager._is_transfer_complete(knowledge_package):
                 await self.context.send_messages(
                     NewConversationMessage(
                         content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
@@ -187,16 +187,12 @@ class ProgressTrackingTools(ToolsBase):
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can report knowledge transfer completion."
 
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
-            return "No knowledge package associated with this conversation. Unable to report transfer completion."
-
-        package = await ShareManager.get_share(self.context)
-        if not package:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package found. Cannot complete transfer without package information."
 
         # Check if all outcomes are achieved
-        achieved_outcomes, total_outcomes = KnowledgePackageManager.get_overall_completion(package)
+        achieved_outcomes, total_outcomes = LearningObjectivesManager.get_overall_completion(share)
         if achieved_outcomes < total_outcomes:
             remaining = total_outcomes - achieved_outcomes
             return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."
@@ -213,10 +209,10 @@ class ProgressTrackingTools(ToolsBase):
         if not current_user_id:
             return "Could not identify current user."
 
-        package.updated_at = datetime.utcnow()
-        package.updated_by = current_user_id
-        package.version += 1
-        await ShareManager.set_share(self.context, package)
+        share.updated_at = datetime.utcnow()
+        share.updated_by = current_user_id
+        share.version += 1
+        await ShareManager.set_share(self.context, share)
 
         # Log the milestone transition
         await ShareManager.log_share_event(
@@ -229,10 +225,10 @@ class ProgressTrackingTools(ToolsBase):
         # Notify linked conversations with a message
         await Notifications.notify_all(
             self.context,
-            share_id,
+            share.share_id,
             "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",
         )
-        await Notifications.notify_all_state_update(self.context, share_id, [InspectorTab.BRIEF])
+        await Notifications.notify_all_state_update(self.context, share.share_id, [InspectorTab.BRIEF])
 
         await self.context.send_messages(
             NewConversationMessage(

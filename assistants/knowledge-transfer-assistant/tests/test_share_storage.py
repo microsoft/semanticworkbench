@@ -24,7 +24,6 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage, ShareStorageManager
 from assistant.data import (
@@ -416,11 +415,8 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(package.team_conversations, dict)
 
             # Verify helper methods work
-            linked_conversations = KnowledgePackageManager.get_all_linked_conversations(package)
+            linked_conversations = await ShareManager.get_linked_conversations(self.context)
             self.assertIsInstance(linked_conversations, list)
-
-            notification_conversations = KnowledgePackageManager.get_notification_conversations(package)
-            self.assertIsInstance(notification_conversations, list)
 
     async def test_conversation_association(self):
         """Test conversation role setting."""

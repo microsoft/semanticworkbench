@@ -9,10 +9,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.information_request_manager import InformationRequestManager
+from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
 from assistant.data import RequestStatus
-from assistant.domain import KnowledgeTransferManager
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.data import ConversationRole
 from .common import get_priority_emoji, get_status_emoji
 
@@ -46,7 +46,7 @@ class SharingInspector:
                 data={"content": "No active knowledge package. Start a conversation to create one."}
             )
 
-        requests = await KnowledgeTransferManager.get_information_requests(context)
+        requests = await InformationRequestManager.get_information_requests(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_requests(requests, context)
@@ -61,7 +61,7 @@ class SharingInspector:
         lines: List[str] = []
 
         # Share URL section at the top
-        share = await KnowledgeTransferManager.get_share(context)
+        share = await ShareManager.get_share(context)
         share_url = share.share_url if share else None
         if share_url:
             lines.append("## Share Link")
@@ -114,7 +114,7 @@ class SharingInspector:
             lines.append("")
 
             for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = KnowledgePackageManager.get_completion_for_conversation(share, conv_id)
+                achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int((achieved / total * 100)) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
                 lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")

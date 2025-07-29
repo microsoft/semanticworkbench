@@ -7,8 +7,9 @@ Tools for creating, managing, and resolving information requests between coordin
 from typing import Literal
 
 from assistant.data import RequestPriority
+from assistant.domain.information_request_manager import InformationRequestManager
+from assistant.domain.share_manager import ShareManager
 from assistant.logging import logger
-from assistant.domain import KnowledgeTransferManager
 from assistant.data import ConversationRole
 from .base import ToolsBase
 
@@ -46,8 +47,8 @@ class InformationRequestTools(ToolsBase):
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can create information requests."
 
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package associated with this conversation. Unable to create information request."
 
         priority_map = {
@@ -58,7 +59,7 @@ class InformationRequestTools(ToolsBase):
         }
         priority_enum = priority_map.get(priority.lower(), RequestPriority.MEDIUM)
 
-        success, request = await KnowledgeTransferManager.create_information_request(
+        success, request = await InformationRequestManager.create_information_request(
             context=self.context, title=title, description=description, priority=priority_enum
         )
         if success and request:
@@ -93,11 +94,11 @@ class InformationRequestTools(ToolsBase):
             logger.warning(f"Team member attempted to use resolve_information_request: {request_id}")
             return error_message
 
-        share_id = await KnowledgeTransferManager.get_share_id(self.context)
-        if not share_id:
+        share = await ShareManager.get_share(self.context)
+        if not share:
             return "No knowledge package associated with this conversation. Unable to resolve information request."
 
-        success, information_request = await KnowledgeTransferManager.resolve_information_request(
+        success, information_request = await InformationRequestManager.resolve_information_request(
             context=self.context, request_id=request_id, resolution=resolution
         )
         if success and information_request:
@@ -120,7 +121,7 @@ class InformationRequestTools(ToolsBase):
         if self.role is not ConversationRole.TEAM:
             return "This tool is only available to Team members."
 
-        success, message = await KnowledgeTransferManager.delete_information_request(
+        success, message = await InformationRequestManager.delete_information_request(
             context=self.context, request_id=request_id
         )
         return message if message else ("Request deleted successfully." if success else "Failed to delete request.")

@@ -9,9 +9,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.knowledge_digest_manager import KnowledgeDigestManager
 from assistant.domain.share_manager import ShareManager
-from assistant.domain import KnowledgeTransferManager
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
+from assistant.domain.knowledge_transfer_manager import KnowledgeTransferManager
 
 
 class DebugInspector:
@@ -57,7 +57,13 @@ class DebugInspector:
 
         # Get the knowledge digest
         try:
-            digest = await KnowledgeTransferManager.get_knowledge_digest(context)
+            digest = await KnowledgeDigestManager.get_knowledge_digest(context)
+            if not digest:
+                lines.append("### Knowledge Digest")
+                lines.append("")
+                lines.append("No knowledge digest has been generated yet. The assistant will create and update this")
+                lines.append("automatically as the conversation develops.")
+                lines.append("")
 
             lines.append("## Knowledge Digest")
             lines.append("")
@@ -100,8 +106,8 @@ class DebugInspector:
                     f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}"
                 )
                 lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
-                lines.append(f"- **Ready for Transfer:** {KnowledgePackageManager.is_ready_for_transfer(share)}")
-                lines.append(f"- **Actively Sharing:** {KnowledgePackageManager.is_actively_sharing(share)}")
+                lines.append(f"- **Ready for Transfer:** {KnowledgeTransferManager.is_ready_for_transfer(share)}")
+                lines.append(f"- **Actively Sharing:** {KnowledgeTransferManager.is_actively_sharing(share)}")
                 if share.coordinator_conversation_id:
                     lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
                 lines.append("")

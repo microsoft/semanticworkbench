@@ -9,8 +9,8 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
-from assistant.domain.knowledge_package_manager import KnowledgePackageManager
 from assistant.data import ConversationRole
 
 
@@ -73,7 +73,7 @@ class LearningInspector:
         total_outcomes = sum(len(obj.learning_outcomes) for obj in share.learning_objectives if obj.learning_outcomes)
         if total_outcomes > 0 and share.team_conversations:
             for conv_id, team_conv in share.team_conversations.items():
-                achieved, total = KnowledgePackageManager.get_completion_for_conversation(share, conv_id)
+                achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int((achieved / total * 100)) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
             lines.append("")
@@ -90,7 +90,7 @@ class LearningInspector:
                 for criterion in objective.learning_outcomes:
                     # Check if any team conversation has achieved this outcome
                     achieved_by_any = any(
-                        KnowledgePackageManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
+                        LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
                         for conv_id in share.team_conversations.keys()
                     )
                     status_emoji = "✅" if achieved_by_any else "⬜"
@@ -100,7 +100,7 @@ class LearningInspector:
                     total_team_count = len(share.team_conversations)
 
                     for conv_id in share.team_conversations.keys():
-                        if KnowledgePackageManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id):
+                        if LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id):
                             achieved_count += 1
 
                     achievement_info = ""
@@ -131,7 +131,7 @@ class LearningInspector:
 
         # Show my personal progress
         conversation_id = str(context.id)
-        achieved_outcomes, total_outcomes = KnowledgePackageManager.get_completion_for_conversation(
+        achieved_outcomes, total_outcomes = LearningObjectivesManager.get_completion_for_conversation(
             share, conversation_id
         )
         progress_pct = int((achieved_outcomes / total_outcomes * 100)) if total_outcomes > 0 else 0
@@ -147,7 +147,7 @@ class LearningInspector:
                 lines.append("#### Learning Outcomes")
                 for criterion in objective.learning_outcomes:
                     # Check if I've achieved this outcome
-                    achieved_by_me = KnowledgePackageManager.is_outcome_achieved_by_conversation(
+                    achieved_by_me = LearningObjectivesManager.is_outcome_achieved_by_conversation(
                         share, criterion.id, conversation_id
                     )
                     status_emoji = "✅" if achieved_by_me else "⬜"
@@ -155,7 +155,7 @@ class LearningInspector:
                     completion_info = ""
                     if achieved_by_me:
                         # Find my achievement record
-                        my_achievements = KnowledgePackageManager.get_achievements_for_conversation(
+                        my_achievements = LearningObjectivesManager.get_achievements_for_conversation(
                             share, conversation_id
                         )
                         for achievement in my_achievements:
