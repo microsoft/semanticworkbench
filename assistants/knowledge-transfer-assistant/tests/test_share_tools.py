@@ -7,11 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import openai_client
 import pytest
-from semantic_workbench_assistant.assistant_app import ConversationContext
-
 from assistant.agentic.analysis import detect_information_request_needs
 from assistant.data import ConversationRole
 from assistant.tools import ShareTools
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 # Use pytest for all tests for consistency
@@ -41,20 +40,11 @@ class TestShareTools:
 
         # Verify Coordinator-specific functions are registered
         assert "update_brief" in coordinator_tools.tool_functions.function_map
-        assert (
-            "resolve_information_request"
-            in coordinator_tools.tool_functions.function_map
-        )
+        assert "resolve_information_request" in coordinator_tools.tool_functions.function_map
 
         # Verify Team-specific functions are NOT registered
-        assert (
-            "create_information_request"
-            not in coordinator_tools.tool_functions.function_map
-        )
-        assert (
-            "delete_information_request"
-            not in coordinator_tools.tool_functions.function_map
-        )
+        assert "create_information_request" not in coordinator_tools.tool_functions.function_map
+        assert "delete_information_request" not in coordinator_tools.tool_functions.function_map
 
         # Test Team role
         team_tools = ShareTools(context, ConversationRole.TEAM)
@@ -67,15 +57,10 @@ class TestShareTools:
 
         # Verify Coordinator-specific functions are NOT registered
         assert "update_brief" not in team_tools.tool_functions.function_map
-        assert (
-            "resolve_information_request" not in team_tools.tool_functions.function_map
-        )
+        assert "resolve_information_request" not in team_tools.tool_functions.function_map
 
         # detect_information_request_needs is not exposed as a tool function anymore
-        assert (
-            "detect_information_request_needs"
-            not in team_tools.tool_functions.function_map
-        )
+        assert "detect_information_request_needs" not in team_tools.tool_functions.function_map
 
     @pytest.mark.asyncio
     async def test_project_tools_with_config(self, context, monkeypatch):
@@ -133,15 +118,11 @@ class TestShareTools:
             return tools
 
         # Get the tools using our function that checks track_progress
-        project_tools = await check_tools_with_config(
-            context, ConversationRole.COORDINATOR
-        )
+        project_tools = await check_tools_with_config(context, ConversationRole.COORDINATOR)
 
         # Verify basic tools are still available regardless of track_progress setting
         assert "update_brief" in project_tools.tool_functions.function_map
-        assert (
-            "resolve_information_request" in project_tools.tool_functions.function_map
-        )
+        assert "resolve_information_request" in project_tools.tool_functions.function_map
 
         # For team tools
         team_tools = await check_tools_with_config(context, ConversationRole.TEAM)
@@ -162,9 +143,7 @@ class TestShareTools:
         # Setup mock config to be returned from assistant_config.get
         mock_config = MagicMock()
         mock_config.track_progress = True
-        mock_config.service_config = (
-            None  # Will cause the method to return early with error info
-        )
+        mock_config.service_config = None  # Will cause the method to return early with error info
 
         async def mock_get_config(*args, **kwargs):
             return mock_config
@@ -172,9 +151,7 @@ class TestShareTools:
         # Patch assistant_config.get
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        monkeypatch.setattr(
-            "assistant.agentic.analysis.assistant_config", mock_assistant_config
-        )
+        monkeypatch.setattr("assistant.agentic.analysis.assistant_config", mock_assistant_config)
 
         # Create a mock message for the message history
         mock_msg = MagicMock()
@@ -270,9 +247,7 @@ class TestShareTools:
         # assert f"Goal '{goal_name}' has been successfully deleted from the project." in result
 
         # Verify that context.send_messages was called with appropriate message
-        expected_message_content = (
-            f"Goal '{goal_name}' has been successfully deleted from the project."
-        )
+        expected_message_content = f"Goal '{goal_name}' has been successfully deleted from the project."
         context.send_messages.assert_called_once()
         # Get the first positional argument passed to send_messages
         call_args = context.send_messages.call_args[0][0]

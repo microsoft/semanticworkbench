@@ -13,9 +13,7 @@ from .base import ToolsBase
 class LearningOutcomeTools(ToolsBase):
     """Tools for managing learning outcomes."""
 
-    async def add_learning_outcome(
-        self, objective_id: str, outcome_description: str
-    ) -> str:
+    async def add_learning_outcome(self, objective_id: str, outcome_description: str) -> str:
         """
         Add a new learning outcome to an existing learning objective.
 
@@ -44,16 +42,10 @@ class LearningOutcomeTools(ToolsBase):
         return (
             message
             if message
-            else (
-                "Learning outcome added successfully."
-                if success
-                else "Failed to add learning outcome."
-            )
+            else ("Learning outcome added successfully." if success else "Failed to add learning outcome.")
         )
 
-    async def update_learning_outcome(
-        self, outcome_id: str, new_description: str
-    ) -> str:
+    async def update_learning_outcome(self, outcome_id: str, new_description: str) -> str:
         """
         Update the description of an existing learning outcome.
 
@@ -82,11 +74,7 @@ class LearningOutcomeTools(ToolsBase):
         return (
             message
             if message
-            else (
-                "Learning outcome updated successfully."
-                if success
-                else "Failed to update learning outcome."
-            )
+            else ("Learning outcome updated successfully." if success else "Failed to update learning outcome.")
         )
 
     async def delete_learning_outcome(self, outcome_id: str) -> str:
@@ -118,9 +106,5 @@ class LearningOutcomeTools(ToolsBase):
         return (
             message
             if message
-            else (
-                "Learning outcome deleted successfully."
-                if success
-                else "Failed to delete learning outcome."
-            )
+            else ("Learning outcome deleted successfully." if success else "Failed to delete learning outcome.")
         )

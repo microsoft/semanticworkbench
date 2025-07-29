@@ -74,9 +74,7 @@ async def get_current_user_id(context: ConversationContext) -> Optional[str]:
     return user_id
 
 
-async def require_current_user(
-    context: ConversationContext, operation_name: str
-) -> Optional[str]:
+async def require_current_user(context: ConversationContext, operation_name: str) -> Optional[str]:
     """
     Extract the current user ID and log an error if none is found.
 

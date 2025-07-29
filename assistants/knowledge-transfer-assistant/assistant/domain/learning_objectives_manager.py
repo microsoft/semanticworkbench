@@ -36,9 +36,7 @@ class LearningObjectivesManager:
     ) -> Optional[LearningObjective]:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot add learning objective: no share associated with this conversation"
-            )
+            logger.error("Cannot add learning objective: no share associated with this conversation")
             return None
 
         current_user_id = await require_current_user(context, "add learning objective")
@@ -79,12 +77,8 @@ class LearningObjectivesManager:
             message=f"Added learning objective: {objective_name}",
         )
 
-        await Notifications.notify_all(
-            context, share_id, f"Learning objective '{objective_name}' was added"
-        )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' was added")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return new_learning_objective
 
@@ -98,14 +92,10 @@ class LearningObjectivesManager:
         """Update an existing learning objective's name or description."""
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot update learning objective: no share associated with this conversation"
-            )
+            logger.error("Cannot update learning objective: no share associated with this conversation")
             return False, "No share associated with this conversation."
 
-        current_user_id = await require_current_user(
-            context, "update learning objective"
-        )
+        current_user_id = await require_current_user(context, "update learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
@@ -156,12 +146,8 @@ class LearningObjectivesManager:
             },
         )
 
-        await Notifications.notify_all(
-            context, share_id, f"Learning objective '{objective.name}' has been updated"
-        )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective.name}' has been updated")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return (
             True,
@@ -176,14 +162,10 @@ class LearningObjectivesManager:
         """Delete a learning objective by ID."""
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot delete learning objective: no share associated with this conversation"
-            )
+            logger.error("Cannot delete learning objective: no share associated with this conversation")
             return False, "No share associated with this conversation."
 
-        current_user_id = await require_current_user(
-            context, "delete learning objective"
-        )
+        current_user_id = await require_current_user(context, "delete learning objective")
         if not current_user_id:
             return False, "Could not identify current user."
 
@@ -234,12 +216,8 @@ class LearningObjectivesManager:
             },
         )
 
-        await Notifications.notify_all(
-            context, share_id, f"Learning objective '{objective_name}' has been deleted"
-        )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' has been deleted")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return (
             True,
@@ -274,9 +252,7 @@ class LearningObjectivesManager:
         """Add a new learning outcome to an existing learning objective."""
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot add learning outcome: no share associated with this conversation"
-            )
+            logger.error("Cannot add learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "add learning outcome")
@@ -332,9 +308,7 @@ class LearningObjectivesManager:
             share_id,
             f"Learning outcome '{outcome_description}' has been added",
         )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return (
             True,
@@ -350,9 +324,7 @@ class LearningObjectivesManager:
         """Update the description of an existing learning outcome."""
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot update learning outcome: no share associated with this conversation"
-            )
+            logger.error("Cannot update learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "update learning outcome")
@@ -412,12 +384,8 @@ class LearningObjectivesManager:
         )
 
         # Notify linked conversations
-        await Notifications.notify_all(
-            context, share_id, f"Learning outcome '{new_description}' has been updated"
-        )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all(context, share_id, f"Learning outcome '{new_description}' has been updated")
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return (
             True,
@@ -432,9 +400,7 @@ class LearningObjectivesManager:
         """Delete a learning outcome from a learning objective."""
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error(
-                "Cannot delete learning outcome: no share associated with this conversation"
-            )
+            logger.error("Cannot delete learning outcome: no share associated with this conversation")
             return False, "No knowledge package associated with this conversation."
 
         current_user_id = await require_current_user(context, "delete learning outcome")
@@ -481,9 +447,7 @@ class LearningObjectivesManager:
         # Clean up any achievement records for this outcome across all team conversations
         for team_info in share.team_conversations.values():
             team_info.outcome_achievements = [
-                achievement
-                for achievement in team_info.outcome_achievements
-                if achievement.outcome_id != outcome_id
+                achievement for achievement in team_info.outcome_achievements if achievement.outcome_id != outcome_id
             ]
 
         # Save the updated knowledge package
@@ -509,9 +473,7 @@ class LearningObjectivesManager:
             share_id,
             f"Learning outcome '{deleted_description}' has been removed",
         )
-        await Notifications.notify_all_state_update(
-            context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return (
             True,
@@ -526,28 +488,18 @@ class LearningObjectivesManager:
         return team_conv.outcome_achievements if team_conv else []
 
     @staticmethod
-    def get_completion_for_conversation(
-        package: KnowledgePackage, conversation_id: str
-    ) -> Tuple[int, int]:
-        achievements = LearningObjectivesManager.get_achievements_for_conversation(
-            package, conversation_id
-        )
+    def get_completion_for_conversation(package: KnowledgePackage, conversation_id: str) -> Tuple[int, int]:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
         achieved_outcome_ids = {a.outcome_id for a in achievements if a.achieved}
 
-        total_outcomes = sum(
-            len(obj.learning_outcomes) for obj in package.learning_objectives
-        )
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
         achieved_outcomes = len(achieved_outcome_ids)
 
         return achieved_outcomes, total_outcomes
 
     @staticmethod
-    def is_outcome_achieved_by_conversation(
-        package: KnowledgePackage, outcome_id: str, conversation_id: str
-    ) -> bool:
-        achievements = LearningObjectivesManager.get_achievements_for_conversation(
-            package, conversation_id
-        )
+    def is_outcome_achieved_by_conversation(package: KnowledgePackage, outcome_id: str, conversation_id: str) -> bool:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
         return any(a.outcome_id == outcome_id and a.achieved for a in achievements)
 
     @staticmethod
@@ -559,12 +511,8 @@ class LearningObjectivesManager:
         """
         all_achieved_outcomes = set()
         for team_conv in package.team_conversations.values():
-            achieved_ids = {
-                a.outcome_id for a in team_conv.outcome_achievements if a.achieved
-            }
+            achieved_ids = {a.outcome_id for a in team_conv.outcome_achievements if a.achieved}
             all_achieved_outcomes.update(achieved_ids)
 
-        total_outcomes = sum(
-            len(obj.learning_outcomes) for obj in package.learning_objectives
-        )
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
         return len(all_achieved_outcomes), total_outcomes

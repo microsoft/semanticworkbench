@@ -50,14 +50,10 @@ class InformationRequestManager:
         try:
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                logger.error(
-                    "Cannot create information request: no share associated with this conversation"
-                )
+                logger.error("Cannot create information request: no share associated with this conversation")
                 return False, None
 
-            current_user_id = await require_current_user(
-                context, "create information request"
-            )
+            current_user_id = await require_current_user(context, "create information request")
             if not current_user_id:
                 return False, None
 
@@ -84,12 +80,8 @@ class InformationRequestManager:
                 },
             )
 
-            await Notifications.notify_self_and_other(
-                context, share_id, f"Information request '{title}' was created"
-            )
-            await Notifications.notify_all_state_update(
-                context, share_id, [InspectorTab.SHARING]
-            )
+            await Notifications.notify_self_and_other(context, share_id, f"Information request '{title}' was created")
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
 
             return True, information_request
 
@@ -106,21 +98,15 @@ class InformationRequestManager:
         try:
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                logger.error(
-                    "Cannot resolve information request: no share associated with this conversation"
-                )
+                logger.error("Cannot resolve information request: no share associated with this conversation")
                 return False, None
 
-            current_user_id = await require_current_user(
-                context, "resolve information request"
-            )
+            current_user_id = await require_current_user(context, "resolve information request")
             if not current_user_id:
                 return False, None
 
             # Get the information request
-            information_request = ShareStorage.read_information_request(
-                share_id, request_id
-            )
+            information_request = ShareStorage.read_information_request(share_id, request_id)
             if not information_request:
                 # Try to find it in all requests
                 all_requests = ShareStorage.get_all_information_requests(share_id)
@@ -145,14 +131,12 @@ class InformationRequestManager:
             information_request.resolved_by = current_user_id
 
             # Add to history
-            information_request.updates.append(
-                {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "user_id": current_user_id,
-                    "message": f"Request resolved: {resolution}",
-                    "status": RequestStatus.RESOLVED.value,
-                }
-            )
+            information_request.updates.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "user_id": current_user_id,
+                "message": f"Request resolved: {resolution}",
+                "status": RequestStatus.RESOLVED.value,
+            })
 
             # Update metadata
             information_request.updated_at = datetime.utcnow()
@@ -177,16 +161,12 @@ class InformationRequestManager:
                 },
             )
 
-            await Notifications.notify_all_state_update(
-                context, share_id, [InspectorTab.SHARING]
-            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
             await Notifications.notify_self_and_other(
                 context,
                 share_id,
                 f"Information request '{information_request.title}' has been resolved: {resolution}",
-                information_request.conversation_id
-                if information_request.conversation_id != str(context.id)
-                else None,
+                information_request.conversation_id if information_request.conversation_id != str(context.id) else None,
             )
 
             return True, information_request
@@ -213,22 +193,16 @@ class InformationRequestManager:
         try:
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                logger.error(
-                    "Cannot delete information request: no share associated with this conversation"
-                )
+                logger.error("Cannot delete information request: no share associated with this conversation")
                 return False, "No knowledge package associated with this conversation."
 
-            current_user_id = await require_current_user(
-                context, "delete information request"
-            )
+            current_user_id = await require_current_user(context, "delete information request")
             if not current_user_id:
                 return False, "Could not identify current user."
 
             # Get information request by ID
             cleaned_request_id = request_id.strip().replace('"', "").replace("'", "")
-            information_request = ShareStorage.read_information_request(
-                share_id, cleaned_request_id
-            )
+            information_request = ShareStorage.read_information_request(share_id, cleaned_request_id)
             if not information_request:
                 return False, f"Information request with ID '{request_id}' not found."
 
@@ -266,9 +240,7 @@ class InformationRequestManager:
             # Delete the information request from the main share data
             share = await ShareManager.get_share(context)
             if share and share.requests:
-                share.requests = [
-                    req for req in share.requests if req.request_id != actual_request_id
-                ]
+                share.requests = [req for req in share.requests if req.request_id != actual_request_id]
                 await ShareManager.set_share(context, share)
 
             # Notify about the deletion
@@ -277,9 +249,7 @@ class InformationRequestManager:
                 share_id,
                 f"Information request '{request_title}' has been deleted.",
             )
-            await Notifications.notify_all_state_update(
-                context, share_id, [InspectorTab.SHARING]
-            )
+            await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
 
             return (
                 True,

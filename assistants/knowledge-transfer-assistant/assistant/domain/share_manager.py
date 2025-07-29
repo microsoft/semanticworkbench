@@ -75,9 +75,7 @@ class ShareManager:
 
         # Associate the conversation with the share
         logger.debug(f"Associating conversation {context.id} with share {share_id}")
-        await ShareManager.set_conversation_role(
-            context, share_id, ConversationRole.COORDINATOR
-        )
+        await ShareManager.set_conversation_role(context, share_id, ConversationRole.COORDINATOR)
 
         # No need to set conversation role in share storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
@@ -87,15 +85,11 @@ class ShareManager:
         return share_id
 
     @staticmethod
-    async def set_conversation_role(
-        context: ConversationContext, share_id: str, role: ConversationRole
-    ) -> None:
+    async def set_conversation_role(context: ConversationContext, share_id: str, role: ConversationRole) -> None:
         """
         Sets the role of a conversation in a knowledge transfer share.
         """
-        role_data = ConversationShareInfo(
-            share_id=share_id, role=role, conversation_id=str(context.id)
-        )
+        role_data = ConversationShareInfo(share_id=share_id, role=role, conversation_id=str(context.id))
         role_path = ShareStorageManager.get_conversation_role_file_path(context)
         write_model(role_path, role_data)
 
@@ -115,9 +109,7 @@ class ShareManager:
         return None
 
     @staticmethod
-    async def create_shareable_team_conversation(
-        context: ConversationContext, share_id: str
-    ) -> str:
+    async def create_shareable_team_conversation(context: ConversationContext, share_id: str) -> str:
         """
         Creates a new shareable team conversation template.
 
@@ -153,9 +145,7 @@ class ShareManager:
             },
         )
         client = context._conversations_client
-        conversation = await client.create_conversation_with_owner(
-            new_conversation=new_conversation, owner_id=user_id
-        )
+        conversation = await client.create_conversation_with_owner(new_conversation=new_conversation, owner_id=user_id)
 
         if not conversation or not conversation.id:
             raise ValueError("Failed to create team conversation")
@@ -171,10 +161,8 @@ class ShareManager:
                 "show_duplicate_action": True,
             },
         )
-        share = (
-            await context._conversations_client.create_conversation_share_with_owner(
-                new_conversation_share=new_share, owner_id=user_id
-            )
+        share = await context._conversations_client.create_conversation_share_with_owner(
+            new_conversation_share=new_share, owner_id=user_id
         )
 
         share_url = f"/conversation-share/{share.id}/redeem"
@@ -187,9 +175,7 @@ class ShareManager:
             knowledge_package.updated_at = datetime.utcnow()
             ShareStorage.write_share(share_id, knowledge_package)
         else:
-            raise ValueError(
-                f"KnowledgePackage info not found for share ID: {share_id}"
-            )
+            raise ValueError(f"KnowledgePackage info not found for share ID: {share_id}")
 
         return share_url
 
@@ -288,9 +274,7 @@ class ShareManager:
         """
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            raise ValueError(
-                "Cannot set share: no share ID found for this conversation"
-            )
+            raise ValueError("Cannot set share: no share ID found for this conversation")
 
         ShareStorage.write_share(share_id, share)
 
@@ -331,9 +315,7 @@ class ShareManager:
             return []
 
     @staticmethod
-    async def _capture_redeemer_info(
-        context: ConversationContext, share_id: str
-    ) -> None:
+    async def _capture_redeemer_info(context: ConversationContext, share_id: str) -> None:
         """
         Captures the redeemer (first non-assistant participant) information and stores it in the knowledge package.
         Only captures info for actual team member conversations, not coordinator or shared conversations.
@@ -341,25 +323,19 @@ class ShareManager:
         try:
             knowledge_package = ShareStorage.read_share(share_id)
             if not knowledge_package:
-                logger.warning(
-                    f"Could not load knowledge package {share_id} to capture redeemer info"
-                )
+                logger.warning(f"Could not load knowledge package {share_id} to capture redeemer info")
                 return
 
             conversation_id = str(context.id)
 
             # Skip if this is the coordinator conversation
             if conversation_id == knowledge_package.coordinator_conversation_id:
-                logger.debug(
-                    f"Skipping redeemer capture for coordinator conversation {conversation_id}"
-                )
+                logger.debug(f"Skipping redeemer capture for coordinator conversation {conversation_id}")
                 return
 
             # Skip if this is the shared conversation template
             if conversation_id == knowledge_package.shared_conversation_id:
-                logger.debug(
-                    f"Skipping redeemer capture for shared conversation template {conversation_id}"
-                )
+                logger.debug(f"Skipping redeemer capture for shared conversation template {conversation_id}")
                 return
 
             # If we get here, it's a team member conversation - capture redeemer info
@@ -367,9 +343,7 @@ class ShareManager:
             user_id, user_name = await get_current_user(context)
 
             if not user_id or not user_name:
-                logger.warning(
-                    f"Could not identify redeemer for conversation {conversation_id}"
-                )
+                logger.warning(f"Could not identify redeemer for conversation {conversation_id}")
                 return
 
             # Create team conversation info
@@ -380,15 +354,11 @@ class ShareManager:
             )
 
             # Add to knowledge package
-            knowledge_package.team_conversations[conversation_id] = (
-                team_conversation_info
-            )
+            knowledge_package.team_conversations[conversation_id] = team_conversation_info
 
             # Save the updated knowledge package
             ShareStorage.write_share(share_id, knowledge_package)
-            logger.debug(
-                f"Captured redeemer info for team conversation {conversation_id}: {user_name} ({user_id})"
-            )
+            logger.debug(f"Captured redeemer info for team conversation {conversation_id}: {user_name} ({user_id})")
 
         except Exception as e:
             logger.error(f"Error capturing redeemer info: {e}")
@@ -421,9 +391,7 @@ class ShareManager:
         """
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            raise ValueError(
-                "Cannot append message: no share ID found for this conversation"
-            )
+            raise ValueError("Cannot append message: no share ID found for this conversation")
 
         ShareStorage.append_coordinator_message(
             share_id=share_id,

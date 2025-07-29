@@ -72,9 +72,7 @@ class InformationRequestTools(ToolsBase):
         else:
             return "Failed to create information request. Please try again."
 
-    async def resolve_information_request(
-        self, request_id: str, resolution: str
-    ) -> str:
+    async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
         Resolve an information request when you have the needed information to address it. Only use for active information requests. If there are no active information requests, this should never be called.
 
@@ -98,9 +96,7 @@ class InformationRequestTools(ToolsBase):
                 "create_information_request to send requests to the Coordinator, not try to resolve them yourself. "
                 "The Coordinator must use resolve_information_request to respond to your requests."
             )
-            logger.warning(
-                f"Team member attempted to use resolve_information_request: {request_id}"
-            )
+            logger.warning(f"Team member attempted to use resolve_information_request: {request_id}")
             return error_message
 
         share = await ShareManager.get_share(self.context)
@@ -114,16 +110,10 @@ class InformationRequestTools(ToolsBase):
             context=self.context, request_id=request_id, resolution=resolution
         )
         if success and information_request:
-            return (
-                f"Information request '{information_request.title}' has been resolved."
-            )
+            return f"Information request '{information_request.title}' has been resolved."
         else:
-            logger.warning(
-                f"Failed to resolve information request. Invalid ID provided: '{request_id}'"
-            )
-            return (
-                f'ERROR: Could not resolve information request with ID "{request_id}".'
-            )
+            logger.warning(f"Failed to resolve information request. Invalid ID provided: '{request_id}'")
+            return f'ERROR: Could not resolve information request with ID "{request_id}".'
 
     async def delete_information_request(self, request_id: str) -> str:
         """
@@ -142,12 +132,4 @@ class InformationRequestTools(ToolsBase):
         success, message = await InformationRequestManager.delete_information_request(
             context=self.context, request_id=request_id
         )
-        return (
-            message
-            if message
-            else (
-                "Request deleted successfully."
-                if success
-                else "Failed to delete request."
-            )
-        )
+        return message if message else ("Request deleted successfully." if success else "Failed to delete request.")

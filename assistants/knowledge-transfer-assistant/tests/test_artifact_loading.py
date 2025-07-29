@@ -10,8 +10,6 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from semantic_workbench_assistant import settings
-
 from assistant.data import (
     ConversationRole,
     KnowledgeBrief,
@@ -21,6 +19,7 @@ from assistant.data import (
 )
 from assistant.domain import KnowledgeBriefManager, ShareManager
 from assistant.storage import ShareStorage, ShareStorageManager
+from semantic_workbench_assistant import settings
 
 # Type variable for better type annotations
 T = TypeVar("T")
@@ -31,9 +30,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         # Create a test storage path
-        self.test_dir = (
-            pathlib.Path(__file__).parent.parent / ".data" / "test_project_storage"
-        )
+        self.test_dir = pathlib.Path(__file__).parent.parent / ".data" / "test_project_storage"
         self.test_dir.mkdir(exist_ok=True, parents=True)
 
         # Mock settings to use our test directory
@@ -76,9 +73,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         async def mock_get_share_id(context):
             return self.share_id
 
-        patch2 = unittest.mock.patch.object(
-            ShareManager, "get_share_id", side_effect=mock_get_share_id
-        )
+        patch2 = unittest.mock.patch.object(ShareManager, "get_share_id", side_effect=mock_get_share_id)
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)
 
@@ -141,9 +136,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_get_project_brief(self) -> None:
         """Test that get_project_brief correctly loads the brief from storage"""
         # Mock the KnowledgeTransferManager to use our test context
-        with unittest.mock.patch.object(
-            ShareManager, "get_share_id", return_value=self.share_id
-        ):
+        with unittest.mock.patch.object(ShareManager, "get_share_id", return_value=self.share_id):
             # Using Any here to satisfy type checker with our mock
             context: Any = self.context
 
@@ -158,9 +151,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             # Verify the project goals were loaded correctly
             self.assertIsNotNone(project, "Should load the project")
             if project:  # Type checking guard
-                self.assertEqual(
-                    len(project.learning_objectives), 1, "Should have one goal"
-                )
+                self.assertEqual(len(project.learning_objectives), 1, "Should have one goal")
                 self.assertEqual(project.learning_objectives[0].name, "Test Goal")
 
     async def test_direct_storage_access(self) -> None:

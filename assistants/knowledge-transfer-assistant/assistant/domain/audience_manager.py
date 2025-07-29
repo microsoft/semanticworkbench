@@ -63,9 +63,7 @@ class AudienceManager:
             )
 
             await Notifications.notify(context, "Audience updated.")
-            await Notifications.notify_all_state_update(
-                context, share.share_id, [InspectorTab.DEBUG]
-            )
+            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
 
             return True, f"Target audience updated successfully: {audience_description}"
 
