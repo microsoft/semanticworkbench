@@ -35,7 +35,9 @@ def load_text_include(filename) -> str:
     return file_path.read_text()
 
 
-async def get_current_user(context: ConversationContext) -> Tuple[Optional[str], Optional[str]]:
+async def get_current_user(
+    context: ConversationContext,
+) -> Tuple[Optional[str], Optional[str]]:
     """
     Extract the current user ID and name from the conversation context.
 
@@ -72,7 +74,9 @@ async def get_current_user_id(context: ConversationContext) -> Optional[str]:
     return user_id
 
 
-async def require_current_user(context: ConversationContext, operation_name: str) -> Optional[str]:
+async def require_current_user(
+    context: ConversationContext, operation_name: str
+) -> Optional[str]:
     """
     Extract the current user ID and log an error if none is found.
 

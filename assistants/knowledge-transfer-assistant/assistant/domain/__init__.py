@@ -4,16 +4,16 @@ Manager directory for Knowledge Transfer Assistant.
 This module provides the main KnowledgeTransferManager class for project management.
 """
 
+from .audience_manager import AudienceManager
 from .information_request_manager import InformationRequestManager
 from .knowledge_brief_manager import KnowledgeBriefManager
 from .knowledge_digest_manager import KnowledgeDigestManager
 from .learning_objectives_manager import LearningObjectivesManager
-from .audience_manager import AudienceManager
 from .share_manager import ShareManager
-from .knowledge_transfer_manager import KnowledgeTransferManager
+from .transfer_manager import TransferManager
 
 __all__ = [
-    "KnowledgeTransferManager",
+    "TransferManager",
     "InformationRequestManager",
     "KnowledgeBriefManager",
     "KnowledgeDigestManager",

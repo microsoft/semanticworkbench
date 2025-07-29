@@ -2,7 +2,7 @@
 name = "assistant"
 version = "0.1.0"
 description = "A file-sharing mediator assistant for collaborative projects."
-authors = [{ name = "Semantic Workbench Team" }]
+authors = [{ name = "MADE: Explore" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

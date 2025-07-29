@@ -5,19 +5,20 @@ Provides business logic methods for KnowledgePackage state assessment,
 presentation, achievement tracking, and conversation management.
 """
 
+from assistant.data import KnowledgePackage
 
-from assistant.domain.learning_objectives_manager import LearningObjectivesManager
-
-from ..data import KnowledgePackage
+from .learning_objectives_manager import LearningObjectivesManager
 
 
-class KnowledgeTransferManager:
+class TransferManager:
     """Manager class for KnowledgePackage business logic operations."""
 
     @staticmethod
     def is_ready_for_transfer(package: KnowledgePackage) -> bool:
         has_basic_requirements = (
-            package.knowledge_organized and package.brief is not None and package.audience is not None
+            package.knowledge_organized
+            and package.brief is not None
+            and package.audience is not None
         )
 
         if not has_basic_requirements:
@@ -32,7 +33,10 @@ class KnowledgeTransferManager:
 
     @staticmethod
     def is_actively_sharing(package: KnowledgePackage) -> bool:
-        return KnowledgeTransferManager.is_ready_for_transfer(package) and len(package.team_conversations) > 0
+        return (
+            TransferManager.is_ready_for_transfer(package)
+            and len(package.team_conversations) > 0
+        )
 
     @staticmethod
     def _is_transfer_complete(package: KnowledgePackage) -> bool:
@@ -44,5 +48,7 @@ class KnowledgeTransferManager:
         if not package.is_intended_to_accomplish_outcomes:
             return False
 
-        achieved_outcomes, total_outcomes = LearningObjectivesManager.get_overall_completion(package)
+        achieved_outcomes, total_outcomes = (
+            LearningObjectivesManager.get_overall_completion(package)
+        )
         return total_outcomes > 0 and achieved_outcomes == total_outcomes

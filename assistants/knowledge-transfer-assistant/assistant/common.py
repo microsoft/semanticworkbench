@@ -9,8 +9,8 @@ from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .domain.share_manager import ShareManager
 from .data import LogEntryType
+from .domain.share_manager import ShareManager
 
 
 async def log_transfer_action(

@@ -52,7 +52,10 @@ class RequestConfig(BaseModel):
 
     openai_model: Annotated[
         str,
-        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+        Field(
+            title="OpenAI Model",
+            description="The OpenAI model to use for generating responses.",
+        ),
     ] = "gpt-4.1"
 
 
@@ -118,7 +121,10 @@ class PromptConfig(BaseModel):
 
     knowledge_digest_prompt: Annotated[
         str,
-        Field(title="Knowledge Digest Prompt", description="The prompt used to generate knowledge digest content."),
+        Field(
+            title="Knowledge Digest Prompt",
+            description="The prompt used to generate knowledge digest content.",
+        ),
         UISchema(widget="textarea"),
     ] = load_text_include("knowledge_digest_prompt.txt")
 
@@ -166,7 +172,9 @@ To get started, let's discuss your audience. Who are you going to be sharing you
         int,
         Field(
             title="Maximum Digest Tokens",
-            description=("The number of tokens to use for the knowledge digest. Default: 4096"),
+            description=(
+                "The number of tokens to use for the knowledge digest. Default: 4096"
+            ),
         ),
     ] = 4_096
 

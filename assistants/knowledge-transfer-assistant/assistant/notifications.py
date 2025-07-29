@@ -1,13 +1,17 @@
 from typing import List, Optional
 
-from semantic_workbench_api_model.workbench_model import AssistantStateEvent, MessageType, NewConversationMessage
+from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
+    MessageType,
+    NewConversationMessage,
+)
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.domain.share_manager import ShareManager
 
+from .conversation_clients import ConversationClientManager
 from .data import InspectorTab
 from .logging import logger
-from .conversation_clients import ConversationClientManager
 
 
 class Notifications:
@@ -23,7 +27,10 @@ class Notifications:
 
     @staticmethod
     async def notify_self_and_other(
-        context: ConversationContext, share_id: str, message: str, other_conversation_id: Optional[str] = None
+        context: ConversationContext,
+        share_id: str,
+        message: str,
+        other_conversation_id: Optional[str] = None,
     ) -> None:
         """
         Send text message notification to current conversation and one other.
@@ -52,7 +59,9 @@ class Notifications:
             return
 
         try:
-            client = ConversationClientManager.get_conversation_client(context, target_id)
+            client = ConversationClientManager.get_conversation_client(
+                context, target_id
+            )
             await client.send_messages(
                 NewConversationMessage(
                     content=message,
@@ -63,7 +72,9 @@ class Notifications:
             logger.error(f"Failed to notify conversation {target_id}: {e}")
 
     @staticmethod
-    async def notify_all(context: ConversationContext, share_id: str, message: str) -> None:
+    async def notify_all(
+        context: ConversationContext, share_id: str, message: str
+    ) -> None:
         """Send text message notification to all knowledge transfer conversations."""
 
         knowledge_package = await ShareManager.get_share(context)
@@ -95,9 +106,14 @@ class Notifications:
 
         # Notify all team conversations
         for conv_id in knowledge_package.team_conversations.keys():
-            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
+            if (
+                conv_id != current_id
+                and conv_id != knowledge_package.coordinator_conversation_id
+            ):
                 try:
-                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+                    client = ConversationClientManager.get_conversation_client(
+                        context, conv_id
+                    )
                     await client.send_messages(
                         NewConversationMessage(
                             content=message,
@@ -110,7 +126,9 @@ class Notifications:
     # State Update Notifications (UI refreshes)
 
     @staticmethod
-    async def notify_state_update(context: ConversationContext, tabs: List[InspectorTab]) -> None:
+    async def notify_state_update(
+        context: ConversationContext, tabs: List[InspectorTab]
+    ) -> None:
         """Send state update notifications to refresh UI in current conversation only."""
         for tab in tabs:
             state_event = AssistantStateEvent(
@@ -121,7 +139,9 @@ class Notifications:
             await context.send_conversation_state_event(state_event)
 
     @staticmethod
-    async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: List[InspectorTab]) -> None:
+    async def notify_all_state_update(
+        context: ConversationContext, share_id: str, tabs: List[InspectorTab]
+    ) -> None:
         """Send state update notifications to refresh UI across all share conversations."""
 
         # Refresh current conversation first
@@ -160,9 +180,14 @@ class Notifications:
 
         # Refresh all team conversations
         for conv_id in knowledge_package.team_conversations.keys():
-            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
+            if (
+                conv_id != current_id
+                and conv_id != knowledge_package.coordinator_conversation_id
+            ):
                 try:
-                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+                    client = ConversationClientManager.get_conversation_client(
+                        context, conv_id
+                    )
 
                     for tab in tabs:
                         state_event = AssistantStateEvent(

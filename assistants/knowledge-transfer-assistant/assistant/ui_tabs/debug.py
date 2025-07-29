@@ -9,9 +9,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.domain.knowledge_digest_manager import KnowledgeDigestManager
-from assistant.domain.share_manager import ShareManager
-from assistant.domain.knowledge_transfer_manager import KnowledgeTransferManager
+from assistant.domain import KnowledgeDigestManager, ShareManager, TransferManager
 
 
 class DebugInspector:
@@ -31,28 +29,38 @@ class DebugInspector:
     async def is_enabled(self, context: ConversationContext) -> bool:
         return True
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
         """Get debug information for display."""
 
         # Get share information
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active knowledge package. Start a conversation to create one."}
+                data={
+                    "content": "No active knowledge package. Start a conversation to create one."
+                }
             )
 
         markdown = await self._format_debug_info(share_id, context)
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_debug_info(self, share_id: str, context: ConversationContext) -> str:
+    async def _format_debug_info(
+        self, share_id: str, context: ConversationContext
+    ) -> str:
         """Format debug information including knowledge digest."""
 
         lines: List[str] = []
 
         lines.append("## Debug Information")
         lines.append("")
-        lines.append("This panel shows internal information maintained by the assistant. This data is automatically")
-        lines.append("generated and updated by the assistant and is not directly editable by users.")
+        lines.append(
+            "This panel shows internal information maintained by the assistant. This data is automatically"
+        )
+        lines.append(
+            "generated and updated by the assistant and is not directly editable by users."
+        )
         lines.append("")
 
         # Get the knowledge digest
@@ -61,14 +69,20 @@ class DebugInspector:
             if not digest:
                 lines.append("### Knowledge Digest")
                 lines.append("")
-                lines.append("No knowledge digest has been generated yet. The assistant will create and update this")
+                lines.append(
+                    "No knowledge digest has been generated yet. The assistant will create and update this"
+                )
                 lines.append("automatically as the conversation develops.")
                 lines.append("")
 
             lines.append("## Knowledge Digest")
             lines.append("")
-            lines.append("The knowledge digest is an internal summary of the conversation that the assistant")
-            lines.append("maintains to help understand the context and key information being shared. It is")
+            lines.append(
+                "The knowledge digest is an internal summary of the conversation that the assistant"
+            )
+            lines.append(
+                "maintains to help understand the context and key information being shared. It is"
+            )
             lines.append("automatically updated as the conversation progresses.")
             lines.append("")
 
@@ -80,7 +94,9 @@ class DebugInspector:
                 lines.append("```")
                 lines.append("")
             else:
-                lines.append("_No knowledge digest has been generated yet. The assistant will create and update_")
+                lines.append(
+                    "_No knowledge digest has been generated yet. The assistant will create and update_"
+                )
                 lines.append("_this automatically as the conversation develops._")
                 lines.append("")
 
@@ -97,8 +113,12 @@ class DebugInspector:
                 lines.append("## Share Metadata")
                 lines.append("")
                 lines.append(f"- **Share ID:** `{share_id}`")
-                lines.append(f"- **Created:** {share.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                lines.append(f"- **Last Updated:** {share.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                lines.append(
+                    f"- **Created:** {share.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                lines.append(
+                    f"- **Last Updated:** {share.updated_at.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
                 lines.append(
                     f"- **Team Conversations:** {len(share.team_conversations) if share.team_conversations else 0}"
                 )
@@ -106,10 +126,16 @@ class DebugInspector:
                     f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}"
                 )
                 lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
-                lines.append(f"- **Ready for Transfer:** {KnowledgeTransferManager.is_ready_for_transfer(share)}")
-                lines.append(f"- **Actively Sharing:** {KnowledgeTransferManager.is_actively_sharing(share)}")
+                lines.append(
+                    f"- **Ready for Transfer:** {TransferManager.is_ready_for_transfer(share)}"
+                )
+                lines.append(
+                    f"- **Actively Sharing:** {TransferManager.is_actively_sharing(share)}"
+                )
                 if share.coordinator_conversation_id:
-                    lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
+                    lines.append(
+                        f"- **Conversation ID:** `{share.coordinator_conversation_id}`"
+                    )
                 lines.append("")
 
         except Exception as e:

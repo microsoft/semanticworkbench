@@ -161,7 +161,9 @@ class LogEntry(BaseModel):
 
 
 class KnowledgePackageLog(BaseModel):
-    entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
+    entries: List[LogEntry] = Field(
+        default_factory=list
+    )  # Chronological list of log entries
 
 
 class KnowledgePackage(BaseModel):
@@ -193,7 +195,9 @@ class KnowledgePackage(BaseModel):
     archived: bool = False
     requests: List[InformationRequest] = Field(default_factory=list)
 
-    log: Optional[KnowledgePackageLog] = Field(default_factory=lambda: KnowledgePackageLog())
+    log: Optional[KnowledgePackageLog] = Field(
+        default_factory=lambda: KnowledgePackageLog()
+    )
 
 
 class CoordinatorConversationMessage(BaseModel):

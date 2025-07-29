@@ -12,13 +12,14 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.config import assistant_config
 from assistant.domain.share_manager import ShareManager
-
-from ..config import assistant_config
-from ..logging import logger
+from assistant.logging import logger
 
 
-async def generate_team_welcome_message(context: ConversationContext) -> tuple[str, dict[str, Any]]:
+async def generate_team_welcome_message(
+    context: ConversationContext,
+) -> tuple[str, dict[str, Any]]:
     """
     Generates a welcome message for the team based on the knowledge transfer information.
     """
@@ -28,7 +29,9 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     share = await ShareManager.get_share(context)
     if not share:
-        logger.warning("No active knowledge package found for welcome message generation")
+        logger.warning(
+            "No active knowledge package found for welcome message generation"
+        )
         return config.team_config.default_welcome_message, debug
 
     share_id = share.share_id
@@ -91,9 +94,13 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
     try:
         # Chat completion
         async with openai_client.create_client(config.service_config) as client:
-            share_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(share_data.values())
+            share_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(
+                share_data.values()
+            )
 
-            instructions = f"{config.prompt_config.welcome_message_generation}\n\n{share_info}"
+            instructions = (
+                f"{config.prompt_config.welcome_message_generation}\n\n{share_info}"
+            )
             messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": instructions},
             ]
@@ -104,7 +111,9 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
                 "max_tokens": 500,
                 "temperature": 0.7,  # Low temperature for more consistent analysis
             }
-            debug["completion_args"] = openai_client.make_completion_args_serializable(completion_args)
+            debug["completion_args"] = openai_client.make_completion_args_serializable(
+                completion_args
+            )
 
             # LLM call
             response = await client.chat.completions.create(

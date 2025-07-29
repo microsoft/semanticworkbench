@@ -9,12 +9,11 @@ from typing import Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.data import InspectorTab, LogEntryType
+from assistant.logging import logger
 from assistant.notifications import Notifications
 
 from .share_manager import ShareManager
-
-from ..data import InspectorTab, LogEntryType
-from ..logging import logger
 
 
 class AudienceManager:
@@ -41,7 +40,10 @@ class AudienceManager:
             # Get existing knowledge package
             share = await ShareManager.get_share(context)
             if not share:
-                return False, "No knowledge package found. Please create a knowledge brief first."
+                return (
+                    False,
+                    "No knowledge package found. Please create a knowledge brief first.",
+                )
 
             # Update the audience
             share.audience = audience_description.strip()
@@ -61,7 +63,9 @@ class AudienceManager:
             )
 
             await Notifications.notify(context, "Audience updated.")
-            await Notifications.notify_all_state_update(context, share.share_id, [InspectorTab.DEBUG])
+            await Notifications.notify_all_state_update(
+                context, share.share_id, [InspectorTab.DEBUG]
+            )
 
             return True, f"Target audience updated successfully: {audience_description}"
 

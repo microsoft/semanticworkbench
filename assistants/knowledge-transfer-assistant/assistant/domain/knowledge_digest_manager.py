@@ -12,12 +12,13 @@ import openai_client
 from semantic_workbench_api_model.workbench_model import ParticipantRole
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import assistant_config
-from ..data import InspectorTab, KnowledgeDigest, LogEntryType
-from ..logging import logger
-from ..notifications import Notifications
-from ..storage import ShareStorage
-from ..utils import require_current_user
+from assistant.config import assistant_config
+from assistant.data import InspectorTab, KnowledgeDigest, LogEntryType
+from assistant.logging import logger
+from assistant.notifications import Notifications
+from assistant.storage import ShareStorage
+from assistant.utils import require_current_user
+
 from .share_manager import ShareManager
 
 
@@ -42,10 +43,14 @@ class KnowledgeDigestManager:
         try:
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                logger.error("Cannot update knowledge digest: no share associated with this conversation")
+                logger.error(
+                    "Cannot update knowledge digest: no share associated with this conversation"
+                )
                 return False, None
 
-            current_user_id = await require_current_user(context, "update knowledge digest")
+            current_user_id = await require_current_user(
+                context, "update knowledge digest"
+            )
             if not current_user_id:
                 return False, None
 
@@ -71,7 +76,9 @@ class KnowledgeDigestManager:
             # Log the update
             event_type = LogEntryType.KNOWLEDGE_DIGEST_UPDATE
             update_type = "auto-generated" if is_auto_generated else "manual"
-            message = f"{'Created' if is_new else 'Updated'} knowledge digest ({update_type})"
+            message = (
+                f"{'Created' if is_new else 'Updated'} knowledge digest ({update_type})"
+            )
 
             await ShareManager.log_share_event(
                 context=context,
@@ -104,10 +111,14 @@ class KnowledgeDigestManager:
 
             share_id = await ShareManager.get_share_id(context)
             if not share_id:
-                logger.error("Cannot auto-update knowledge digest: no share associated with this conversation")
+                logger.error(
+                    "Cannot auto-update knowledge digest: no share associated with this conversation"
+                )
                 return False, None
 
-            current_user_id = await require_current_user(context, "auto-update knowledge digest")
+            current_user_id = await require_current_user(
+                context, "auto-update knowledge digest"
+            )
             if not current_user_id:
                 return False, None
 
@@ -120,7 +131,10 @@ class KnowledgeDigestManager:
             chat_history_text = ""
             for msg in chat_history:
                 sender_type = (
-                    "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
+                    "User"
+                    if msg.sender
+                    and msg.sender.participant_role == ParticipantRole.user
+                    else "Assistant"
                 )
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
 
@@ -134,7 +148,9 @@ class KnowledgeDigestManager:
             </CHAT_HISTORY>
             """
 
-            async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+            async with openai_client.create_client(
+                config.service_config, api_version="2024-06-01"
+            ) as client:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
                     messages=[{"role": "user", "content": digest_prompt}],
@@ -143,14 +159,18 @@ class KnowledgeDigestManager:
 
                 content = completion.choices[0].message.content or ""
                 digest_content = ""
-                match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
+                match = re.search(
+                    r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL
+                )
                 if match:
                     digest_content = match.group(1).strip()
                 else:
                     digest_content = content.strip()
 
             if not digest_content:
-                logger.warning("No content extracted from knowledge digest LLM analysis")
+                logger.warning(
+                    "No content extracted from knowledge digest LLM analysis"
+                )
                 return False, None
 
             result = await KnowledgeDigestManager.update_knowledge_digest(

@@ -9,8 +9,13 @@ import unittest.mock
 import uuid
 from datetime import datetime
 
-from assistant.domain.share_manager import ShareManager
+from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+from semantic_workbench_assistant import settings
+
 from assistant.data import (
+    ConversationRole,
+    CoordinatorConversationMessage,
+    CoordinatorConversationMessages,
     InformationRequest,
     InspectorTab,
     KnowledgeBrief,
@@ -24,15 +29,9 @@ from assistant.data import (
     RequestPriority,
     RequestStatus,
 )
+from assistant.domain.share_manager import ShareManager
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage, ShareStorageManager
-from assistant.data import (
-    ConversationRole,
-    CoordinatorConversationMessage,
-    CoordinatorConversationMessages,
-)
-from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-from semantic_workbench_assistant import settings
 
 
 class TestShareStorage(unittest.IsolatedAsyncioTestCase):
@@ -41,7 +40,9 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         """Set up test environment."""
         # Create a test directory
-        self.test_dir = pathlib.Path(__file__).parent.parent / ".data" / "test_project_storage"
+        self.test_dir = (
+            pathlib.Path(__file__).parent.parent / ".data" / "test_project_storage"
+        )
         self.test_dir.mkdir(parents=True, exist_ok=True)
 
         # Mock settings to use our test directory
@@ -81,14 +82,17 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Mock get_participants with the correct structure
         participants_mock = unittest.mock.MagicMock()
         participants_mock.participants = []
-        self.context.get_participants = unittest.mock.AsyncMock(return_value=participants_mock)
+        self.context.get_participants = unittest.mock.AsyncMock(
+            return_value=participants_mock
+        )
 
         # Patch storage_directory_for_context
         def mock_storage_directory_for_context(context, *args, **kwargs):
             return self.test_dir / f"context_{context.id}"
 
         patch1 = unittest.mock.patch(
-            "assistant.storage.storage_directory_for_context", side_effect=mock_storage_directory_for_context
+            "assistant.storage.storage_directory_for_context",
+            side_effect=mock_storage_directory_for_context,
         )
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)
@@ -220,16 +224,22 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(log, "Should load the log")
         if log:  # Type checking guard
             self.assertEqual(len(log.entries), 1)
-            self.assertEqual(log.entries[0].entry_type, LogEntryType.SHARE_INFORMATION_UPDATE)
+            self.assertEqual(
+                log.entries[0].entry_type, LogEntryType.SHARE_INFORMATION_UPDATE
+            )
             self.assertEqual(log.entries[0].message, "Test log entry")
 
     async def test_project_directory_structure(self):
         """Test the project directory structure."""
         # Verify project directory exists
-        self.assertTrue(self.project_dir.exists(), "KnowledgePackage directory should exist")
+        self.assertTrue(
+            self.project_dir.exists(), "KnowledgePackage directory should exist"
+        )
 
         # Verify Coordinator directory exists
-        self.assertTrue(self.coordinator_dir.exists(), "Coordinator directory should exist")
+        self.assertTrue(
+            self.coordinator_dir.exists(), "Coordinator directory should exist"
+        )
 
         # Verify team directory exists
         self.assertTrue(self.team_dir.exists(), "Team directory should exist")
@@ -296,7 +306,9 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         storage = ShareStorage.read_coordinator_conversation(self.share_id)
 
         # Verify messages were added
-        self.assertIsNotNone(storage, "Should create and load the coordinator conversation")
+        self.assertIsNotNone(
+            storage, "Should create and load the coordinator conversation"
+        )
         if storage:
             self.assertEqual(len(storage.messages), 2)
             self.assertEqual(storage.messages[0].content, "First message")
@@ -347,14 +359,23 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         # Verify knowledge digest was saved correctly
         self.assertIsNotNone(read_digest, "Should load the knowledge digest")
         if read_digest:
-            self.assertEqual(read_digest.content, "# Test Knowledge Digest\n\nThis is a test knowledge digest.")
+            self.assertEqual(
+                read_digest.content,
+                "# Test Knowledge Digest\n\nThis is a test knowledge digest.",
+            )
             self.assertTrue(read_digest.is_auto_generated)
 
     async def test_refresh_current_ui(self):
         """Test refreshing the current UI inspector."""
         # Call refresh_current_ui
         await Notifications.notify_state_update(
-            self.context, [InspectorTab.BRIEF, InspectorTab.LEARNING, InspectorTab.SHARING, InspectorTab.DEBUG]
+            self.context,
+            [
+                InspectorTab.BRIEF,
+                InspectorTab.LEARNING,
+                InspectorTab.SHARING,
+                InspectorTab.DEBUG,
+            ],
         )
 
         # Verify that send_conversation_state_event was called 4 times (once per inspector tab)
@@ -398,11 +419,15 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             updated_package = ShareStorage.read_share(self.share_id)
 
             # Verify updates were saved
-            self.assertIsNotNone(updated_package, "Should load updated knowledge package")
+            self.assertIsNotNone(
+                updated_package, "Should load updated knowledge package"
+            )
             if updated_package:
                 self.assertEqual(updated_package.transfer_notes, "Test status message")
                 # Note: completion_percentage removed from model
-                self.assertEqual(updated_package.next_learning_actions, ["Action 1", "Action 2"])
+                self.assertEqual(
+                    updated_package.next_learning_actions, ["Action 1", "Action 2"]
+                )
 
     async def test_conversation_tracking_in_json(self):
         """Test that conversations are tracked in JSON instead of file system."""
@@ -415,18 +440,26 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(package.team_conversations, dict)
 
             # Verify helper methods work
-            linked_conversations = await ShareManager.get_linked_conversations(self.context)
+            linked_conversations = await ShareManager.get_linked_conversations(
+                self.context
+            )
             self.assertIsInstance(linked_conversations, list)
 
     async def test_conversation_association(self):
         """Test conversation role setting."""
         # Mock ShareManager.set_conversation_role
-        with unittest.mock.patch("assistant.domain.share_manager.write_model") as mock_write_model:
+        with unittest.mock.patch(
+            "assistant.domain.share_manager.write_model"
+        ) as mock_write_model:
             # Mock conversation role path
-            conversation_role_file = ShareStorageManager.get_conversation_role_file_path(self.context)
+            conversation_role_file = (
+                ShareStorageManager.get_conversation_role_file_path(self.context)
+            )
 
             # Call set_conversation_role
-            await ShareManager.set_conversation_role(self.context, self.share_id, ConversationRole.COORDINATOR)
+            await ShareManager.set_conversation_role(
+                self.context, self.share_id, ConversationRole.COORDINATOR
+            )
 
             # Verify write_model was called
             mock_write_model.assert_called_once()
@@ -467,7 +500,9 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             for entry in read_log.entries:
                 if entry.message == "Test direct log entry":
                     found_entry = True
-                    self.assertEqual(entry.entry_type, LogEntryType.SHARE_INFORMATION_UPDATE)
+                    self.assertEqual(
+                        entry.entry_type, LogEntryType.SHARE_INFORMATION_UPDATE
+                    )
                     self.assertEqual(entry.user_id, self.user_id)
                     self.assertEqual(entry.user_name, "Test User")
                     self.assertEqual(entry.related_entity_id, "test-entity-id")

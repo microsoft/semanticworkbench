@@ -5,14 +5,14 @@ Tests for the KnowledgeTransferManager functionality.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
 from assistant.data import (
     KnowledgePackage,
     LearningObjective,
     LearningOutcome,
-
 )
 from assistant.domain import LearningObjectivesManager
-from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 class TestKnowledgeTransferManager:
@@ -41,7 +41,12 @@ class TestKnowledgeTransferManager:
             share_id=project_id,
             brief=None,
             learning_objectives=[
-                LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),
+                LearningObjective(
+                    name="Goal 1",
+                    description="Description 1",
+                    priority=1,
+                    learning_outcomes=[],
+                ),
                 LearningObjective(
                     name=goal_name,
                     description=goal_description,
@@ -51,7 +56,12 @@ class TestKnowledgeTransferManager:
                         LearningOutcome(description="Criterion 2"),
                     ],
                 ),
-                LearningObjective(name="Goal 3", description="Description 3", priority=3, learning_outcomes=[]),
+                LearningObjective(
+                    name="Goal 3",
+                    description="Description 3",
+                    priority=3,
+                    learning_outcomes=[],
+                ),
             ],
             digest=None,
             requests=[],
@@ -69,21 +79,28 @@ class TestKnowledgeTransferManager:
             return project_id
 
         monkeypatch.setattr(
-            "assistant.manager.KnowledgeTransferManager.get_project_id", AsyncMock(side_effect=mock_get_project_id)
+            "assistant.manager.KnowledgeTransferManager.get_project_id",
+            AsyncMock(side_effect=mock_get_project_id),
         )
 
         # Mock require_current_user
         async def mock_require_current_user(*args, **kwargs):
             return "test-user-id"
 
-        monkeypatch.setattr("assistant.manager.require_current_user", AsyncMock(side_effect=mock_require_current_user))
+        monkeypatch.setattr(
+            "assistant.manager.require_current_user",
+            AsyncMock(side_effect=mock_require_current_user),
+        )
 
         # Mock read_project
         def mock_read_project(proj_id):
             assert proj_id == project_id
             return test_project
 
-        monkeypatch.setattr("assistant.storage.ShareStorage.read_project", MagicMock(side_effect=mock_read_project))
+        monkeypatch.setattr(
+            "assistant.storage.ShareStorage.read_project",
+            MagicMock(side_effect=mock_read_project),
+        )
 
         # Mock read_share_info (now returns the same project)
         def mock_read_share_info(proj_id):
@@ -91,7 +108,8 @@ class TestKnowledgeTransferManager:
             return test_project
 
         monkeypatch.setattr(
-            "assistant.storage.ShareStorage.read_share_info", MagicMock(side_effect=mock_read_share_info)
+            "assistant.storage.ShareStorage.read_share_info",
+            MagicMock(side_effect=mock_read_share_info),
         )
 
         # Track if write_project and write_project_info were called with correct arguments
@@ -109,7 +127,8 @@ class TestKnowledgeTransferManager:
             write_project_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ShareStorage.write_project", MagicMock(side_effect=mock_write_project)
+            "assistant.project_manager.ShareStorage.write_project",
+            MagicMock(side_effect=mock_write_project),
         )
 
         # Mock write_share_info (now same as write_share)
@@ -117,7 +136,9 @@ class TestKnowledgeTransferManager:
             nonlocal write_project_info_called
             assert proj_id == project_id
             # Verify package was updated
-            assert package.achieved_outcomes == 0  # Completed criterion was in the deleted goal
+            assert (
+                package.achieved_outcomes == 0
+            )  # Completed criterion was in the deleted goal
             assert package.total_outcomes == 0  # All criteria were in the deleted goal
             # Note: completion_percentage removed from model
             assert package.version == 2  # Incremented
@@ -136,7 +157,8 @@ class TestKnowledgeTransferManager:
             log_event_called = True
 
         monkeypatch.setattr(
-            "assistant.project_manager.ShareStorage.log_project_event", AsyncMock(side_effect=mock_log_project_event)
+            "assistant.project_manager.ShareStorage.log_project_event",
+            AsyncMock(side_effect=mock_log_project_event),
         )
 
         # Mock notify_project_update
@@ -164,7 +186,12 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, goal_name_result = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
+        (
+            success,
+            goal_name_result,
+        ) = await LearningObjectivesManager.delete_learning_objective(
+            context, objective_index
+        )
 
         # Verify the result
         assert success is True
@@ -179,7 +206,9 @@ class TestKnowledgeTransferManager:
 
     # DISABLED: delete_project_goal functionality has been removed from the codebase
     # @pytest.mark.asyncio
-    async def disabled_test_delete_project_goal_invalid_index(self, context, monkeypatch):
+    async def disabled_test_delete_project_goal_invalid_index(
+        self, context, monkeypatch
+    ):
         """Test deleting a goal with an invalid index."""
         # Setup
         project_id = "test-project-id"
@@ -190,8 +219,18 @@ class TestKnowledgeTransferManager:
             share_id=project_id,
             brief=None,
             learning_objectives=[
-                LearningObjective(name="Goal 1", description="Description 1", priority=1, learning_outcomes=[]),
-                LearningObjective(name="Goal 2", description="Description 2", priority=2, learning_outcomes=[]),
+                LearningObjective(
+                    name="Goal 1",
+                    description="Description 1",
+                    priority=1,
+                    learning_outcomes=[],
+                ),
+                LearningObjective(
+                    name="Goal 2",
+                    description="Description 2",
+                    priority=2,
+                    learning_outcomes=[],
+                ),
             ],
             digest=None,
             requests=[],
@@ -212,7 +251,8 @@ class TestKnowledgeTransferManager:
             return "test-user-id"
 
         monkeypatch.setattr(
-            "assistant.project_manager.require_current_user", AsyncMock(side_effect=mock_require_current_user)
+            "assistant.project_manager.require_current_user",
+            AsyncMock(side_effect=mock_require_current_user),
         )
 
         # Mock read_project
@@ -221,11 +261,17 @@ class TestKnowledgeTransferManager:
             return test_project
 
         monkeypatch.setattr(
-            "assistant.project_manager.ShareStorage.read_project", MagicMock(side_effect=mock_read_project)
+            "assistant.project_manager.ShareStorage.read_project",
+            MagicMock(side_effect=mock_read_project),
         )
 
         # Call the method being tested with an invalid index
-        success, error_message = await LearningObjectivesManager.delete_learning_objective(context, objective_index)
+        (
+            success,
+            error_message,
+        ) = await LearningObjectivesManager.delete_learning_objective(
+            context, objective_index
+        )
 
         # Verify the result indicates failure with appropriate error message
         assert success is False
@@ -247,7 +293,12 @@ class TestKnowledgeTransferManager:
         )
 
         # Call the method being tested
-        success, error_message = await LearningObjectivesManager.delete_learning_objective(context, "test-objective-id")
+        (
+            success,
+            error_message,
+        ) = await LearningObjectivesManager.delete_learning_objective(
+            context, "test-objective-id"
+        )
 
         # Verify the result indicates failure with appropriate error message
         assert success is False

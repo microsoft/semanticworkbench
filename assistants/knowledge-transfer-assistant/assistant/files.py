@@ -13,15 +13,17 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from semantic_workbench_api_model import workbench_model
-from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
+from semantic_workbench_api_model.workbench_model import (
+    MessageType,
+    NewConversationMessage,
+)
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .conversation_clients import ConversationClientManager
+from .data import ConversationRole, LogEntryType
 from .domain.share_manager import ShareManager
-from .data import LogEntryType
 from .logging import logger
 from .storage import ShareStorageManager, read_model, write_model
-from .data import ConversationRole
 
 
 # Define helper function for safe logging without 'filename' conflict
@@ -136,13 +138,18 @@ class ShareFilesManager:
         try:
             # Verify file information
             if not file.filename:
-                logger.error("Missing filename in file metadata", extra=safe_extra(log_extra))
+                logger.error(
+                    "Missing filename in file metadata", extra=safe_extra(log_extra)
+                )
                 return False
 
             # Check if share storage directory exists
             files_dir = ShareFilesManager.get_share_files_dir(share_id)
             if not files_dir.exists():
-                logger.debug(f"Creating knowledge transfer files directory: {files_dir}", extra=safe_extra(log_extra))
+                logger.debug(
+                    f"Creating knowledge transfer files directory: {files_dir}",
+                    extra=safe_extra(log_extra),
+                )
                 files_dir.mkdir(parents=True, exist_ok=True)
 
             # Read the file from the conversation with error handling
@@ -156,12 +163,16 @@ class ShareFilesManager:
                 buffer_size = buffer.tell()
                 if buffer_size == 0:
                     logger.error(
-                        "Failed to read file content from conversation - buffer is empty", extra=safe_extra(log_extra)
+                        "Failed to read file content from conversation - buffer is empty",
+                        extra=safe_extra(log_extra),
                     )
                     return False
 
             except Exception as read_error:
-                logger.error(f"Error reading file from conversation: {read_error}", extra=safe_extra(log_extra))
+                logger.error(
+                    f"Error reading file from conversation: {read_error}",
+                    extra=safe_extra(log_extra),
+                )
                 return False
 
             buffer.seek(0)
@@ -181,7 +192,10 @@ class ShareFilesManager:
                     return False
 
             except Exception as write_error:
-                logger.error(f"Error writing file to share storage: {write_error}", extra=safe_extra(log_extra))
+                logger.error(
+                    f"Error writing file to share storage: {write_error}",
+                    extra=safe_extra(log_extra),
+                )
                 return False
 
             # Store file metadata
@@ -200,7 +214,10 @@ class ShareFilesManager:
             # Add to metadata collection with error handling
             try:
                 metadata_path = ShareFilesManager.get_file_metadata_path(share_id)
-                logger.debug(f"Reading metadata from {metadata_path}", extra=safe_extra(log_extra))
+                logger.debug(
+                    f"Reading metadata from {metadata_path}",
+                    extra=safe_extra(log_extra),
+                )
 
                 metadata = read_model(metadata_path, ShareCollection)
                 if not metadata:
@@ -210,7 +227,14 @@ class ShareFilesManager:
                     )
 
                 # Check if file already exists in collection
-                existing_idx = next((i for i, f in enumerate(metadata.files) if f.filename == file.filename), None)
+                existing_idx = next(
+                    (
+                        i
+                        for i, f in enumerate(metadata.files)
+                        if f.filename == file.filename
+                    ),
+                    None,
+                )
                 if existing_idx is not None:
                     metadata.files[existing_idx] = file_metadata
                 else:
@@ -221,30 +245,44 @@ class ShareFilesManager:
 
                 # Verify metadata was written
                 if not metadata_path.exists():
-                    logger.error(f"Failed to write metadata file {metadata_path}", extra=safe_extra(log_extra))
+                    logger.error(
+                        f"Failed to write metadata file {metadata_path}",
+                        extra=safe_extra(log_extra),
+                    )
                     return False
 
                 # Final check - verify file appears in metadata
                 verification_metadata = read_model(metadata_path, ShareCollection)
                 if not verification_metadata:
-                    logger.error("Metadata file exists but can't be read", extra=safe_extra(log_extra))
+                    logger.error(
+                        "Metadata file exists but can't be read",
+                        extra=safe_extra(log_extra),
+                    )
                     return False
 
-                file_exists_in_metadata = any(f.filename == file.filename for f in verification_metadata.files)
+                file_exists_in_metadata = any(
+                    f.filename == file.filename for f in verification_metadata.files
+                )
                 if not file_exists_in_metadata:
                     logger.error(
-                        f"File metadata doesn't contain entry for {file.filename}", extra=safe_extra(log_extra)
+                        f"File metadata doesn't contain entry for {file.filename}",
+                        extra=safe_extra(log_extra),
                     )
                     return False
 
             except Exception as metadata_error:
-                logger.error(f"Error updating metadata: {metadata_error}", extra=safe_extra(log_extra))
+                logger.error(
+                    f"Error updating metadata: {metadata_error}",
+                    extra=safe_extra(log_extra),
+                )
                 return False
 
             return True
 
         except Exception as e:
-            logger.exception(f"Error copying file to share storage: {e}", extra=safe_extra(log_extra))
+            logger.exception(
+                f"Error copying file to share storage: {e}", extra=safe_extra(log_extra)
+            )
             return False
 
     @staticmethod
@@ -295,13 +333,17 @@ class ShareFilesManager:
         """
         try:
             # Get Team conversations
-            team_conversations = await ShareFilesManager.get_team_conversations(context, share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(
+                context, share_id
+            )
             if not team_conversations:
                 return
 
             for conv_id in team_conversations:
                 try:
-                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+                    client = ConversationClientManager.get_conversation_client(
+                        context, conv_id
+                    )
 
                     # Check if file exists in the conversation
                     conversation = await client.get_conversation()
@@ -311,7 +353,9 @@ class ShareFilesManager:
                     if file_exists:
                         # Delete the file
                         await client.delete_file(filename)
-                        logger.debug(f"Deleted file {filename} from Team conversation {conv_id}")
+                        logger.debug(
+                            f"Deleted file {filename} from Team conversation {conv_id}"
+                        )
 
                         # Send notification
                         await client.send_messages(
@@ -321,10 +365,14 @@ class ShareFilesManager:
                             )
                         )
                 except Exception as e:
-                    logger.warning(f"Failed to delete file {filename} from Team conversation {conv_id}: {e}")
+                    logger.warning(
+                        f"Failed to delete file {filename} from Team conversation {conv_id}: {e}"
+                    )
 
         except Exception as e:
-            logger.exception(f"Error notifying Team conversations about deleted file: {e}")
+            logger.exception(
+                f"Error notifying Team conversations about deleted file: {e}"
+            )
 
     @staticmethod
     async def copy_file_to_conversation(
@@ -350,15 +398,21 @@ class ShareFilesManager:
                 return False
 
             # Find the file metadata
-            file_meta = next((f for f in metadata.files if f.filename == filename), None)
+            file_meta = next(
+                (f for f in metadata.files if f.filename == filename), None
+            )
             if not file_meta:
                 logger.warning(f"No metadata found for file {filename}")
                 return False
 
             # Create client for target conversation
-            target_client = ConversationClientManager.get_conversation_client(context, target_conversation_id)
+            target_client = ConversationClientManager.get_conversation_client(
+                context, target_conversation_id
+            )
             if not target_client:
-                logger.warning(f"Could not create client for conversation {target_conversation_id}")
+                logger.warning(
+                    f"Could not create client for conversation {target_conversation_id}"
+                )
                 return False
 
             # Read the file content
@@ -367,7 +421,9 @@ class ShareFilesManager:
                     file_bytes = f.read()
 
                 if not file_bytes:
-                    logger.warning(f"Failed to read file content from {file_path} (empty file)")
+                    logger.warning(
+                        f"Failed to read file content from {file_path} (empty file)"
+                    )
                     return False
 
                 file_content = io.BytesIO(file_bytes)
@@ -399,7 +455,11 @@ class ShareFilesManager:
             # Upload the file
             try:
                 file_content.seek(0)  # Reset position to start of file
-                await target_client.write_file(filename=filename, file_content=file_content, content_type=content_type)
+                await target_client.write_file(
+                    filename=filename,
+                    file_content=file_content,
+                    content_type=content_type,
+                )
                 logger.debug(f"Successfully uploaded file {filename}")
                 return True
             except Exception as upload_error:
@@ -411,7 +471,9 @@ class ShareFilesManager:
             return False
 
     @staticmethod
-    async def get_team_conversations(context: ConversationContext, share_id: str) -> List[str]:
+    async def get_team_conversations(
+        context: ConversationContext, share_id: str
+    ) -> List[str]:
         """
         Gets all Team conversation IDs for a share.
         """
@@ -423,7 +485,9 @@ class ShareFilesManager:
             team_conversations = []
             for conv_id in linked_conversations:
                 # Check if this is a team conversation
-                temp_context = await ShareFilesManager.create_temporary_context(context, conv_id)
+                temp_context = await ShareFilesManager.create_temporary_context(
+                    context, conv_id
+                )
                 if temp_context:
                     role = await ShareManager.get_conversation_role(temp_context)
                     if role == ConversationRole.TEAM:
@@ -532,9 +596,7 @@ class ShareFilesManager:
             )
 
             # Log the synchronization event
-            sync_message = (
-                f"Synchronized files to Team conversation: {len(successful_files)} new, {len(skipped_files)} existing"
-            )
+            sync_message = f"Synchronized files to Team conversation: {len(successful_files)} new, {len(skipped_files)} existing"
 
             await ShareManager.log_share_event(
                 context=context,
@@ -548,7 +610,9 @@ class ShareFilesManager:
             )
 
     @staticmethod
-    async def get_shared_files(context: ConversationContext, share_id: str) -> Dict[str, ShareFile]:
+    async def get_shared_files(
+        context: ConversationContext, share_id: str
+    ) -> Dict[str, ShareFile]:
         """
         Gets all shared files for a share with filename as key.
         """
@@ -578,21 +642,28 @@ class ShareFilesManager:
             role = await ShareManager.get_conversation_role(context)
 
             if role != ConversationRole.TEAM:
-                logger.warning("Only Team conversations should process file update notifications")
+                logger.warning(
+                    "Only Team conversations should process file update notifications"
+                )
                 return False
 
             # Process based on update type
             if update_type == "file_created" or update_type == "file_updated":
                 # Synchronize the specific file from share storage
                 success = await ShareFilesManager.copy_file_to_conversation(
-                    context=context, share_id=share_id, filename=filename, target_conversation_id=str(context.id)
+                    context=context,
+                    share_id=share_id,
+                    filename=filename,
+                    target_conversation_id=str(context.id),
                 )
 
                 action = "added" if update_type == "file_created" else "updated"
                 if success:
                     return True
                 else:
-                    logger.warning(f"Failed to {action} file {filename} in Team conversation {context.id}")
+                    logger.warning(
+                        f"Failed to {action} file {filename} in Team conversation {context.id}"
+                    )
                     return False
 
             elif update_type == "file_deleted":
@@ -606,14 +677,18 @@ class ShareFilesManager:
                     if file_exists:
                         # Delete the file
                         await context.delete_file(filename)
-                        logger.debug(f"Deleted file {filename} from Team conversation {context.id}")
+                        logger.debug(
+                            f"Deleted file {filename} from Team conversation {context.id}"
+                        )
                         return True
                     else:
                         # File doesn't exist, nothing to do
                         return True
 
                 except Exception as e:
-                    logger.warning(f"Failed to delete file {filename} from Team conversation: {e}")
+                    logger.warning(
+                        f"Failed to delete file {filename} from Team conversation: {e}"
+                    )
                     return False
             else:
                 logger.warning(f"Unknown file update type: {update_type}")

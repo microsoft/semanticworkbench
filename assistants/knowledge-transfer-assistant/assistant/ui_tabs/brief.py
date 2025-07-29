@@ -9,10 +9,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.domain.share_manager import ShareManager
 from assistant.data import ConversationRole
-from .common import get_stage_label
+from assistant.domain.share_manager import ShareManager
 
+from .common import get_stage_label
 
 # Default instructional text to show when no brief has been created
 DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
@@ -35,7 +35,9 @@ class BriefInspector:
     async def is_enabled(self, context: ConversationContext) -> bool:
         return True
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
         """Get brief and status information for display."""
 
         conversation_role = await ShareManager.get_conversation_role(context)
@@ -44,16 +46,22 @@ class BriefInspector:
         share = await ShareManager.get_share(context)
         if not share:
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active knowledge package. Start a conversation to create one."}
+                data={
+                    "content": "No active knowledge package. Start a conversation to create one."
+                }
             )
 
         brief = share.brief
         share_info = await ShareManager.get_share(context)
 
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_coordinator_brief(
+                share.share_id, brief, share_info, context
+            )
         else:
-            markdown = await self._format_team_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_team_brief(
+                share.share_id, brief, share_info, context
+            )
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
@@ -95,7 +103,9 @@ class BriefInspector:
 
         return "\n".join(lines)
 
-    async def _format_team_brief(self, share_id: str, brief: Any, share_info: Any, context: ConversationContext) -> str:
+    async def _format_team_brief(
+        self, share_id: str, brief: Any, share_info: Any, context: ConversationContext
+    ) -> str:
         """Format brief information for team members."""
 
         lines: List[str] = []
@@ -126,7 +136,9 @@ class BriefInspector:
         else:
             lines.append("## Knowledge Brief")
             lines.append("")
-            lines.append("_The coordinator is still setting up the knowledge brief. Check back soon!_")
+            lines.append(
+                "_The coordinator is still setting up the knowledge brief. Check back soon!_"
+            )
             lines.append("")
 
         return "\n".join(lines)

@@ -11,20 +11,24 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 
-from assistant.domain.learning_objectives_manager import LearningObjectivesManager
-from assistant.domain.share_manager import ShareManager
-
-from ..data import InspectorTab, LearningOutcomeAchievement, LogEntryType
-from assistant.domain.knowledge_transfer_manager import KnowledgeTransferManager
+from assistant.data import (
+    ConversationRole,
+    InspectorTab,
+    LearningOutcomeAchievement,
+    LogEntryType,
+)
+from assistant.domain import LearningObjectivesManager, ShareManager, TransferManager
 from assistant.notifications import Notifications
-from assistant.data import ConversationRole
+
 from .base import ToolsBase
 
 
 class ProgressTrackingTools(ToolsBase):
     """Tools for tracking learning progress."""
 
-    async def mark_learning_outcome_achieved(self, objective_id: str, outcome_id: str) -> str:
+    async def mark_learning_outcome_achieved(
+        self, objective_id: str, outcome_id: str
+    ) -> str:
         """
         Mark a learning outcome as achieved for tracking knowledge transfer progress.
 
@@ -86,7 +90,9 @@ class ProgressTrackingTools(ToolsBase):
         conversation_id = str(self.context.id)
 
         # Check if already achieved by this conversation
-        if LearningObjectivesManager.is_outcome_achieved_by_conversation(knowledge_package, outcome.id, conversation_id):
+        if LearningObjectivesManager.is_outcome_achieved_by_conversation(
+            knowledge_package, outcome.id, conversation_id
+        ):
             return f"Outcome '{outcome.description}' is already marked as achieved by this team member."
 
         # Get current user information
@@ -106,13 +112,19 @@ class ProgressTrackingTools(ToolsBase):
             return "Team conversation not properly registered. Please contact the coordinator."
 
         # Create achievement record
-        achievement = LearningOutcomeAchievement(outcome_id=outcome.id, achieved=True, achieved_at=datetime.utcnow())
+        achievement = LearningOutcomeAchievement(
+            outcome_id=outcome.id, achieved=True, achieved_at=datetime.utcnow()
+        )
 
         # Add achievement to team conversation's achievements
-        knowledge_package.team_conversations[conversation_id].outcome_achievements.append(achievement)
+        knowledge_package.team_conversations[
+            conversation_id
+        ].outcome_achievements.append(achievement)
 
         # Update team conversation's last active timestamp
-        knowledge_package.team_conversations[conversation_id].last_active_at = datetime.utcnow()
+        knowledge_package.team_conversations[
+            conversation_id
+        ].last_active_at = datetime.utcnow()
 
         # Save the updated knowledge package with the achieved outcome
         await ShareManager.set_share(self.context, knowledge_package)
@@ -123,7 +135,10 @@ class ProgressTrackingTools(ToolsBase):
             entry_type=LogEntryType.OUTCOME_ATTAINED.value,
             message=f"Learning outcome achieved: {outcome.description}",
             related_entity_id=None,
-            metadata={"objective_name": objective.name, "outcome_description": outcome.description},
+            metadata={
+                "objective_name": objective.name,
+                "outcome_description": outcome.description,
+            },
         )
 
         # Update knowledge package
@@ -143,13 +158,17 @@ class ProgressTrackingTools(ToolsBase):
                 f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
             )
             await Notifications.notify_all_state_update(
-                self.context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
+                self.context,
+                share.share_id,
+                [InspectorTab.LEARNING, InspectorTab.BRIEF],
             )
 
             # Check if all outcomes are achieved for transfer completion
             # Get the knowledge package to check completion status
             knowledge_package = await ShareManager.get_share(self.context)
-            if knowledge_package and KnowledgeTransferManager._is_transfer_complete(knowledge_package):
+            if knowledge_package and TransferManager._is_transfer_complete(
+                knowledge_package
+            ):
                 await self.context.send_messages(
                     NewConversationMessage(
                         content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
@@ -192,7 +211,9 @@ class ProgressTrackingTools(ToolsBase):
             return "No knowledge package found. Cannot complete transfer without package information."
 
         # Check if all outcomes are achieved
-        achieved_outcomes, total_outcomes = LearningObjectivesManager.get_overall_completion(share)
+        achieved_outcomes, total_outcomes = (
+            LearningObjectivesManager.get_overall_completion(share)
+        )
         if achieved_outcomes < total_outcomes:
             remaining = total_outcomes - achieved_outcomes
             return f"Cannot complete knowledge transfer - {remaining} learning outcomes are still pending achievement."
@@ -228,7 +249,9 @@ class ProgressTrackingTools(ToolsBase):
             share.share_id,
             "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",
         )
-        await Notifications.notify_all_state_update(self.context, share.share_id, [InspectorTab.BRIEF])
+        await Notifications.notify_all_state_update(
+            self.context, share.share_id, [InspectorTab.BRIEF]
+        )
 
         await self.context.send_messages(
             NewConversationMessage(

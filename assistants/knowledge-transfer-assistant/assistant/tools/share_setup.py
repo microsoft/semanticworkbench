@@ -6,11 +6,11 @@ Tools for initializing and configuring knowledge packages.
 
 from datetime import datetime
 
-
+from assistant.data import ConversationRole
 from assistant.domain.audience_manager import AudienceManager
 from assistant.domain.knowledge_brief_manager import KnowledgeBriefManager
 from assistant.domain.share_manager import ShareManager
-from assistant.data import ConversationRole
+
 from .base import ToolsBase
 
 
@@ -35,7 +35,15 @@ class ShareSetupTools(ToolsBase):
             audience_description=audience_description,
         )
 
-        return message if message else ("Audience updated successfully." if success else "Failed to update audience.")
+        return (
+            message
+            if message
+            else (
+                "Audience updated successfully."
+                if success
+                else "Failed to update audience."
+            )
+        )
 
     async def set_knowledge_organized(self, is_organized: bool) -> str:
         """

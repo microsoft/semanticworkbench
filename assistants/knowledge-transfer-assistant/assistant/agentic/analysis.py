@@ -12,11 +12,13 @@ import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import assistant_config
-from ..logging import logger
+from assistant.config import assistant_config
+from assistant.logging import logger
 
 
-async def detect_information_request_needs(context: ConversationContext, message: str) -> Dict[str, Any]:
+async def detect_information_request_needs(
+    context: ConversationContext, message: str
+) -> Dict[str, Any]:
     """
     Analyze a user message in context of recent chat history to detect potential information request needs.
     Uses an LLM for sophisticated detection.
@@ -73,7 +75,9 @@ async def detect_information_request_needs(context: ConversationContext, message
 
                 # Add to chat history
                 role = "user" if sender_name == "Team Member" else "assistant"
-                chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
+                chat_history.append(
+                    {"role": role, "content": f"{sender_name}: {msg.content}"}
+                )
 
             # Reverse to get chronological order
             chat_history.reverse()
@@ -86,16 +90,26 @@ async def detect_information_request_needs(context: ConversationContext, message
         async with openai_client.create_client(config.service_config) as client:
             # Prepare messages array with system prompt and chat history
             messages: List[ChatCompletionMessageParam] = [
-                {"role": "system", "content": config.prompt_config.share_information_request_detection}
+                {
+                    "role": "system",
+                    "content": config.prompt_config.share_information_request_detection,
+                }
             ]
 
             # Add chat history if available
             if chat_history:
                 for history_msg in chat_history:
-                    messages.append({"role": history_msg["role"], "content": history_msg["content"]})
+                    messages.append(
+                        {"role": history_msg["role"], "content": history_msg["content"]}
+                    )
 
             # Add the current message for analysis - explicitly mark as the latest message
-            messages.append({"role": "user", "content": f"Latest message from Team Member: {message}"})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Latest message from Team Member: {message}",
+                }
+            )
 
             completion_args = {
                 "model": "gpt-3.5-turbo",
@@ -104,7 +118,9 @@ async def detect_information_request_needs(context: ConversationContext, message
                 "max_tokens": 500,
                 "temperature": 0.2,  # Low temperature for more consistent analysis
             }
-            debug["completion_args"] = openai_client.make_completion_args_serializable(completion_args)
+            debug["completion_args"] = openai_client.make_completion_args_serializable(
+                completion_args
+            )
 
             # Make the API call
             response = await client.chat.completions.create(
@@ -120,7 +136,9 @@ async def detect_information_request_needs(context: ConversationContext, message
                 result["original_message"] = message
                 return result
             except json.JSONDecodeError:
-                logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
+                logger.warning(
+                    f"Failed to parse JSON from LLM response: {response.choices[0].message.content}"
+                )
                 return {
                     "is_information_request": False,
                     "reason": "Failed to parse LLM response",

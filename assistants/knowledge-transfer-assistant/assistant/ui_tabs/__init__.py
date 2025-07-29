@@ -6,8 +6,8 @@ different views of the knowledge transfer state in the workbench UI.
 """
 
 from .brief import BriefInspector
+from .debug import DebugInspector
 from .learning import LearningInspector
 from .sharing import SharingInspector
-from .debug import DebugInspector
 
 __all__ = ["BriefInspector", "LearningInspector", "SharingInspector", "DebugInspector"]

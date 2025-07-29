@@ -8,11 +8,12 @@ from typing import Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..data import InspectorTab, KnowledgeBrief, LogEntryType
-from ..logging import logger
-from ..notifications import Notifications
-from ..storage import ShareStorage
-from ..utils import require_current_user
+from assistant.data import InspectorTab, KnowledgeBrief, LogEntryType
+from assistant.logging import logger
+from assistant.notifications import Notifications
+from assistant.storage import ShareStorage
+from assistant.utils import require_current_user
+
 from .share_manager import ShareManager
 
 
@@ -20,7 +21,9 @@ class KnowledgeBriefManager:
     """Manages knowledge brief operations."""
 
     @staticmethod
-    async def get_knowledge_brief(context: ConversationContext) -> Optional[KnowledgeBrief]:
+    async def get_knowledge_brief(
+        context: ConversationContext,
+    ) -> Optional[KnowledgeBrief]:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
@@ -35,7 +38,9 @@ class KnowledgeBriefManager:
     ) -> Optional[KnowledgeBrief]:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
-            logger.error("Cannot update brief: no share associated with this conversation")
+            logger.error(
+                "Cannot update brief: no share associated with this conversation"
+            )
             return
 
         current_user_id = await require_current_user(context, "update brief")
@@ -70,7 +75,11 @@ class KnowledgeBriefManager:
                 message=f"Created brief: {title}",
             )
 
-        await Notifications.notify_all(context, share_id, "Knowledge brief has been updated")
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.BRIEF])
+        await Notifications.notify_all(
+            context, share_id, "Knowledge brief has been updated"
+        )
+        await Notifications.notify_all_state_update(
+            context, share_id, [InspectorTab.BRIEF]
+        )
 
         return brief
