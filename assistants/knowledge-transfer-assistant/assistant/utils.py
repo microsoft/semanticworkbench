@@ -56,10 +56,3 @@ async def get_current_user(
 async def get_current_user_id(context: ConversationContext) -> str:
     user_id, _ = await get_current_user(context)
     return user_id
-
-
-async def require_current_user(context: ConversationContext, operation_name: str) -> str:
-    user_id = await get_current_user_id(context)
-    if not user_id:
-        raise NoUserException
-    return user_id

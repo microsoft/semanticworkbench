@@ -9,7 +9,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from assistant.data import InspectorTab, KnowledgeBrief, LogEntryType
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage
-from assistant.utils import require_current_user
+from assistant.utils import get_current_user_id
 
 from .share_manager import ShareManager
 
@@ -32,7 +32,7 @@ class KnowledgeBriefManager:
         timeline: str | None = None,
     ) -> KnowledgeBrief:
         share_id = await ShareManager.get_share_id(context)
-        current_user_id = await require_current_user(context, "update brief")
+        current_user_id = await get_current_user_id(context)
 
         brief = KnowledgeBrief(
             title=title,
@@ -63,6 +63,6 @@ class KnowledgeBriefManager:
             )
 
         await Notifications.notify_all(context, share_id, "Knowledge brief has been updated")
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.BRIEF])
+        await Notifications.notify_all_state_update(context, [InspectorTab.BRIEF])
 
         return brief

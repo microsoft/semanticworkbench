@@ -57,7 +57,7 @@ class LearningObjectivesManager:
         )
 
         await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' was added")
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF])
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return new_learning_objective
 
@@ -120,9 +120,7 @@ class LearningObjectivesManager:
         await Notifications.notify_all(
             context, share.share_id, f"Learning objective '{objective.name}' has been updated"
         )
-        await Notifications.notify_all_state_update(
-            context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return f"Learning objective '{objective.name}' has been successfully updated: {changes_text}."
 
@@ -183,9 +181,7 @@ class LearningObjectivesManager:
         await Notifications.notify_all(
             context, share.share_id, f"Learning objective '{objective_name}' has been deleted"
         )
-        await Notifications.notify_all_state_update(
-            context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return f"Learning objective '{objective_name}' has been successfully deleted from the knowledge share."
 
@@ -248,9 +244,7 @@ class LearningObjectivesManager:
             share.share_id,
             f"Learning outcome '{outcome_description}' has been added",
         )
-        await Notifications.notify_all_state_update(
-            context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return f"Learning outcome added successfully to objective '{objective.name}': {outcome_description}"
 
@@ -311,9 +305,7 @@ class LearningObjectivesManager:
         await Notifications.notify_all(
             context, share.share_id, f"Learning outcome '{new_description}' has been updated"
         )
-        await Notifications.notify_all_state_update(
-            context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return f"Learning outcome updated successfully in objective '{objective.name}': {new_description}"
 
@@ -385,9 +377,7 @@ class LearningObjectivesManager:
             share.share_id,
             f"Learning outcome '{deleted_description}' has been removed",
         )
-        await Notifications.notify_all_state_update(
-            context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
-        )
+        await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}"
 

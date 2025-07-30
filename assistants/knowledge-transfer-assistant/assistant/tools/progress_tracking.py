@@ -121,7 +121,6 @@ class ProgressTrackingTools(ToolsBase):
             )
             await Notifications.notify_all_state_update(
                 self.context,
-                share.share_id,
                 [InspectorTab.LEARNING, InspectorTab.BRIEF],
             )
 
@@ -194,7 +193,7 @@ class ProgressTrackingTools(ToolsBase):
                 share.share_id,
                 "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",  # noqa: E501
             )
-            await Notifications.notify_all_state_update(self.context, share.share_id, [InspectorTab.BRIEF])
+            await Notifications.notify_all_state_update(self.context, [InspectorTab.BRIEF])
 
             await self.context.send_messages(
                 NewConversationMessage(

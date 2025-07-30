@@ -15,7 +15,7 @@ from assistant.config import assistant_config
 from assistant.data import InspectorTab, KnowledgeDigest, LogEntryType
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage
-from assistant.utils import require_current_user
+from assistant.utils import get_current_user_id
 
 from .share_manager import ShareManager
 
@@ -39,12 +39,7 @@ class KnowledgeDigestManager:
         is_auto_generated: bool = True,
     ) -> KnowledgeDigest:
         share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            raise ValueError("Cannot update knowledge digest: no share associated with this conversation")
-
-        current_user_id = await require_current_user(context, "update knowledge digest")
-        if not current_user_id:
-            raise ValueError("Could not identify current user")
+        current_user_id = await get_current_user_id(context)
 
         digest = ShareStorage.read_knowledge_digest(share_id)
         is_new = False
@@ -78,7 +73,6 @@ class KnowledgeDigestManager:
 
         await Notifications.notify_all_state_update(
             context,
-            share_id,
             [InspectorTab.BRIEF],
         )
 
@@ -94,11 +88,7 @@ class KnowledgeDigestManager:
         messages = await context.get_messages()
         chat_history = messages.messages
 
-        share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            raise ValueError("Cannot auto-update knowledge digest: no share associated with this conversation")
-
-        current_user_id = await require_current_user(context, "auto-update knowledge digest")
+        current_user_id = await get_current_user_id(context)
         if not current_user_id:
             raise ValueError("Could not identify current user")
 

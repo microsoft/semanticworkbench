@@ -118,7 +118,7 @@ class Notifications:
             await context.send_conversation_state_event(state_event)
 
     @staticmethod
-    async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: list[InspectorTab]) -> None:
+    async def notify_all_state_update(context: ConversationContext, tabs: list[InspectorTab]) -> None:
         """Send state update notifications to refresh UI across all share conversations."""
 
         # Refresh current conversation first

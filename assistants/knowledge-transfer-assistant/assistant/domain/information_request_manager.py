@@ -18,7 +18,7 @@ from assistant.data import (
 from assistant.logging import logger
 from assistant.notifications import Notifications
 from assistant.storage import ShareStorage
-from assistant.utils import require_current_user
+from assistant.utils import get_current_user_id
 
 from .share_manager import ShareManager
 
@@ -43,10 +43,7 @@ class InformationRequestManager:
         related_objective_ids: list[str] | None = None,
     ) -> InformationRequest:
         share_id = await ShareManager.get_share_id(context)
-
-        current_user_id = await require_current_user(context, "create information request")
-        if not current_user_id:
-            raise ValueError("Could not identify current user")
+        current_user_id = await get_current_user_id(context)
 
         information_request = InformationRequest(
             title=title,
@@ -72,7 +69,7 @@ class InformationRequestManager:
         )
 
         await Notifications.notify_self_and_other(context, share_id, f"Information request '{title}' was created")
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
+        await Notifications.notify_all_state_update(context, [InspectorTab.SHARING])
 
         return information_request
 
@@ -83,7 +80,7 @@ class InformationRequestManager:
         resolution: str,
     ) -> InformationRequest:
         share_id = await ShareManager.get_share_id(context)
-        current_user_id = await require_current_user(context, "resolve information request")
+        current_user_id = await get_current_user_id(context)
 
         information_request = ShareStorage.read_information_request(share_id, request_id)
         if not information_request:
@@ -139,7 +136,7 @@ class InformationRequestManager:
             },
         )
 
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
+        await Notifications.notify_all_state_update(context, [InspectorTab.SHARING])
         await Notifications.notify_self_and_other(
             context,
             share_id,
@@ -165,7 +162,7 @@ class InformationRequestManager:
             Success message
         """
         share_id = await ShareManager.get_share_id(context)
-        current_user_id = await require_current_user(context, "delete information request")
+        current_user_id = await get_current_user_id(context)
 
         # Get information request by ID
         cleaned_request_id = request_id.strip().replace('"', "").replace("'", "")
@@ -213,6 +210,6 @@ class InformationRequestManager:
             share_id,
             f"Information request '{request_title}' has been deleted.",
         )
-        await Notifications.notify_all_state_update(context, share_id, [InspectorTab.SHARING])
+        await Notifications.notify_all_state_update(context, [InspectorTab.SHARING])
 
         return f"Information request '{request_title}' has been successfully deleted."
