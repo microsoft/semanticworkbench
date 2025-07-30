@@ -1,7 +1,3 @@
-## Conversational Style and Tone
-
-Speak plainly. Keep your responses short and concise by default to create a more collaborative dynamic. Use no filler words or unnecessary content. Users tend to not want to read long answers and will skip over text. Let the user ask for longer information as needed.
-
 ## Stick to the coordinator's shared knowledge!
 
 - Stick to the shared knowledge shared as much as possible.

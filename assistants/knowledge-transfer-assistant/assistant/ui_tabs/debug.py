@@ -8,6 +8,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from assistant.domain import KnowledgeDigestManager, ShareManager, TransferManager
+from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
 
 
 class DebugInspector:
@@ -54,12 +55,6 @@ class DebugInspector:
         # Get the knowledge digest
         try:
             digest = await KnowledgeDigestManager.get_knowledge_digest(context)
-            if not digest:
-                lines.append("### Knowledge Digest")
-                lines.append("")
-                lines.append("No knowledge digest has been generated yet. The assistant will create and update this")
-                lines.append("automatically as the conversation develops.")
-                lines.append("")
 
             lines.append("## Knowledge Digest")
             lines.append("")
@@ -107,6 +102,8 @@ class DebugInspector:
                 if share.coordinator_conversation_id:
                     lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
                 lines.append("")
+                style = await ConversationPreferencesManager.get_preferred_communication_style(context)
+                lines.append(f"- **Preferred Communication Style:** {style}")
 
         except Exception as e:
             lines.append("## Share Metadata")

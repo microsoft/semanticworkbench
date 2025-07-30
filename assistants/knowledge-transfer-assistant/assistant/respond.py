@@ -26,6 +26,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
 from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
 
@@ -157,6 +158,10 @@ async def respond_to_conversation(
             " your turn."
         )
         instructions.add_subsection(Instructions(participant_text, "Multi-participant conversation instructions"))
+
+    # Add conversation preferences instructions.
+    communication_style = await ConversationPreferencesManager.get_preferred_communication_style(context)
+    instructions.add_subsection(Instructions(communication_style, "Preferred Communication Style"))
 
     prompt = Prompt(
         role=assistant_role,

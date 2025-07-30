@@ -14,6 +14,7 @@ from assistant.logging import logger
 
 # Import inside functions to avoid circular imports
 from .data import (
+    ConversationPreferences,
     CoordinatorConversationMessage,
     CoordinatorConversationMessages,
     InformationRequest,
@@ -31,11 +32,9 @@ class ShareStorageManager:
     """Manages storage paths and access for knowledge transfer data."""
 
     SHARES_ROOT = "shares"
-
-    # File names for knowledge transfer entities
     SHARE_LOG_FILE = "log.json"
     COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
-    SHARE_FILE = "share_data.json"  # Main consolidated data file
+    SHARE_FILE = "share_data.json"
 
     @staticmethod
     def get_shares_root() -> pathlib.Path:
@@ -80,6 +79,25 @@ class ShareStorageManager:
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
         return storage_dir / "share_role.json"
+
+
+class ConversationStorage:
+    @staticmethod
+    def get_conversation_preferences_file_path(context: ConversationContext) -> pathlib.Path:
+        """Gets the path to the file that stores conversation preferences."""
+        storage_dir = storage_directory_for_context(context)
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        return storage_dir / "conversation_preferences.json"
+
+    @staticmethod
+    def read_conversation_preferences(context: ConversationContext) -> ConversationPreferences | None:
+        path = ConversationStorage.get_conversation_preferences_file_path(context)
+        return read_model(path, ConversationPreferences)
+
+    @staticmethod
+    def write_conversation_preferences(context: ConversationContext, preferences: ConversationPreferences) -> None:
+        path = ConversationStorage.get_conversation_preferences_file_path(context)
+        write_model(path, preferences)
 
 
 class ShareStorage:

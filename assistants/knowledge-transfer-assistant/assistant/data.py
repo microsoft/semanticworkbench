@@ -25,6 +25,15 @@ class ConversationShareInfo(BaseModel):
     role: ConversationRole
 
 
+class ConversationPreferences(BaseModel):
+    """
+    Preferences for a conversation, such as preferred communication style.
+    This is used to store user preferences for how they want to interact with the assistant.
+    """
+
+    preferred_communication_style: str | None = None
+
+
 class InspectorTab(str, Enum):
     BRIEF = "brief"
     LEARNING = "learning"
@@ -178,9 +187,9 @@ class Share(BaseModel):
 
     # Knowledge Package components
     audience: str | None = None
-    brief: KnowledgeBrief | None
-    learning_objectives: list[LearningObjective] = Field(default_factory=list)
     takeaways: list[str] = Field(default_factory=list)
+    learning_objectives: list[LearningObjective] = Field(default_factory=list)
+    brief: KnowledgeBrief | None
     preferred_communication_style: str | None = None
     transfer_notes: str | None = None
     digest: KnowledgeDigest | None

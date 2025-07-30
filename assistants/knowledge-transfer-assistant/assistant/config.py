@@ -68,8 +68,9 @@ class PromptConfig(BaseModel):
                 "coordinator_instructions",
                 "team_role",
                 "team_instructions",
-                "knowledge_digest_prompt",
                 "share_information_request_detection",
+                "knowledge_digest_prompt",
+                "welcome_message_generation",
             ],
         },
     )
@@ -142,7 +143,7 @@ class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
         title="Coordinator Configuration",
         json_schema_extra={
-            "required": ["welcome_message", "prompt_for_files"],
+            "required": ["welcome_message", "preferred_communication_style", "max_digest_tokens"],
         },
     )
 
@@ -180,12 +181,21 @@ To get started, let's discuss your audience. Who are you going to be sharing you
         ),
     ] = 4_096
 
+    preferred_communication_style: Annotated[
+        str,
+        Field(
+            title="Preferred Communication Style",
+            description="The preferred communication style for the assistant. This is used to tailor responses.",
+        ),
+        UISchema(widget="textarea"),
+    ] = "Speak plainly. Keep your responses short and concise to create a more collaborative dynamic. Use no filler words or unnecessary content."  # noqa: E501
+
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(
         title="Team Member Configuration",
         json_schema_extra={
-            "required": ["default_welcome_message"],
+            "required": ["default_welcome_message", "preferred_communication_style"],
         },
     )
 
@@ -197,6 +207,15 @@ class TeamConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "# Welcome to Your Team Conversation\n\nYou've joined as a team member. This is your personal conversation for exploring the knowledge share. You can communicate with the assistant, make information requests, and track your progress here."  # noqa: E501
+
+    preferred_communication_style: Annotated[
+        str,
+        Field(
+            title="Preferred Communication Style",
+            description="The preferred communication style for the assistant. This is used to tailor responses.",
+        ),
+        UISchema(widget="textarea"),
+    ] = "Speak plainly. Keep your responses short and concise to create a more collaborative dynamic. Use no filler words or unnecessary content. Users tend to not want to read long answers and will skip over text. Let the user ask for longer information as needed."  # noqa: E501
 
 
 # Base Assistant Configuration - shared by all templates

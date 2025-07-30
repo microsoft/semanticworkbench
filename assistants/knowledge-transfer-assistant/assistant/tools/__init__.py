@@ -9,6 +9,7 @@ from openai_client.tools import ToolFunctions
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import ConversationRole
+from assistant.tools.conversation_preferences import ConversationPreferencesTools
 
 from .information_requests import InformationRequestTools
 from .learning_objectives import LearningObjectiveTools
@@ -37,6 +38,7 @@ class ShareTools:
         self.learning_outcomes = LearningOutcomeTools(context, role)
         self.information_requests = InformationRequestTools(context, role)
         self.progress_tracking = ProgressTrackingTools(context, role)
+        self.conversation_preferences = ConversationPreferencesTools(context, role)
 
         if role == "coordinator":
             self._register_coordinator_tools()
@@ -103,6 +105,10 @@ class ShareTools:
 
     def _register_team_tools(self):
         """Register team-specific tools."""
+        self.tool_functions.add_function(
+            self.conversation_preferences.update_preferred_communication_style,
+            "update_preferred_communication_style",
+        )
         self.tool_functions.add_function(
             self.information_requests.create_information_request,
             "create_information_request",

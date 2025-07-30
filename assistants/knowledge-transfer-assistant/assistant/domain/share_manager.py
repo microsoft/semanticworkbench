@@ -127,27 +127,22 @@ class ShareManager:
             share_url: URL for joining a team conversation
         """
 
-        # Get the current user ID to set as owner
-        user_id, _ = await get_current_user(context)
-        if not user_id:
-            raise ValueError("Cannot create team conversation: no user found")
-
         new_conversation = NewConversation(
             metadata={
-                "is_team_conversation": True,
                 "share_id": share_id,
-                "setup_complete": True,
-                "project_role": "team",
-                "assistant_mode": "team",
             },
         )
-        client = context._conversations_client
-        conversation = await client.create_conversation_with_owner(new_conversation=new_conversation, owner_id=user_id)
-
+        owner_id, _ = await get_current_user(context)
+        logger.debug(f"Creating shareable conversation with owner {owner_id}")
+        conversation = await context._conversations_client.create_conversation_with_owner(
+            new_conversation=new_conversation, owner_id=owner_id
+        )
         if not conversation or not conversation.id:
-            raise ValueError("Failed to create team conversation")
+            raise ValueError("Failed to create shareable conversation")
+        logger.debug(f"Created shareable team conversation: {conversation.id}")
 
-        new_share = NewConversationShare(
+        # Create a share link for the new conversation
+        new_share_link = NewConversationShare(
             conversation_id=conversation.id,
             label="Join Team Conversation",
             conversation_permission=ConversationPermission.read,
@@ -158,12 +153,13 @@ class ShareManager:
                 "show_duplicate_action": True,
             },
         )
-        share = await context._conversations_client.create_conversation_share_with_owner(
-            new_conversation_share=new_share, owner_id=user_id
+        share_link = await context._conversations_client.create_conversation_share_with_owner(
+            new_conversation_share=new_share_link, owner_id=owner_id
         )
 
-        share_url = f"/conversation-share/{share.id}/redeem"
+        share_url = f"/conversation-share/{share_link.id}/redeem"
 
+        # Capture the new conversation and conversation share link ids in the share.
         share = await ShareManager.get_share(context)
         share.shared_conversation_id = str(conversation.id)
         share.share_url = share_url
