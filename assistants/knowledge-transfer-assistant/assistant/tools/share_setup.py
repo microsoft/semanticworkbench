@@ -1,7 +1,7 @@
 """
 Project setup tools for Knowledge Transfer Assistant.
 
-Tools for initializing and configuring knowledge packages.
+Tools for configuring knowledge shares.
 """
 
 from datetime import UTC, datetime

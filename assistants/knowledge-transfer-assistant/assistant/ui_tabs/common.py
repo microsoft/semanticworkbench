@@ -2,7 +2,7 @@
 Common utilities for inspector modules.
 """
 
-from assistant.data import KnowledgePackage, RequestPriority, RequestStatus
+from assistant.data import RequestPriority, RequestStatus, Share
 from assistant.domain import TransferManager
 
 
@@ -29,47 +29,47 @@ def get_priority_emoji(priority: RequestPriority) -> str:
     return priority_emojis.get(priority, "🔹")  # Default to low priority emoji
 
 
-def get_stage_label(package: KnowledgePackage, for_coordinator: bool = True) -> str:
+def get_stage_label(share: Share, for_coordinator: bool = True) -> str:
     """
-    Get a human-readable stage label based on current package state.
+    Get a human-readable stage label based on current share state.
 
     Args:
-        package: The knowledge package to get label for
+        share: The knowledge share to get label for
         for_coordinator: Whether to return coordinator-focused or team-focused labels
 
     Returns:
         str: Stage label with emoji
     """
-    if package.archived:
+    if share.archived:
         return "📦 Archived"
 
     if for_coordinator:
         # Coordinator perspective
-        if not package.audience:
+        if not share.audience:
             return "🎯 Defining Audience"
-        elif not package.knowledge_organized:
+        elif not share.knowledge_organized:
             return "📋 Organizing Knowledge"
-        elif not package.brief:
+        elif not share.brief:
             return "📝 Creating Brief"
-        elif package.is_intended_to_accomplish_outcomes and not package.learning_objectives:
+        elif share.is_intended_to_accomplish_outcomes and not share.learning_objectives:
             return "📚 Adding Objectives"
-        elif not TransferManager.is_ready_for_transfer(package):
+        elif not TransferManager.is_ready_for_transfer(share):
             return "📋 Finalizing Setup"
-        elif package.is_intended_to_accomplish_outcomes and TransferManager._is_transfer_complete(package):
+        elif share.is_intended_to_accomplish_outcomes and TransferManager._is_transfer_complete(share):
             return "✅ Transfer Complete"
-        elif TransferManager.is_actively_sharing(package):
+        elif TransferManager.is_actively_sharing(share):
             return "📤 Sharing in Progress"
         else:
             return "🚀 Ready for Transfer"
     else:
         # Team perspective
-        if package.archived:
+        if share.archived:
             return "📦 Archived"
-        elif not TransferManager.is_ready_for_transfer(package):
+        elif not TransferManager.is_ready_for_transfer(share):
             return "⏳ Knowledge Being Organized"
-        elif not package.is_intended_to_accomplish_outcomes:
+        elif not share.is_intended_to_accomplish_outcomes:
             return "🔍 Exploring Knowledge"
-        elif package.is_intended_to_accomplish_outcomes:
+        elif share.is_intended_to_accomplish_outcomes:
             return "🎯 Active Learning"
         else:
             return "🎯 Active Learning"

@@ -13,9 +13,9 @@ from typing import Any, TypeVar
 from assistant.data import (
     ConversationRole,
     KnowledgeBrief,
-    KnowledgePackage,
     LearningObjective,
     LearningOutcome,
+    Share,
 )
 from assistant.domain import KnowledgeBriefManager, ShareManager
 from assistant.storage import ShareStorage, ShareStorageManager
@@ -123,7 +123,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Create a project with the goal
-        project = KnowledgePackage(
+        project = Share(
             share_id="test-share-id",
             brief=brief,
             learning_objectives=[test_goal],

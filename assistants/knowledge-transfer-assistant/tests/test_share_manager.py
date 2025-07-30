@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from assistant.data import (
-    KnowledgePackage,
     LearningObjective,
     LearningOutcome,
+    Share,
 )
 from assistant.domain import LearningObjectivesManager
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -36,7 +36,7 @@ class TestKnowledgeTransferManager:
         goal_description = "Test Description"
 
         # Create a test project with multiple goals
-        test_project = KnowledgePackage(
+        test_project = Share(
             share_id=project_id,
             brief=None,
             learning_objectives=[
@@ -208,7 +208,7 @@ class TestKnowledgeTransferManager:
         objective_index = "invalid-objective-id"  # Invalid ID
 
         # Create a test project with fewer goals than the index
-        test_project = KnowledgePackage(
+        test_project = Share(
             share_id=project_id,
             brief=None,
             learning_objectives=[

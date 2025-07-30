@@ -20,8 +20,8 @@ from assistant.data import (
     ConversationRole,
     ConversationShareInfo,
     CoordinatorConversationMessages,
-    KnowledgePackage,
-    KnowledgePackageLog,
+    Share,
+    ShareLog,
     TeamConversationInfo,
 )
 from assistant.errors import NoShareException, NoShareFoundError
@@ -62,17 +62,15 @@ class ShareManager:
         share_dir = ShareStorageManager.get_share_dir(share_id)
         logger.debug(f"Created share directory: {share_dir}")
 
-        # Create and save the initial knowledge package
-        knowledge_package = KnowledgePackage(
+        share = Share(
             share_id=share_id,
             coordinator_conversation_id=str(context.id),
             brief=None,
             digest=None,
         )
 
-        # Save the knowledge package
-        ShareStorage.write_share(share_id, knowledge_package)
-        logger.debug(f"Created and saved knowledge package: {knowledge_package}")
+        ShareStorage.write_share(share_id, share)
+        logger.debug(f"Created and saved knowledge share: {share}")
 
         # Associate the conversation with the share
         logger.debug(f"Associating conversation {context.id} with share {share_id}")
@@ -80,8 +78,6 @@ class ShareManager:
 
         # No need to set conversation role in share storage, as we use metadata
         logger.debug(f"Conversation {context.id} is Coordinator for share {share_id}")
-
-        # Note: Conversation linking is now handled via JSON data, no directory needed
 
         return share_id
 
@@ -168,16 +164,11 @@ class ShareManager:
 
         share_url = f"/conversation-share/{share.id}/redeem"
 
-        # Store shared conversation info in KnowledgePackage
-        knowledge_package = await ShareManager.get_share(context)
-        if knowledge_package:
-            knowledge_package.shared_conversation_id = str(conversation.id)
-            knowledge_package.share_url = share_url
-            knowledge_package.updated_at = datetime.now(UTC)
-            ShareStorage.write_share(share_id, knowledge_package)
-        else:
-            raise ValueError(f"KnowledgePackage info not found for share ID: {share_id}")
-
+        share = await ShareManager.get_share(context)
+        share.shared_conversation_id = str(conversation.id)
+        share.share_url = share_url
+        share.updated_at = datetime.now(UTC)
+        ShareStorage.write_share(share_id, share)
         return share_url
 
     @staticmethod
@@ -231,7 +222,7 @@ class ShareManager:
             raise NoShareFoundError(str(e)) from e
 
     @staticmethod
-    async def get_share(context: ConversationContext) -> KnowledgePackage:
+    async def get_share(context: ConversationContext) -> Share:
         """Gets the share information for the current conversation's share."""
         try:
             share_id = await ShareManager.get_share_id(context)
@@ -247,7 +238,7 @@ class ShareManager:
             raise NoShareFoundError(str(e)) from e
 
     @staticmethod
-    async def set_share(context: ConversationContext, share: KnowledgePackage) -> None:
+    async def set_share(context: ConversationContext, share: Share) -> None:
         """
         Sets the share information for the current conversation's share.
 
@@ -290,24 +281,24 @@ class ShareManager:
     @staticmethod
     async def _capture_redeemer_info(context: ConversationContext, share_id: str) -> None:
         """
-        Captures the redeemer (first non-assistant participant) information and stores it in the knowledge package.
+        Captures the redeemer (first non-assistant participant) information and stores it in the knowledge share.
         Only captures info for actual team member conversations, not coordinator or shared conversations.
         """
         try:
-            knowledge_package = ShareStorage.read_share(share_id)
-            if not knowledge_package:
-                logger.warning(f"Could not load knowledge package {share_id} to capture redeemer info")
+            share = ShareStorage.read_share(share_id)
+            if not share:
+                logger.warning(f"Could not load knowledge share {share_id} to capture redeemer info")
                 return
 
             conversation_id = str(context.id)
 
             # Skip if this is the coordinator conversation
-            if conversation_id == knowledge_package.coordinator_conversation_id:
+            if conversation_id == share.coordinator_conversation_id:
                 logger.debug(f"Skipping redeemer capture for coordinator conversation {conversation_id}")
                 return
 
             # Skip if this is the shared conversation template
-            if conversation_id == knowledge_package.shared_conversation_id:
+            if conversation_id == share.shared_conversation_id:
                 logger.debug(f"Skipping redeemer capture for shared conversation template {conversation_id}")
                 return
 
@@ -319,18 +310,13 @@ class ShareManager:
                 logger.warning(f"Could not identify redeemer for conversation {conversation_id}")
                 return
 
-            # Create team conversation info
             team_conversation_info = TeamConversationInfo(
                 conversation_id=conversation_id,
                 redeemer_user_id=user_id,
                 redeemer_name=user_name,
             )
-
-            # Add to knowledge package
-            knowledge_package.team_conversations[conversation_id] = team_conversation_info
-
-            # Save the updated knowledge package
-            ShareStorage.write_share(share_id, knowledge_package)
+            share.team_conversations[conversation_id] = team_conversation_info
+            ShareStorage.write_share(share_id, share)
             logger.debug(f"Captured redeemer info for team conversation {conversation_id}: {user_name} ({user_id})")
 
         except Exception as e:
@@ -340,7 +326,7 @@ class ShareManager:
     @staticmethod
     async def get_share_log(
         context: ConversationContext,
-    ) -> KnowledgePackageLog | None:
+    ) -> ShareLog | None:
         """Gets the knowledge transfer log for the current conversation's share."""
         try:
             share_id = await ShareManager.get_share_id(context)

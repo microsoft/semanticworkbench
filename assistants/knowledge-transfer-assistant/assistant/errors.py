@@ -1,6 +1,6 @@
 # Define an Exception class for no share found
 class NoShareFoundError(Exception):
-    """Exception raised when no active knowledge package is found."""
+    """Exception raised when no active knowledge share is found."""
 
     def __init__(self, message: str):
         super().__init__(message)

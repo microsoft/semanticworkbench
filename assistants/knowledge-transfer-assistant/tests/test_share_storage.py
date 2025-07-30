@@ -17,14 +17,14 @@ from assistant.data import (
     InspectorTab,
     KnowledgeBrief,
     KnowledgeDigest,
-    KnowledgePackage,
-    KnowledgePackageLog,
     LearningObjective,
     LearningOutcome,
     LogEntry,
     LogEntryType,
     RequestPriority,
     RequestStatus,
+    Share,
+    ShareLog,
 )
 from assistant.domain.share_manager import ShareManager
 from assistant.notifications import Notifications
@@ -128,7 +128,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Create a KnowledgePackage with the goal and brief
-        project = KnowledgePackage(
+        project = Share(
             share_id=self.share_id,
             coordinator_conversation_id=self.conversation_id,
             brief=brief,
@@ -196,7 +196,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     async def test_write_project_log(self):
         """Test writing a project log."""
         # Create a log entry and proper LogEntry objects
-        log_entry = KnowledgePackageLog(
+        log_entry = ShareLog(
             entries=[
                 LogEntry(
                     id=str(uuid.uuid4()),
@@ -458,7 +458,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         )
 
         # Create a log with the entry
-        log = KnowledgePackageLog(entries=[log_entry])
+        log = ShareLog(entries=[log_entry])
 
         # Write the log directly
         ShareStorage.write_share_log(self.share_id, log)

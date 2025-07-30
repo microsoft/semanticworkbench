@@ -1,9 +1,3 @@
-"""
-KnowledgePackage storage management module.
-
-Provides direct access to knowledge transfer data with a clean, simple storage approach.
-"""
-
 import pathlib
 from datetime import datetime
 from typing import Any
@@ -15,6 +9,9 @@ from semantic_workbench_assistant.assistant_app.context import (
 )
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from assistant.errors import NoShareException
+from assistant.logging import logger
+
 # Import inside functions to avoid circular imports
 from .data import (
     CoordinatorConversationMessage,
@@ -22,10 +19,10 @@ from .data import (
     InformationRequest,
     KnowledgeBrief,
     KnowledgeDigest,
-    KnowledgePackage,
-    KnowledgePackageLog,
     LogEntry,
     LogEntryType,
+    Share,
+    ShareLog,
 )
 from .utils import get_current_user
 
@@ -67,7 +64,7 @@ class ShareStorageManager:
 
     @staticmethod
     def get_share_path(share_id: str) -> pathlib.Path:
-        """Gets the path to the complete KnowledgePackage data file."""
+        """Gets the path to the complete data file."""
         share_dir = ShareStorageManager.get_share_dir(share_id)
         return share_dir / ShareStorageManager.SHARE_FILE
 
@@ -86,58 +83,45 @@ class ShareStorageManager:
 
 
 class ShareStorage:
-    """Unified storage operations for knowledge transfer share data."""
+    @staticmethod
+    def read_share(share_id: str) -> Share | None:
+        path = ShareStorageManager.get_share_path(share_id)
+        return read_model(path, Share)
 
     @staticmethod
-    def read_share(share_id: str) -> KnowledgePackage | None:
-        """Reads the complete KnowledgePackage data."""
+    def write_share(share_id: str, share: Share) -> pathlib.Path:
         path = ShareStorageManager.get_share_path(share_id)
-        return read_model(path, KnowledgePackage)
-
-    @staticmethod
-    def write_share(share_id: str, package: KnowledgePackage) -> pathlib.Path:
-        """Writes the complete KnowledgePackage data."""
-        path = ShareStorageManager.get_share_path(share_id)
-        write_model(path, package)
+        write_model(path, share)
         return path
 
     @staticmethod
     def read_knowledge_brief(share_id: str) -> KnowledgeBrief | None:
-        """Reads the knowledge brief from the main share data."""
-        package = ShareStorage.read_share(share_id)
-        return package.brief if package else None
+        share = ShareStorage.read_share(share_id)
+        return share.brief if share else None
 
     @staticmethod
     def write_knowledge_brief(share_id: str, brief: KnowledgeBrief) -> pathlib.Path:
-        """Writes the knowledge brief to the main share data."""
-        package = ShareStorage.read_share(share_id)
-        if not package:
-            # Create a new package if it doesn't exist
-            package = KnowledgePackage(
-                share_id=share_id,
-                brief=brief,
-                digest=None,
-            )
-        else:
-            package.brief = brief
-
-        return ShareStorage.write_share(share_id, package)
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        share.brief = brief
+        return ShareStorage.write_share(share_id, share)
 
     @staticmethod
-    def read_share_log(share_id: str) -> KnowledgePackageLog | None:
+    def read_share_log(share_id: str) -> ShareLog | None:
         path = ShareStorageManager.get_share_log_path(share_id)
-        return read_model(path, KnowledgePackageLog)
+        return read_model(path, ShareLog)
 
     @staticmethod
-    def write_share_log(share_id: str, log: KnowledgePackageLog) -> pathlib.Path:
+    def write_share_log(share_id: str, log: ShareLog) -> pathlib.Path:
         path = ShareStorageManager.get_share_log_path(share_id)
         write_model(path, log)
         return path
 
     @staticmethod
     def read_knowledge_digest(share_id: str) -> KnowledgeDigest | None:
-        package = ShareStorage.read_share(share_id)
-        return package.digest if package else None
+        share = ShareStorage.read_share(share_id)
+        return share.digest if share else None
 
     @staticmethod
     def read_coordinator_conversation(
@@ -163,14 +147,6 @@ class ShareStorage:
     ) -> None:
         """
         Appends a message to the Coordinator conversation storage.
-
-        Args:
-            share_id: The ID of the share
-            message_id: The ID of the message
-            content: The message content
-            sender_name: The name of the sender
-            is_assistant: Whether the message is from the assistant
-            timestamp: The timestamp of the message (defaults to now)
         """
         conversation = ShareStorage.read_coordinator_conversation(share_id)
         if not conversation:
@@ -194,75 +170,55 @@ class ShareStorage:
 
     @staticmethod
     def write_knowledge_digest(share_id: str, digest: KnowledgeDigest) -> pathlib.Path:
-        """Writes the knowledge digest to the main share data."""
-        package = ShareStorage.read_share(share_id)
-        if not package:
-            # Create a new package if it doesn't exist
-            package = KnowledgePackage(
-                share_id=share_id,
-                brief=None,
-                digest=digest,
-            )
-        else:
-            package.digest = digest
-
-        return ShareStorage.write_share(share_id, package)
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        share.digest = digest
+        return ShareStorage.write_share(share_id, share)
 
     @staticmethod
     def read_information_request(share_id: str, request_id: str) -> InformationRequest | None:
-        """Reads an information request from the main share data."""
-        package = ShareStorage.read_share(share_id)
-        if not package or not package.requests:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        if not share.requests:
             return None
-
-        for request in package.requests:
+        for request in share.requests:
             if request.request_id == request_id:
                 return request
-
         return None
 
     @staticmethod
     def write_information_request(share_id: str, request: InformationRequest) -> pathlib.Path:
-        """Writes an information request to the main share data."""
         # Information requests must have an ID
         if not request.request_id:
             raise ValueError("Information request must have a request_id")
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
 
-        package = ShareStorage.read_share(share_id)
-        if not package:
-            # Create a new package if it doesn't exist
-            package = KnowledgePackage(
-                share_id=share_id,
-                brief=None,
-                digest=None,
-                requests=[request],
-            )
-        else:
-            # Update existing request or add new one
-            existing_requests = package.requests or []
-            updated = False
-            for i, existing_request in enumerate(existing_requests):
-                if existing_request.request_id == request.request_id:
-                    existing_requests[i] = request
-                    updated = True
-                    break
+        # Update existing request or add new one
+        existing_requests = share.requests or []
+        updated = False
+        for i, existing_request in enumerate(existing_requests):
+            if existing_request.request_id == request.request_id:
+                existing_requests[i] = request
+                updated = True
+                break
+        if not updated:
+            existing_requests.append(request)
 
-            if not updated:
-                existing_requests.append(request)
-
-            package.requests = existing_requests
-
-        return ShareStorage.write_share(share_id, package)
+        share.requests = existing_requests
+        return ShareStorage.write_share(share_id, share)
 
     @staticmethod
     def get_all_information_requests(share_id: str) -> list[InformationRequest]:
-        """Gets all information requests from the main share data."""
-        package = ShareStorage.read_share(share_id)
-        if not package:
+        share = ShareStorage.read_share(share_id)
+        if not share:
             return []
 
         # Sort by updated_at timestamp, newest first
-        requests = package.requests or []
+        requests = share.requests or []
         requests.sort(key=lambda r: r.updated_at, reverse=True)
         return requests
 
@@ -274,9 +230,9 @@ class ShareStorage:
         message: str,
         related_entity_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> bool:
+    ) -> None:
         """
-        Logs an event to the knowledge transfer log.
+        Logs an event to the log.
 
         Args:
             context: Current conversation context
@@ -289,35 +245,31 @@ class ShareStorage:
         Returns:
             True if the log entry was added successfully, False otherwise
         """
-        # Get user information
         user_id, user_name = await get_current_user(context)
-
         if not user_id:
-            return False
+            return
 
-        # Default user name if none found
-        user_name = user_name or "Unknown User"
-
-        # Create a log entry
         entry = LogEntry(
             entry_type=LogEntryType(entry_type),
             message=message,
             user_id=user_id,
-            user_name=user_name,
+            user_name=user_name or "Unknown User",
             related_entity_id=related_entity_id,
             metadata=metadata or {},
         )
 
-        # Get existing log or create a new one
-        log = ShareStorage.read_share_log(share_id)
-        if not log:
-            log = KnowledgePackageLog(
-                entries=[],
+        try:
+            log = ShareStorage.read_share_log(share_id)
+            if not log:
+                log = ShareLog(
+                    entries=[],
+                )
+            log.entries.append(entry)
+            ShareStorage.write_share_log(share_id, log)
+        except Exception as e:
+            logger.exception(
+                f"Failed to log share event for share {share_id}: {e}",
+                exc_info=True,
             )
-
-        # Add the entry and update metadata
-        log.entries.append(entry)
-
-        # Save the updated log
-        ShareStorage.write_share_log(share_id, log)
-        return True
+            return
+        return

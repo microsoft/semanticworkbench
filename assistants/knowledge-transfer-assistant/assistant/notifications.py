@@ -39,8 +39,8 @@ class Notifications:
         # Always notify current conversation
         await Notifications.notify(context, message)
 
-        knowledge_package = await ShareManager.get_share(context)
-        if not knowledge_package:
+        share = await ShareManager.get_share(context)
+        if not share:
             return
 
         current_id = str(context.id)
@@ -48,11 +48,8 @@ class Notifications:
         # Determine the other conversation to notify
         if other_conversation_id:
             target_id = other_conversation_id
-        elif (
-            knowledge_package.coordinator_conversation_id
-            and knowledge_package.coordinator_conversation_id != current_id
-        ):
-            target_id = knowledge_package.coordinator_conversation_id
+        elif share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
+            target_id = share.coordinator_conversation_id
         else:
             return
 
@@ -71,8 +68,8 @@ class Notifications:
     async def notify_all(context: ConversationContext, share_id: str, message: str) -> None:
         """Send text message notification to all knowledge transfer conversations."""
 
-        knowledge_package = await ShareManager.get_share(context)
-        if not knowledge_package:
+        share = await ShareManager.get_share(context)
+        if not share:
             return
 
         # Always notify current conversation
@@ -81,14 +78,9 @@ class Notifications:
         current_id = str(context.id)
 
         # Notify coordinator conversation
-        if (
-            knowledge_package.coordinator_conversation_id
-            and knowledge_package.coordinator_conversation_id != current_id
-        ):
+        if share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
             try:
-                client = ConversationClientManager.get_conversation_client(
-                    context, knowledge_package.coordinator_conversation_id
-                )
+                client = ConversationClientManager.get_conversation_client(context, share.coordinator_conversation_id)
                 await client.send_messages(
                     NewConversationMessage(
                         content=message,
@@ -99,8 +91,8 @@ class Notifications:
                 logger.error(f"Failed to notify coordinator conversation: {e}")
 
         # Notify all team conversations
-        for conv_id in knowledge_package.team_conversations:
-            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
+        for conv_id in share.team_conversations:
+            if conv_id != current_id and conv_id != share.coordinator_conversation_id:
                 try:
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
                     await client.send_messages(
@@ -133,22 +125,17 @@ class Notifications:
         await Notifications.notify_state_update(context, tabs)
 
         # Refresh other conversations
-        knowledge_package = await ShareManager.get_share(context)
-        if not knowledge_package:
+        share = await ShareManager.get_share(context)
+        if not share:
             return
 
         current_id = str(context.id)
         assistant_id = context.assistant.id
 
         # Refresh coordinator conversation
-        if (
-            knowledge_package.coordinator_conversation_id
-            and knowledge_package.coordinator_conversation_id != current_id
-        ):
+        if share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
             try:
-                client = ConversationClientManager.get_conversation_client(
-                    context, knowledge_package.coordinator_conversation_id
-                )
+                client = ConversationClientManager.get_conversation_client(context, share.coordinator_conversation_id)
 
                 for tab in tabs:
                     state_event = AssistantStateEvent(
@@ -164,8 +151,8 @@ class Notifications:
                 logger.error(f"Failed to refresh coordinator conversation UI: {e}")
 
         # Refresh all team conversations
-        for conv_id in knowledge_package.team_conversations:
-            if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
+        for conv_id in share.team_conversations:
+            if conv_id != current_id and conv_id != share.coordinator_conversation_id:
                 try:
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
 

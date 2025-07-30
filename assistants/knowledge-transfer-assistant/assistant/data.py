@@ -160,11 +160,11 @@ class LogEntry(BaseModel):
     metadata: dict | None = None
 
 
-class KnowledgePackageLog(BaseModel):
+class ShareLog(BaseModel):
     entries: list[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
-class KnowledgePackage(BaseModel):
+class Share(BaseModel):
     share_id: str
     coordinator_conversation_id: str | None = None
     shared_conversation_id: str | None = None
@@ -176,7 +176,7 @@ class KnowledgePackage(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str | None = None
 
-    # Package components
+    # Knowledge Package components
     audience: str | None = None
     brief: KnowledgeBrief | None
     learning_objectives: list[LearningObjective] = Field(default_factory=list)
@@ -193,7 +193,7 @@ class KnowledgePackage(BaseModel):
     archived: bool = False
     requests: list[InformationRequest] = Field(default_factory=list)
 
-    log: KnowledgePackageLog | None = Field(default_factory=lambda: KnowledgePackageLog())
+    log: ShareLog | None = Field(default_factory=lambda: ShareLog())
 
 
 class CoordinatorConversationMessage(BaseModel):

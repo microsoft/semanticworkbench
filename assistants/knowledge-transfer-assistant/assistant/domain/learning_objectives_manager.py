@@ -8,11 +8,11 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import (
     InspectorTab,
-    KnowledgePackage,
     LearningObjective,
     LearningOutcome,
     LearningOutcomeAchievement,
     LogEntryType,
+    Share,
 )
 from assistant.notifications import Notifications
 
@@ -187,7 +187,7 @@ class LearningObjectivesManager:
             context, share.share_id, [InspectorTab.LEARNING, InspectorTab.BRIEF]
         )
 
-        return f"Learning objective '{objective_name}' has been successfully deleted from the knowledge package."
+        return f"Learning objective '{objective_name}' has been successfully deleted from the knowledge share."
 
     @staticmethod
     async def get_learning_outcomes(
@@ -218,7 +218,6 @@ class LearningObjectivesManager:
         if not share.learning_objectives:
             raise ValueError("No learning objectives found. Please add objectives before adding outcomes.")
 
-        # Find the objective by ID
         objective = None
         for obj in share.learning_objectives:
             if obj.id == objective_id:
@@ -228,16 +227,10 @@ class LearningObjectivesManager:
         if objective is None:
             raise ValueError("Learning objective not found")
 
-        # Create the new outcome
         new_outcome = LearningOutcome(description=outcome_description.strip())
-
-        # Add the outcome to the objective
         objective.learning_outcomes.append(new_outcome)
-
-        # Save the updated knowledge package
         await ShareManager.set_share(context, share)
 
-        # Log the outcome addition
         await ShareManager.log_share_event(
             context=context,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
@@ -250,7 +243,6 @@ class LearningObjectivesManager:
             },
         )
 
-        # Notify linked conversations
         await Notifications.notify_all(
             context,
             share.share_id,
@@ -300,13 +292,9 @@ class LearningObjectivesManager:
 
         old_description = outcome.description
 
-        # Update the outcome description
         outcome.description = new_description.strip()
-
-        # Save the updated knowledge package
         await ShareManager.set_share(context, share)
 
-        # Log the outcome update
         await ShareManager.log_share_event(
             context=context,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
@@ -320,7 +308,6 @@ class LearningObjectivesManager:
             },
         )
 
-        # Notify linked conversations
         await Notifications.notify_all(
             context, share.share_id, f"Learning outcome '{new_description}' has been updated"
         )
@@ -378,10 +365,8 @@ class LearningObjectivesManager:
                 achievement for achievement in team_info.outcome_achievements if achievement.outcome_id != outcome_id
             ]
 
-        # Save the updated knowledge package
         await ShareManager.set_share(context, share)
 
-        # Log the outcome deletion
         await ShareManager.log_share_event(
             context=context,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
@@ -395,7 +380,6 @@ class LearningObjectivesManager:
             },
         )
 
-        # Notify linked conversations
         await Notifications.notify_all(
             context,
             share.share_id,
@@ -408,38 +392,36 @@ class LearningObjectivesManager:
         return f"Learning outcome deleted successfully from objective '{objective.name}': {deleted_description}"
 
     @staticmethod
-    def get_achievements_for_conversation(
-        package: KnowledgePackage, conversation_id: str
-    ) -> list[LearningOutcomeAchievement]:
-        team_conv = package.team_conversations.get(conversation_id)
+    def get_achievements_for_conversation(share: Share, conversation_id: str) -> list[LearningOutcomeAchievement]:
+        team_conv = share.team_conversations.get(conversation_id)
         return team_conv.outcome_achievements if team_conv else []
 
     @staticmethod
-    def get_completion_for_conversation(package: KnowledgePackage, conversation_id: str) -> tuple[int, int]:
-        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
+    def get_completion_for_conversation(share: Share, conversation_id: str) -> tuple[int, int]:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(share, conversation_id)
         achieved_outcome_ids = {a.outcome_id for a in achievements if a.achieved}
 
-        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in share.learning_objectives)
         achieved_outcomes = len(achieved_outcome_ids)
 
         return achieved_outcomes, total_outcomes
 
     @staticmethod
-    def is_outcome_achieved_by_conversation(package: KnowledgePackage, outcome_id: str, conversation_id: str) -> bool:
-        achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
+    def is_outcome_achieved_by_conversation(share: Share, outcome_id: str, conversation_id: str) -> bool:
+        achievements = LearningObjectivesManager.get_achievements_for_conversation(share, conversation_id)
         return any(a.outcome_id == outcome_id and a.achieved for a in achievements)
 
     @staticmethod
-    def get_overall_completion(package: KnowledgePackage) -> tuple[int, int]:
+    def get_overall_completion(share: Share) -> tuple[int, int]:
         """
         Get overall completion across all team conversations.
         Returns:
             Tuple of (unique_achieved_outcomes, total_outcomes) across all team conversations
         """
         all_achieved_outcomes = set()
-        for team_conv in package.team_conversations.values():
+        for team_conv in share.team_conversations.values():
             achieved_ids = {a.outcome_id for a in team_conv.outcome_achievements if a.achieved}
             all_achieved_outcomes.update(achieved_ids)
 
-        total_outcomes = sum(len(obj.learning_outcomes) for obj in package.learning_objectives)
+        total_outcomes = sum(len(obj.learning_outcomes) for obj in share.learning_objectives)
         return len(all_achieved_outcomes), total_outcomes
