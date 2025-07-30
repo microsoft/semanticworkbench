@@ -4,8 +4,6 @@ Knowledge brief management operations for Knowledge Transfer Assistant.
 Handles knowledge brief creation, updates, and retrieval.
 """
 
-from typing import Optional
-
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import InspectorTab, KnowledgeBrief, LogEntryType
@@ -22,7 +20,7 @@ class KnowledgeBriefManager:
     @staticmethod
     async def get_knowledge_brief(
         context: ConversationContext,
-    ) -> Optional[KnowledgeBrief]:
+    ) -> KnowledgeBrief | None:
         share_id = await ShareManager.get_share_id(context)
         return ShareStorage.read_knowledge_brief(share_id)
 
@@ -31,7 +29,7 @@ class KnowledgeBriefManager:
         context: ConversationContext,
         title: str,
         description: str,
-        timeline: Optional[str] = None,
+        timeline: str | None = None,
     ) -> KnowledgeBrief:
         share_id = await ShareManager.get_share_id(context)
         current_user_id = await require_current_user(context, "update brief")

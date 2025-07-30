@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, List
+from typing import Any
 
 from liquid import Template
 from openai.types.chat import ChatCompletionMessageParam
@@ -91,7 +91,7 @@ class Prompt:
     output_format: str | None = None
     reasoning_steps: str | None = None
     examples: str | None = None
-    contexts: List[Context] = field(default_factory=list)
+    contexts: list[Context] = field(default_factory=list)
     context_strategy: ContextStrategy = ContextStrategy.SINGLE
     final_instructions: str | None = None
 

@@ -2,7 +2,7 @@
 Sharing inspector for information requests and responses.
 """
 
-from typing import Any, List
+from typing import Any
 
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
@@ -57,10 +57,10 @@ class SharingInspector:
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_coordinator_requests(self, requests: List[Any], context: ConversationContext) -> str:
+    async def _format_coordinator_requests(self, requests: list[Any], context: ConversationContext) -> str:
         """Format sharing information and requests for coordinator."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         # Share URL section at the top
         share = await ShareManager.get_share(context)
@@ -117,7 +117,7 @@ class SharingInspector:
 
             for conv_id, team_conv in share.team_conversations.items():
                 achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
-                progress_pct = int((achieved / total * 100)) if total > 0 else 0
+                progress_pct = int(achieved / total * 100) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
                 lines.append(f"  Joined: {team_conv.joined_at.strftime('%Y-%m-%d %H:%M')}")
                 lines.append(f"  Last active: {team_conv.last_active_at.strftime('%Y-%m-%d %H:%M')}")
@@ -125,10 +125,10 @@ class SharingInspector:
 
         return "\n".join(lines)
 
-    async def _format_team_requests(self, requests: List[Any], context: ConversationContext) -> str:
+    async def _format_team_requests(self, requests: list[Any], context: ConversationContext) -> str:
         """Format sharing information and requests for team members."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         # Filter to my requests only
         my_requests = [r for r in requests if r.conversation_id == str(context.id)]
@@ -161,7 +161,7 @@ class SharingInspector:
             lines.append("You haven't created any information requests yet.")
             lines.append("")
             lines.append(
-                "_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._"
+                "_Your assistant will help you create information requests to the knowledge coordinator if it is unable to answer your questions directly._"  # noqa: E501
             )
 
         return "\n".join(lines)

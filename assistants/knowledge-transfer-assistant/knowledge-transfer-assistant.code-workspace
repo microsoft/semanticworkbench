@@ -105,14 +105,18 @@
     ]
   },
   "settings": {
-    "cSpell.words": ["agentic"],
-    "cSpell.customDictionaries": {
-      "custom-dictionary-workspace": {
-        "name": "custom-dictionary-workspace",
-        "path": "${workspaceFolder:docs}/.cspell/custom-dictionary-workspace.txt",
-        "addWords": true,
-        "scope": "workspace"
-      }
+    "markdown.validate.enabled": true,
+    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
+    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
+    "ruff.importStrategy": "useBundled",
+    "ruff.nativeServer": "on",
+    "ruff.configurationPreference": "filesystemFirst",
+    "[python]": {
+      "editor.codeActionsOnSave": {
+        "source.organizeImports.ruff": "always"
+      },
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true
     }
   }
 }

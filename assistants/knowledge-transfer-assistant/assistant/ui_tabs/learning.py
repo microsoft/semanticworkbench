@@ -2,7 +2,7 @@
 Learning inspector for learning objectives and progress tracking.
 """
 
-from typing import Any, List
+from typing import Any
 
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
@@ -54,13 +54,13 @@ class LearningInspector:
     async def _format_coordinator_objectives(self, share: Any, context: ConversationContext) -> str:
         """Format learning objectives for coordinator."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
             lines.append("")
             lines.append(
-                "_No learning objectives have been set up yet. When shared, the assistant will help your recipients explore the knowledge in a more open way, helping them discover the important aspects of the knowledge without specific objectives or outcomes. If you would like to have a more formal process, ask your assistant to help you create learning objectives and outcomes._"
+                "_No learning objectives have been set up yet. When shared, the assistant will help your recipients explore the knowledge in a more open way, helping them discover the important aspects of the knowledge without specific objectives or outcomes. If you would like to have a more formal process, ask your assistant to help you create learning objectives and outcomes._"  # noqa: E501
             )
             lines.append("")
             return "\n".join(lines)
@@ -73,7 +73,7 @@ class LearningInspector:
         if total_outcomes > 0 and share.team_conversations:
             for conv_id, team_conv in share.team_conversations.items():
                 achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
-                progress_pct = int((achieved / total * 100)) if total > 0 else 0
+                progress_pct = int(achieved / total * 100) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
             lines.append("")
 
@@ -90,7 +90,7 @@ class LearningInspector:
                     # Check if any team conversation has achieved this outcome
                     achieved_by_any = any(
                         LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
-                        for conv_id in share.team_conversations.keys()
+                        for conv_id in share.team_conversations
                     )
                     status_emoji = "✅" if achieved_by_any else "⬜"
 
@@ -98,7 +98,7 @@ class LearningInspector:
                     achieved_count = 0
                     total_team_count = len(share.team_conversations)
 
-                    for conv_id in share.team_conversations.keys():
+                    for conv_id in share.team_conversations:
                         if LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id):
                             achieved_count += 1
 
@@ -114,13 +114,15 @@ class LearningInspector:
     async def _format_team_objectives(self, share: Any, context: ConversationContext) -> str:
         """Format learning objectives for team members."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
             lines.append("")
             lines.append(
-                "_The coordinator hasn't set up specific learning objectives for this shared knowledge. Enjoy exploring at your own pace! The assistant will guide you towards important information as you go._"
+                "_The coordinator hasn't set up specific learning objectives for this shared knowledge. "
+                "Enjoy exploring at your own pace! "
+                "The assistant will guide you towards important information as you go._"
             )
             lines.append("")
             return "\n".join(lines)
@@ -133,7 +135,7 @@ class LearningInspector:
         achieved_outcomes, total_outcomes = LearningObjectivesManager.get_completion_for_conversation(
             share, conversation_id
         )
-        progress_pct = int((achieved_outcomes / total_outcomes * 100)) if total_outcomes > 0 else 0
+        progress_pct = int(achieved_outcomes / total_outcomes * 100) if total_outcomes > 0 else 0
         lines.append(f"**My Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved ({progress_pct}%)")
         lines.append("")
 

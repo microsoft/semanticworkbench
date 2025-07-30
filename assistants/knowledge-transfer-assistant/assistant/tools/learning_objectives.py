@@ -4,8 +4,6 @@ Learning objectives management tools for Knowledge Transfer Assistant.
 Tools for creating, updating, and managing learning objectives and outcomes.
 """
 
-from typing import List
-
 from assistant.domain import LearningObjectivesManager
 from assistant.logging import logger
 
@@ -15,7 +13,7 @@ from .base import ToolsBase
 class LearningObjectiveTools(ToolsBase):
     """Tools for managing learning objectives and outcomes."""
 
-    async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: List[str]) -> str:
+    async def add_learning_objective(self, objective_name: str, description: str, learning_outcomes: list[str]) -> str:
         """
         Add a learning objective with measurable learning outcomes.
 
@@ -76,7 +74,7 @@ class LearningObjectiveTools(ToolsBase):
             return message
         except Exception as e:
             logger.exception(f"Failed to update learning objective: {e}")
-            return f"Failed to update learning objective: {str(e)}"
+            return f"Failed to update learning objective: {e!s}"
 
     async def delete_learning_objective(self, objective_id: str) -> str:
         """
@@ -104,4 +102,4 @@ class LearningObjectiveTools(ToolsBase):
             return message
         except Exception as e:
             logger.exception(f"Failed to delete learning objective: {e}")
-            return f"Failed to delete learning objective: {str(e)}"
+            return f"Failed to delete learning objective: {e!s}"

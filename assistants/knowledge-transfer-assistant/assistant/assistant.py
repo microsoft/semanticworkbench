@@ -126,7 +126,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
 
             except Exception as e:
-                welcome_message = f"I'm having trouble setting up your knowledge transfer. Please try again or contact support if the issue persists. {str(e)}"
+                welcome_message = f"I'm having trouble setting up your knowledge transfer. Please try again or contact support if the issue persists. {e!s}"  # noqa: E501
 
             await context.send_messages(
                 NewConversationMessage(
@@ -214,7 +214,7 @@ async def on_conversation_updated(context: ConversationContext) -> None:
             if target_conversation.title != conversation.title:
                 await target_context.update_conversation_title(conversation.title)
                 logger.debug(
-                    f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'"
+                    f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'"  # noqa: E501
                 )
             else:
                 logger.debug(f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'")
@@ -279,13 +279,15 @@ async def on_message_created(
         # If the message is from a Coordinator, update the digest in the
         # background
         if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            asyncio.create_task(KnowledgeDigestManager.auto_update_knowledge_digest(context))
+            task = asyncio.create_task(KnowledgeDigestManager.auto_update_knowledge_digest(context))
+            # Fire and forget - we don't need to await this background task
+            task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")
         await context.send_messages(
             NewConversationMessage(
-                content=f"Error: {str(e)}",
+                content=f"Error: {e!s}",
                 message_type=MessageType.notice,
                 metadata={"generated_content": False, **metadata},
             )

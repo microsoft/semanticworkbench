@@ -7,11 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import openai_client
 import pytest
-from semantic_workbench_assistant.assistant_app import ConversationContext
-
 from assistant.agentic.analysis import detect_information_request_needs
 from assistant.data import ConversationRole
 from assistant.tools import ShareTools
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 # Use pytest for all tests for consistency

@@ -5,8 +5,7 @@ Handles knowledge digest operations including auto-updating from conversations.
 """
 
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import openai_client
 from semantic_workbench_api_model.workbench_model import ParticipantRole
@@ -27,7 +26,7 @@ class KnowledgeDigestManager:
     @staticmethod
     async def get_knowledge_digest(
         context: ConversationContext,
-    ) -> Optional[KnowledgeDigest]:
+    ) -> KnowledgeDigest | None:
         share_id = await ShareManager.get_share_id(context)
         if not share_id:
             return None
@@ -61,7 +60,7 @@ class KnowledgeDigestManager:
 
         digest.content = content
         digest.is_auto_generated = is_auto_generated
-        digest.updated_at = datetime.now(timezone.utc)
+        digest.updated_at = datetime.now(UTC)
         digest.updated_by = current_user_id
         digest.version += 1
         ShareStorage.write_knowledge_digest(share_id, digest)
@@ -133,10 +132,7 @@ class KnowledgeDigestManager:
             content = completion.choices[0].message.content or ""
             digest_content = ""
             match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
-            if match:
-                digest_content = match.group(1).strip()
-            else:
-                digest_content = content.strip()
+            digest_content = match.group(1).strip() if match else content.strip()
 
         if not digest_content:
             raise ValueError("No content extracted from knowledge digest LLM analysis")

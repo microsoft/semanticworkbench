@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     MessageType,
@@ -30,7 +28,7 @@ class Notifications:
         context: ConversationContext,
         share_id: str,
         message: str,
-        other_conversation_id: Optional[str] = None,
+        other_conversation_id: str | None = None,
     ) -> None:
         """
         Send text message notification to current conversation and one other.
@@ -101,7 +99,7 @@ class Notifications:
                 logger.error(f"Failed to notify coordinator conversation: {e}")
 
         # Notify all team conversations
-        for conv_id in knowledge_package.team_conversations.keys():
+        for conv_id in knowledge_package.team_conversations:
             if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
                 try:
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -117,7 +115,7 @@ class Notifications:
     # State Update Notifications (UI refreshes)
 
     @staticmethod
-    async def notify_state_update(context: ConversationContext, tabs: List[InspectorTab]) -> None:
+    async def notify_state_update(context: ConversationContext, tabs: list[InspectorTab]) -> None:
         """Send state update notifications to refresh UI in current conversation only."""
         for tab in tabs:
             state_event = AssistantStateEvent(
@@ -128,7 +126,7 @@ class Notifications:
             await context.send_conversation_state_event(state_event)
 
     @staticmethod
-    async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: List[InspectorTab]) -> None:
+    async def notify_all_state_update(context: ConversationContext, share_id: str, tabs: list[InspectorTab]) -> None:
         """Send state update notifications to refresh UI across all share conversations."""
 
         # Refresh current conversation first
@@ -166,7 +164,7 @@ class Notifications:
                 logger.error(f"Failed to refresh coordinator conversation UI: {e}")
 
         # Refresh all team conversations
-        for conv_id in knowledge_package.team_conversations.keys():
+        for conv_id in knowledge_package.team_conversations:
             if conv_id != current_id and conv_id != knowledge_package.coordinator_conversation_id:
                 try:
                     client = ConversationClientManager.get_conversation_client(context, conv_id)

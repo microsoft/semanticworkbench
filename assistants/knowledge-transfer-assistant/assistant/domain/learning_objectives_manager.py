@@ -4,8 +4,6 @@ Learning objectives and outcomes management for Knowledge Transfer Assistant.
 Handles learning objectives, outcomes creation, updates, and deletion.
 """
 
-from typing import List, Optional, Tuple
-
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import (
@@ -29,9 +27,9 @@ class LearningObjectivesManager:
         context: ConversationContext,
         objective_name: str,
         description: str,
-        outcomes: Optional[List[str]] = None,
+        outcomes: list[str] | None = None,
         priority: int = 1,
-    ) -> Optional[LearningObjective]:
+    ) -> LearningObjective | None:
         share_id = await ShareManager.get_share_id(context)
 
         criterion_objects = []
@@ -67,8 +65,8 @@ class LearningObjectivesManager:
     async def update_learning_objective(
         context: ConversationContext,
         objective_id: str,
-        objective_name: Optional[str] = None,
-        description: Optional[str] = None,
+        objective_name: str | None = None,
+        description: str | None = None,
     ) -> str:
         """
         Update an existing learning objective's name or description.
@@ -88,10 +86,7 @@ class LearningObjectivesManager:
                 break
 
         if not objective:
-            available_ids = [obj.id for obj in share.learning_objectives]
-            raise ValueError(
-                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
-            )
+            raise ValueError("Learning objective not found")
 
         original_name = objective.name
         changes_made = []
@@ -156,10 +151,7 @@ class LearningObjectivesManager:
                 break
 
         if not objective:
-            available_ids = [obj.id for obj in share.learning_objectives]
-            raise ValueError(
-                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
-            )
+            raise ValueError("Learning objective not found.")
 
         objective_name = objective.name
 
@@ -200,7 +192,7 @@ class LearningObjectivesManager:
     @staticmethod
     async def get_learning_outcomes(
         context: ConversationContext,
-    ) -> List[LearningOutcome]:
+    ) -> list[LearningOutcome]:
         share = await ShareManager.get_share(context)
 
         objectives = share.learning_objectives
@@ -234,10 +226,7 @@ class LearningObjectivesManager:
                 break
 
         if objective is None:
-            available_ids = [obj.id for obj in share.learning_objectives]
-            raise ValueError(
-                f"Learning objective with ID '{objective_id}' not found. Available objective IDs: {', '.join(available_ids[:3]) + ('...' if len(available_ids) > 3 else '')}"
-            )
+            raise ValueError("Learning objective not found")
 
         # Create the new outcome
         new_outcome = LearningOutcome(description=outcome_description.strip())
@@ -307,9 +296,7 @@ class LearningObjectivesManager:
             for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
-            raise ValueError(
-                f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
-            )
+            raise ValueError("Learning outcome not found.")
 
         old_description = outcome.description
 
@@ -323,7 +310,7 @@ class LearningObjectivesManager:
         await ShareManager.log_share_event(
             context=context,
             entry_type=LogEntryType.LEARNING_OBJECTIVE_UPDATED.value,
-            message=f"Updated learning outcome in objective '{objective.name}': '{old_description}' → '{new_description}'",
+            message="Updated learning outcome.",
             metadata={
                 "objective_id": objective.id,
                 "objective_name": objective.name,
@@ -378,9 +365,7 @@ class LearningObjectivesManager:
             for obj in share.learning_objectives:
                 for out in obj.learning_outcomes:
                     available_outcome_ids.append(out.id)
-            raise ValueError(
-                f"Learning outcome with ID '{outcome_id}' not found. Available outcome IDs: {', '.join(available_outcome_ids[:3]) + ('...' if len(available_outcome_ids) > 3 else '')}"
-            )
+            raise ValueError("Learning outcome not found.")
 
         deleted_description = outcome_to_delete.description
 
@@ -425,12 +410,12 @@ class LearningObjectivesManager:
     @staticmethod
     def get_achievements_for_conversation(
         package: KnowledgePackage, conversation_id: str
-    ) -> List[LearningOutcomeAchievement]:
+    ) -> list[LearningOutcomeAchievement]:
         team_conv = package.team_conversations.get(conversation_id)
         return team_conv.outcome_achievements if team_conv else []
 
     @staticmethod
-    def get_completion_for_conversation(package: KnowledgePackage, conversation_id: str) -> Tuple[int, int]:
+    def get_completion_for_conversation(package: KnowledgePackage, conversation_id: str) -> tuple[int, int]:
         achievements = LearningObjectivesManager.get_achievements_for_conversation(package, conversation_id)
         achieved_outcome_ids = {a.outcome_id for a in achievements if a.achieved}
 
@@ -445,7 +430,7 @@ class LearningObjectivesManager:
         return any(a.outcome_id == outcome_id and a.achieved for a in achievements)
 
     @staticmethod
-    def get_overall_completion(package: KnowledgePackage) -> Tuple[int, int]:
+    def get_overall_completion(package: KnowledgePackage) -> tuple[int, int]:
         """
         Get overall completion across all team conversations.
         Returns:

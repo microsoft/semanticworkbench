@@ -2,7 +2,7 @@
 Brief inspector for knowledge transfer status and brief information.
 """
 
-from typing import Any, List
+from typing import Any
 
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
@@ -15,7 +15,7 @@ from assistant.domain.share_manager import ShareManager
 from .common import get_stage_label
 
 # Default instructional text to show when no brief has been created
-DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
+DEFAULT_BRIEF_INSTRUCTION = "_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"  # noqa: E501
 
 
 class BriefInspector:
@@ -62,7 +62,7 @@ class BriefInspector:
     ) -> str:
         """Format brief information for coordinator."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         lines.append("**Role:** Coordinator")
 
@@ -98,7 +98,7 @@ class BriefInspector:
     async def _format_team_brief(self, share_id: str, brief: Any, share_info: Any, context: ConversationContext) -> str:
         """Format brief information for team members."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         lines.append("**Role:** Team")
 

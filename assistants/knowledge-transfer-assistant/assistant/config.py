@@ -87,7 +87,7 @@ class PromptConfig(BaseModel):
         str,
         Field(
             title="Coordinator Instructions",
-            description="The instructions to give the coordinator assistant. This is added to the prompt when in coordinator mode.",
+            description="The instructions to give the coordinator assistant. This is added to the prompt when in coordinator mode.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
     ] = load_text_include("coordinator_instructions.txt")
@@ -105,7 +105,7 @@ class PromptConfig(BaseModel):
         str,
         Field(
             title="Team Instructions",
-            description="The instructions to give the team assistant. This is added to the prompt when in team member mode.",
+            description="The instructions to give the team assistant. This is added to the prompt when in team member mode.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
     ] = load_text_include("team_instructions.txt")
@@ -150,23 +150,27 @@ class CoordinatorConfig(BaseModel):
         str,
         Field(
             title="Coordinator Welcome Message",
-            description="The message to display when a coordinator starts a new knowledge transfer. {share_url} will be replaced with the actual URL.",
+            description="The message to display when a coordinator starts a new knowledge transfer. {share_url} will be replaced with the actual URL.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
     ] = """# Welcome to Knowledge Transfer
 
-Welcome! I'm here to help you capture and share knowledge in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
+Welcome! I'm here to help you capture and share knowledge in a way that others can easily explore and understand.
+Think of me as your personal knowledge bridge - I'll help you:
 
 - 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
 - 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
 - 🎯 Define learning objectives - so we can track progress and outcomes
-- 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
+- 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered,
+  and deeper context
 
-Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace.
+Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight.
+I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace.
 
-In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will help them understand the content of your knowledge transfer. You can ask me to update it at any time.
+In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will
+help them understand the content of your knowledge transfer. You can ask me to update it at any time.
 
-To get started, let's discuss your audience. Who are you going to be sharing your knowledge with?"""
+To get started, let's discuss your audience. Who are you going to be sharing your knowledge with?"""  # noqa: E501
 
     max_digest_tokens: Annotated[
         int,
@@ -189,10 +193,10 @@ class TeamConfig(BaseModel):
         str,
         Field(
             title="Team Welcome Message",
-            description="The message to display when a user joins a knowledge transfer as a Team member. Shown after successfully joining a knowledge transfer.",
+            description="The message to display when a user joins a knowledge transfer as a Team member. Shown after successfully joining a knowledge transfer.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
-    ] = "# Welcome to Your Team Conversation\n\nYou've joined as a team member. This is your personal conversation for exploring the knowledge share. You can communicate with the assistant, make information requests, and track your progress here."
+    ] = "# Welcome to Your Team Conversation\n\nYou've joined as a team member. This is your personal conversation for exploring the knowledge share. You can communicate with the assistant, make information requests, and track your progress here."  # noqa: E501
 
 
 # Base Assistant Configuration - shared by all templates
@@ -250,7 +254,7 @@ class AssistantConfigModel(BaseModel):
         bool,
         Field(
             title="Track Progress",
-            description="Track knowledge transfer progress with learning objectives, outcome completion, and overall transfer state.",
+            description="Track knowledge transfer progress with learning objectives, outcome completion, and overall transfer state.",  # noqa: E501
         ),
     ] = True
 

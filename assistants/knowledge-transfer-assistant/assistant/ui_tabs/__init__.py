@@ -10,4 +10,4 @@ from .debug import DebugInspector
 from .learning import LearningInspector
 from .sharing import SharingInspector
 
-__all__ = ["BriefInspector", "LearningInspector", "SharingInspector", "DebugInspector"]
+__all__ = ["BriefInspector", "DebugInspector", "LearningInspector", "SharingInspector"]

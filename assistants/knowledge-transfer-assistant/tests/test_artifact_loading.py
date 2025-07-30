@@ -10,8 +10,6 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from semantic_workbench_assistant import settings
-
 from assistant.data import (
     ConversationRole,
     KnowledgeBrief,
@@ -21,6 +19,7 @@ from assistant.data import (
 )
 from assistant.domain import KnowledgeBriefManager, ShareManager
 from assistant.storage import ShareStorage, ShareStorageManager
+from semantic_workbench_assistant import settings
 
 # Type variable for better type annotations
 T = TypeVar("T")
@@ -144,16 +143,16 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             brief = await KnowledgeBriefManager.get_knowledge_brief(context)
             project = ShareStorage.read_share(self.share_id)
 
-            self.assertIsNotNone(brief, "Should load the brief")
+            assert brief is not None, "Should load the brief"
             if brief:  # Type checking guard
-                self.assertEqual(brief.title, self.title)
-                self.assertEqual(brief.conversation_id, self.conversation_id)
+                assert brief.title == self.title
+                assert brief.conversation_id == self.conversation_id
 
             # Verify the project goals were loaded correctly
-            self.assertIsNotNone(project, "Should load the project")
+            assert project is not None, "Should load the project"
             if project:  # Type checking guard
-                self.assertEqual(len(project.learning_objectives), 1, "Should have one goal")
-                self.assertEqual(project.learning_objectives[0].name, "Test Goal")
+                assert len(project.learning_objectives) == 1, "Should have one goal"
+                assert project.learning_objectives[0].name == "Test Goal"
 
     async def test_direct_storage_access(self) -> None:
         """Test direct access to project storage"""
@@ -161,9 +160,9 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
         brief = ShareStorage.read_knowledge_brief(self.share_id)
 
         # Verify we got the correct brief
-        self.assertIsNotNone(brief, "Should load the brief directly")
+        assert brief is not None, "Should load the brief directly"
         if brief:  # Type checking guard
-            self.assertEqual(brief.title, self.title)
+            assert brief.title == self.title
 
             # Test updating the brief using consolidated storage
             brief.title = "Updated KnowledgePackageTitle"
@@ -172,7 +171,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             # Read it back to verify the update
             updated_brief = ShareStorage.read_knowledge_brief(self.share_id)
             if updated_brief:  # Type checking guard
-                self.assertEqual(updated_brief.title, "Updated KnowledgePackageTitle")
+                assert updated_brief.title == "Updated KnowledgePackageTitle"
 
 
 if __name__ == "__main__":

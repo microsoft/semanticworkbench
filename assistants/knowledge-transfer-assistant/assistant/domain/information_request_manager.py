@@ -4,8 +4,7 @@ Information request management for Knowledge Transfer Assistant.
 Handles information request creation, resolution, and retrieval.
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -30,7 +29,7 @@ class InformationRequestManager:
     @staticmethod
     async def get_information_requests(
         context: ConversationContext,
-    ) -> List[InformationRequest]:
+    ) -> list[InformationRequest]:
         """Gets all information requests for the current conversation's share."""
         share_id = await ShareManager.get_share_id(context)
         return ShareStorage.get_all_information_requests(share_id)
@@ -41,7 +40,7 @@ class InformationRequestManager:
         title: str,
         description: str,
         priority: RequestPriority = RequestPriority.MEDIUM,
-        related_objective_ids: Optional[List[str]] = None,
+        related_objective_ids: list[str] | None = None,
     ) -> InformationRequest:
         share_id = await ShareManager.get_share_id(context)
 
@@ -106,19 +105,19 @@ class InformationRequestManager:
         # Update the request
         information_request.status = RequestStatus.RESOLVED
         information_request.resolution = resolution
-        information_request.resolved_at = datetime.now(timezone.utc)
+        information_request.resolved_at = datetime.now(UTC)
         information_request.resolved_by = current_user_id
 
         # Add to history
         information_request.updates.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": current_user_id,
             "message": f"Request resolved: {resolution}",
             "status": RequestStatus.RESOLVED.value,
         })
 
         # Update metadata
-        information_request.updated_at = datetime.now(timezone.utc)
+        information_request.updated_at = datetime.now(UTC)
         information_request.updated_by = current_user_id
         information_request.version += 1
 

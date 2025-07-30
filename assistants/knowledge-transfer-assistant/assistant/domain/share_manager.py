@@ -6,8 +6,7 @@ Handles creation, joining, and basic share operations.
 
 import uuid
 from csv import Error
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationPermission,
@@ -98,7 +97,7 @@ class ShareManager:
     @staticmethod
     async def get_conversation_role(
         context: ConversationContext,
-    ) -> Optional[ConversationRole]:
+    ) -> ConversationRole | None:
         """
         Gets the role of a conversation in a knowledge transfer.
         """
@@ -174,7 +173,7 @@ class ShareManager:
         if knowledge_package:
             knowledge_package.shared_conversation_id = str(conversation.id)
             knowledge_package.share_url = share_url
-            knowledge_package.updated_at = datetime.now(timezone.utc)
+            knowledge_package.updated_at = datetime.now(UTC)
             ShareStorage.write_share(share_id, knowledge_package)
         else:
             raise ValueError(f"KnowledgePackage info not found for share ID: {share_id}")
@@ -182,7 +181,7 @@ class ShareManager:
         return share_url
 
     @staticmethod
-    async def get_shared_conversation_id(context: ConversationContext) -> Optional[str]:
+    async def get_shared_conversation_id(context: ConversationContext) -> str | None:
         """
         Retrieves the share ID and finds the associated shareable template conversation ID.
         """
@@ -229,7 +228,7 @@ class ShareManager:
             else:
                 raise NoShareException
         except Error as e:
-            raise NoShareFoundError(str(e))
+            raise NoShareFoundError(str(e)) from e
 
     @staticmethod
     async def get_share(context: ConversationContext) -> KnowledgePackage:
@@ -245,7 +244,7 @@ class ShareManager:
             else:
                 raise NoShareException
         except Error as e:
-            raise NoShareFoundError(str(e))
+            raise NoShareFoundError(str(e)) from e
 
     @staticmethod
     async def set_share(context: ConversationContext, share: KnowledgePackage) -> None:
@@ -262,7 +261,7 @@ class ShareManager:
             ShareStorage.write_share_log(share_id, share.log)
 
     @staticmethod
-    async def get_linked_conversations(context: ConversationContext) -> List[str]:
+    async def get_linked_conversations(context: ConversationContext) -> list[str]:
         """
         Gets all conversations linked to this one through the same knowledge transfer share.
         """
@@ -279,7 +278,7 @@ class ShareManager:
                 conversations.append(share.shared_conversation_id)
 
             # Add all team conversations
-            for conversation_id in share.team_conversations.keys():
+            for conversation_id in share.team_conversations:
                 conversations.append(conversation_id)
 
             return []
@@ -341,7 +340,7 @@ class ShareManager:
     @staticmethod
     async def get_share_log(
         context: ConversationContext,
-    ) -> Optional[KnowledgePackageLog]:
+    ) -> KnowledgePackageLog | None:
         """Gets the knowledge transfer log for the current conversation's share."""
         try:
             share_id = await ShareManager.get_share_id(context)
@@ -357,7 +356,7 @@ class ShareManager:
         content: str,
         sender_name: str,
         is_assistant: bool = False,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Appends a message to the coordinator conversation log.
@@ -372,7 +371,7 @@ class ShareManager:
                 content=content,
                 sender_name=sender_name,
                 is_assistant=is_assistant,
-                timestamp=timestamp or datetime.now(timezone.utc),
+                timestamp=timestamp or datetime.now(UTC),
             )
         except Exception as e:
             logger.error(f"Error appending coordinator message: {e}")
@@ -380,7 +379,7 @@ class ShareManager:
     @staticmethod
     async def get_coordinator_conversation(
         context: ConversationContext,
-    ) -> Optional[CoordinatorConversationMessages]:
+    ) -> CoordinatorConversationMessages | None:
         """
         Gets the coordinator conversation.
         """
@@ -394,8 +393,8 @@ class ShareManager:
         context: ConversationContext,
         entry_type: str,
         message: str,
-        related_entity_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        related_entity_id: str | None = None,
+        metadata: dict | None = None,
     ) -> None:
         """
         Logs an event to the knowledge transfer log.

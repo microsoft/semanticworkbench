@@ -6,7 +6,7 @@ share content to detect specific conditions, such as information request needs.
 """
 
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any
 
 import openai_client
 from openai.types.chat import ChatCompletionMessageParam
@@ -23,7 +23,7 @@ async def generate_team_welcome_message(
     """
     Generates a welcome message for the team based on the knowledge transfer information.
     """
-    debug: Dict[str, Any] = {}
+    debug: dict[str, Any] = {}
 
     config = await assistant_config.get(context.assistant)
 
@@ -66,8 +66,9 @@ async def generate_team_welcome_message(
     if knowledge_digest and knowledge_digest.content:
         knowledge_digest_text = dedent(f"""
             ### ASSISTANT KNOWLEDGE DIGEST - KEY KNOWLEDGE SHARE INFORMATION
-            The knowledge digest contains critical knowledge share information that has been automatically extracted from previous conversations.
-            It serves as a persistent memory of important facts, decisions, and context that you should reference when responding.
+            The knowledge digest contains critical knowledge share information that has been automatically 
+            extracted from previous conversations. It serves as a persistent memory of important facts, 
+            decisions, and context that you should reference when responding.
 
             Key characteristics of this knowledge digest:
             - It contains the most essential information about the knowledge share that should be readily available
@@ -94,7 +95,7 @@ async def generate_team_welcome_message(
             share_info = "\n\n## KNOWLEDGE SHARE INFORMATION\n\n" + "\n".join(share_data.values())
 
             instructions = f"{config.prompt_config.welcome_message_generation}\n\n{share_info}"
-            messages: List[ChatCompletionMessageParam] = [
+            messages: list[ChatCompletionMessageParam] = [
                 {"role": "system", "content": instructions},
             ]
 

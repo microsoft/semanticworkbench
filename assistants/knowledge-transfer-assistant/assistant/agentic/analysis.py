@@ -6,7 +6,7 @@ to detect specific conditions, such as information request needs.
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 import openai_client
 from openai.types.chat import ChatCompletionMessageParam
@@ -16,7 +16,7 @@ from assistant.config import assistant_config
 from assistant.logging import logger
 
 
-async def detect_information_request_needs(context: ConversationContext, message: str) -> Dict[str, Any]:
+async def detect_information_request_needs(context: ConversationContext, message: str) -> dict[str, Any]:
     """
     Analyze a user message in context of recent chat history to detect potential information request needs.
     Uses an LLM for sophisticated detection.
@@ -28,7 +28,7 @@ async def detect_information_request_needs(context: ConversationContext, message
     Returns:
         Dict with detection results including is_information_request, confidence, and other metadata
     """
-    debug: Dict[str, Any] = {
+    debug: dict[str, Any] = {
         "message": message,
         "context": context,
     }
@@ -85,7 +85,7 @@ async def detect_information_request_needs(context: ConversationContext, message
         # Create chat completion with history context
         async with openai_client.create_client(config.service_config) as client:
             # Prepare messages array with system prompt and chat history
-            messages: List[ChatCompletionMessageParam] = [
+            messages: list[ChatCompletionMessageParam] = [
                 {
                     "role": "system",
                     "content": config.prompt_config.share_information_request_detection,
@@ -145,7 +145,7 @@ async def detect_information_request_needs(context: ConversationContext, message
         debug["error"] = str(e)
         return {
             "is_information_request": False,
-            "reason": f"LLM detection error: {str(e)}",
+            "reason": f"LLM detection error: {e!s}",
             "confidence": 0.0,
             "debug": debug,
         }

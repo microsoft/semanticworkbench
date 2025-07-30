@@ -4,7 +4,7 @@ Progress tracking tools for Knowledge Transfer Assistant.
 Tools for tracking learning progress and completing knowledge transfer activities.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
@@ -37,8 +37,7 @@ class ProgressTrackingTools(ToolsBase):
         - When a milestone for one of the learning objectives has been achieved
         - When tracking progress and updating the transfer status
 
-        Each completed outcome moves the knowledge transfer closer to completion. When all outcomes
-        are achieved, the transfer can be marked as complete.
+        Each completed outcome moves the knowledge transfer closer to completion. When all outcomes are achieved, the transfer can be marked as complete.
 
         Args:
             objective_id: The UUID of the learning objective
@@ -46,7 +45,7 @@ class ProgressTrackingTools(ToolsBase):
 
         Returns:
             A message indicating success or failure
-        """
+        """  # noqa: E501
         try:
             share = await ShareManager.get_share(self.context)
             brief = share.brief
@@ -84,18 +83,18 @@ class ProgressTrackingTools(ToolsBase):
 
             # Create achievement record
             achievement = LearningOutcomeAchievement(
-                outcome_id=outcome.id, achieved=True, achieved_at=datetime.now(timezone.utc)
+                outcome_id=outcome.id, achieved=True, achieved_at=datetime.now(UTC)
             )
 
             # Add achievement to team conversation's achievements
             share.team_conversations[conversation_id].outcome_achievements.append(achievement)
 
             # Update team conversation's last active timestamp
-            share.team_conversations[conversation_id].last_active_at = datetime.now(timezone.utc)
+            share.team_conversations[conversation_id].last_active_at = datetime.now(UTC)
 
             # Update metadata
             current_user_id = await get_current_user_id(self.context)
-            share.updated_at = datetime.now(timezone.utc)
+            share.updated_at = datetime.now(UTC)
             share.updated_by = current_user_id
             share.version += 1
 
@@ -118,7 +117,7 @@ class ProgressTrackingTools(ToolsBase):
             await Notifications.notify_all(
                 self.context,
                 share.share_id,
-                f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
+                f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been achieved.",
             )
             await Notifications.notify_all_state_update(
                 self.context,
@@ -131,14 +130,14 @@ class ProgressTrackingTools(ToolsBase):
             if TransferManager._is_transfer_complete(share):
                 await self.context.send_messages(
                     NewConversationMessage(
-                        content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",
+                        content="🎉 All learning outcomes have been achieved! The knowledge transfer has been automatically marked as complete.",  # noqa: E501
                         message_type=MessageType.notice,
                     )
                 )
 
             await self.context.send_messages(
                 NewConversationMessage(
-                    content=f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",
+                    content=f"Learning outcome '{outcome.description}' for objective '{objective.name}' has been marked as achieved.",  # noqa: E501
                     message_type=MessageType.notice,
                 )
             )
@@ -159,13 +158,11 @@ class ProgressTrackingTools(ToolsBase):
         - When the learning objectives have been fully achieved
         - When it's time to formally conclude the knowledge transfer
 
-        This is a significant milestone that indicates the knowledge transfer has successfully
-        achieved all its learning objectives. Before using this tool, verify that all learning outcomes
-        have been marked as achieved.
+        This is a significant milestone that indicates the knowledge transfer has successfully achieved all its learning objectives. Before using this tool, verify that all learning outcomes have been marked as achieved.
 
         Returns:
             A message indicating success or failure
-        """
+        """  # noqa: E501
         try:
             share = await ShareManager.get_share(self.context)
 
@@ -178,7 +175,7 @@ class ProgressTrackingTools(ToolsBase):
                 )
 
             current_user_id = await get_current_user_id(self.context)
-            share.updated_at = datetime.now(timezone.utc)
+            share.updated_at = datetime.now(UTC)
             share.updated_by = current_user_id
             share.version += 1
             await ShareManager.set_share(self.context, share)
@@ -195,13 +192,13 @@ class ProgressTrackingTools(ToolsBase):
             await Notifications.notify_all(
                 self.context,
                 share.share_id,
-                "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",
+                "🎉 **Knowledge Transfer Complete**: Team has reported that all learning objectives have been achieved. The knowledge transfer is now complete.",  # noqa: E501
             )
             await Notifications.notify_all_state_update(self.context, share.share_id, [InspectorTab.BRIEF])
 
             await self.context.send_messages(
                 NewConversationMessage(
-                    content="🎉 **Knowledge Transfer Complete**: All learning objectives have been achieved and the knowledge transfer is now complete. The Coordinator has been notified.",
+                    content="🎉 **Knowledge Transfer Complete**: All learning objectives have been achieved and the knowledge transfer is now complete. The Coordinator has been notified.",  # noqa: E501
                     message_type=MessageType.chat,
                 )
             )

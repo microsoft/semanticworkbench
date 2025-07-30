@@ -5,8 +5,6 @@ This module provides shared functionality for team and coordinator conversation 
 helping to reduce code duplication and maintain consistency.
 """
 
-from typing import Dict, Optional
-
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .data import LogEntryType
@@ -17,8 +15,8 @@ async def log_transfer_action(
     context: ConversationContext,
     entry_type: LogEntryType,
     message: str,
-    related_entity_id: Optional[str] = None,
-    additional_metadata: Optional[Dict] = None,
+    related_entity_id: str | None = None,
+    additional_metadata: dict | None = None,
 ) -> None:
     """
     Log an action to the knowledge transfer log.

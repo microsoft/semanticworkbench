@@ -9,7 +9,6 @@ import asyncio
 import io
 import pathlib
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from semantic_workbench_api_model import workbench_model
@@ -60,7 +59,7 @@ class ShareFile(BaseModel):
 class ShareCollection(BaseModel):
     """Collection of file metadata for a share."""
 
-    files: List[ShareFile] = Field(default_factory=list)
+    files: list[ShareFile] = Field(default_factory=list)
 
 
 class ShareFilesManager:
@@ -178,7 +177,7 @@ class ShareFilesManager:
             # Write the file to share storage
             file_path = ShareFilesManager.get_file_path(share_id, file.filename)
             try:
-                with open(file_path, "wb") as f:
+                with file_path.open("wb") as f:
                     f.write(buffer.getvalue())
 
                 # Verify file was written
@@ -391,7 +390,7 @@ class ShareFilesManager:
 
             # Read the file content
             try:
-                with open(file_path, "rb") as f:
+                with file_path.open("rb") as f:
                     file_bytes = f.read()
 
                 if not file_bytes:
@@ -443,7 +442,7 @@ class ShareFilesManager:
             return False
 
     @staticmethod
-    async def get_team_conversations(context: ConversationContext, share_id: str) -> List[str]:
+    async def get_team_conversations(context: ConversationContext, share_id: str) -> list[str]:
         """
         Gets all Team conversation IDs for a share.
         """
@@ -470,7 +469,7 @@ class ShareFilesManager:
     @staticmethod
     async def create_temporary_context(
         source_context: ConversationContext, target_conversation_id: str
-    ) -> Optional[ConversationContext]:
+    ) -> ConversationContext | None:
         """
         Creates a temporary context for a target conversation.
         """
@@ -580,7 +579,7 @@ class ShareFilesManager:
             )
 
     @staticmethod
-    async def get_shared_files(context: ConversationContext, share_id: str) -> Dict[str, ShareFile]:
+    async def get_shared_files(context: ConversationContext, share_id: str) -> dict[str, ShareFile]:
         """
         Gets all shared files for a share with filename as key.
         """

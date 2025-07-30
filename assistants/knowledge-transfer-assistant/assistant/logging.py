@@ -7,11 +7,10 @@ including JSON formatting and file logging.
 
 import json
 import logging
-import os
 import platform
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -121,7 +120,7 @@ class JsonFormatter(logging.Formatter):
             return json.dumps(simple_record)
 
 
-def setup_file_logging(log_dir: Optional[str] = None) -> Path:
+def setup_file_logging(log_dir: str | None = None) -> Path:
     """
     Set up file logging with JSON formatting.
 
@@ -183,8 +182,8 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
         try:
             import stat
 
-            os.chmod(log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-            os.chmod(line_log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            Path(log_file).chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            Path(line_log_file).chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         except Exception as e:
             logger.warning(f"Could not set log file permissions: {e}")
             print(f"Permission error: {e}")
@@ -199,7 +198,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             current_file = Path(__file__)
             share_dir = current_file.parent.parent
             fallback_dir = share_dir / ".data" / "fallback_logs"
-            os.makedirs(fallback_dir, exist_ok=True)
+            Path(fallback_dir).mkdir(parents=True, exist_ok=True)
             log_file = Path(fallback_dir) / f"log_{timestamp}.json"
             line_log_file = Path(fallback_dir) / f"log_{timestamp}.log"
 
@@ -222,7 +221,7 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
     return log_file
 
 
-def extra_data(data: Any) -> Dict[str, Any]:
+def extra_data(data: Any) -> dict[str, Any]:
     """
     Helper function to prepare extra data for log messages.
 
@@ -250,4 +249,4 @@ def extra_data(data: Any) -> Dict[str, Any]:
 
 
 # Make extra_data available for import
-__all__ = ["setup_file_logging", "extra_data", "logger"]
+__all__ = ["extra_data", "logger", "setup_file_logging"]

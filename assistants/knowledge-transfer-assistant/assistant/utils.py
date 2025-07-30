@@ -6,7 +6,6 @@ codebase, helping to reduce code duplication and maintain consistency.
 """
 
 import pathlib
-from typing import Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -37,7 +36,7 @@ def load_text_include(filename) -> str:
 
 async def get_current_user(
     context: ConversationContext,
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     participants = await context.get_participants()
     user_id = None
     user_name = None

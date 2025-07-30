@@ -6,7 +6,7 @@ Provides direct access to knowledge transfer data with a clean, simple storage a
 
 import pathlib
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -89,7 +89,7 @@ class ShareStorage:
     """Unified storage operations for knowledge transfer share data."""
 
     @staticmethod
-    def read_share(share_id: str) -> Optional[KnowledgePackage]:
+    def read_share(share_id: str) -> KnowledgePackage | None:
         """Reads the complete KnowledgePackage data."""
         path = ShareStorageManager.get_share_path(share_id)
         return read_model(path, KnowledgePackage)
@@ -102,7 +102,7 @@ class ShareStorage:
         return path
 
     @staticmethod
-    def read_knowledge_brief(share_id: str) -> Optional[KnowledgeBrief]:
+    def read_knowledge_brief(share_id: str) -> KnowledgeBrief | None:
         """Reads the knowledge brief from the main share data."""
         package = ShareStorage.read_share(share_id)
         return package.brief if package else None
@@ -124,7 +124,7 @@ class ShareStorage:
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
-    def read_share_log(share_id: str) -> Optional[KnowledgePackageLog]:
+    def read_share_log(share_id: str) -> KnowledgePackageLog | None:
         path = ShareStorageManager.get_share_log_path(share_id)
         return read_model(path, KnowledgePackageLog)
 
@@ -135,14 +135,14 @@ class ShareStorage:
         return path
 
     @staticmethod
-    def read_knowledge_digest(share_id: str) -> Optional[KnowledgeDigest]:
+    def read_knowledge_digest(share_id: str) -> KnowledgeDigest | None:
         package = ShareStorage.read_share(share_id)
         return package.digest if package else None
 
     @staticmethod
     def read_coordinator_conversation(
         share_id: str,
-    ) -> Optional[CoordinatorConversationMessages]:
+    ) -> CoordinatorConversationMessages | None:
         path = ShareStorageManager.get_coordinator_conversation_path(share_id)
         return read_model(path, CoordinatorConversationMessages)
 
@@ -159,7 +159,7 @@ class ShareStorage:
         content: str,
         sender_name: str,
         is_assistant: bool = False,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Appends a message to the Coordinator conversation storage.
@@ -209,7 +209,7 @@ class ShareStorage:
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
-    def read_information_request(share_id: str, request_id: str) -> Optional[InformationRequest]:
+    def read_information_request(share_id: str, request_id: str) -> InformationRequest | None:
         """Reads an information request from the main share data."""
         package = ShareStorage.read_share(share_id)
         if not package or not package.requests:
@@ -255,7 +255,7 @@ class ShareStorage:
         return ShareStorage.write_share(share_id, package)
 
     @staticmethod
-    def get_all_information_requests(share_id: str) -> List[InformationRequest]:
+    def get_all_information_requests(share_id: str) -> list[InformationRequest]:
         """Gets all information requests from the main share data."""
         package = ShareStorage.read_share(share_id)
         if not package:
@@ -272,8 +272,8 @@ class ShareStorage:
         share_id: str,
         entry_type: str,
         message: str,
-        related_entity_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        related_entity_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """
         Logs an event to the knowledge transfer log.

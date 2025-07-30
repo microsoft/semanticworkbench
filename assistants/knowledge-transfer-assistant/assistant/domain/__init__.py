@@ -13,11 +13,11 @@ from .share_manager import ShareManager
 from .transfer_manager import TransferManager
 
 __all__ = [
-    "TransferManager",
+    "AudienceManager",
     "InformationRequestManager",
     "KnowledgeBriefManager",
     "KnowledgeDigestManager",
     "LearningObjectivesManager",
-    "AudienceManager",
     "ShareManager",
+    "TransferManager",
 ]

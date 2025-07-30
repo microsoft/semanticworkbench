@@ -6,7 +6,7 @@ communication between conversations. It provides utilities for creating temporar
 contexts and accessing other conversations.
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -35,7 +35,7 @@ class ConversationClientManager:
     @staticmethod
     async def get_coordinator_client_for_share(
         context: ConversationContext, share_id: str
-    ) -> Tuple[Optional[Any], Optional[str]]:
+    ) -> tuple[Any | None, str | None]:
         """
         Gets a client for accessing the Coordinator conversation for a knowledge transfer.
         """
@@ -70,7 +70,7 @@ class ConversationClientManager:
     @staticmethod
     async def create_temporary_context_for_conversation(
         source_context: ConversationContext, target_conversation_id: str
-    ) -> Optional[ConversationContext]:
+    ) -> ConversationContext | None:
         """
         Creates a temporary context for the target conversation ID.
         """

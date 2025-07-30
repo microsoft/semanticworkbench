@@ -39,7 +39,7 @@ class LearningOutcomeTools(ToolsBase):
             return message
         except Exception as e:
             logger.exception(f"Failed to add learning outcome: {e}")
-            return f"Failed to add learning outcome: {str(e)}"
+            return f"Failed to add learning outcome: {e!s}"
 
     async def update_learning_outcome(self, outcome_id: str, new_description: str) -> str:
         """
@@ -67,7 +67,7 @@ class LearningOutcomeTools(ToolsBase):
             return message
         except Exception as e:
             logger.exception(f"Failed to update learning outcome: {e}")
-            return f"Failed to update learning outcome: {str(e)}"
+            return f"Failed to update learning outcome: {e!s}"
 
     async def delete_learning_outcome(self, outcome_id: str) -> str:
         """
@@ -95,4 +95,4 @@ class LearningOutcomeTools(ToolsBase):
             return message
         except Exception as e:
             logger.exception(f"Failed to delete learning outcome: {e}")
-            return f"Failed to delete learning outcome: {str(e)}"
+            return f"Failed to delete learning outcome: {e!s}"

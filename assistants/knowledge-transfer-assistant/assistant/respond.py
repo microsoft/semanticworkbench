@@ -1,7 +1,7 @@
 import re
 import time
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, ClassVar
 
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
@@ -15,7 +15,7 @@ from openai.types.chat import (
 from openai_client import num_tokens_from_messages
 from openai_client.completion import message_content_from_completion
 from openai_client.tools import complete_with_tool_calls
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipantList,
@@ -58,18 +58,16 @@ class CoordinatorOutput(BaseModel):
     Attributes:
         response: The response from the assistant.
         next_step_suggestion: Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.
-    """
+    """  # noqa: E501
 
     response: str = Field(
-        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",
+        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",  # noqa: E501
     )
     next_step_suggestion: str = Field(
-        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the coordinator has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",
+        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the coordinator has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",  # noqa: E501
     )
 
-    model_config = {
-        "extra": "forbid"  # This sets additionalProperties=false in the schema
-    }
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
 
 class TeamOutput(BaseModel):
@@ -78,31 +76,29 @@ class TeamOutput(BaseModel):
         citations: A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.
         excerpt: A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or DIGEST, only from attachments. If there is no relevant excerpt, this will be None. If there is special formatting in the excerpt, remove it as the excerpt will be displayed in quotes in a chat message and should not contain any formatting that would not be supported in a chat message (e.g. markdown).
         next_step_suggestion: Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information.
-    """
+    """  # noqa: E501
 
     citations: list[str] = Field(
-        description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",
+        description="A list of citations from which the response is generated. There should always be at least one citation, but it can be empty if the assistant has no relevant information to cite.",  # noqa: E501
     )
     excerpt: str | None = Field(
-        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or KNOWLEDGE_DIGEST, only from attachments. If there is no relevant excerpt, this will be None. If there is special formatting in the excerpt, remove it as the excerpt will be displayed in quotes in a chat message and should not contain any formatting that would not be supported in a chat message (e.g. markdown).",
+        description="A verbatim excerpt from one of the cited works that illustrates why this response was given. It should have enough context to get a good idea of what's in that part of the cited work. DO NOT excerpt from CONVERSATION or KNOWLEDGE_DIGEST, only from attachments. If there is no relevant excerpt, this will be None. If there is special formatting in the excerpt, remove it as the excerpt will be displayed in quotes in a chat message and should not contain any formatting that would not be supported in a chat message (e.g. markdown).",  # noqa: E501
     )
     response: str = Field(
-        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",
+        description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",  # noqa: E501
     )
     next_step_suggestion: str = Field(
-        description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",
+        description="Suggest more areas to explore using content from the knowledge digest to ensure your conversation covers all of the relevant information. For example: 'Would you like to explore ... next?'.",  # noqa: E501
     )
 
-    model_config = {
-        "extra": "forbid"  # This sets additionalProperties=false in the schema
-    }
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
 
 async def respond_to_conversation(
     context: ConversationContext,
     new_message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> None:
     """
     Respond to a conversation message.
@@ -168,7 +164,7 @@ async def respond_to_conversation(
         context_strategy=ContextStrategy.MULTI,
     )
     if role == ConversationRole.TEAM:
-        prompt.output_format = "Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information."
+        prompt.output_format = "Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information."  # noqa: E501
 
     ###
     ### Context
@@ -210,7 +206,7 @@ async def respond_to_conversation(
     if role == ConversationRole.COORDINATOR and share and share.audience:
         audience_context = share.audience
         if not share.is_intended_to_accomplish_outcomes:
-            audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."
+            audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."  # noqa: E501
 
         prompt.contexts.append(
             Context(
@@ -238,7 +234,7 @@ async def respond_to_conversation(
                 achieved_personal, total_personal = LearningObjectivesManager.get_completion_for_conversation(
                     share, conversation_id
                 )
-                progress_pct = int((achieved_personal / total_personal * 100)) if total_personal > 0 else 0
+                progress_pct = int(achieved_personal / total_personal * 100) if total_personal > 0 else 0
                 learning_objectives_text += (
                     f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
                 )
@@ -251,7 +247,7 @@ async def respond_to_conversation(
                         # Show if achieved by any team member
                         achieved_by_any = any(
                             LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
-                            for conv_id in share.team_conversations.keys()
+                            for conv_id in share.team_conversations
                         )
                         check = "✅" if achieved_by_any else "⬜"
                     else:
@@ -360,7 +356,7 @@ async def respond_to_conversation(
     if coordinator_conversation:
         # Limit messages to the configured max token count.
         total_coordinator_conversation_tokens = 0
-        selected_coordinator_conversation_messages: List[CoordinatorConversationMessage] = []
+        selected_coordinator_conversation_messages: list[CoordinatorConversationMessage] = []
         for msg in reversed(coordinator_conversation.messages):
             tokens = openai_client.num_tokens_from_string(msg.model_dump_json(), model=model)
             if (
@@ -373,7 +369,7 @@ async def respond_to_conversation(
 
         # Create a new coordinator conversation system message with the selected messages.
         class CoordinatorMessageList(BaseModel):
-            messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
+            messages: list[CoordinatorConversationMessage] = Field(default_factory=list)
 
         selected_coordinator_conversation_messages.reverse()
         coordinator_message_list = CoordinatorMessageList(messages=selected_coordinator_conversation_messages)
@@ -400,7 +396,7 @@ async def respond_to_conversation(
     # in the proper flow of the conversation rather than as .
 
     # Generate the attachment messages.
-    attachment_messages: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
+    attachment_messages: list[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
         await attachments_extension.get_completion_messages_for_attachments(
             context,
             config=config.attachments_config,
@@ -486,7 +482,7 @@ async def respond_to_conversation(
             )
 
             if history_token_budget.fits(current_message_tokens):
-                history_messages = [current_message] + history_messages
+                history_messages = [current_message, *history_messages]
                 history_token_budget.add(current_message_tokens)
             else:
                 under_budget = False

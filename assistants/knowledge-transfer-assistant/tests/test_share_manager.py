@@ -5,14 +5,13 @@ Tests for the KnowledgeTransferManager functionality.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from semantic_workbench_assistant.assistant_app import ConversationContext
-
 from assistant.data import (
     KnowledgePackage,
     LearningObjective,
     LearningOutcome,
 )
 from assistant.domain import LearningObjectivesManager
+from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 class TestKnowledgeTransferManager:

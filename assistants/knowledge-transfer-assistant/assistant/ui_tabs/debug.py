@@ -2,8 +2,6 @@
 Debug inspector for internal assistant state and knowledge digest.
 """
 
-from typing import List
-
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     ConversationContext,
@@ -45,7 +43,7 @@ class DebugInspector:
     async def _format_debug_info(self, share_id: str, context: ConversationContext) -> str:
         """Format debug information including knowledge digest."""
 
-        lines: List[str] = []
+        lines: list[str] = []
 
         lines.append("## Debug Information")
         lines.append("")
@@ -85,7 +83,7 @@ class DebugInspector:
         except Exception as e:
             lines.append("## Knowledge Digest")
             lines.append("")
-            lines.append(f"**Error retrieving knowledge digest:** {str(e)}")
+            lines.append(f"**Error retrieving knowledge digest:** {e!s}")
             lines.append("")
 
         # Add share metadata for debugging
@@ -113,7 +111,7 @@ class DebugInspector:
         except Exception as e:
             lines.append("## Share Metadata")
             lines.append("")
-            lines.append(f"**Error retrieving share metadata:** {str(e)}")
+            lines.append(f"**Error retrieving share metadata:** {e!s}")
             lines.append("")
 
         return "\n".join(lines)

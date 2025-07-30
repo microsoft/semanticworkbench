@@ -8,7 +8,7 @@ without any artifact abstraction or unnecessary complexity.
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -68,7 +68,7 @@ class TeamConversationInfo(BaseModel):
     redeemer_name: str
     joined_at: datetime = Field(default_factory=datetime.utcnow)
     last_active_at: datetime = Field(default_factory=datetime.utcnow)
-    outcome_achievements: List[LearningOutcomeAchievement] = Field(default_factory=list)
+    outcome_achievements: list[LearningOutcomeAchievement] = Field(default_factory=list)
 
 
 class LearningOutcome(BaseModel):
@@ -81,13 +81,13 @@ class LearningObjective(BaseModel):
     name: str
     description: str
     priority: int = 1
-    learning_outcomes: List[LearningOutcome] = Field(default_factory=list)
+    learning_outcomes: list[LearningOutcome] = Field(default_factory=list)
 
 
 class KnowledgeBrief(BaseEntity):
     title: str
     content: str
-    timeline: Optional[str] = None
+    timeline: str | None = None
 
 
 class KnowledgeDigest(BaseEntity):
@@ -101,13 +101,13 @@ class InformationRequest(BaseEntity):
     description: str
     priority: RequestPriority = RequestPriority.MEDIUM
     status: RequestStatus = RequestStatus.NEW
-    related_objective_ids: List[str] = Field(default_factory=list)
-    resolution: Optional[str] = None
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
+    related_objective_ids: list[str] = Field(default_factory=list)
+    resolution: str | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
 
     # History of status updates and comments
-    updates: List[Dict[str, Any]] = Field(default_factory=list)
+    updates: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class LogEntryType(str, Enum):
@@ -154,46 +154,46 @@ class LogEntry(BaseModel):
     entry_type: LogEntryType
     user_id: str
     user_name: str
-    related_entity_id: Optional[str] = None
-    entity_type: Optional[str] = None
+    related_entity_id: str | None = None
+    entity_type: str | None = None
     message: str
-    metadata: Optional[Dict] = None
+    metadata: dict | None = None
 
 
 class KnowledgePackageLog(BaseModel):
-    entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
+    entries: list[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
 class KnowledgePackage(BaseModel):
     share_id: str
-    coordinator_conversation_id: Optional[str] = None
-    shared_conversation_id: Optional[str] = None
-    team_conversations: Dict[str, TeamConversationInfo] = Field(default_factory=dict)
-    share_url: Optional[str] = None
+    coordinator_conversation_id: str | None = None
+    shared_conversation_id: str | None = None
+    team_conversations: dict[str, TeamConversationInfo] = Field(default_factory=dict)
+    share_url: str | None = None
 
     version: int = 1
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: Optional[str] = None
+    updated_by: str | None = None
 
     # Package components
-    audience: Optional[str] = None
-    brief: Optional[KnowledgeBrief]
-    learning_objectives: List[LearningObjective] = Field(default_factory=list)
-    takeaways: List[str] = Field(default_factory=list)
-    preferred_communication_style: Optional[str] = None
-    transfer_notes: Optional[str] = None
-    digest: Optional[KnowledgeDigest]
+    audience: str | None = None
+    brief: KnowledgeBrief | None
+    learning_objectives: list[LearningObjective] = Field(default_factory=list)
+    takeaways: list[str] = Field(default_factory=list)
+    preferred_communication_style: str | None = None
+    transfer_notes: str | None = None
+    digest: KnowledgeDigest | None
 
     # Lifecycle
     is_intended_to_accomplish_outcomes: bool = True
-    next_learning_actions: List[str] = Field(default_factory=list)
-    transfer_lifecycle: Dict[str, Any] = Field(default_factory=dict)
+    next_learning_actions: list[str] = Field(default_factory=list)
+    transfer_lifecycle: dict[str, Any] = Field(default_factory=dict)
     knowledge_organized: bool = False
     archived: bool = False
-    requests: List[InformationRequest] = Field(default_factory=list)
+    requests: list[InformationRequest] = Field(default_factory=list)
 
-    log: Optional[KnowledgePackageLog] = Field(default_factory=lambda: KnowledgePackageLog())
+    log: KnowledgePackageLog | None = Field(default_factory=lambda: KnowledgePackageLog())
 
 
 class CoordinatorConversationMessage(BaseModel):
@@ -207,4 +207,4 @@ class CoordinatorConversationMessage(BaseModel):
 class CoordinatorConversationMessages(BaseModel):
     knowledge_share_id: str
     last_updated: datetime = Field(default_factory=datetime.utcnow)
-    messages: List[CoordinatorConversationMessage] = Field(default_factory=list)
+    messages: list[CoordinatorConversationMessage] = Field(default_factory=list)

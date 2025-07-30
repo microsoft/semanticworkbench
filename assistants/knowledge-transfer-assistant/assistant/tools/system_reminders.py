@@ -1,0 +1,1 @@
+kick_todo_usage = "The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Only use it if it's relevant to the current work."  # noqa: E501
