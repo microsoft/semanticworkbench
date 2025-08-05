@@ -5,8 +5,8 @@
 **Search:** ['workbench-service']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', 'devdb', 'migrations/versions']
 **Include:** ['pyproject.toml', 'alembic.ini', 'migrations/env.py']
-**Date:** 5/29/2025, 11:45:28 AM
-**Files:** 59
+**Date:** 8/5/2025, 4:43:26 PM
+**Files:** 60
 
 === File: workbench-service/.env.example ===
 # Description: Example of .env file
@@ -1377,6 +1377,51 @@ def upgrade() -> None:
         DELETE FROM assistant
         WHERE assistant_service_id = 'project-assistant.made-exploration'
         AND template_id = 'context_transfer'
+        """
+    )
+    op.execute(
+        """
+        UPDATE assistantparticipant
+        SET active_participant = false
+        WHERE assistant_id NOT IN (
+            SELECT assistant_id
+            FROM assistant
+        )
+        """
+    )
+
+
+def downgrade() -> None:
+    pass
+
+
+=== File: workbench-service/migrations/versions/2025_06_18_174328_503c739152f3_delete_knowlege_transfer_assistants.py ===
+"""delete knowlege-transfer-assistants
+
+Revision ID: 503c739152f3
+Revises: b2f86e981885
+Create Date: 2025-06-18 17:43:28.113154
+
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+
+
+# revision identifiers, used by Alembic.
+revision: str = "503c739152f3"
+down_revision: Union[str, None] = "b2f86e981885"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.execute(
+        """
+        DELETE FROM assistant
+        WHERE assistant_service_id = 'project-assistant.made-exploration'
+        AND template_id = 'knowledge_transfer'
         """
     )
     op.execute(
@@ -3504,6 +3549,9 @@ class AssistantServiceRegistrationController:
             ).first()
 
             if registration is None:
+                raise exceptions.NotFoundError()
+
+            if not registration.assistant_service_online:
                 raise exceptions.NotFoundError()
 
         return await (await self._client_pool.service_client(registration=registration)).get_service_info()

@@ -5,8 +5,8 @@
 **Search:** ['libraries/python/assistant-extensions', 'libraries/python/mcp-extensions', 'libraries/python/mcp-tunnel', 'libraries/python/content-safety']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:45:28 AM
-**Files:** 79
+**Date:** 8/5/2025, 4:43:26 PM
+**Files:** 92
 
 === File: README.md ===
 # Semantic Workbench
@@ -950,10 +950,16 @@ class Artifact(BaseModel):
 
 
 === File: libraries/python/assistant-extensions/assistant_extensions/attachments/__init__.py ===
-from ._attachments import AttachmentProcessingErrorHandler, AttachmentsExtension
+from ._attachments import AttachmentProcessingErrorHandler, AttachmentsExtension, get_attachments
 from ._model import Attachment, AttachmentsConfigModel
 
-__all__ = ["AttachmentsExtension", "AttachmentsConfigModel", "Attachment", "AttachmentProcessingErrorHandler"]
+__all__ = [
+    "AttachmentsExtension",
+    "AttachmentsConfigModel",
+    "Attachment",
+    "AttachmentProcessingErrorHandler",
+    "get_attachments",
+]
 
 
 === File: libraries/python/assistant-extensions/assistant_extensions/attachments/_attachments.py ===
@@ -964,7 +970,7 @@ import logging
 from typing import Any, Awaitable, Callable, Sequence
 
 import openai_client
-from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
+from assistant_drive import IfDriveFileExistsBehavior
 from llm_client.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -976,11 +982,17 @@ from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
     AssistantCapability,
     ConversationContext,
-    storage_directory_for_context,
 )
 
 from . import _convert as convert
-from ._model import Attachment, AttachmentsConfigModel
+from ._model import Attachment, AttachmentsConfigModel, AttachmentSummary, Summarizer
+from ._shared import (
+    attachment_drive_for_context,
+    attachment_to_original_filename,
+    original_to_attachment_filename,
+    summary_drive_for_context,
+)
+from ._summarizer import get_attachment_summary, summarize_attachment_task
 
 logger = logging.getLogger(__name__)
 
@@ -1058,17 +1070,6 @@ class AttachmentsExtension:
 
         # listen for file events for to pro-actively update and delete attachments
 
-        @assistant.events.conversation.file.on_created_including_mine
-        @assistant.events.conversation.file.on_updated_including_mine
-        async def on_file_created_or_updated(
-            context: ConversationContext, event: ConversationEvent, file: File
-        ) -> None:
-            """
-            Cache an attachment when a file is created or updated in the conversation.
-            """
-
-            await _get_attachment_for_file(context, file, {}, error_handler=self._error_handler)
-
         @assistant.events.conversation.file.on_deleted_including_mine
         async def on_file_deleted(context: ConversationContext, event: ConversationEvent, file: File) -> None:
             """
@@ -1082,8 +1083,9 @@ class AttachmentsExtension:
         self,
         context: ConversationContext,
         config: AttachmentsConfigModel,
-        include_filenames: list[str] | None = None,
+        include_filenames: list[str] = [],
         exclude_filenames: list[str] = [],
+        summarizer: Summarizer | None = None,
     ) -> Sequence[CompletionMessage]:
         """
         Generate user messages for each attachment that includes the filename and content.
@@ -1101,11 +1103,12 @@ class AttachmentsExtension:
         """
 
         # get attachments, filtered by include_filenames and exclude_filenames
-        attachments = await _get_attachments(
+        attachments = await get_attachments(
             context,
             error_handler=self._error_handler,
             include_filenames=include_filenames,
             exclude_filenames=exclude_filenames,
+            summarizer=summarizer,
         )
 
         if not attachments:
@@ -1122,23 +1125,20 @@ class AttachmentsExtension:
     async def get_attachment_filenames(
         self,
         context: ConversationContext,
-        include_filenames: list[str] | None = None,
+        include_filenames: list[str] = [],
         exclude_filenames: list[str] = [],
     ) -> list[str]:
-        # get attachments, filtered by include_filenames and exclude_filenames
-        attachments = await _get_attachments(
-            context,
-            error_handler=self._error_handler,
-            include_filenames=include_filenames,
-            exclude_filenames=exclude_filenames,
-        )
+        files_response = await context.list_files()
 
-        if not attachments:
-            return []
+        # for all files, get the attachment
+        for file in files_response.files:
+            if include_filenames and file.filename not in include_filenames:
+                continue
+            if file.filename in exclude_filenames:
+                continue
 
-        filenames: list[str] = []
-        for attachment in attachments:
-            filenames.append(attachment.filename)
+        # delete cached attachments that are no longer in the conversation
+        filenames = list({file.filename for file in files_response.files})
 
         return filenames
 
@@ -1186,12 +1186,17 @@ def _create_message(preferred_message_role: str, content: str) -> CompletionMess
             raise ValueError(f"unsupported preferred_message_role: {preferred_message_role}")
 
 
-async def _get_attachments(
+async def default_error_handler(context: ConversationContext, filename: str, e: Exception) -> None:
+    logger.exception("error reading file %s", filename, exc_info=e)
+
+
+async def get_attachments(
     context: ConversationContext,
-    error_handler: AttachmentProcessingErrorHandler,
-    include_filenames: list[str] | None,
-    exclude_filenames: list[str],
-) -> Sequence[Attachment]:
+    exclude_filenames: list[str] = [],
+    include_filenames: list[str] = [],
+    error_handler: AttachmentProcessingErrorHandler = default_error_handler,
+    summarizer: Summarizer | None = None,
+) -> list[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.
     """
@@ -1199,34 +1204,41 @@ async def _get_attachments(
     # get all files in the conversation
     files_response = await context.list_files()
 
+    # delete cached attachments that are no longer in the conversation
+    filenames = {file.filename for file in files_response.files}
+    asyncio.create_task(_delete_attachments_not_in(context, filenames))
+
     attachments = []
     # for all files, get the attachment
     for file in files_response.files:
-        if include_filenames is not None and file.filename not in include_filenames:
+        if include_filenames and file.filename not in include_filenames:
             continue
         if file.filename in exclude_filenames:
             continue
 
-        attachment = await _get_attachment_for_file(context, file, {}, error_handler)
+        attachment = await _get_attachment_for_file(context, file, {}, error_handler, summarizer=summarizer)
         attachments.append(attachment)
-
-    # delete cached attachments that are no longer in the conversation
-    filenames = {file.filename for file in files_response.files}
-    await _delete_attachments_not_in(context, filenames)
 
     return attachments
 
 
 async def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]) -> None:
     """Deletes cached attachments that are not in the filenames argument."""
-    drive = _attachment_drive_for_context(context)
+    drive = attachment_drive_for_context(context)
+    summary_drive = summary_drive_for_context(context)
     for attachment_filename in drive.list():
-        original_file_name = _attachment_to_original_filename(attachment_filename)
+        if attachment_filename == "summaries":
+            continue
+
+        original_file_name = attachment_to_original_filename(attachment_filename)
         if original_file_name in filenames:
             continue
 
         with contextlib.suppress(FileNotFoundError):
             drive.delete(attachment_filename)
+
+        with contextlib.suppress(FileNotFoundError):
+            summary_drive.delete(attachment_filename)
 
         await _delete_lock_for_context_file(context, original_file_name)
 
@@ -1256,91 +1268,133 @@ async def _lock_for_context_file(context: ConversationContext, filename: str) ->
         return _file_locks[key]
 
 
-def _original_to_attachment_filename(filename: str) -> str:
-    return filename + ".json"
-
-
-def _attachment_to_original_filename(filename: str) -> str:
-    return filename.removesuffix(".json")
-
-
 async def _get_attachment_for_file(
-    context: ConversationContext, file: File, metadata: dict[str, Any], error_handler: AttachmentProcessingErrorHandler
+    context: ConversationContext,
+    file: File,
+    metadata: dict[str, Any],
+    error_handler: AttachmentProcessingErrorHandler,
+    summarizer: Summarizer | None = None,
 ) -> Attachment:
     """
     Get the attachment for the file. If the attachment is not cached, or the file is
     newer than the cached attachment, the text content of the file will be extracted
     and the cache will be updated.
     """
-    drive = _attachment_drive_for_context(context)
 
     # ensure that only one async task is updating the attachment for the file
     file_lock = await _lock_for_context_file(context, file.filename)
     async with file_lock:
-        with contextlib.suppress(FileNotFoundError):
-            attachment = drive.read_model(Attachment, _original_to_attachment_filename(file.filename))
-
-            if attachment.updated_datetime.timestamp() >= file.updated_datetime.timestamp():
-                # if the attachment is up-to-date, return it
-                return attachment
-
-        content = ""
-        error = ""
-        # process the file to create an attachment
-        async with context.set_status(f"updating attachment {file.filename}..."):
-            try:
-                # read the content of the file
-                file_bytes = await _read_conversation_file(context, file)
-                # convert the content of the file to a string
-                content = await convert.bytes_to_str(file_bytes, filename=file.filename)
-            except Exception as e:
-                await error_handler(context, file.filename, e)
-                error = f"error processing file: {e}"
-
-        attachment = Attachment(
-            filename=file.filename,
-            content=content,
+        attachment = await _get_or_update_attachment(
+            context=context,
+            file=file,
             metadata=metadata,
-            updated_datetime=file.updated_datetime,
-            error=error,
-        )
-        drive.write_model(
-            attachment, _original_to_attachment_filename(file.filename), if_exists=IfDriveFileExistsBehavior.OVERWRITE
+            error_handler=error_handler,
         )
 
-        completion_message = _create_message_for_attachment(preferred_message_role="system", attachment=attachment)
-        openai_completion_messages = openai_client.messages.convert_from_completion_messages([completion_message])
-        token_count = openai_client.num_tokens_from_message(openai_completion_messages[0], model="gpt-4o")
+        summary = AttachmentSummary(summary="")
+        if summarizer:
+            summary = await _get_or_update_attachment_summary(
+                context=context,
+                attachment=attachment,
+                summarizer=summarizer,
+            )
 
-        # update the conversation token count based on the token count of the latest version of this file
-        prior_token_count = file.metadata.get("token_count", 0)
-        conversation = await context.get_conversation()
-        token_counts = conversation.metadata.get("token_counts", {})
-        if token_counts:
-            total = token_counts.get("total", 0)
-            total += token_count - prior_token_count
-            await context.update_conversation({
-                "token_counts": {
-                    **token_counts,
-                    "total": total,
-                },
-            })
+    return attachment.model_copy(update={"summary": summary})
 
-        await context.update_file(
-            file.filename,
-            metadata={
-                "token_count": token_count,
+
+async def _get_or_update_attachment(
+    context: ConversationContext, file: File, metadata: dict[str, Any], error_handler: AttachmentProcessingErrorHandler
+) -> Attachment:
+    drive = attachment_drive_for_context(context)
+
+    with contextlib.suppress(FileNotFoundError):
+        attachment = drive.read_model(Attachment, original_to_attachment_filename(file.filename))
+
+        if attachment.updated_datetime.timestamp() >= file.updated_datetime.timestamp():
+            # if the attachment is up-to-date, return it
+            return attachment
+
+    content = ""
+    error = ""
+    # process the file to create an attachment
+    async with context.set_status(f"updating attachment {file.filename}..."):
+        try:
+            # read the content of the file
+            file_bytes = await _read_conversation_file(context, file)
+            # convert the content of the file to a string
+            content = await convert.bytes_to_str(file_bytes, filename=file.filename)
+        except Exception as e:
+            await error_handler(context, file.filename, e)
+            error = f"error processing file: {e}"
+
+    attachment = Attachment(
+        filename=file.filename,
+        content=content,
+        metadata=metadata,
+        updated_datetime=file.updated_datetime,
+        error=error,
+    )
+    drive.write_model(
+        attachment, original_to_attachment_filename(file.filename), if_exists=IfDriveFileExistsBehavior.OVERWRITE
+    )
+
+    completion_message = _create_message_for_attachment(preferred_message_role="system", attachment=attachment)
+    openai_completion_messages = openai_client.messages.convert_from_completion_messages([completion_message])
+    token_count = openai_client.num_tokens_from_message(openai_completion_messages[0], model="gpt-4o")
+
+    # update the conversation token count based on the token count of the latest version of this file
+    prior_token_count = file.metadata.get("token_count", 0)
+    conversation = await context.get_conversation()
+    token_counts = conversation.metadata.get("token_counts", {})
+    if token_counts:
+        total = token_counts.get("total", 0)
+        total += token_count - prior_token_count
+        await context.update_conversation({
+            "token_counts": {
+                **token_counts,
+                "total": total,
             },
+        })
+
+    await context.update_file(
+        file.filename,
+        metadata={
+            "token_count": token_count,
+        },
+    )
+
+    return attachment
+
+
+async def _get_or_update_attachment_summary(
+    context: ConversationContext, attachment: Attachment, summarizer: Summarizer
+) -> AttachmentSummary:
+    attachment_summary = await get_attachment_summary(
+        context=context,
+        filename=attachment.filename,
+    )
+    if attachment_summary.updated_datetime.timestamp() < attachment.updated_datetime.timestamp():
+        # if the summary is not up-to-date, schedule a task to update it
+        asyncio.create_task(
+            summarize_attachment_task(
+                context=context,
+                summarizer=summarizer,
+                attachment=attachment,
+            )
         )
 
-        return attachment
+    return attachment_summary
 
 
 async def _delete_attachment_for_file(context: ConversationContext, file: File) -> None:
-    drive = _attachment_drive_for_context(context)
+    drive = attachment_drive_for_context(context)
 
     with contextlib.suppress(FileNotFoundError):
         drive.delete(file.filename)
+
+    summary_drive = summary_drive_for_context(context)
+    with contextlib.suppress(FileNotFoundError):
+        summary_drive.delete(file.filename)
 
     await _delete_lock_for_context_file(context, file.filename)
 
@@ -1366,14 +1420,6 @@ async def _delete_attachment_for_file(context: ConversationContext, file: File) 
             "total": total,
         },
     })
-
-
-def _attachment_drive_for_context(context: ConversationContext) -> Drive:
-    """
-    Get the Drive instance for the attachments.
-    """
-    drive_root = storage_directory_for_context(context) / "attachments"
-    return Drive(DriveConfig(root=drive_root))
 
 
 async def _read_conversation_file(context: ConversationContext, file: File) -> bytes:
@@ -1469,7 +1515,7 @@ def _image_bytes_to_str(file_bytes: bytes, file_extension: str) -> str:
 
 === File: libraries/python/assistant-extensions/assistant_extensions/attachments/_model.py ===
 import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
@@ -1502,194 +1548,1207 @@ class Attachment(BaseModel):
     filename: str
     content: str = ""
     error: str = ""
+    summary: str = ""
     metadata: dict[str, Any] = {}
     updated_datetime: datetime.datetime = Field(default=datetime.datetime.fromtimestamp(0, datetime.timezone.utc))
 
 
-=== File: libraries/python/assistant-extensions/assistant_extensions/attachments/tests/test_attachments.py ===
-import base64
+class AttachmentSummary(BaseModel):
+    """
+    A model representing a summary of an attachment.
+    """
+
+    summary: str
+    updated_datetime: datetime.datetime = Field(default=datetime.datetime.fromtimestamp(0, datetime.timezone.utc))
+
+
+class Summarizer(Protocol):
+    """
+    A protocol for a summarizer that can summarize attachment content.
+    """
+
+    async def summarize(self, attachment: Attachment) -> str:
+        """
+        Summarize the content of the attachment.
+        Returns the summary.
+        """
+        ...
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/attachments/_shared.py ===
+from assistant_drive import Drive, DriveConfig
+from semantic_workbench_assistant.assistant_app import (
+    ConversationContext,
+    storage_directory_for_context,
+)
+
+
+def attachment_drive_for_context(context: ConversationContext) -> Drive:
+    """
+    Get the Drive instance for the attachments.
+    """
+    drive_root = storage_directory_for_context(context) / "attachments"
+    return Drive(DriveConfig(root=drive_root))
+
+
+def summary_drive_for_context(context: ConversationContext) -> Drive:
+    """
+    Get the path to the summary drive for the attachments.
+    """
+    return attachment_drive_for_context(context).subdrive("summaries")
+
+
+def original_to_attachment_filename(filename: str) -> str:
+    return filename + ".json"
+
+
+def attachment_to_original_filename(filename: str) -> str:
+    return filename.removesuffix(".json")
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/attachments/_summarizer.py ===
 import datetime
-import pathlib
-import uuid
-from contextlib import asynccontextmanager
-from tempfile import TemporaryDirectory
-from typing import Any, AsyncGenerator, AsyncIterator, Callable, Iterable
-from unittest import mock
+import logging
+from typing import Callable
 
-import httpx
-import pytest
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from llm_client.model import (
-    CompletionMessage,
-    CompletionMessageImageContent,
-    CompletionMessageTextContent,
+from attr import dataclass
+from openai import AsyncOpenAI
+from openai.types.chat import (
+    ChatCompletionContentPartImageParam,
+    ChatCompletionContentPartTextParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
 )
-from openai.types.chat import ChatCompletionMessageParam
-from semantic_workbench_api_model.workbench_model import Conversation, File, FileList, ParticipantRole
-from semantic_workbench_assistant import settings
-from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ._model import Attachment, AttachmentSummary, Summarizer
+from ._shared import original_to_attachment_filename, summary_drive_for_context
+
+logger = logging.getLogger("assistant_extensions.attachments")
 
 
-@pytest.mark.parametrize(
-    ("filenames_with_bytes", "expected_messages"),
-    [
-        ({}, []),
-        (
-            {
-                "file1.txt": lambda: b"file 1",
-                "file2.txt": lambda: b"file 2",
-            },
-            [
-                CompletionMessage(
-                    role="system",
-                    content=AttachmentsConfigModel().context_description,
-                ),
-                CompletionMessage(
-                    role="system",
-                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><CONTENT>file 1</CONTENT></ATTACHMENT>",
-                ),
-                CompletionMessage(
-                    role="system",
-                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
-                ),
-            ],
-        ),
-        (
-            {
-                "file1.txt": lambda: (_ for _ in ()).throw(RuntimeError("file 1 error")),
-                "file2.txt": lambda: b"file 2",
-            },
-            [
-                CompletionMessage(
-                    role="system",
-                    content=AttachmentsConfigModel().context_description,
-                ),
-                CompletionMessage(
-                    role="system",
-                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><ERROR>error processing file: file 1 error</ERROR><CONTENT></CONTENT></ATTACHMENT>",
-                ),
-                CompletionMessage(
-                    role="system",
-                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
-                ),
-            ],
-        ),
-        (
-            {
-                "img.png": lambda: base64.b64decode(
-                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-                ),
-            },
-            [
-                CompletionMessage(
-                    role="system",
-                    content=AttachmentsConfigModel().context_description,
-                ),
-                CompletionMessage(
-                    role="user",
-                    content=[
-                        CompletionMessageTextContent(
-                            type="text",
-                            text="<ATTACHMENT><FILENAME>img.png</FILENAME><IMAGE>",
-                        ),
-                        CompletionMessageImageContent(
-                            type="image",
-                            media_type="image/png",
-                            data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-                        ),
-                        CompletionMessageTextContent(
-                            type="text",
-                            text="</IMAGE></ATTACHMENT>",
-                        ),
-                    ],
-                ),
-            ],
-        ),
-    ],
-)
-async def test_get_completion_messages_for_attachments(
-    filenames_with_bytes: dict[str, Callable[[], bytes]],
-    expected_messages: list[ChatCompletionMessageParam],
-    temporary_storage_directory: pathlib.Path,
+async def get_attachment_summary(context: ConversationContext, filename: str) -> AttachmentSummary:
+    """
+    Get the summary of the attachment from the summary drive.
+    If the summary file does not exist, returns None.
+    """
+    drive = summary_drive_for_context(context)
+
+    try:
+        return drive.read_model(AttachmentSummary, original_to_attachment_filename(filename))
+
+    except FileNotFoundError:
+        # If the summary file does not exist, return None
+        return AttachmentSummary(
+            summary="",
+        )
+
+
+async def summarize_attachment_task(
+    context: ConversationContext, summarizer: Summarizer, attachment: Attachment
 ) -> None:
-    mock_assistant_app = mock.MagicMock(spec=AssistantAppProtocol)
+    """
+    Summarize the attachment and save the summary to the summary drive.
+    """
 
-    assistant_id = uuid.uuid4()
+    logger.info("summarizing attachment; filename: %s", attachment.filename)
 
-    mock_conversation_context = mock.MagicMock(
-        spec=ConversationContext(
-            id="conversation_id",
-            title="conversation_title",
-            assistant=AssistantContext(
-                id=str(assistant_id),
-                name="assistant_name",
-                _assistant_service_id="assistant_id",
-                _template_id="",
+    summary = await summarizer.summarize(attachment=attachment)
+
+    attachment_summary = AttachmentSummary(summary=summary, updated_datetime=datetime.datetime.now(datetime.UTC))
+
+    drive = summary_drive_for_context(context)
+    # Save the summary
+    drive.write_model(attachment_summary, original_to_attachment_filename(attachment.filename))
+
+    logger.info("summarization of attachment complete; filename: %s", attachment.filename)
+
+
+@dataclass
+class LLMConfig:
+    client_factory: Callable[[], AsyncOpenAI]
+    model: str
+    max_response_tokens: int
+
+    file_summary_system_message: str = """You will be provided the content of a file.
+It is your goal to factually, accurately, and concisely summarize the content of the file.
+You must do so in less than 3 sentences or 100 words."""
+
+
+class LLMFileSummarizer(Summarizer):
+    def __init__(self, llm_config: LLMConfig) -> None:
+        self.llm_config = llm_config
+
+    async def summarize(self, attachment: Attachment) -> str:
+        llm_config = self.llm_config
+
+        content_param = ChatCompletionContentPartTextParam(type="text", text=attachment.content)
+        if attachment.content.startswith("data:image/"):
+            # If the content is an image, we need to provide a different message format
+            content_param = ChatCompletionContentPartImageParam(
+                type="image_url",
+                image_url={"url": attachment.content},
+            )
+
+        chat_message_params = [
+            ChatCompletionSystemMessageParam(role="system", content=llm_config.file_summary_system_message),
+            ChatCompletionUserMessageParam(
+                role="user",
+                content=[
+                    ChatCompletionContentPartTextParam(
+                        type="text",
+                        text=f"Filename: {attachment.filename}",
+                    ),
+                    content_param,
+                    ChatCompletionContentPartTextParam(
+                        type="text",
+                        text="Please concisely and accurately summarize the file contents.",
+                    ),
+                ],
             ),
-            httpx_client=httpx.AsyncClient(),
+        ]
+
+        async with llm_config.client_factory() as client:
+            summary_response = await client.chat.completions.create(
+                messages=chat_message_params,
+                model=llm_config.model,
+                max_tokens=llm_config.max_response_tokens,
+            )
+
+        return summary_response.choices[0].message.content or ""
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/__init__.py ===
+"""Assistant extension for integrating the chat context toolkit."""
+
+from ._config import ChatContextConfigModel
+
+__all__ = [
+    "ChatContextConfigModel",
+]
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/_config.py ===
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+
+
+class ChatContextConfigModel(BaseModel):
+    """
+    Configuration model for chat context toolkit settings. This model is provided as a convenience for assistants
+    that want to use the chat context toolkit features, and provide configuration for users to edit.
+    Assistants can leverage this model by adding a field of this type to their configuration model.
+
+    ex:
+    ```python
+    class MyAssistantConfig(BaseModel):
+        chat_context: ChatContextConfigModel = ChatContextConfigModel()
+    ```
+    """
+
+    high_priority_token_count: Annotated[
+        int,
+        Field(
+            title="High Priority Token Count",
+            description="The number of tokens to consider high priority when abbreviating message history.",
+        ),
+    ] = 30_000
+
+    archive_token_threshold: Annotated[
+        int,
+        Field(
+            title="Token threshold for conversation archiving",
+            description="The number of tokens to include in archive chunks when archiving the conversation history.",
+        ),
+    ] = 20_000
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/archive/__init__.py ===
+"""
+Provides the ArchiveTaskQueues class, for integrating with the chat context toolkit's archiving functionality.
+"""
+
+from ._archive import ArchiveTaskQueues, construct_archive_summarizer
+
+__all__ = [
+    "ArchiveTaskQueues",
+    "construct_archive_summarizer",
+]
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/archive/_archive.py ===
+from pathlib import PurePath
+
+from chat_context_toolkit.archive import ArchiveReader, ArchiveTaskConfig, ArchiveTaskQueue, StorageProvider
+from chat_context_toolkit.archive import MessageProvider as ArchiveMessageProvider
+from chat_context_toolkit.archive.summarization import LLMArchiveSummarizer, LLMArchiveSummarizerConfig
+from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
+from openai_client.tokens import num_tokens_from_messages
+from semantic_workbench_assistant.assistant_app import ConversationContext, storage_directory_for_context
+
+from assistant_extensions.attachments._model import Attachment
+
+from ..message_history import chat_context_toolkit_message_provider_for
+
+
+class ArchiveStorageProvider(StorageProvider):
+    """
+    Storage provider implementation for archiving messages in workbench assistants.
+    This provider reads and writes text files in a specified sub-directory of the storage directory for a conversation context.
+    """
+
+    def __init__(self, context: ConversationContext, sub_directory: str):
+        self.root_path = storage_directory_for_context(context) / sub_directory
+
+    async def read_text_file(self, relative_file_path: PurePath) -> str | None:
+        """
+        Read a text file from the archive storage.
+        :param relative_file_path: The path to the file relative to the archive root.
+        :return: The content of the file as a string, or None if the file does not exist.
+        """
+        path = self.root_path / relative_file_path
+        try:
+            return path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            # If the file does not exist, we return None
+            return None
+
+    async def write_text_file(self, relative_file_path: PurePath, content: str) -> None:
+        path = self.root_path / relative_file_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    async def list_files(self, relative_directory_path: PurePath) -> list[PurePath]:
+        path = self.root_path / relative_directory_path
+        if not path.exists() or not path.is_dir():
+            return []
+        return [file.relative_to(self.root_path) for file in path.iterdir()]
+
+
+def archive_message_provider_for(
+    context: ConversationContext,
+    attachments: list[Attachment],
+) -> ArchiveMessageProvider:
+    """Create an archive message provider for the provided context."""
+    return chat_context_toolkit_message_provider_for(
+        context=context,
+        attachments=attachments,
+    )
+
+
+def construct_archive_summarizer(
+    service_config: ServiceConfig,
+    request_config: OpenAIRequestConfig,
+) -> LLMArchiveSummarizer:
+    return LLMArchiveSummarizer(
+        client_factory=lambda: create_client(service_config),
+        llm_config=LLMArchiveSummarizerConfig(model=request_config.model),
+    )
+
+
+def _archive_task_queue_for(
+    context: ConversationContext,
+    attachments: list[Attachment],
+    archive_summarizer: LLMArchiveSummarizer,
+    archive_task_config: ArchiveTaskConfig = ArchiveTaskConfig(),
+    token_counting_model: str = "gpt-4o",
+    archive_storage_sub_directory: str = "archives",
+) -> ArchiveTaskQueue:
+    """
+    Create an archive task queue for the conversation context.
+    """
+    return ArchiveTaskQueue(
+        storage_provider=ArchiveStorageProvider(context=context, sub_directory=archive_storage_sub_directory),
+        message_provider=archive_message_provider_for(
+            context=context,
+            attachments=attachments,
+        ),
+        token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=token_counting_model),
+        summarizer=archive_summarizer,
+        config=archive_task_config,
+    )
+
+
+class ArchiveTaskQueues:
+    """
+    ArchiveTaskQueues manages multiple ArchiveTaskQueue instances, one for each conversation context.
+    """
+
+    def __init__(self) -> None:
+        self._queues: dict[str, ArchiveTaskQueue] = {}
+
+    async def enqueue_run(
+        self,
+        context: ConversationContext,
+        attachments: list[Attachment],
+        archive_summarizer: LLMArchiveSummarizer,
+        archive_task_config: ArchiveTaskConfig = ArchiveTaskConfig(),
+    ) -> None:
+        """Get the archive task queue for the given context, creating it if it does not exist."""
+        context_id = context.id
+        if context_id not in self._queues:
+            self._queues[context_id] = _archive_task_queue_for(
+                context=context,
+                attachments=attachments,
+                archive_summarizer=archive_summarizer,
+                archive_task_config=archive_task_config,
+            )
+        await self._queues[context_id].enqueue_run()
+
+
+def archive_reader_for(context: ConversationContext, archive_storage_sub_directory: str = "archives") -> ArchiveReader:
+    """
+    Create an ArchiveReader for the provided conversation context.
+    """
+    return ArchiveReader(
+        storage_provider=ArchiveStorageProvider(context=context, sub_directory=archive_storage_sub_directory),
+    )
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/archive/_summarizer.py ===
+from typing import cast
+
+from chat_context_toolkit.history import OpenAIHistoryMessageParam
+from openai.types.chat import (
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
+
+SUMMARY_GENERATION_PROMPT = """You are summarizing portions of a conversation so they can be easily retrieved. \
+You must focus on what the user role wanted, preferred, and any critical information that they shared. \
+Always prefer to include information from the user than from any other role. \
+Include the content from other roles only as much as necessary to provide the necessary content.
+Instead of saying "you said" or "the user said", be specific and use the roles or names to indicate who said what. \
+Include the key topics or things that were done.
+
+The summary should be at most four sentences, factual, and free from making anything up or inferences that you are not completely sure about."""
+
+
+async def _compute_chunk_summary(
+    oai_messages: list[ChatCompletionMessageParam], service_config: ServiceConfig, request_config: OpenAIRequestConfig
+) -> str:
+    """
+    Compute a summary for a chunk of messages.
+    """
+    conversation_text = convert_oai_messages_to_xml(oai_messages)
+    summary_messages = [
+        ChatCompletionSystemMessageParam(role="system", content=SUMMARY_GENERATION_PROMPT),
+        ChatCompletionUserMessageParam(
+            role="user",
+            content=f"{conversation_text}\n\nPlease summarize the conversation above according to your instructions.",
+        ),
+    ]
+
+    async with create_client(service_config) as client:
+        summary_response = await client.chat.completions.create(
+            messages=summary_messages,
+            model=request_config.model,
+            max_tokens=request_config.response_tokens,
+        )
+
+    summary = summary_response.choices[0].message.content or ""
+    return summary
+
+
+def convert_oai_messages_to_xml(oai_messages: list[ChatCompletionMessageParam]) -> str:
+    """
+    Converts OpenAI messages to an XML-like formatted string.
+    Example:
+    <conversation>
+    <message role="user">
+    message content here
+    </message>
+    <message role="assistant">
+    message content here
+    <toolcall name="tool_name">
+    tool arguments here
+    </toolcall>
+    </message>
+    <message role="tool">
+    tool content here
+    </message>
+    <message role="user">
+    <content>
+    content here
+    </content>
+    <content>
+    content here
+    </content>
+    </message>
+    </conversation>
+    """
+    xml_parts = ["<conversation>"]
+    for msg in oai_messages:
+        role = msg.get("role", "")
+        xml_parts.append(f'<message role="{role}"')
+
+        match msg:
+            case {"role": "assistant"}:
+                content = msg.get("content")
+                match content:
+                    case str():
+                        xml_parts.append(content)
+                    case list():
+                        for part in content:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                xml_parts.append(part.get("text", ""))
+
+                tool_calls = msg.get("tool_calls", [])
+                for tool_call in tool_calls:
+                    if tool_call.get("type") == "function":
+                        function = tool_call.get("function", {})
+                        function_name = function.get("name", "unknown")
+                        arguments = function.get("arguments", "")
+                        xml_parts.append(f'<toolcall name="{function_name}">')
+                        xml_parts.append(arguments)
+                        xml_parts.append("</toolcall>")
+
+            case {"role": "tool"}:
+                content = msg.get("content")
+                match content:
+                    case str():
+                        xml_parts.append(content)
+                    case list():
+                        for part in content:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                xml_parts.append(part.get("text", ""))
+
+            case _:
+                content = msg.get("content")
+                match content:
+                    case str():
+                        xml_parts.append(content)
+                    case list():
+                        for part in content:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                xml_parts.append("<content>")
+                                xml_parts.append(part.get("text", ""))
+                                xml_parts.append("</content>")
+
+        xml_parts.append("</message>")
+
+    xml_parts.append("</conversation>")
+    return "\n".join(xml_parts)
+
+
+class ArchiveSummarizer:
+    def __init__(self, service_config: ServiceConfig, request_config: OpenAIRequestConfig) -> None:
+        self._service_config = service_config
+        self._request_config = request_config
+
+    async def summarize(self, messages: list[OpenAIHistoryMessageParam]) -> str:
+        """
+        Summarize the messages for archiving.
+        This function should implement the logic to summarize the messages.
+        """
+        summary = await _compute_chunk_summary(
+            oai_messages=cast(list[ChatCompletionMessageParam], messages),
+            service_config=self._service_config,
+            request_config=self._request_config,
+        )
+        return summary
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/message_history/__init__.py ===
+"""
+Provides a message history provider for the chat context toolkit's history management.
+"""
+
+from ._history import chat_context_toolkit_message_provider_for, construct_attachment_summarizer
+
+__all__ = [
+    "chat_context_toolkit_message_provider_for",
+    "construct_attachment_summarizer",
+]
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/message_history/_history.py ===
+"""Utility functions for retrieving message history using chat_context_toolkit."""
+
+import datetime
+import logging
+import uuid
+from typing import Protocol, Sequence
+
+from chat_context_toolkit.archive import MessageProtocol as ArchiveMessageProtocol
+from chat_context_toolkit.archive import MessageProvider as ArchiveMessageProvider
+from chat_context_toolkit.history import (
+    HistoryMessage,
+    HistoryMessageProtocol,
+    HistoryMessageProvider,
+    OpenAIHistoryMessageParam,
+)
+from chat_context_toolkit.history.tool_abbreviations import ToolAbbreviations, abbreviate_openai_tool_message
+from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionUserMessageParam
+from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
+from semantic_workbench_api_model.workbench_model import (
+    ConversationMessage,
+    MessageType,
+)
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant_extensions.attachments._model import Attachment
+from assistant_extensions.attachments._summarizer import LLMConfig, LLMFileSummarizer
+
+from ._message import conversation_message_to_chat_message_param
+
+logger = logging.getLogger(__name__)
+
+
+class HistoryMessageWithAbbreviation(HistoryMessage):
+    """
+    A HistoryMessageProtocol implementation that includes:
+    - abbreviations for tool messages
+    - abbreviations for assistant messages with tool calls
+    - abbreviations for messages with attachment content-parts
+    """
+
+    def __init__(
+        self,
+        id: str,
+        timestamp: datetime.datetime,
+        openai_message: OpenAIHistoryMessageParam,
+        tool_abbreviations: ToolAbbreviations,
+        tool_name_for_tool_message: str | None = None,
+    ) -> None:
+        super().__init__(id=id, openai_message=openai_message, abbreviator=self.abbreviator)
+        self._timestamp = timestamp
+        self._tool_abbreviations = tool_abbreviations
+        self._tool_name_for_tool_message = tool_name_for_tool_message
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        return self._timestamp
+
+    def abbreviator(self) -> OpenAIHistoryMessageParam | None:
+        match self.openai_message:
+            case {"role": "user"}:
+                return abbreviate_attachment_content_parts(openai_message=self.openai_message)
+            case {"role": "tool"} | {"role": "assistant"}:
+                return abbreviate_openai_tool_message(
+                    openai_message=self.openai_message,
+                    tool_abbreviations=self._tool_abbreviations,
+                    tool_name_for_tool_message=self._tool_name_for_tool_message,
+                )
+
+            case _:
+                # for all other messages, we return the original message
+                return self.openai_message
+
+
+def abbreviate_attachment_content_parts(
+    openai_message: ChatCompletionUserMessageParam,
+) -> OpenAIHistoryMessageParam:
+    """
+    Abbreviate the user message if it contains attachment content parts.
+    """
+    if "content" not in openai_message:
+        return openai_message
+
+    content_parts = openai_message["content"]
+    if not isinstance(content_parts, list):
+        return openai_message
+
+    # the first content-part is always the text content, so we can keep it as is
+    abbreviated_content_parts = [content_parts[0]]
+    for part in content_parts[1:]:
+        match part:
+            case {"type": "text"}:
+                # truncate the attachment content parts - ie. the one's that don't say "Attachment: <filename>"
+                if part["text"].startswith("Attachment: "):
+                    # Keep the attachment content parts as is
+                    abbreviated_content_parts.append(part)
+                    continue
+
+                abbreviated_content_parts.append(
+                    ChatCompletionContentPartTextParam(
+                        type="text",
+                        text="The content of this attachment has been removed due to token limits. Please use view to retrieve the most recent content if you need it.",
+                    )
+                )
+
+            case {"type": "image_url"}:
+                abbreviated_content_parts.append(
+                    ChatCompletionContentPartTextParam(
+                        type="text",
+                        text="The content of this attachment has been removed due to token limits. Please use view to retrieve the most recent content if you need it.",
+                    )
+                )
+
+            case _:
+                abbreviated_content_parts.append(part)
+
+    return {**openai_message, "content": abbreviated_content_parts}
+
+
+class CompositeMessageProvider(HistoryMessageProvider, ArchiveMessageProvider, Protocol):
+    """
+    A composite message provider that combines both history and archive message providers.
+    """
+
+    ...
+
+
+class CompositeMessageProtocol(HistoryMessageProtocol, ArchiveMessageProtocol, Protocol):
+    """
+    A composite message protocol that combines both history and archive message protocols.
+    """
+
+    ...
+
+
+def construct_attachment_summarizer(
+    service_config: ServiceConfig,
+    request_config: OpenAIRequestConfig,
+) -> LLMFileSummarizer:
+    return LLMFileSummarizer(
+        llm_config=LLMConfig(
+            client_factory=lambda: create_client(service_config),
+            model=request_config.model,
+            max_response_tokens=request_config.response_tokens,
         )
     )
-    mock_conversation_context.id = "conversation_id"
-    mock_conversation_context.assistant.id = str(assistant_id)
 
-    mock_conversation_context.list_files.return_value = FileList(
-        files=[
-            File(
-                conversation_id=uuid.uuid4(),
-                created_datetime=datetime.datetime.now(datetime.UTC),
-                updated_datetime=datetime.datetime.now(datetime.UTC),
-                filename=filename,
-                current_version=1,
-                content_type="text/plain",
-                file_size=1,
-                participant_id="participant_id",
-                participant_role=ParticipantRole.user,
-                metadata={},
+
+def chat_context_toolkit_message_provider_for(
+    context: ConversationContext,
+    attachments: list[Attachment],
+    tool_abbreviations: ToolAbbreviations = ToolAbbreviations(),
+) -> CompositeMessageProvider:
+    """
+    Create a composite message provider for the given workbench conversation context.
+    """
+
+    async def provider(after_id: str | None = None) -> Sequence[CompositeMessageProtocol]:
+        history = await _get_history_manager_messages(
+            context,
+            tool_abbreviations=tool_abbreviations,
+            after_id=after_id,
+            attachments=attachments,
+        )
+
+        return history
+
+    return provider
+
+
+async def _get_history_manager_messages(
+    context: ConversationContext,
+    tool_abbreviations: ToolAbbreviations,
+    attachments: list[Attachment],
+    after_id: str | None = None,
+) -> list[HistoryMessageWithAbbreviation]:
+    """
+    Get all messages in the conversation, formatted for the chat_context_toolkit.
+    """
+
+    participants_response = await context.get_participants(include_inactive=True)
+    participants = participants_response.participants
+
+    history: list[HistoryMessageWithAbbreviation] = []
+
+    batch_size = 100
+    before_message_id = None
+
+    # each call to get_messages will return a maximum of `batch_size` messages
+    # so we need to loop until all messages are retrieved
+    while True:
+        # get the next batch of messages, including chat and tool result messages
+        messages_response = await context.get_messages(
+            limit=batch_size,
+            before=before_message_id,
+            message_types=[MessageType.chat, MessageType.note],
+            after=uuid.UUID(after_id) if after_id else None,
+        )
+        messages_list = messages_response.messages
+
+        if not messages_list:
+            # if there are no more messages, we are done
+            break
+
+        # set the before_message_id for the next batch of messages
+        before_message_id = messages_list[0].id
+
+        batch: list[HistoryMessageWithAbbreviation] = []
+        for message in messages_list:
+            # format the message
+            formatted_message = await conversation_message_to_chat_message_param(
+                context, message, participants, attachments=attachments
             )
-            for filename in filenames_with_bytes.keys()
-        ]
+
+            if not formatted_message:
+                # if the message could not be formatted, skip it
+                logger.warning("message %s could not be formatted, skipping.", message.id)
+                continue
+
+            # prepend the formatted messages to the history list
+            batch.append(
+                HistoryMessageWithAbbreviation(
+                    id=str(message.id),
+                    openai_message=formatted_message,
+                    tool_abbreviations=tool_abbreviations,
+                    tool_name_for_tool_message=tool_name_for_tool_message(message),
+                    timestamp=message.timestamp,
+                )
+            )
+
+        # add the formatted messages to the history
+        history = batch + history
+
+        if len(messages_list) < batch_size:
+            # if we received less than `batch_size` messages, we have reached the end of the conversation.
+            # exit early to avoid another unnecessary message query.
+            break
+
+    # return the formatted messages
+    return history
+
+
+def tool_name_for_tool_message(message: ConversationMessage) -> str:
+    """
+    Get the tool name for the given tool message.
+
+    NOTE: This function assumes that the tool call metadata is structured in a specific way.
+    """
+    tool_calls = message.metadata.get("tool_calls")
+    if not tool_calls or not isinstance(tool_calls, list) or len(tool_calls) == 0:
+        return ""
+    # Return the name of the first tool call
+    # This assumes that the tool call metadata is structured as expected
+    return tool_calls[0].get("name") or "<unknown>"
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/message_history/_message.py ===
+import json
+import logging
+from typing import Any
+
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionContentPartImageParam,
+    ChatCompletionContentPartTextParam,
+    ChatCompletionMessageToolCallParam,
+    ChatCompletionToolMessageParam,
+    ChatCompletionUserMessageParam,
+)
+from semantic_workbench_api_model.workbench_model import (
+    ConversationMessage,
+    ConversationParticipant,
+    MessageType,
+)
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant_extensions.attachments._model import Attachment
+
+logger = logging.getLogger(__name__)
+
+
+def conversation_message_to_tool_message(
+    message: ConversationMessage,
+) -> ChatCompletionToolMessageParam | None:
+    """
+    Check to see if the message contains a tool result and return a tool message if it does.
+    """
+    tool_result = message.metadata.get("tool_result")
+    if tool_result is not None:
+        content = tool_result.get("content")
+        tool_call_id = tool_result.get("tool_call_id")
+        if content is not None and tool_call_id is not None:
+            return ChatCompletionToolMessageParam(
+                role="tool",
+                content=content,
+                tool_call_id=tool_call_id,
+            )
+
+
+def tool_calls_from_metadata(metadata: dict[str, Any]) -> list[ChatCompletionMessageToolCallParam] | None:
+    """
+    Get the tool calls from the message metadata.
+    """
+    if metadata is None or "tool_calls" not in metadata:
+        return None
+
+    tool_calls = metadata["tool_calls"]
+    if not isinstance(tool_calls, list) or len(tool_calls) == 0:
+        return None
+
+    tool_call_params: list[ChatCompletionMessageToolCallParam] = []
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            try:
+                tool_call = json.loads(tool_call)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse tool call from metadata: {tool_call}")
+                continue
+
+        id = tool_call["id"]
+        name = tool_call["name"]
+        arguments = json.dumps(tool_call["arguments"])
+        if id is not None and name is not None and arguments is not None:
+            tool_call_params.append(
+                ChatCompletionMessageToolCallParam(
+                    id=id,
+                    type="function",
+                    function={"name": name, "arguments": arguments},
+                )
+            )
+
+    return tool_call_params
+
+
+def conversation_message_to_assistant_message(
+    message: ConversationMessage,
+    participants: list[ConversationParticipant],
+) -> ChatCompletionAssistantMessageParam:
+    """
+    Convert a conversation message to an assistant message.
+    """
+    assistant_message = ChatCompletionAssistantMessageParam(
+        role="assistant",
+        content=format_message(message, participants),
     )
 
-    async def mock_get_conversation() -> Conversation:
-        mock_conversation = mock.MagicMock(spec=Conversation)
-        mock_conversation.metadata = {}
-        return mock_conversation
+    # get the tool calls from the message metadata
+    tool_calls = tool_calls_from_metadata(message.metadata)
+    if tool_calls:
+        assistant_message["tool_calls"] = tool_calls
 
-    mock_conversation_context.get_conversation.side_effect = mock_get_conversation
+    return assistant_message
 
-    class MockFileIterator:
-        def __init__(self, file_bytes_func: Callable[[], bytes]) -> None:
-            self.file_bytes_func = file_bytes_func
 
-        async def __aiter__(self) -> AsyncIterator[bytes]:
-            yield self.file_bytes_func()
+async def conversation_message_to_user_message(
+    message: ConversationMessage,
+    participants: list[ConversationParticipant],
+    attachments: list[Attachment],
+) -> ChatCompletionUserMessageParam:
+    """
+    Convert a conversation message to a user message. For messages with attachments, the attachments
+    are included as content parts.
+    """
 
-        async def __anext__(self) -> bytes:
-            return self.file_bytes_func()
+    # if the message has no attachments, just return a user message with the formatted content
+    if not message.filenames:
+        return ChatCompletionUserMessageParam(
+            role="user",
+            content=format_message(message, participants),
+        )
 
-    @asynccontextmanager
-    async def read_file_side_effect(
-        filename: str, chunk_size: int | None = None
-    ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
-        yield MockFileIterator(filenames_with_bytes[filename])
+    # for messages with attachments, we need to create a user message with content parts
 
-    mock_conversation_context.read_file.side_effect = read_file_side_effect
+    # include the formatted message from the user
+    content_parts: list[ChatCompletionContentPartTextParam | ChatCompletionContentPartImageParam] = [
+        ChatCompletionContentPartTextParam(
+            type="text",
+            text=format_message(message, participants),
+        )
+    ]
 
-    extension = AttachmentsExtension(assistant=mock_assistant_app)
+    # additionally, include any attachments as content parts
+    for filename in message.filenames:
+        attachment = next((attachment for attachment in attachments if attachment.filename == filename), None)
 
-    actual_messages = await extension.get_completion_messages_for_attachments(
-        context=mock_conversation_context,
-        config=AttachmentsConfigModel(),
+        attachment_filename = f"/attachments/{filename}"
+
+        content_parts.append(
+            ChatCompletionContentPartTextParam(
+                type="text",
+                text=f"Attachment: {attachment_filename}",
+            )
+        )
+
+        if not attachment:
+            content_parts.append(
+                ChatCompletionContentPartTextParam(
+                    type="text",
+                    text="File has been deleted",
+                )
+            )
+            continue
+
+        if attachment.error:
+            content_parts.append(
+                ChatCompletionContentPartTextParam(
+                    type="text",
+                    text=f"Attachment has an error: {attachment.error}",
+                )
+            )
+            continue
+
+        if attachment.content.startswith("data:image/"):
+            content_parts.append(
+                ChatCompletionContentPartImageParam(
+                    type="image_url",
+                    image_url={
+                        "url": attachment.content,
+                    },
+                )
+            )
+            continue
+
+        content_parts.append(
+            ChatCompletionContentPartTextParam(
+                type="text",
+                text=attachment.content or "(attachment has no content)",
+            )
+        )
+
+    return ChatCompletionUserMessageParam(
+        role="user",
+        content=content_parts,
     )
 
-    assert actual_messages == expected_messages
+
+async def conversation_message_to_chat_message_param(
+    context: ConversationContext,
+    message: ConversationMessage,
+    participants: list[ConversationParticipant],
+    attachments: list[Attachment],
+) -> ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionToolMessageParam | None:
+    """
+    Convert a conversation message to a list of chat message parameters.
+    """
+
+    # add the message to list, treating messages from a source other than this assistant as a user message
+    if message.message_type == MessageType.note:
+        # we are stuffing tool messages into the note message type, so we need to check for that
+        tool_message = conversation_message_to_tool_message(message)
+        if tool_message is None:
+            logger.warning(f"Failed to convert tool message to completion message: {message}")
+            return None
+
+        return tool_message
+
+    if message.sender.participant_id == context.assistant.id:
+        # add the assistant message to the completion messages
+        assistant_message = conversation_message_to_assistant_message(message, participants)
+        return assistant_message
+
+    # add the user message to the completion messages
+    user_message = await conversation_message_to_user_message(
+        message=message, participants=participants, attachments=attachments
+    )
+
+    return user_message
 
 
-@pytest.fixture(scope="function")
-def temporary_storage_directory(monkeypatch: pytest.MonkeyPatch) -> Iterable[pathlib.Path]:
-    with TemporaryDirectory() as tempdir:
-        monkeypatch.setattr(settings.storage, "root", tempdir)
-        yield pathlib.Path(tempdir)
+def format_message(message: ConversationMessage, participants: list[ConversationParticipant]) -> str:
+    """
+    Format a conversation message for display.
+    """
+    conversation_participant = next(
+        (participant for participant in participants if participant.id == message.sender.participant_id),
+        None,
+    )
+    participant_name = conversation_participant.name if conversation_participant else "unknown"
+    message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    return f"[{participant_name} - {message_datetime}]: {message.content}"
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/virtual_filesystem/__init__.py ===
+"""
+Provides mounts for file sources for integration with the virtual filesystem in chat context toolkit.
+"""
+
+from ._archive_file_source import archive_file_source_mount
+from ._attachments_file_source import attachments_file_source_mount
+
+__all__ = [
+    "attachments_file_source_mount",
+    "archive_file_source_mount",
+]
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/virtual_filesystem/_archive_file_source.py ===
+from typing import Iterable, cast
+
+from chat_context_toolkit.virtual_filesystem import DirectoryEntry, FileEntry, MountPoint
+from openai.types.chat import ChatCompletionMessageParam
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..archive._archive import archive_reader_for
+from ..archive._summarizer import convert_oai_messages_to_xml
+
+
+class ArchiveFileSource:
+    def __init__(self, context: ConversationContext, archive_storage_sub_directory: str = "archives") -> None:
+        self._archive_reader = archive_reader_for(
+            context=context, archive_storage_sub_directory=archive_storage_sub_directory
+        )
+
+    async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
+        """
+        List files and directories at the specified path.
+
+        Archive does not have a directory structure, so it only supports the root path "/".
+        """
+        if not path == "/":
+            raise FileNotFoundError("Archive does not have a directory structure, only the root path '/' is supported.")
+
+        files: list[FileEntry] = []
+        async for manifest in self._archive_reader.list():
+            files.append(
+                FileEntry(
+                    path=f"/{manifest.filename}",
+                    size=manifest.content_size_bytes or 0,
+                    timestamp=manifest.timestamp_most_recent,
+                    permission="read",
+                    description=manifest.summary,
+                )
+            )
+
+        return files
+
+    async def read_file(self, path: str) -> str:
+        """
+        Read the content of a file at the specified path.
+
+        Archive does not have a directory structure, so it only supports the root path "/".
+        """
+
+        archive_path = path.lstrip("/")
+
+        if not archive_path:
+            raise FileNotFoundError("Path must be specified, e.g. '/archive_filename.json'")
+
+        content = await self._archive_reader.read(filename=archive_path)
+
+        if content is None:
+            raise FileNotFoundError(f"File not found: '{path}'")
+
+        return convert_oai_messages_to_xml(cast(list[ChatCompletionMessageParam], content.messages))
+
+
+def archive_file_source_mount(context: ConversationContext) -> MountPoint:
+    return MountPoint(
+        entry=DirectoryEntry(
+            path="/archives",
+            description="Archives of the conversation history that no longer fit in the context window.",
+            permission="read",
+        ),
+        file_source=ArchiveFileSource(context=context),
+    )
+
+
+=== File: libraries/python/assistant-extensions/assistant_extensions/chat_context_toolkit/virtual_filesystem/_attachments_file_source.py ===
+import logging
+from typing import Iterable
+
+from chat_context_toolkit.virtual_filesystem import (
+    DirectoryEntry,
+    FileEntry,
+    FileSource,
+    MountPoint,
+)
+from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant_extensions.attachments._model import Summarizer
+
+from ...attachments import get_attachments
+from ...attachments._summarizer import LLMConfig, LLMFileSummarizer, get_attachment_summary
+
+logger = logging.getLogger(__name__)
+
+
+class AttachmentsVirtualFileSystemFileSource(FileSource):
+    """File source for the attachments."""
+
+    def __init__(
+        self,
+        context: ConversationContext,
+        summarizer: Summarizer,
+    ) -> None:
+        """Initialize the file source with the conversation context."""
+        self.context = context
+        self.summarizer = summarizer
+
+    async def list_directory(self, path: str) -> Iterable[DirectoryEntry | FileEntry]:
+        """
+        List files and directories at the specified path.
+        Should support absolute paths only, such as "/dir/file.txt".
+        If the directory does not exist, should raise FileNotFoundError.
+        """
+
+        query_prefix = path.lstrip("/") or None
+        list_files_result = await self.context.list_files(prefix=query_prefix)
+
+        directories: set[str] = set()
+        entries: list[DirectoryEntry | FileEntry] = []
+
+        prefix = path.lstrip("/")
+
+        for file in list_files_result.files:
+            if prefix and not file.filename.startswith(prefix):
+                continue
+
+            relative_filepath = file.filename.replace(prefix, "")
+
+            if "/" in relative_filepath:
+                directory = relative_filepath.rsplit("/", 1)[0]
+                if directory in directories:
+                    continue
+
+                directories.add(directory)
+                entries.append(DirectoryEntry(path=f"/{prefix}{directory}", description="", permission="read"))
+                continue
+
+            entries.append(
+                FileEntry(
+                    path=f"/{prefix}{relative_filepath}",
+                    size=file.file_size,
+                    timestamp=file.updated_datetime,
+                    permission="read",
+                    description=(await get_attachment_summary(context=self.context, filename=file.filename)).summary,
+                )
+            )
+
+        return entries
+
+    async def read_file(self, path: str) -> str:
+        """
+        Read file content from the specified path.
+        Should support absolute paths only, such as "/dir/file.txt".
+        If the file does not exist, should raise FileNotFoundError.
+        FileSource implementations are responsible for representing the file content as a string.
+        """
+
+        workbench_path = path.lstrip("/")
+
+        attachments = await get_attachments(
+            context=self.context,
+            include_filenames=[workbench_path],
+            exclude_filenames=[],
+            summarizer=self.summarizer,
+        )
+        if not attachments:
+            raise FileNotFoundError(f"File not found: {path}")
+
+        return attachments[0].content
+
+
+def attachments_file_source_mount(
+    context: ConversationContext, service_config: ServiceConfig, request_config: OpenAIRequestConfig
+) -> MountPoint:
+    return MountPoint(
+        entry=DirectoryEntry(
+            path="/attachments",
+            description="User and assistant created files and attachments",
+            permission="read",
+        ),
+        file_source=AttachmentsVirtualFileSystemFileSource(
+            context=context,
+            summarizer=LLMFileSummarizer(
+                llm_config=LLMConfig(
+                    client_factory=lambda: create_client(service_config),
+                    model=request_config.model,
+                    max_response_tokens=request_config.response_tokens,
+                )
+            ),
+        ),
+    )
 
 
 === File: libraries/python/assistant-extensions/assistant_extensions/dashboard_card/__init__.py ===
@@ -2418,9 +3477,15 @@ from ._model import (
 )
 from ._openai_utils import (
     OpenAISamplingHandler,
+    SamplingChatMessageProvider,
     sampling_message_to_chat_completion_message,
 )
-from ._tool_utils import handle_mcp_tool_call, retrieve_mcp_tools_from_sessions
+from ._tool_utils import (
+    execute_tool,
+    handle_mcp_tool_call,
+    retrieve_mcp_tools_and_sessions_from_sessions,
+    retrieve_mcp_tools_from_sessions,
+)
 from ._workbench_file_resource_handler import WorkbenchFileClientResourceHandler
 
 __all__ = [
@@ -2446,6 +3511,9 @@ __all__ = [
     "sampling_message_to_chat_completion_message",
     "AssistantFileResourceHandler",
     "WorkbenchFileClientResourceHandler",
+    "execute_tool",
+    "retrieve_mcp_tools_and_sessions_from_sessions",
+    "SamplingChatMessageProvider",
 ]
 
 
@@ -2801,9 +3869,9 @@ async def connect_to_mcp_server_sse(client_settings: MCPClientSettings) -> Async
                 yield client_session  # Yield the session for use
 
     except ExceptionGroup as e:
-        logger.exception(f"TaskGroup failed in SSE client for {client_settings.server_config.key}: {e}")
+        logger.exception("TaskGroup failed in SSE client for %s", client_settings.server_config.key)
         for sub in e.exceptions:
-            logger.error(f"Sub-exception: {client_settings.server_config.key}: {sub}")
+            logger.exception("sub-exception: %s", client_settings.server_config.key, exc_info=sub)
         # If there's exactly one underlying exception, re-raise it
         if len(e.exceptions) == 1:
             raise e.exceptions[0]
@@ -2820,28 +3888,25 @@ async def connect_to_mcp_server_sse(client_settings: MCPClientSettings) -> Async
         raise
 
 
-async def refresh_mcp_sessions(
-    mcp_sessions: list[MCPSession],
-) -> list[MCPSession]:
+async def refresh_mcp_sessions(mcp_sessions: list[MCPSession], stack: AsyncExitStack) -> list[MCPSession]:
     """
     Check each MCP session for connectivity. If a session is marked as disconnected,
     attempt to reconnect it using reconnect_mcp_session.
     """
     active_sessions = []
     for session in mcp_sessions:
-        if not session.is_connected:
-            logger.info(f"Session {session.config.server_config.key} is disconnected. Attempting to reconnect...")
-            new_session = await reconnect_mcp_session(session.config)
-            if new_session:
-                active_sessions.append(new_session)
-            else:
-                logger.error(f"Failed to reconnect MCP server {session.config.server_config.key}.")
-        else:
+        if session.is_connected:
             active_sessions.append(session)
+            continue
+
+        logger.info(f"Session {session.config.server_config.key} is disconnected. Attempting to reconnect...")
+        new_session = await reconnect_mcp_session(session.config, stack)
+        active_sessions.append(new_session)
+
     return active_sessions
 
 
-async def reconnect_mcp_session(client_settings: MCPClientSettings) -> MCPSession | None:
+async def reconnect_mcp_session(client_settings: MCPClientSettings, stack: AsyncExitStack) -> MCPSession:
     """
     Attempt to reconnect to the MCP server using the provided configuration.
     Returns a new MCPSession if successful, or None otherwise.
@@ -2849,19 +3914,15 @@ async def reconnect_mcp_session(client_settings: MCPClientSettings) -> MCPSessio
     to avoid interfering with cancel scopes.
     """
     try:
-        async with connect_to_mcp_server(client_settings) as client_session:
-            if client_session is None:
-                logger.error("Reconnection returned no client session for %s", client_settings.server_config.key)
-                return None
+        client_session = await stack.enter_async_context(connect_to_mcp_server(client_settings))
+        mcp_session = MCPSession(config=client_settings, client_session=client_session)
+        await mcp_session.initialize()
 
-            new_session = MCPSession(config=client_settings, client_session=client_session)
-            await new_session.initialize()
-            new_session.is_connected = True
-            logger.info("Successfully reconnected to MCP server %s", client_settings.server_config.key)
-            return new_session
-    except Exception:
-        logger.exception("Error reconnecting MCP server %s", client_settings.server_config.key)
-        return None
+        return mcp_session
+    except Exception as e:
+        # Log a cleaner error message for this specific server
+        logger.exception("failed to connect to MCP server: %s", client_settings.server_config.key)
+        raise MCPServerConnectionError(client_settings.server_config, e) from e
 
 
 class MCPServerConnectionError(Exception):
@@ -3405,8 +4466,9 @@ MCPSamplingMessageHandler = SamplingFnT
 
 
 === File: libraries/python/assistant-extensions/assistant_extensions/mcp/_openai_utils.py ===
+import json
 import logging
-from typing import Any, Callable, List, Union
+from typing import Any, Awaitable, Callable, Protocol
 
 import deepmerge
 from mcp import ClientSession, CreateMessageResult, SamplingMessage
@@ -3424,10 +4486,9 @@ from openai.types.chat import (
     ChatCompletionContentPartImageParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
-    ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
 )
-from openai_client import OpenAIRequestConfig, create_client
+from openai_client import OpenAIRequestConfig, create_client, num_tokens_from_messages
 
 from ..ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from ._model import MCPSamplingMessageHandler
@@ -3442,9 +4503,13 @@ logger = logging.getLogger(__name__)
 # It works ok in office server but not giphy, so it is likely a server issue.
 
 OpenAIMessageProcessor = Callable[
-    [List[SamplingMessage]],
-    List[ChatCompletionMessageParam],
+    [list[SamplingMessage], int, str],
+    Awaitable[list[ChatCompletionMessageParam]],
 ]
+
+
+class SamplingChatMessageProvider(Protocol):
+    async def __call__(self, available_tokens: int, model: str) -> list[ChatCompletionMessageParam]: ...
 
 
 class OpenAISamplingHandler(SamplingHandler):
@@ -3454,13 +4519,12 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def __init__(
         self,
-        ai_client_configs: list[Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]],
-        assistant_mcp_tools: list[ChatCompletionToolParam] | None = None,
+        ai_client_configs: list[AzureOpenAIClientConfigModel | OpenAIClientConfigModel],
         message_processor: OpenAIMessageProcessor | None = None,
         handler: MCPSamplingMessageHandler | None = None,
+        message_providers: dict[str, SamplingChatMessageProvider] = {},
     ) -> None:
         self.ai_client_configs = ai_client_configs
-        self.assistant_mcp_tools = assistant_mcp_tools
 
         # set a default message processor that converts sampling messages to
         # chat completion messages and performs any necessary transformations
@@ -3473,11 +4537,54 @@ class OpenAISamplingHandler(SamplingHandler):
         # and more context is available
         self._message_handler: MCPSamplingMessageHandler = handler or self._default_message_handler
 
-    def _default_message_processor(self, messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
+        self._message_providers = message_providers
+
+    async def _default_message_processor(
+        self, messages: list[SamplingMessage], available_tokens: int, model: str
+    ) -> list[ChatCompletionMessageParam]:
         """
         Default template processor that passes messages through.
         """
-        return [sampling_message_to_chat_completion_message(message) for message in messages]
+        updated_messages: list[ChatCompletionMessageParam] = []
+
+        def add_converted_message(message: SamplingMessage) -> None:
+            updated_messages.append(sampling_message_to_chat_completion_message(message))
+
+        for message in messages:
+            if not isinstance(message.content, TextContent):
+                add_converted_message(message)
+                continue
+
+            # Determine if the message.content.text is a json payload
+            content = message.content.text
+            if not content.startswith("{") or not content.endswith("}"):
+                add_converted_message(message)
+                continue
+
+            # Attempt to parse the json payload
+            try:
+                json_payload = json.loads(content)
+                variable = json_payload.get("variable")
+
+            except json.JSONDecodeError:
+                add_converted_message(message)
+                continue
+
+            else:
+                source = self._message_providers.get(variable)
+                if not source:
+                    add_converted_message(message)
+                    continue
+
+                available_for_source = available_tokens - num_tokens_from_messages(
+                    messages=[sampling_message_to_chat_completion_message(message) for message in messages],
+                    model=model,
+                )
+                chat_messages = await source(available_for_source, model)
+                updated_messages.extend(chat_messages)
+                continue
+
+        return updated_messages
 
     async def _default_message_handler(
         self,
@@ -3534,7 +4641,7 @@ class OpenAISamplingHandler(SamplingHandler):
         try:
             return await self._message_handler(context, params)
         except Exception as e:
-            logger.error(f"Error handling sampling request: {e}")
+            logger.exception("Error handling sampling request")
             code = getattr(e, "status_code", 500)
             message = getattr(e, "message", "Error handling sampling request.")
             data = str(e)
@@ -3542,7 +4649,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def _ai_client_config_from_model_preferences(
         self, model_preferences: ModelPreferences | None
-    ) -> Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel] | None:
+    ) -> AzureOpenAIClientConfigModel | OpenAIClientConfigModel | None:
         """
         Returns an AI client config from model preferences.
         """
@@ -3604,20 +4711,23 @@ class OpenAISamplingHandler(SamplingHandler):
                     content=request.systemPrompt,
                 )
             )
-        # Add sampling messages
-        messages += template_processor(request.messages)
 
-        # TODO: not yet, but we can provide an option for running tools at the assistant
-        # level and then pass the results to in the results
-        # tools = self._assistant_mcp_tools
-        # for now:
-        tools = None
+        available_tokens = (
+            request_config.max_tokens
+            - request_config.response_tokens
+            - num_tokens_from_messages(
+                messages=messages,
+                model=request_config.model,
+            )
+        )
+        # Add sampling messages
+        messages += await template_processor(request.messages, available_tokens, request_config.model)
 
         # Build the completion arguments, adding tools if provided
         completion_args: dict = {
             "messages": messages,
             "model": request_config.model,
-            "tools": tools,
+            "tools": None,
         }
 
         # Allow overriding completion arguments with extra_args from metadata
@@ -3637,7 +4747,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
 def openai_template_processor(
     value: SamplingMessage,
-) -> Union[SamplingMessage, List[SamplingMessage]]:
+) -> SamplingMessage | list[SamplingMessage]:
     """
     Processes a SamplingMessage using OpenAI's template processor.
     """
@@ -3734,7 +4844,7 @@ class SamplingHandler(Protocol):
 import asyncio
 import logging
 from textwrap import dedent
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator
 
 import deepmerge
 from mcp import Tool
@@ -3750,7 +4860,7 @@ from ._model import (
 logger = logging.getLogger(__name__)
 
 
-def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_tools: list[str] = []) -> List[Tool]:
+def retrieve_mcp_tools_from_sessions(mcp_sessions: list[MCPSession], exclude_tools: list[str] = []) -> list[Tool]:
     """
     Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
     and any duplicate keys (names) - first tool wins.
@@ -3777,8 +4887,37 @@ def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_too
     return tools
 
 
+def retrieve_mcp_tools_and_sessions_from_sessions(
+    mcp_sessions: list[MCPSession], exclude_tools: list[str] = []
+) -> list[tuple[Tool, MCPSession]]:
+    """
+    Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
+    and any duplicate keys (names) - first tool wins.
+    """
+    tools = []
+    tool_names = set()
+    for mcp_session in mcp_sessions:
+        for tool in mcp_session.tools:
+            if tool.name in tool_names:
+                logger.warning(
+                    "Duplicate tool name '%s' found in session %s; skipping",
+                    tool.name,
+                    mcp_session.config.server_config.key,
+                )
+                # Skip duplicate tools
+                continue
+
+            if tool.name in exclude_tools:
+                # Skip excluded tools
+                continue
+
+            tools.append((tool, mcp_session))
+            tool_names.add(tool.name)
+    return tools
+
+
 def get_mcp_session_and_tool_by_tool_name(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_name: str,
 ) -> tuple[MCPSession | None, Tool | None]:
     """
@@ -3791,7 +4930,7 @@ def get_mcp_session_and_tool_by_tool_name(
 
 
 async def handle_mcp_tool_call(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
 ) -> ExtendedCallToolResult:
@@ -3816,7 +4955,7 @@ async def handle_mcp_tool_call(
 
 
 async def handle_long_running_tool_call(
-    mcp_sessions: List[MCPSession],
+    mcp_sessions: list[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
 ) -> AsyncGenerator[ExtendedCallToolResult, None]:
@@ -3873,7 +5012,7 @@ async def execute_tool(
     # Prepare to capture tool output
     tool_result = None
     tool_output: list[TextContent | ImageContent | EmbeddedResource] = []
-    content_items: List[str] = []
+    content_items: list[str] = []
 
     async def tool_call_function() -> CallToolResult:
         return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)
@@ -4669,6 +5808,7 @@ dependencies = [
     "anthropic-client>=0.1.0",
     "assistant-drive>=0.1.0",
     "deepmerge>=2.0",
+    "chat-context-toolkit>=0.1.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "requests-sse>=0.3.2",
@@ -4692,6 +5832,7 @@ assistant-drive = { path = "../assistant-drive", editable = true }
 mcp-extensions = { path = "../mcp-extensions", editable = true }
 openai-client = { path = "../openai-client", editable = true }
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
+chat-context-toolkit = { path = "../chat-context-toolkit", editable = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -4701,6 +5842,191 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
+
+
+=== File: libraries/python/assistant-extensions/test/attachments/test_attachments.py ===
+import base64
+import datetime
+import pathlib
+import uuid
+from contextlib import asynccontextmanager
+from tempfile import TemporaryDirectory
+from typing import Any, AsyncGenerator, AsyncIterator, Callable, Iterable
+from unittest import mock
+
+import httpx
+import pytest
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from llm_client.model import (
+    CompletionMessage,
+    CompletionMessageImageContent,
+    CompletionMessageTextContent,
+)
+from openai.types.chat import ChatCompletionMessageParam
+from semantic_workbench_api_model.workbench_model import Conversation, File, FileList, ParticipantRole
+from semantic_workbench_assistant import settings
+from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
+
+
+@pytest.fixture(scope="function", autouse=True)
+def temporary_storage_directory(monkeypatch: pytest.MonkeyPatch) -> Iterable[pathlib.Path]:
+    with TemporaryDirectory() as tempdir:
+        monkeypatch.setattr(settings.storage, "root", tempdir)
+        yield pathlib.Path(tempdir)
+
+
+@pytest.mark.parametrize(
+    ("filenames_with_bytes", "expected_messages"),
+    [
+        ({}, []),
+        (
+            {
+                "file1.txt": lambda: b"file 1",
+                "file2.txt": lambda: b"file 2",
+            },
+            [
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><CONTENT>file 1</CONTENT></ATTACHMENT>",
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
+                ),
+            ],
+        ),
+        (
+            {
+                "file1.txt": lambda: (_ for _ in ()).throw(RuntimeError("file 1 error")),
+                "file2.txt": lambda: b"file 2",
+            },
+            [
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><ERROR>error processing file: file 1 error</ERROR><CONTENT></CONTENT></ATTACHMENT>",
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
+                ),
+            ],
+        ),
+        (
+            {
+                "img.png": lambda: base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                ),
+            },
+            [
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="user",
+                    content=[
+                        CompletionMessageTextContent(
+                            type="text",
+                            text="<ATTACHMENT><FILENAME>img.png</FILENAME><IMAGE>",
+                        ),
+                        CompletionMessageImageContent(
+                            type="image",
+                            media_type="image/png",
+                            data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+                        ),
+                        CompletionMessageTextContent(
+                            type="text",
+                            text="</IMAGE></ATTACHMENT>",
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+async def test_get_completion_messages_for_attachments(
+    filenames_with_bytes: dict[str, Callable[[], bytes]],
+    expected_messages: list[ChatCompletionMessageParam],
+) -> None:
+    mock_assistant_app = mock.MagicMock(spec=AssistantAppProtocol)
+
+    assistant_id = uuid.uuid4()
+
+    mock_conversation_context = mock.MagicMock(
+        spec=ConversationContext(
+            id="conversation_id",
+            title="conversation_title",
+            assistant=AssistantContext(
+                id=str(assistant_id),
+                name="assistant_name",
+                _assistant_service_id="assistant_id",
+                _template_id="",
+            ),
+            httpx_client=httpx.AsyncClient(),
+        )
+    )
+    mock_conversation_context.id = "conversation_id"
+    mock_conversation_context.assistant.id = str(assistant_id)
+
+    mock_conversation_context.list_files.return_value = FileList(
+        files=[
+            File(
+                conversation_id=uuid.uuid4(),
+                created_datetime=datetime.datetime.now(datetime.UTC),
+                updated_datetime=datetime.datetime.now(datetime.UTC),
+                filename=filename,
+                current_version=1,
+                content_type="text/plain",
+                file_size=1,
+                participant_id="participant_id",
+                participant_role=ParticipantRole.user,
+                metadata={},
+            )
+            for filename in filenames_with_bytes.keys()
+        ]
+    )
+
+    async def mock_get_conversation() -> Conversation:
+        mock_conversation = mock.MagicMock(spec=Conversation)
+        mock_conversation.metadata = {}
+        return mock_conversation
+
+    mock_conversation_context.get_conversation.side_effect = mock_get_conversation
+
+    class MockFileIterator:
+        def __init__(self, file_bytes_func: Callable[[], bytes]) -> None:
+            self.file_bytes_func = file_bytes_func
+
+        async def __aiter__(self) -> AsyncIterator[bytes]:
+            yield self.file_bytes_func()
+
+        async def __anext__(self) -> bytes:
+            return self.file_bytes_func()
+
+    @asynccontextmanager
+    async def read_file_side_effect(
+        filename: str, chunk_size: int | None = None
+    ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
+        yield MockFileIterator(filenames_with_bytes[filename])
+
+    mock_conversation_context.read_file.side_effect = read_file_side_effect
+
+    extension = AttachmentsExtension(assistant=mock_assistant_app)
+
+    actual_messages = await extension.get_completion_messages_for_attachments(
+        context=mock_conversation_context,
+        config=AttachmentsConfigModel(),
+    )
+
+    assert actual_messages == expected_messages
 
 
 === File: libraries/python/content-safety/.vscode/settings.json ===
@@ -6142,7 +7468,7 @@ async def write_client_resource(
 # utils/tool_utils.py
 import asyncio
 import logging
-from typing import Any, List
+from typing import Any
 
 import deepmerge
 from mcp import ServerSession, Tool
@@ -6219,50 +7545,47 @@ async def execute_tool(
     return result
 
 
+def convert_tool_to_openai_tool(
+    mcp_tool: Tool, extra_properties: dict[str, Any] | None = None
+) -> ChatCompletionToolParam:
+    parameters = mcp_tool.inputSchema.copy()
+
+    if isinstance(extra_properties, dict):
+        # Add the extra properties to the input schema
+        parameters = deepmerge.always_merger.merge(
+            parameters,
+            {
+                "properties": {
+                    **extra_properties,
+                },
+                "required": [
+                    *extra_properties.keys(),
+                ],
+            },
+        )
+
+    function = FunctionDefinition(
+        name=mcp_tool.name,
+        description=mcp_tool.description if mcp_tool.description else "[no description provided]",
+        parameters=parameters,
+    )
+
+    return ChatCompletionToolParam(
+        function=function,
+        type="function",
+    )
+
+
 def convert_tools_to_openai_tools(
-    mcp_tools: List[Tool] | None, extra_properties: dict[str, Any] | None = None
-) -> List[ChatCompletionToolParam] | None:
+    mcp_tools: list[Tool], extra_properties: dict[str, Any] | None = None
+) -> list[ChatCompletionToolParam]:
     """
     Converts MCP tools into OpenAI-compatible tool schemas to facilitate interoperability.
     Extra properties can be appended to the generated schema, enabling richer descriptions
     or added functionality (e.g., custom fields for user context or explanations).
     """
 
-    if not mcp_tools:
-        return None
-
-    openai_tools: List[ChatCompletionToolParam] = []
-    for mcp_tool in mcp_tools:
-        parameters = mcp_tool.inputSchema.copy()
-
-        if isinstance(extra_properties, dict):
-            # Add the extra properties to the input schema
-            parameters = deepmerge.always_merger.merge(
-                parameters,
-                {
-                    "properties": {
-                        **extra_properties,
-                    },
-                    "required": [
-                        *extra_properties.keys(),
-                    ],
-                },
-            )
-
-        function = FunctionDefinition(
-            name=mcp_tool.name,
-            description=mcp_tool.description if mcp_tool.description else "[no description provided]",
-            parameters=parameters,
-        )
-
-        openai_tools.append(
-            ChatCompletionToolParam(
-                function=function,
-                type="function",
-            )
-        )
-
-    return openai_tools
+    return [convert_tool_to_openai_tool(mcp_tool, extra_properties) for mcp_tool in mcp_tools]
 
 
 === File: libraries/python/mcp-extensions/mcp_extensions/llm/__init__.py ===
@@ -7035,7 +8358,7 @@ from mcp_extensions._tool_utils import (
 
 def test_convert_tools_to_openai_tools_empty():
     result = convert_tools_to_openai_tools([])
-    assert result is None
+    assert result == []
 
 
 # Test: send_tool_call_progress
