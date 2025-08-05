@@ -215,6 +215,9 @@
     {
       "name": ".multi-root-tools",
       "path": ".multi-root-tools"
+    },
+    {
+      "path": "tmp"
     }
   ],
   "settings": {
