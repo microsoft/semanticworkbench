@@ -11,7 +11,7 @@ dependencies = [
     "semantic-workbench-assistant>=0.1.0",
     "content-safety>=0.1.0",
     "openai-client>=0.1.0",
-    "assistant-extensions>=0.1.0",
+    "assistant-extensions[attachments]>=0.1.0",
 ]
 
 [tool.uv]
