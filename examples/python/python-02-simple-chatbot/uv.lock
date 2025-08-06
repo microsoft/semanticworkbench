@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11, <3.13"
 
 [[package]]
@@ -82,6 +82,50 @@ wheels = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.61.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7a/9a/b384758ef93b8f931a523efc8782f7191b175714b3952ff11002899f638b/anthropic-0.61.0.tar.gz", hash = "sha256:af4b3b8f3bc4626cca6af2d412e301974da1747179341ad9e271bdf5cbd2f008", size = 426606, upload-time = "2025-08-05T16:29:37.958Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6e/07/c7907eee22f5c27a53118dd2576267052ae01f52811dbb06a2848012639e/anthropic-0.61.0-py3-none-any.whl", hash = "sha256:798c8e6cc61e6315143c3f5847d2f220c45f1e69f433436872a237413ca58803", size = 294935, upload-time = "2025-08-05T16:29:36.379Z" },
+]
+
+[[package]]
+name = "anthropic-client"
+version = "0.1.0"
+source = { editable = "../../../libraries/python/anthropic-client" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "events" },
+    { name = "llm-client" },
+    { name = "pillow" },
+    { name = "python-liquid" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "events", editable = "../../../libraries/python/events" },
+    { name = "llm-client", editable = "../../../libraries/python/llm-client" },
+    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "python-liquid", specifier = ">=1.12.1" },
+    { name = "semantic-workbench-assistant", editable = "../../../libraries/python/semantic-workbench-assistant" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pyright", specifier = ">=1.1.389" }]
+
+[[package]]
 name = "anyio"
 version = "4.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -113,6 +157,7 @@ name = "assistant"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "assistant-extensions" },
     { name = "content-safety" },
     { name = "openai" },
     { name = "openai-client" },
@@ -127,6 +172,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assistant-extensions", editable = "../../../libraries/python/assistant-extensions" },
     { name = "content-safety", editable = "../../../libraries/python/content-safety" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../../libraries/python/openai-client" },
@@ -136,6 +182,70 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "pyright", specifier = ">=1.1.389" }]
+
+[[package]]
+name = "assistant-drive"
+version = "0.1.0"
+source = { editable = "../../../libraries/python/assistant-drive" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.6.1" },
+    { name = "pydantic-settings", specifier = ">=2.5.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
+]
+
+[[package]]
+name = "assistant-extensions"
+version = "0.1.0"
+source = { editable = "../../../libraries/python/assistant-extensions" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "anthropic-client" },
+    { name = "assistant-drive" },
+    { name = "chat-context-toolkit" },
+    { name = "deepmerge" },
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "requests-sse" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "anthropic-client", editable = "../../../libraries/python/anthropic-client" },
+    { name = "assistant-drive", editable = "../../../libraries/python/assistant-drive" },
+    { name = "chat-context-toolkit", editable = "../../../libraries/python/chat-context-toolkit" },
+    { name = "deepmerge", specifier = ">=2.0" },
+    { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
+    { name = "mcp-extensions", extras = ["openai"], marker = "extra == 'mcp'", editable = "../../../libraries/python/mcp-extensions" },
+    { name = "openai", specifier = ">=1.61.0" },
+    { name = "openai-client", editable = "../../../libraries/python/openai-client" },
+    { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
+    { name = "requests-sse", specifier = ">=0.3.2" },
+    { name = "semantic-workbench-assistant", editable = "../../../libraries/python/semantic-workbench-assistant" },
+]
+provides-extras = ["attachments", "mcp"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+]
 
 [[package]]
 name = "attrs"
@@ -279,6 +389,32 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/21/2b6b5b860781a0b49427309cb8670785aa543fb2178de875b87b9cc97746/charset_normalizer-3.4.1-cp312-cp312-win32.whl", hash = "sha256:9b23ca7ef998bc739bf6ffc077c2116917eabcc901f88da1b9856b210ef63f35", size = 95550, upload-time = "2024-12-24T18:11:01.952Z" },
     { url = "https://files.pythonhosted.org/packages/21/5b/1b390b03b1d16c7e382b561c5329f83cc06623916aab983e8ab9239c7d5c/charset_normalizer-3.4.1-cp312-cp312-win_amd64.whl", hash = "sha256:6ff8a4a60c227ad87030d76e99cd1698345d4491638dfa6673027c48b3cd395f", size = 102785, upload-time = "2024-12-24T18:11:03.142Z" },
     { url = "https://files.pythonhosted.org/packages/0e/f6/65ecc6878a89bb1c23a086ea335ad4bf21a588990c3f535a227b9eea9108/charset_normalizer-3.4.1-py3-none-any.whl", hash = "sha256:d98b1668f06378c6dbefec3b92299716b931cd4e6061f3c875a71ced1780ab85", size = 49767, upload-time = "2024-12-24T18:12:32.852Z" },
+]
+
+[[package]]
+name = "chat-context-toolkit"
+version = "0.1.0"
+source = { editable = "../../../libraries/python/chat-context-toolkit" }
+dependencies = [
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openai", specifier = ">=1.85,<2.0" },
+    { name = "openai-client", editable = "../../../libraries/python/openai-client" },
+    { name = "pydantic", specifier = ">=2.10,<3.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1,<2.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.401" },
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [[package]]
@@ -779,7 +915,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.63.2"
+version = "1.99.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -791,9 +927,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/1c/11b520deb71f9ea54ced3c52cd6a5f7131215deba63ad07f23982e328141/openai-1.63.2.tar.gz", hash = "sha256:aeabeec984a7d2957b4928ceaa339e2ead19c61cfcf35ae62b7c363368d26360", size = 356902, upload-time = "2025-02-17T15:55:33.398Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/30/f0fb7907a77e733bb801c7bdcde903500b31215141cdb261f04421e6fbec/openai-1.99.1.tar.gz", hash = "sha256:2c9d8e498c298f51bb94bcac724257a3a6cac6139ccdfc1186c6708f7a93120f", size = 497075, upload-time = "2025-08-05T19:42:36.131Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/64/db3462b358072387b8e93e6e6a38d3c741a17b4a84171ef01d6c85c63f25/openai-1.63.2-py3-none-any.whl", hash = "sha256:1f38b27b5a40814c2b7d8759ec78110df58c4a614c25f182809ca52b080ff4d4", size = 472282, upload-time = "2025-02-17T15:55:31.517Z" },
+    { url = "https://files.pythonhosted.org/packages/54/15/9c85154ffd283abfc43309ff3aaa63c3fd02f7767ee684e73670f6c5ade2/openai-1.99.1-py3-none-any.whl", hash = "sha256:8eeccc69e0ece1357b51ca0d9fb21324afee09b20c3e5b547d02445ca18a4e03", size = 767827, upload-time = "2025-08-05T19:42:34.192Z" },
 ]
 
 [[package]]
@@ -1179,6 +1315,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218, upload-time = "2024-05-29T15:37:49.536Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928, upload-time = "2024-05-29T15:37:47.027Z" },
+]
+
+[[package]]
+name = "requests-sse"
+version = "0.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cf/73/dd6b0ae667c7720ddd5479f6216b1442610fdd162e27ce7bfb8357083f06/requests_sse-0.5.2.tar.gz", hash = "sha256:2bcb7cf905074b18ff9f7322716234c1188dfde805bba38300b37c6b5ae3a20a", size = 9001, upload-time = "2025-06-17T01:32:42.768Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/73/bf4771da460b528edc0ff9f2845682b50d60ffb84b4587f90ef665408195/requests_sse-0.5.2-py3-none-any.whl", hash = "sha256:ebd9da245c2bb02bc070617e16b37a260a7386abf6cd9b2a250a6529a92c74cf", size = 10078, upload-time = "2025-06-17T01:32:41.299Z" },
 ]
 
 [[package]]

@@ -28,6 +28,7 @@ from typing import Any
 import deepmerge
 import openai_client
 import tiktoken
+from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import (
@@ -39,6 +40,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -83,6 +85,117 @@ assistant = AssistantApp(
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
 )
+
+# Add attachment support to enable file uploads
+attachments_extension = AttachmentsExtension(assistant)
+
+# Create a simple file viewer state provider using existing markdown viewer
+class FileViewerStateProvider:
+    def __init__(self):
+        self.display_name = "📁 File Viewer"
+        self.description = "Display processed attachment content using markdown viewer"
+        self.state_id = "file_viewer"
+    
+    async def is_enabled(self, context):
+        """Only enabled when there are files"""
+        files_response = await context.list_files()
+        return len(files_response.files) > 0
+    
+    async def get(self, context):
+        """Display processed attachment content using existing markdown viewer"""
+        from semantic_workbench_assistant.assistant_app.protocol import AssistantConversationInspectorStateDataModel
+        from assistant_extensions.attachments import get_attachments
+        
+        try:
+            # Use the generic AttachmentsExtension's get_attachments function
+            attachments = await get_attachments(context, error_handler=attachments_extension._error_handler)
+            
+            if not attachments:
+                markdown_content = """# 📁 Uploaded Files
+
+*No files have been uploaded yet.*
+
+Upload files to this conversation to see their processed content here.
+
+**Note**: This assistant demonstrates the viewable attachments feature. The content displayed here is processed by the generic AttachmentsExtension (using docx2txt).
+"""
+            else:
+                # Build markdown content showing all files
+                markdown_lines = [
+                    "# 📁 Uploaded Files",
+                    "",
+                    f"Found **{len(attachments)}** processed files:",
+                    "",
+                    "**Note**: This assistant uses the generic AttachmentsExtension. For richer processing (like MarkItDown), see the Document Assistant.",
+                    ""
+                ]
+                
+                for attachment in attachments:
+                    content = attachment.content
+                    content_length = len(content)
+                    
+                    markdown_lines.append(f"## 📄 {attachment.filename}")
+                    markdown_lines.append("")
+                    
+                    if attachment.error:
+                        markdown_lines.append(f"❌ **Error**: {attachment.error}")
+                        markdown_lines.append("")
+                    elif content_length == 0:
+                        markdown_lines.append("⚠️ *File processed but no text content extracted (may be empty or unsupported format)*")
+                        markdown_lines.append("")
+                    elif content.startswith("data:image/"):
+                        # Handle images by embedding them
+                        markdown_lines.append("🖼️ **Image Content:**")
+                        markdown_lines.append("")
+                        markdown_lines.append(f"![{attachment.filename}]({content})")
+                        markdown_lines.append("")
+                        markdown_lines.append(f"*Image data size: {content_length:,} characters*")
+                        markdown_lines.append("")
+                    else:
+                        # Handle text content
+                        markdown_lines.append(f"📝 **Content** ({content_length:,} characters):")
+                        markdown_lines.append("")
+                        
+                        if content_length > 2000:
+                            # Show preview for long content
+                            preview = content[:2000]
+                            markdown_lines.append("```")
+                            markdown_lines.append(preview)
+                            markdown_lines.append(f"...")
+                            markdown_lines.append("```")
+                            markdown_lines.append("")
+                            markdown_lines.append(f"*[Content truncated for display - showing first 2000 of {content_length} characters]*")
+                            markdown_lines.append("")
+                        else:
+                            # Show full content
+                            markdown_lines.append("```")
+                            markdown_lines.append(content)
+                            markdown_lines.append("```")
+                            markdown_lines.append("")
+                    
+                    markdown_lines.append(f"*Last updated: {attachment.updated_datetime}*")
+                    markdown_lines.append("")
+                    markdown_lines.append("---")
+                    markdown_lines.append("")
+                
+                markdown_content = "\n".join(markdown_lines)
+                
+        except Exception as e:
+            markdown_content = f"""# 📁 File Viewer Error
+
+❌ **Error loading attachments**: {str(e)}
+
+This may indicate a configuration issue or that the attachments extension is not properly set up.
+"""
+        
+        # Use existing markdown viewer by returning markdown_content
+        return AssistantConversationInspectorStateDataModel(
+            data={"markdown_content": markdown_content, "readonly": True}
+        )
+
+# Add the file viewer inspector
+file_viewer_provider = FileViewerStateProvider()
+assistant.add_inspector_state_provider("file_viewer", file_viewer_provider)
 
 #
 # create the FastAPI app instance
