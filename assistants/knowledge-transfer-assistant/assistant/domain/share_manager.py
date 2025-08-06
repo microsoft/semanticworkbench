@@ -1,9 +1,3 @@
-"""
-Share/Project management operations for Knowledge Transfer Assistant.
-
-Handles creation, joining, and basic share operations.
-"""
-
 import uuid
 from csv import Error
 from datetime import UTC, datetime
@@ -93,16 +87,14 @@ class ShareManager:
     @staticmethod
     async def get_conversation_role(
         context: ConversationContext,
-    ) -> ConversationRole | None:
+    ) -> ConversationRole:
         """
         Gets the role of a conversation in a knowledge transfer.
         """
         role_path = ShareStorageManager.get_conversation_role_file_path(context)
         role_data = read_model(role_path, ConversationShareInfo)
-
         if role_data:
             return role_data.role
-
         return ConversationRole.COORDINATOR
 
     @staticmethod

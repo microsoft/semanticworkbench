@@ -2,14 +2,12 @@
 Brief inspector for knowledge transfer status and brief information.
 """
 
-from typing import Any
-
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     ConversationContext,
 )
 
-from assistant.data import ConversationRole
+from assistant.data import ConversationRole, Share
 from assistant.domain.share_manager import ShareManager
 
 from .common import get_stage_label
@@ -38,91 +36,82 @@ class BriefInspector:
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """Get brief and status information for display."""
 
-        conversation_role = await ShareManager.get_conversation_role(context)
-
-        # Get share information
         share = await ShareManager.get_share(context)
-        if not share:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active knowledge package. Start a conversation to create one."}
-            )
 
-        brief = share.brief
-        share_info = await ShareManager.get_share(context)
-
+        conversation_role = await ShareManager.get_conversation_role(context)
         if conversation_role == ConversationRole.COORDINATOR:
-            markdown = await self._format_coordinator_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_coordinator_brief(share)
         else:
-            markdown = await self._format_team_brief(share.share_id, brief, share_info, context)
+            markdown = await self._format_team_brief(share)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_brief(
-        self, share_id: str, brief: Any, share_info: Any, context: ConversationContext
+        self,
+        share: Share,
     ) -> str:
         """Format brief information for coordinator."""
 
         lines: list[str] = []
 
-        lines.append("**Role:** Coordinator")
-
-        # Display knowledge transfer stage
-        stage_label = "📋 Organizing Knowledge"
-        if share_info:
-            stage_label = get_stage_label(share_info, for_coordinator=True)
+        # Stage
+        stage_label = get_stage_label(share, for_coordinator=True)
         lines.append(f"**Stage:** {stage_label}")
 
-        if share_info and share_info.transfer_notes:
-            lines.append(f"**Status Message:** {share_info.transfer_notes}")
+        # Audience and takeaways
+        lines.append("## Audience")
+        lines.append(share.audience if share.audience else "_No audience defined._")
 
-        lines.append("")
+        if share.audience_takeaways:
+            lines.append("### Key Takeaways")
+            lines.append("")
+            for takeaway in share.audience_takeaways:
+                lines.append(f"- {takeaway}")
+            lines.append("")
 
-        # Knowledge Brief section
-
-        if brief:
+        brief = share.brief
+        if brief and brief.title:
             title = brief.title
             lines.append(f"## {title}")
             lines.append("")
-
-            if brief.content:
-                lines.append(brief.content)
-                lines.append("")
         else:
             lines.append("## Knowledge Brief")
             lines.append("")
+
+        if brief and brief.content:
+            lines.append(brief.content)
+            lines.append("")
+        else:
             lines.append(DEFAULT_BRIEF_INSTRUCTION)
             lines.append("")
 
         return "\n".join(lines)
 
-    async def _format_team_brief(self, share_id: str, brief: Any, share_info: Any, context: ConversationContext) -> str:
+    async def _format_team_brief(self, share: Share) -> str:
         """Format brief information for team members."""
 
         lines: list[str] = []
 
-        lines.append("**Role:** Team")
-
-        # Display knowledge transfer stage for team members
-        stage_label = "📚 Learning Mode"
-        if share_info:
-            stage_label = get_stage_label(share_info, for_coordinator=False)
+        # Stage
+        stage_label = get_stage_label(share, for_coordinator=False)
         lines.append(f"**Stage:** {stage_label}")
 
-        # Add status message if available
-        if share_info and share_info.transfer_notes:
-            lines.append(f"**Status Message:** {share_info.transfer_notes}")
-
-        lines.append("")
-
-        # Knowledge Brief section
+        brief = share.brief
         if brief:
             title = brief.title
             lines.append(f"## {title}")
             lines.append("")
 
-            if brief.content:
-                lines.append(brief.content)
-                lines.append("")
+        if share.audience_takeaways:
+            lines.append("### Key Takeaways")
+            lines.append("")
+            for takeaway in share.audience_takeaways:
+                lines.append(f"- {takeaway}")
+            lines.append("")
+
+        if brief and brief.content:
+            lines.append(brief.content)
+            lines.append("")
         else:
             lines.append("## Knowledge Brief")
             lines.append("")

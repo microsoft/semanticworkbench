@@ -9,6 +9,7 @@ from openai_client.tools import ToolFunctions
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import ConversationRole
+from assistant.tools.assistant_thoughts import AssistantThoughtsTools
 from assistant.tools.conversation_preferences import ConversationPreferencesTools
 
 from .information_requests import InformationRequestTools
@@ -33,6 +34,7 @@ class ShareTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
+        self.thoughts = AssistantThoughtsTools(context, role)
         self.share_setup = ShareSetupTools(context, role)
         self.learning_objectives = LearningObjectiveTools(context, role)
         self.learning_outcomes = LearningOutcomeTools(context, role)
@@ -48,15 +50,24 @@ class ShareTools:
     def _register_coordinator_tools(self):
         """Register coordinator-specific tools."""
 
+        self.tool_functions.add_function(
+            self.thoughts.forget_thought,
+            "forget_thought",
+        )
+
         # 1. Setup phase - Define audience and organize knowledge
         self.tool_functions.add_function(
             self.share_setup.update_audience,
             "update_audience",
         )
         self.tool_functions.add_function(
-            self.share_setup.set_knowledge_organized,
-            "set_knowledge_organized",
+            self.share_setup.update_audience_takeaways,
+            "update_audience_takeaways",
         )
+        # self.tool_functions.add_function(
+        #     self.share_setup.set_knowledge_organized,
+        #     "set_knowledge_organized",
+        # )
 
         # 2. Brief creation phase
         self.tool_functions.add_function(

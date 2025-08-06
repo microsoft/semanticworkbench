@@ -1,4 +1,3 @@
-import re
 import time
 from textwrap import dedent
 from typing import Any, ClassVar
@@ -13,7 +12,8 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai_client import num_tokens_from_messages
-from openai_client.completion import message_content_from_completion
+from openai_client.completion import assistant_message_from_completion
+from openai_client.errors import CompletionError
 from openai_client.tools import complete_with_tool_calls
 from pydantic import ConfigDict, Field
 from semantic_workbench_api_model.workbench_model import (
@@ -26,18 +26,24 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
-from assistant.domain.learning_objectives_manager import LearningObjectivesManager
+from assistant.domain.conversation_preferences_manager import (
+    ConversationPreferencesManager,
+)
 from assistant.domain.share_manager import ShareManager
 
-from .agentic.analysis import detect_information_request_needs
-from .agentic.coordinator_support import CoordinatorSupport
+from .agentic.detect_information_requests import detect_information_request_needs
 from .config import assistant_config
-from .data import ConversationRole, CoordinatorConversationMessage, RequestStatus
+from .data import ConversationRole
 from .logging import logger
-from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget
+from .prompt_utils import (
+    ContextSection,
+    ContextStrategy,
+    Instructions,
+    Prompt,
+    TokenBudget,
+    add_context_to_prompt,
+)
 from .tools import ShareTools
-from .ui_tabs.common import get_priority_emoji, get_status_emoji
 from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
@@ -58,15 +64,15 @@ class CoordinatorOutput(BaseModel):
     """
     Attributes:
         response: The response from the assistant.
-        next_step_suggestion: Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process.
+        next_step_suggestion: Help for the user to understand what to do next. A great way to progressively reveal the knowledge transfer process.
     """  # noqa: E501
 
     response: str = Field(
         description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",  # noqa: E501
     )
-    next_step_suggestion: str = Field(
-        description="Help for the coordinator to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the coordinator, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the coordinator has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",  # noqa: E501
-    )
+    # next_step_suggestion: str = Field(
+    #     description="Help for the user to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the user, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the user has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",  # noqa: E501
+    # )
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -100,21 +106,17 @@ async def respond_to_conversation(
     new_message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
     metadata: dict[str, Any],
-) -> None:
+) -> ChatCompletionAssistantMessageParam | None:
     """
     Respond to a conversation message.
     """
     if "debug" not in metadata:
         metadata["debug"] = {}
 
-    # Config
     config = await assistant_config.get(context.assistant)
     model = config.request_config.openai_model
-
-    # Requirements
-    role = await ShareManager.get_conversation_role(context) or ConversationRole.COORDINATOR
+    role = await ShareManager.get_conversation_role(context)
     metadata["debug"]["role"] = role
-
     token_budget = TokenBudget(config.request_config.max_tokens)
 
     ##
@@ -171,179 +173,37 @@ async def respond_to_conversation(
     if role == ConversationRole.TEAM:
         prompt.output_format = "Respond as JSON with your response in the `response` field and all citations in the `citations` field. In the `next_step_suggestion` field, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information."  # noqa: E501
 
-    ###
-    ### Context
-    ###
+    ##
+    ## CONTEXT
+    ##
 
-    # Project info
-    share = await ShareManager.get_share(context)
-    if share:
-        share_info_text = share.model_dump_json(
-            indent=2,
-            exclude={
-                "brief",
-                "learning_objectives",
-                "takeaways",
-                "preferred_communication_style",
-                "transfer_notes",
-                "digest",
-                "next_learning_actions",
-                "transfer_lifecycle",
-                "archived",
-                "requests",
-                "log",
-            },
-        )
-        prompt.contexts.append(Context("Knowledge Info", share_info_text))
+    sections = [
+        ContextSection.KNOWLEDGE_INFO,
+        ContextSection.KNOWLEDGE_BRIEF,
+        ContextSection.TARGET_AUDIENCE,
+        ContextSection.LEARNING_OBJECTIVES,
+        ContextSection.KNOWLEDGE_DIGEST,
+        ContextSection.INFORMATION_REQUESTS,
+        # ContextSection.SUGGESTED_NEXT_ACTIONS,
+        ContextSection.ATTACHMENTS,
+        ContextSection.ASSISTANT_THOUGHTS,
+    ]
+    if role == ConversationRole.TEAM:
+        sections.append(ContextSection.COORDINATOR_CONVERSATION)
 
-    # Brief
-    if share and share.brief:
-        brief_text = ""
-        brief_text = f"**Title:** {share.brief.title}\n**Description:** {share.brief.content}"
-        prompt.contexts.append(
-            Context(
-                "Knowledge Brief",
-                brief_text,
-            )
-        )
+    await add_context_to_prompt(
+        prompt,
+        context=context,
+        role=role,
+        model=model,
+        token_limit=config.request_config.max_tokens,
+        attachments_extension=attachments_extension,
+        attachments_config=config.attachments_config,
+        attachments_in_system_message=False,
+        include=sections,
+    )
 
-    # Audience (for coordinators to understand target audience)
-    if role == ConversationRole.COORDINATOR and share and share.audience:
-        audience_context = share.audience
-        if not share.is_intended_to_accomplish_outcomes:
-            audience_context += "\n\n**Note:** This knowledge package is intended for general exploration, not specific learning outcomes."  # noqa: E501
-
-        prompt.contexts.append(
-            Context(
-                "Target Audience",
-                audience_context,
-                "Description of the intended audience and their existing knowledge level for this knowledge transfer.",
-            )
-        )
-
-    # Learning objectives
-    if share and share.learning_objectives:
-        learning_objectives_text = ""
-        conversation_id = str(context.id)
-
-        # Show progress based on role
-        if role == ConversationRole.COORDINATOR:
-            # Coordinator sees overall progress across all team members
-            achieved_overall, total_overall = LearningObjectivesManager.get_overall_completion(share)
-            learning_objectives_text += (
-                f"Overall Progress: {achieved_overall}/{total_overall} outcomes achieved by team members\n\n"
-            )
-        else:
-            # Team member sees their personal progress
-            if conversation_id in share.team_conversations:
-                achieved_personal, total_personal = LearningObjectivesManager.get_completion_for_conversation(
-                    share, conversation_id
-                )
-                progress_pct = int(achieved_personal / total_personal * 100) if total_personal > 0 else 0
-                learning_objectives_text += (
-                    f"My Progress: {achieved_personal}/{total_personal} outcomes achieved ({progress_pct}%)\n\n"
-                )
-
-        for i, objective in enumerate(share.learning_objectives):
-            learning_objectives_text += f"{i + 1}. **{objective.name}** - {objective.description}\n"
-            if objective.learning_outcomes:
-                for criterion in objective.learning_outcomes:
-                    if role == ConversationRole.COORDINATOR:
-                        # Show if achieved by any team member
-                        achieved_by_any = any(
-                            LearningObjectivesManager.is_outcome_achieved_by_conversation(share, criterion.id, conv_id)
-                            for conv_id in share.team_conversations
-                        )
-                        check = "✅" if achieved_by_any else "⬜"
-                    else:
-                        # Show if achieved by this team member
-                        achieved_by_me = LearningObjectivesManager.is_outcome_achieved_by_conversation(
-                            share, criterion.id, conversation_id
-                        )
-                        check = "✅" if achieved_by_me else "⬜"
-
-                    learning_objectives_text += f"   {check} {criterion.description}\n"
-        prompt.contexts.append(
-            Context(
-                "Learning Objectives",
-                learning_objectives_text,
-            )
-        )
-
-    # Knowledge digest
-    if share and share.digest and share.digest.content:
-        prompt.contexts.append(
-            Context(
-                "Knowledge digest",
-                share.digest.content,
-                "The assistant-maintained knowledge digest.",
-            )
-        )
-
-    # Information requests
-    if share:
-        all_requests = share.requests
-        if role == ConversationRole.COORDINATOR:
-            active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
-            if active_requests:
-                coordinator_requests = (
-                    "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-                )
-                for req in active_requests[:10]:  # Limit to 10 for brevity
-                    priority_emoji = get_priority_emoji(req.priority)
-                    status_emoji = get_status_emoji(req.status)
-                    coordinator_requests += f"{priority_emoji} **{req.title}** {status_emoji}\n"
-                    coordinator_requests += f"   **Request ID:** `{req.request_id}`\n"
-                    coordinator_requests += f"   **Description:** {req.description}\n\n"
-
-                if len(active_requests) > 10:
-                    coordinator_requests += f"*...and {len(active_requests) - 10} more requests.*\n"
-            else:
-                coordinator_requests = "No active information requests."
-            prompt.contexts.append(
-                Context(
-                    "Information Requests",
-                    coordinator_requests,
-                )
-            )
-        else:  # team role
-            information_requests_info = ""
-            my_requests = []
-
-            # Filter for requests from this conversation that aren't resolved.
-            my_requests = [
-                r for r in all_requests if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
-            ]
-
-            if my_requests:
-                information_requests_info = ""
-                for req in my_requests:
-                    information_requests_info += (
-                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-                    )
-            else:
-                information_requests_info = "No active information requests."
-
-            prompt.contexts.append(
-                Context(
-                    "Information Requests",
-                    information_requests_info,
-                )
-            )
-
-    # Add next action suggestions for coordinator
-    if role == ConversationRole.COORDINATOR:
-        next_action_suggestion = await CoordinatorSupport.get_coordinator_next_action_suggestion(context)
-        if next_action_suggestion:
-            prompt.contexts.append(
-                Context(
-                    "Suggested Next Actions",
-                    next_action_suggestion,
-                    "Actions the coordinator should consider taking based on the current knowledge transfer state.",
-                )
-            )
-
-    # Calculate token count for all system messages so far.
+    # Calculate token count for all prompt so far.
     completion_messages = prompt.messages()
     token_budget.add(
         num_tokens_from_messages(
@@ -351,74 +211,6 @@ async def respond_to_conversation(
             messages=completion_messages,
         )
     )
-
-    ###
-    ### Coordinator conversation as an attachment.
-    ###
-
-    # Get the coordinator conversation and add it as an attachment.
-    coordinator_conversation = await ShareManager.get_coordinator_conversation(context)
-    if coordinator_conversation:
-        # Limit messages to the configured max token count.
-        total_coordinator_conversation_tokens = 0
-        selected_coordinator_conversation_messages: list[CoordinatorConversationMessage] = []
-        for msg in reversed(coordinator_conversation.messages):
-            tokens = openai_client.num_tokens_from_string(msg.model_dump_json(), model=model)
-            if (
-                total_coordinator_conversation_tokens + tokens
-                > config.request_config.coordinator_conversation_token_limit
-            ):
-                break
-            selected_coordinator_conversation_messages.append(msg)
-            total_coordinator_conversation_tokens += tokens
-
-        # Create a new coordinator conversation system message with the selected messages.
-        class CoordinatorMessageList(BaseModel):
-            messages: list[CoordinatorConversationMessage] = Field(default_factory=list)
-
-        selected_coordinator_conversation_messages.reverse()
-        coordinator_message_list = CoordinatorMessageList(messages=selected_coordinator_conversation_messages)
-        coordinator_conversation_message = ChatCompletionSystemMessageParam(
-            role="system",
-            content=(
-                f"<ATTACHMENT><FILENAME>CoordinatorConversation.json</FILENAME><CONTENT>{coordinator_message_list.model_dump_json()}</CONTENT>"
-            ),
-        )
-        completion_messages.append(coordinator_conversation_message)
-
-        token_budget.add(
-            num_tokens_from_messages(
-                model=model,
-                messages=[coordinator_conversation_message],
-            )
-        )
-
-    ###
-    ### ATTACHMENTS
-    ###
-
-    # TODO: A better pattern here might be to keep the attachments as user
-    # in the proper flow of the conversation rather than as .
-
-    # Generate the attachment messages.
-    attachment_messages: list[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
-        await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config=config.attachments_config,
-        )
-    )
-
-    # TODO: This will exceed the token limit if there are too many attachments.
-    # We do give them a warning below, though, and tell them to remove
-    # attachments if this happens.
-
-    token_budget.add(
-        num_tokens_from_messages(
-            model=model,
-            messages=attachment_messages,
-        )
-    )
-    completion_messages.extend(attachment_messages)
 
     ###
     ### USER MESSAGE
@@ -559,6 +351,7 @@ async def respond_to_conversation(
     ## MAKE THE LLM CALL
     ##
 
+    content = ""
     async with openai_client.create_client(config.service_config) as client:
         try:
             completion_args = {
@@ -570,11 +363,12 @@ async def respond_to_conversation(
 
             share_tools = ShareTools(context, role)
             response_start_time = time.time()
-            completion_response, additional_messages = await complete_with_tool_calls(
+            completion_response, _ = await complete_with_tool_calls(
                 async_client=client,
                 completion_args=completion_args,
                 tool_functions=share_tools.tool_functions,
                 metadata=metadata["debug"],
+                max_tool_call_rounds=16,
             )
             response_end_time = time.time()
             footer_items = []
@@ -603,77 +397,25 @@ async def respond_to_conversation(
 
             footer_items.append(get_response_duration_message(response_end_time - response_start_time))
             metadata["footer_items"] = footer_items
+            return assistant_message_from_completion(completion_response) if completion_response else None
 
-            content = message_content_from_completion(completion_response)
-            if not content:
-                content = "I've processed your request, but couldn't generate a proper response."
-
-        except Exception as e:
-            logger.exception(f"exception occurred calling openai chat completion: {e}")
-            content = "An error occurred while calling the OpenAI API. Is it configured correctly?"
+        except CompletionError as e:
+            logger.exception(f"Exception occurred calling OpenAI chat completion: {e}")
             metadata["debug"]["error"] = str(e)
-
-    if content:
-        # strip out the username from the response
-        if isinstance(content, str) and content.startswith("["):
-            content = re.sub(r"\[.*\]:\s", "", content)
-
-        # check for the silence token, in case the model chooses not to respond
-        # model sometimes puts extra spaces in the response, so remove them
-        # when checking for the silence token
-        if isinstance(content, str) and content.replace(" ", "") == SILENCE_TOKEN:
-            # normal behavior is to not respond if the model chooses to remain silent
-            # but we can override this behavior for debugging purposes via the assistant config
-            if config.enable_debug_output:
-                metadata["debug"]["silence_token"] = True
-                metadata["debug"]["silence_token_response"] = (content,)
-                await context.send_messages(
-                    NewConversationMessage(
-                        message_type=MessageType.notice,
-                        content="[assistant chose to remain silent]",
-                        metadata=metadata,
-                    )
+            if isinstance(e.body, dict) and "message" in e.body:
+                content = e.body.get("message", e.message)
+            elif e.message:
+                content = e.message
+            else:
+                content = "An error occurred while processing your request."
+            await context.send_messages(
+                NewConversationMessage(
+                    content=content,
+                    message_type=MessageType.notice,
+                    metadata=metadata,
                 )
+            )
             return
-
-    # Prepare response.
-    response_parts: list[str] = []
-    try:
-        if role == ConversationRole.TEAM:
-            output_model = TeamOutput.model_validate_json(content)
-            if output_model.response:
-                response_parts.append(output_model.response)
-
-            if output_model.excerpt:
-                output_model.excerpt = output_model.excerpt.strip().strip('"')
-                response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
-
-            if output_model.citations:
-                citations = ", ".join(output_model.citations)
-                response_parts.append(f"Sources: _{citations}_")
-
-            if output_model.next_step_suggestion:
-                metadata["help"] = output_model.next_step_suggestion
-
-        else:
-            output_model = CoordinatorOutput.model_validate_json(content)
-            if output_model.response:
-                response_parts.append(output_model.response)
-            if output_model.next_step_suggestion:
-                metadata["help"] = output_model.next_step_suggestion
-
-    except Exception as e:
-        logger.exception(f"exception occurred parsing json response: {e}")
-        metadata["debug"]["error"] = str(e)
-        response_parts.append(content)
-
-    await context.send_messages(
-        NewConversationMessage(
-            content="\n\n".join(response_parts),
-            message_type=MessageType.chat,
-            metadata=metadata,
-        )
-    )
 
 
 def get_formatted_token_count(tokens: int) -> str:

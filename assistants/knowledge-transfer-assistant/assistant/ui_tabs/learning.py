@@ -58,24 +58,19 @@ class LearningInspector:
 
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
-            lines.append("")
             lines.append(
                 "_No learning objectives have been set up yet. When shared, the assistant will help your recipients explore the knowledge in a more open way, helping them discover the important aspects of the knowledge without specific objectives or outcomes. If you would like to have a more formal process, ask your assistant to help you create learning objectives and outcomes._"  # noqa: E501
             )
-            lines.append("")
             return "\n".join(lines)
-
-        lines.append("## Team Progress")
-        lines.append("")
 
         # Overall progress summary
         total_outcomes = sum(len(obj.learning_outcomes) for obj in share.learning_objectives if obj.learning_outcomes)
         if total_outcomes > 0 and share.team_conversations:
+            lines.append("## Team Progress")
             for conv_id, team_conv in share.team_conversations.items():
                 achieved, total = LearningObjectivesManager.get_completion_for_conversation(share, conv_id)
                 progress_pct = int(achieved / total * 100) if total > 0 else 0
                 lines.append(f"- **{team_conv.redeemer_name}**: {achieved}/{total} outcomes ({progress_pct}%)")
-            lines.append("")
 
         # Detailed objectives
         lines.append("## Learning Objectives")
@@ -84,7 +79,6 @@ class LearningInspector:
             lines.append(objective.description)
 
             if objective.learning_outcomes:
-                lines.append("")
                 lines.append("#### Learning Outcomes")
                 for criterion in objective.learning_outcomes:
                     # Check if any team conversation has achieved this outcome
@@ -107,7 +101,6 @@ class LearningInspector:
                         achievement_info = f" ({achieved_count}/{total_team_count})"
 
                     lines.append(f"- {status_emoji} {criterion.description}{achievement_info}")
-            lines.append("")
 
         return "\n".join(lines)
 
@@ -118,17 +111,14 @@ class LearningInspector:
 
         if not share or not share.learning_objectives:
             lines.append("## Learning Objectives")
-            lines.append("")
             lines.append(
                 "_The coordinator hasn't set up specific learning objectives for this shared knowledge. "
                 "Enjoy exploring at your own pace! "
                 "The assistant will guide you towards important information as you go._"
             )
-            lines.append("")
             return "\n".join(lines)
 
         lines.append("## Learning Objectives")
-        lines.append("")
 
         # Show my personal progress
         conversation_id = str(context.id)
@@ -137,7 +127,6 @@ class LearningInspector:
         )
         progress_pct = int(achieved_outcomes / total_outcomes * 100) if total_outcomes > 0 else 0
         lines.append(f"**My Progress:** {achieved_outcomes}/{total_outcomes} outcomes achieved ({progress_pct}%)")
-        lines.append("")
 
         for objective in share.learning_objectives:
             lines.append(f"### 🎯 {objective.name}")
@@ -165,6 +154,5 @@ class LearningInspector:
                                 break
 
                     lines.append(f"- {status_emoji} {criterion.description}{completion_info}")
-            lines.append("")
 
         return "\n".join(lines)

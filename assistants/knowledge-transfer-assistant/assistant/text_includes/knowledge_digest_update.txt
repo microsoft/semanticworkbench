@@ -1,11 +1,11 @@
-You, the assistant, maintain a "knowledge digest". Based on the last chat message, it is time to update the knowledge digest.
+You, the assistant, maintain a "knowledge digest". Based on the last chat message, it is time to consider updating your knowledge digest.
 
 ## What the knowledge digest is
 
 - The knowledge digest contains an outline of the knowledge contained within a knowledge share. It is not a summary, but an organized projection of all knowledge added to the packet from the coordinator's conversation and attachments.
 - The digest has a high information density. The digest contains no filler words or unnecessary content.
 - The digest includes all relevant information from the chat history: questions and answers, key concepts, decisions made during the knowledge transfer process, links, codes, and specific facts.
-- When handed off to another assistant to help the team understand the content of the knowledge share, this digest is the primary source of information.
+- When handed off to another assistant to help the audience understand the content of the knowledge package, this digest is the primary source of information.
 - Think of the digest as your personal memory about this knowledge share - a concise reference that helps track important facts, decisions, and context.
 
 ## Knowledge digest instructions
@@ -21,3 +21,4 @@ You, the assistant, maintain a "knowledge digest". Based on the last chat messag
 - Do not include objectives and outcomes in the knowledge digest. They are maintained separately.
 - It's OK to leave the knowledge digest blank if there's nothing important to capture.
 - Your output format must be: <KNOWLEDGE_DIGEST>{content}</KNOWLEDGE_DIGEST>
+

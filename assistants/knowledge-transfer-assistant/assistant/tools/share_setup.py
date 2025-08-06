@@ -4,7 +4,7 @@ Project setup tools for Knowledge Transfer Assistant.
 Tools for configuring knowledge shares.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from assistant.domain.audience_manager import AudienceManager
 from assistant.domain.knowledge_brief_manager import KnowledgeBriefManager
@@ -35,33 +35,52 @@ class ShareSetupTools(ToolsBase):
         except Exception as e:
             return f"Failed to update audience: {e!s}"
 
-    async def set_knowledge_organized(self, is_organized: bool) -> str:
+    async def update_audience_takeaways(self, takeaways: list[str]) -> str:
         """
-        Mark that all necessary knowledge has been captured and organized for transfer.
-
-        This indicates that the coordinator has uploaded files, shared information through conversation, and confirmed that all necessary knowledge for the transfer has been captured. This is required before the knowledge package can move to the "Ready for Transfer" state.
+        Update the key takeaways for the target audience.
 
         Args:
-            is_organized: True if knowledge is organized and ready, False to
-            mark as currently unorganized
+            takeaways: List of key takeaways for the audience. Takeaways should be concise and directly related to the audience and what the user wants them to learn or understand.
 
         Returns:
             A message indicating success or failure
         """  # noqa: E501
         try:
-            share = await ShareManager.get_share(self.context)
-            share.knowledge_organized = is_organized
-            share.updated_at = datetime.now(UTC)
-            await ShareManager.set_share(self.context, share)
-
-            if is_organized:
-                guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."  # noqa: E501
-            else:
-                guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."  # noqa: E501
-            return f"Knowledge organization status updated successfully. {guidance}"
-
+            await AudienceManager.update_audience_takeaways(
+                context=self.context,
+                takeaways=takeaways,
+            )
+            return "Audience takeaways updated successfully"
         except Exception as e:
-            return f"Failed to update knowledge organization status: {e!s}"
+            return f"Failed to update audience takeaways: {e!s}"
+
+    # async def set_knowledge_organized(self, is_organized: bool) -> str:
+    #     """
+    #     Mark that all necessary knowledge has been captured and organized for transfer.
+
+    #     This indicates that the coordinator has uploaded files, shared information through conversation, and confirmed that all necessary knowledge for the transfer has been captured. This is required before the knowledge package can move to the "Ready for Transfer" state.
+
+    #     Args:
+    #         is_organized: True if knowledge is organized and ready, False to
+    #         mark as currently unorganized
+
+    #     Returns:
+    #         A message indicating success or failure
+    #     """
+    #     try:
+    #         share = await ShareManager.get_share(self.context)
+    #         share.knowledge_organized = is_organized
+    #         share.updated_at = datetime.now(UTC)
+    #         await ShareManager.set_share(self.context, share)
+
+    #         if is_organized:
+    #             guidance = "Knowledge is now marked as organized and ready. You can proceed to create your brief and set up learning objectives."  # noqa: E501
+    #         else:
+    #             guidance = "Knowledge is now marked as incomplete. Continue organizing your knowledge by uploading files or describing it in conversation."  # noqa: E501
+    #         return f"Knowledge organization status updated successfully. {guidance}"
+
+    #     except Exception as e:
+    #         return f"Failed to update knowledge organization status: {e!s}"
 
     async def update_brief(self, title: str, description: str) -> str:
         """

@@ -47,7 +47,9 @@ def to_string(value: Any) -> str:
         return str(value)
 
 
-def function_list_to_tool_choice(functions: list[str] | None) -> Iterable[ChatCompletionToolParam] | None:
+def function_list_to_tool_choice(
+    functions: list[str] | None,
+) -> Iterable[ChatCompletionToolParam] | None:
     """
     Convert a list of function names to a list of ChatCompletionToolParam
     objects. This is used in the Chat Completions API if you want to tell the
@@ -56,10 +58,12 @@ def function_list_to_tool_choice(functions: list[str] | None) -> Iterable[ChatCo
     if not functions:
         return None
     return [
-        ChatCompletionToolParam(**{
-            "type": "function",
-            "function": {"name": name},
-        })
+        ChatCompletionToolParam(
+            **{
+                "type": "function",
+                "function": {"name": name},
+            }
+        )
         for name in functions
     ] or None
 
@@ -85,10 +89,14 @@ class ToolFunction:
     generate a usage string (for help messages)
     """
 
-    def __init__(self, fn: Callable, name: str | None = None, description: str | None = None) -> None:
+    def __init__(
+        self, fn: Callable, name: str | None = None, description: str | None = None
+    ) -> None:
         self.fn = fn
         self.name = name or fn.__name__
-        self.description = description or inspect.getdoc(fn) or self.name.replace("_", " ").title()
+        self.description = (
+            description or inspect.getdoc(fn) or self.name.replace("_", " ").title()
+        )
 
     def parameters(self, exclude: list[str] = []) -> list[Parameter]:
         """
@@ -230,7 +238,9 @@ class ToolFunctions:
     tool-call completion against the API.
     """
 
-    def __init__(self, functions: list[ToolFunction] | None = None, with_help: bool = False) -> None:
+    def __init__(
+        self, functions: list[ToolFunction] | None = None, with_help: bool = False
+    ) -> None:
         # Set up function map.
         self.function_map: dict[str, ToolFunction] = {}
         if functions:
@@ -251,7 +261,12 @@ class ToolFunctions:
         usage.sort()
         return "```text\nCommands:\n" + "\n".join(usage) + "\n```"
 
-    def add_function(self, function: Callable, name: str | None = None, description: str | None = None) -> None:
+    def add_function(
+        self,
+        function: Callable,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
         """Register a function with the tool functions."""
         if not name:
             name = function.__name__
@@ -267,7 +282,11 @@ class ToolFunctions:
         return [function for function in self.function_map.values()]
 
     async def execute_function(
-        self, name: str, args: tuple = (), kwargs: dict[str, Any] = {}, string_response: bool = False
+        self,
+        name: str,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        string_response: bool = False,
     ) -> Any:
         """
         Run a function from the ToolFunctions list by name. If string_response
@@ -280,20 +299,26 @@ class ToolFunctions:
         if string_response:
             return to_string(response)
 
-    async def execute_function_string(self, function_string: str, string_response: bool = False) -> Any:
+    async def execute_function_string(
+        self, function_string: str, string_response: bool = False
+    ) -> Any:
         """Parse a function string and execute the function."""
         try:
             function, args, kwargs = self.parse_function_string(function_string)
         except ValueError as e:
             raise ValueError(f"{e} Type: `/help` for more information.")
         if not function:
-            raise ValueError("Function not found in registry. Type: `/help` for more information.")
+            raise ValueError(
+                "Function not found in registry. Type: `/help` for more information."
+            )
         result = await function.execute(*args, **kwargs)
         if string_response:
             return to_string(result)
 
     @staticmethod
-    def parse_fn_string(function_string: str) -> tuple[str | None, list[Any], dict[str, Any]]:
+    def parse_fn_string(
+        function_string: str,
+    ) -> tuple[str | None, list[Any], dict[str, Any]]:
         """
         Parse a string representing a function call into its name, positional
         arguments, and keyword arguments.
@@ -313,7 +338,11 @@ class ToolFunctions:
             raise ValueError("Invalid function call. Please check your syntax.")
 
         # Ensure the tree contains exactly one expression (the function call)
-        if not (isinstance(tree, ast.Module) and len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr)):
+        if not (
+            isinstance(tree, ast.Module)
+            and len(tree.body) == 1
+            and isinstance(tree.body[0], ast.Expr)
+        ):
             raise ValueError("Expected a single function call.")
 
         # The function call is stored as a `Call` node within the expression
@@ -336,9 +365,14 @@ class ToolFunctions:
             elif isinstance(node, ast.Tuple):
                 return tuple(eval_node(elem) for elem in node.elts)
             elif isinstance(node, ast.Dict):
-                return {eval_node(key): eval_node(value) for key, value in zip(node.keys, node.values)}
+                return {
+                    eval_node(key): eval_node(value)
+                    for key, value in zip(node.keys, node.values)
+                }
             elif isinstance(node, ast.Name):
-                return node.id  # This can return variable names, but we assume they're constants
+                return (
+                    node.id
+                )  # This can return variable names, but we assume they're constants
             elif isinstance(node, ast.BinOp):  # Handling arithmetic expressions
                 return eval(compile(ast.Expression(node), filename="", mode="eval"))
             elif isinstance(node, ast.Call):
@@ -356,7 +390,9 @@ class ToolFunctions:
 
         return function_name, args, kwargs
 
-    def parse_function_string(self, function_string: str) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
+    def parse_function_string(
+        self, function_string: str
+    ) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
         """Parse a function call string into a function and its arguments."""
 
         function_name, args, kwargs = ToolFunctions.parse_fn_string(function_string)
@@ -377,15 +413,19 @@ class ToolFunctions:
         calls.
         """
         tools = [
-            ChatCompletionToolParam(**{
-                "type": "function",
-                "function": func.schema(),
-            })
+            ChatCompletionToolParam(
+                **{
+                    "type": "function",
+                    "function": func.schema(),
+                }
+            )
             for func in self.function_map.values()
         ]
         return tools or NOT_GIVEN
 
-    async def execute_tool_call(self, tool_call: ParsedFunctionToolCall) -> ChatCompletionMessageParam | None:
+    async def execute_tool_call(
+        self, tool_call: ParsedFunctionToolCall
+    ) -> ChatCompletionMessageParam | None:
         """
         Execute a function as requested by a ParsedFunctionToolCall (generated
         by the Chat Completions API) and return the response as a
@@ -396,18 +436,25 @@ class ToolFunctions:
         if self.has_function(function.name):
             logger.debug(
                 "Function call.",
-                extra=add_serializable_data({"name": function.name, "arguments": function.arguments}),
+                extra=add_serializable_data(
+                    {"name": function.name, "arguments": function.arguments}
+                ),
             )
             value: Any = None
             try:
                 kwargs: dict[str, Any] = json.loads(function.arguments)
-                value = await self.execute_function(function.name, (), kwargs, string_response=True)
+                value = await self.execute_function(
+                    function.name, (), kwargs, string_response=True
+                )
             except Exception as e:
                 logger.error("Error.", extra=add_serializable_data({"error": e}))
                 value = f"Error: {e}"
             finally:
                 logger.debug(
-                    "Function response.", extra=add_serializable_data({"tool_call_id": tool_call.id, "content": value})
+                    "Function response.",
+                    extra=add_serializable_data(
+                        {"tool_call_id": tool_call.id, "content": value}
+                    ),
                 )
                 return {
                     "role": "tool",
@@ -466,9 +513,13 @@ async def complete_with_tool_calls(
 
         logger.debug(
             f"Completion call ({round_description}).",
-            extra=add_serializable_data(make_completion_args_serializable(current_args)),
+            extra=add_serializable_data(
+                make_completion_args_serializable(current_args)
+            ),
         )
-        metadata[f"completion_request ({round_description})"] = make_completion_args_serializable(current_args)
+        metadata[f"completion_request ({round_description})"] = (
+            make_completion_args_serializable(current_args)
+        )
 
         # Make the completion call
         try:
@@ -478,15 +529,23 @@ async def complete_with_tool_calls(
             validate_completion(current_completion)
             logger.debug(
                 f"Completion response ({round_description}).",
-                extra=add_serializable_data({"completion": current_completion.model_dump()}),
+                extra=add_serializable_data(
+                    {"completion": current_completion.model_dump()}
+                ),
             )
-            metadata[f"completion_response ({round_description})"] = current_completion.model_dump()
+            metadata[f"completion_response ({round_description})"] = (
+                current_completion.model_dump()
+            )
         except Exception as e:
             completion_error = CompletionError(e)
-            metadata[f"completion_error ({round_description})"] = completion_error.message
+            metadata[f"completion_error ({round_description})"] = (
+                completion_error.message
+            )
             logger.error(
                 completion_error.message,
-                extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
+                extra=add_serializable_data(
+                    {"completion_error": completion_error.body, "metadata": metadata}
+                ),
             )
             raise completion_error from e
 
@@ -504,7 +563,9 @@ async def complete_with_tool_calls(
         # Call all tool functions and generate return messages
         round_tool_messages: list[ChatCompletionMessageParam] = []
         for tool_call in completion_message.tool_calls:
-            function_call_result_message = await tool_functions.execute_tool_call(tool_call)
+            function_call_result_message = await tool_functions.execute_tool_call(
+                tool_call
+            )
             if function_call_result_message:
                 round_tool_messages.append(function_call_result_message)
                 all_new_messages.append(function_call_result_message)

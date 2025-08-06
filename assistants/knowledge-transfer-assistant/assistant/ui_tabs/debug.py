@@ -7,8 +7,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.data import ConversationRole, Share
 from assistant.domain import KnowledgeDigestManager, ShareManager, TransferManager
 from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
+from assistant.domain.thoughts_manager import ThoughtsManager
 
 
 class DebugInspector:
@@ -32,27 +34,54 @@ class DebugInspector:
         """Get debug information for display."""
 
         # Get share information
-        share_id = await ShareManager.get_share_id(context)
-        if not share_id:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No active knowledge package. Start a conversation to create one."}
-            )
-
-        markdown = await self._format_debug_info(share_id, context)
+        share = await ShareManager.get_share(context)
+        markdown = await self._format_debug_info(context, share)
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
-    async def _format_debug_info(self, share_id: str, context: ConversationContext) -> str:
+    async def _format_debug_info(self, context: ConversationContext, share: Share) -> str:
         """Format debug information including knowledge digest."""
 
         lines: list[str] = []
 
         lines.append("## Debug Information")
-        lines.append("")
-        lines.append("This panel shows internal information maintained by the assistant. This data is automatically")
-        lines.append("generated and updated by the assistant and is not directly editable by users.")
+        lines.append("_This panel shows internal information maintained by the assistant. This data is automatically")
+        lines.append("generated and updated by the assistant and is not directly editable by users._")
         lines.append("")
 
-        # Get the knowledge digest
+        # Share metadata
+        share = await ShareManager.get_share(context)
+        lines.append("## Share Metadata")
+        lines.append(f"- **Share ID:** `{share.share_id}`")
+        lines.append(f"- **Created:** {share.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"- **Last Updated:** {share.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"- **Team Conversations:** {len(share.team_conversations) if share.team_conversations else 0}")
+        lines.append(f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}")
+        # lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
+        lines.append(f"- **Ready for Transfer:** {TransferManager.is_ready_for_transfer(share)}")
+        lines.append(f"- **Actively Sharing:** {TransferManager.is_actively_sharing(share)}")
+        if share.coordinator_conversation_id:
+            lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
+        lines.append("")
+
+        # Conversation metadata
+        lines.append("## Conversation Metadata")
+        role_type = await ShareManager.get_conversation_role(context)
+        role = "Coordinator" if role_type == ConversationRole.COORDINATOR else "Team Member"
+        lines.append(f"- **Role:** {role}")
+        style = await ConversationPreferencesManager.get_preferred_communication_style(context)
+        lines.append(f"- **Preferred Communication Style:** {style}")
+
+        # Assistant thoughts
+        lines.append("## Assistant Thoughts")
+        thoughts = await ThoughtsManager.get_assistant_thoughts(context)
+        if thoughts:
+            for thought in thoughts:
+                lines.append(f"- {thought}")
+            lines.append("")
+        else:
+            lines.append("_No assistant thoughts recorded yet._")
+
+        # knowledge digest
         try:
             digest = await KnowledgeDigestManager.get_knowledge_digest(context)
 
@@ -79,36 +108,6 @@ class DebugInspector:
             lines.append("## Knowledge Digest")
             lines.append("")
             lines.append(f"**Error retrieving knowledge digest:** {e!s}")
-            lines.append("")
-
-        # Add share metadata for debugging
-        try:
-            share = await ShareManager.get_share(context)
-            if share:
-                lines.append("## Share Metadata")
-                lines.append("")
-                lines.append(f"- **Share ID:** `{share_id}`")
-                lines.append(f"- **Created:** {share.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                lines.append(f"- **Last Updated:** {share.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                lines.append(
-                    f"- **Team Conversations:** {len(share.team_conversations) if share.team_conversations else 0}"
-                )
-                lines.append(
-                    f"- **Learning Objectives:** {len(share.learning_objectives) if share.learning_objectives else 0}"
-                )
-                lines.append(f"- **Knowledge Organized:** {share.knowledge_organized}")
-                lines.append(f"- **Ready for Transfer:** {TransferManager.is_ready_for_transfer(share)}")
-                lines.append(f"- **Actively Sharing:** {TransferManager.is_actively_sharing(share)}")
-                if share.coordinator_conversation_id:
-                    lines.append(f"- **Conversation ID:** `{share.coordinator_conversation_id}`")
-                lines.append("")
-                style = await ConversationPreferencesManager.get_preferred_communication_style(context)
-                lines.append(f"- **Preferred Communication Style:** {style}")
-
-        except Exception as e:
-            lines.append("## Share Metadata")
-            lines.append("")
-            lines.append(f"**Error retrieving share metadata:** {e!s}")
             lines.append("")
 
         return "\n".join(lines)

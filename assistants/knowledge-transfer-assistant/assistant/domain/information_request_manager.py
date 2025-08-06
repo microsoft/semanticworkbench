@@ -1,9 +1,3 @@
-"""
-Information request management for Knowledge Transfer Assistant.
-
-Handles information request creation, resolution, and retrieval.
-"""
-
 from datetime import UTC, datetime
 
 from semantic_workbench_assistant.assistant_app import ConversationContext

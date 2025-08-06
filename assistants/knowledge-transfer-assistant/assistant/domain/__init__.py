@@ -10,6 +10,7 @@ from .knowledge_brief_manager import KnowledgeBriefManager
 from .knowledge_digest_manager import KnowledgeDigestManager
 from .learning_objectives_manager import LearningObjectivesManager
 from .share_manager import ShareManager
+from .thoughts_manager import ThoughtsManager
 from .transfer_manager import TransferManager
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "KnowledgeDigestManager",
     "LearningObjectivesManager",
     "ShareManager",
+    "ThoughtsManager",
     "TransferManager",
 ]

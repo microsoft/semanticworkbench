@@ -179,7 +179,6 @@ class Share(BaseModel):
     shared_conversation_id: str | None = None
     team_conversations: dict[str, TeamConversationInfo] = Field(default_factory=dict)
     share_url: str | None = None
-
     version: int = 1
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -187,7 +186,7 @@ class Share(BaseModel):
 
     # Knowledge Package components
     audience: str | None = None
-    takeaways: list[str] = Field(default_factory=list)
+    audience_takeaways: list[str] = Field(default_factory=list)
     learning_objectives: list[LearningObjective] = Field(default_factory=list)
     brief: KnowledgeBrief | None
     preferred_communication_style: str | None = None
@@ -197,10 +196,9 @@ class Share(BaseModel):
     # Lifecycle
     is_intended_to_accomplish_outcomes: bool = True
     next_learning_actions: list[str] = Field(default_factory=list)
-    transfer_lifecycle: dict[str, Any] = Field(default_factory=dict)
-    knowledge_organized: bool = False
-    archived: bool = False
+    # knowledge_organized: bool = False
     requests: list[InformationRequest] = Field(default_factory=list)
+    assistant_thoughts: list[str] = Field(default_factory=list)
 
     log: ShareLog | None = Field(default_factory=lambda: ShareLog())
 

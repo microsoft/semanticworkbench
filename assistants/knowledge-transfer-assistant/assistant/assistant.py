@@ -4,6 +4,7 @@
 
 import asyncio
 import pathlib
+import re
 from typing import Any
 
 from assistant_extensions import attachments, dashboard_card, navigator
@@ -26,16 +27,23 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.domain.knowledge_digest_manager import KnowledgeDigestManager
+from assistant.agentic.detect_audience_and_takeaways import (
+    detect_audience_and_takeaways,
+)
 
-from .agentic.team_welcome import generate_team_welcome_message
+from .agentic import agentic
 from .config import assistant_config
 from .data import ConversationRole, InspectorTab, LogEntryType
 from .domain import ShareManager
 from .files import ShareFilesManager
 from .logging import logger
 from .notifications import Notifications
-from .respond import respond_to_conversation
+from .respond import (
+    SILENCE_TOKEN,
+    CoordinatorOutput,
+    TeamOutput,
+    respond_to_conversation,
+)
 from .ui_tabs import BriefInspector, DebugInspector, LearningInspector, SharingInspector
 from .utils import (
     DEFAULT_TEMPLATE_ID,
@@ -44,7 +52,9 @@ from .utils import (
 
 service_id = "knowledge-transfer-assistant.made-exploration"
 service_name = "Knowledge Transfer Assistant"
-service_description = "A mediator assistant that facilitates sharing knowledge between parties."
+service_description = (
+    "A mediator assistant that facilitates sharing knowledge between parties."
+)
 
 
 async def content_evaluator_factory(
@@ -76,7 +86,9 @@ assistant = AssistantApp(
                 template_id=DEFAULT_TEMPLATE_ID,
                 background_color="rgb(198, 177, 222)",
                 icon=dashboard_card.image_to_url(
-                    pathlib.Path(__file__).parent / "assets" / "icon-knowledge-transfer.svg",
+                    pathlib.Path(__file__).parent
+                    / "assets"
+                    / "icon-knowledge-transfer.svg",
                     "image/svg+xml",
                 ),
                 card_content=dashboard_card.CardContent(
@@ -85,9 +97,11 @@ assistant = AssistantApp(
                 ),
             ),
         ),
-        **navigator.metadata_for_assistant_navigator({
-            "default": load_text_include("assistant_info.md"),
-        }),
+        **navigator.metadata_for_assistant_navigator(
+            {
+                "default": load_text_include("assistant_info.md"),
+            }
+        ),
     },
 )
 
@@ -127,7 +141,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 share_id = await ShareManager.create_share(context)
 
                 # And it was good. So we then created a sharable conversation that we use as a template.
-                share_url = await ShareManager.create_shareable_team_conversation(context=context, share_id=share_id)
+                share_url = await ShareManager.create_shareable_team_conversation(
+                    context=context, share_id=share_id
+                )
 
                 config = await assistant_config.get(context.assistant)
                 welcome_message = config.coordinator_config.welcome_message.format(
@@ -158,7 +174,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
             if not share_id:
                 logger.error("No share ID found for shareable team conversation.")
                 return
-            await ShareManager.set_conversation_role(context, share_id, ConversationRole.SHAREABLE_TEMPLATE)
+            await ShareManager.set_conversation_role(
+                context, share_id, ConversationRole.SHAREABLE_TEMPLATE
+            )
             return
 
         case ConversationRole.TEAM:
@@ -174,10 +192,16 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
-            await ShareManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
-            await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+            await ShareManager.set_conversation_role(
+                context, share_id, ConversationRole.TEAM
+            )
+            await ShareFilesManager.synchronize_files_to_team_conversation(
+                context=context, share_id=share_id
+            )
 
-            welcome_message, debug = await generate_team_welcome_message(context)
+            welcome_message, debug = await agentic.generate_team_welcome_message(
+                context
+            )
             await context.send_messages(
                 NewConversationMessage(
                     content=welcome_message,
@@ -226,12 +250,42 @@ async def on_conversation_updated(context: ConversationContext) -> None:
                     f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'"  # noqa: E501
                 )
             else:
-                logger.debug(f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'")
+                logger.debug(
+                    f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'"
+                )
         except Exception as title_update_error:
-            logger.error(f"Error updating conversation {shared_conversation_id} title: {title_update_error}")
+            logger.error(
+                f"Error updating conversation {shared_conversation_id} title: {title_update_error}"
+            )
 
     except Exception as e:
         logger.error(f"Error syncing conversation title: {e}")
+
+
+async def store_coordinator_message(
+    context: ConversationContext, message: ConversationMessage
+) -> None:
+    async with context.set_status("jotting..."):
+        try:
+            sender_name = "Coordinator"
+            if message.sender:
+                participants = await context.get_participants()
+                for participant in participants.participants:
+                    if participant.id == message.sender.participant_id:
+                        sender_name = participant.name
+                        break
+
+                await ShareManager.append_coordinator_message(
+                    context=context,
+                    message_id=str(message.id),
+                    content=message.content,
+                    sender_name=sender_name,
+                    is_assistant=message.sender.participant_role
+                    == ParticipantRole.assistant,
+                    timestamp=message.timestamp,
+                )
+        except Exception as e:
+            logger.exception(f"Error storing Coordinator message for Team access: {e}")
 
 
 @assistant.events.conversation.message.chat.on_created
@@ -248,49 +302,127 @@ async def on_message_created(
 
     try:
         share = await ShareManager.get_share(context)
-        if not share:
-            return
-
         metadata["debug"]["share_id"] = share.share_id
+        is_user_message = message.sender.participant_role == ParticipantRole.user
 
-        # If this is a Coordinator conversation, store the message for Team access
-        async with context.set_status("jotting..."):
-            role = await ShareManager.get_conversation_role(context)
-            if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-                try:
-                    sender_name = "Coordinator"
-                    if message.sender:
-                        participants = await context.get_participants()
-                        for participant in participants.participants:
-                            if participant.id == message.sender.participant_id:
-                                sender_name = participant.name
-                                break
+        # Save coordinator-role user messages for team access.
+        role = await ShareManager.get_conversation_role(context)
+        if role == ConversationRole.COORDINATOR and is_user_message:
+            await store_coordinator_message(context, message)
 
-                        await ShareManager.append_coordinator_message(
-                            context=context,
-                            message_id=str(message.id),
-                            content=message.content,
-                            sender_name=sender_name,
-                            is_assistant=message.sender.participant_role == ParticipantRole.assistant,
-                            timestamp=message.timestamp,
+        if message.message_type == MessageType.chat and is_user_message:
+            async with context.set_status("pondering..."):
+                # Get generated message.
+                response = await respond_to_conversation(
+                    context,
+                    new_message=message,
+                    attachments_extension=attachments_extension,
+                    metadata=metadata,
+                )
+                content = ""
+                if response:
+                    content = str(response.get("content", ""))
+
+                # strip out the username from the response
+                if content.startswith("["):
+                    content = re.sub(r"\[.*\]:\s", "", content)
+
+                # If there are more than one user participants in the conversation, we need
+                # to check if the model chose to remain silent.
+                if content and content.replace(" ", "") == SILENCE_TOKEN:
+                    config = await assistant_config.get(context.assistant)
+                    if config.enable_debug_output:
+                        metadata["debug"]["silence_token"] = True
+                        metadata["debug"]["silence_token_response"] = (content,)
+                        await context.send_messages(
+                            NewConversationMessage(
+                                message_type=MessageType.notice,
+                                content="[assistant chose to remain silent]",
+                                metadata=metadata,
+                            )
                         )
+                    return
+
+                # Prepare response.
+                response_parts: list[str] = []
+                if not content:
+                    return
+                try:
+                    if role == ConversationRole.TEAM:
+                        output_model = TeamOutput.model_validate_json(content)
+                        if output_model.response:
+                            response_parts.append(output_model.response)
+
+                        if output_model.excerpt:
+                            output_model.excerpt = output_model.excerpt.strip().strip(
+                                '"'
+                            )
+                            response_parts.append(
+                                f'> _"{output_model.excerpt}"_ (excerpt)'
+                            )
+
+                        if output_model.citations:
+                            citations = ", ".join(output_model.citations)
+                            response_parts.append(f"Sources: _{citations}_")
+
+                        if output_model.next_step_suggestion:
+                            metadata["help"] = output_model.next_step_suggestion
+
+                    else:
+                        output_model = CoordinatorOutput.model_validate_json(content)
+                        if output_model.response:
+                            response_parts.append(output_model.response)
+                        # if output_model.next_step_suggestion:
+                        #     metadata["help"] = output_model.next_step_suggestion
+
+                    # Save valid assistant responses for team access.
+                    await store_coordinator_message(
+                        context,
+                        ConversationMessage(
+                            id=message.id,
+                            content_type=message.content_type,
+                            content="\n\n".join(response_parts),
+                            sender=message.sender,
+                            timestamp=message.timestamp,
+                            message_type=MessageType.chat,
+                            filenames=[],
+                            metadata={},
+                            has_debug_data=False,
+                        ),
+                    )
+
+                    # Doing background tasks only when the coordinator has responded.
+
+                    # Detect information requests in the conversation.
+                    task = asyncio.create_task(agentic.update_digest(context))
+                    task.add_done_callback(
+                        lambda t: t.exception() if t.done() and t.exception() else None
+                    )
+
+                    # Background thinking - audience
+                    task2 = asyncio.create_task(
+                        detect_audience_and_takeaways(context, attachments_extension)
+                    )
+                    task2.add_done_callback(
+                        lambda t: t.exception() if t.done() and t.exception() else None
+                    )
+
+                    await context.send_messages(
+                        NewConversationMessage(
+                            content="\n\n".join(response_parts),
+                            message_type=MessageType.chat,
+                            metadata=metadata,
+                        )
+                    )
+
                 except Exception as e:
-                    logger.exception(f"Error storing Coordinator message for Team access: {e}")
-
-        async with context.set_status("pondering..."):
-            await respond_to_conversation(
-                context,
-                new_message=message,
-                attachments_extension=attachments_extension,
-                metadata=metadata,
-            )
-
-        # If the message is from a Coordinator, update the digest in the
-        # background
-        if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
-            task = asyncio.create_task(KnowledgeDigestManager.auto_update_knowledge_digest(context))
-            # Fire and forget - we don't need to await this background task
-            task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+                    metadata["debug"]["error"] = str(e)
+                    logger.exception(f"exception occurred parsing json response: {e}")
+                    NewConversationMessage(
+                        content="I'm sorry, I encountered an error while processing the response.",
+                        message_type=MessageType.notice,
+                        metadata=metadata,
+                    )
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")
@@ -312,9 +444,13 @@ async def on_command_created(
     if message.message_type != MessageType.command:
         return
 
-    await context.update_participant_me(UpdateParticipant(status="processing command..."))
+    await context.update_participant_me(
+        UpdateParticipant(status="processing command...")
+    )
     try:
-        metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+        metadata = {
+            "debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}
+        }
 
         # Respond to the conversation
         await respond_to_conversation(
@@ -345,7 +481,9 @@ async def on_file_created(
     """
     try:
         if not file.filename:
-            logger.warning(f"No share found or missing filename. filename={file.filename}")
+            logger.warning(
+                f"No share found or missing filename. filename={file.filename}"
+            )
             return
 
         share = await ShareManager.get_share(context)
@@ -369,7 +507,9 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(
+                context, share.share_id
+            )
 
             if team_conversations:
                 for team_conv_id in team_conversations:
@@ -426,7 +566,9 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in share storage: {file.filename}")
                 return
 
-            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
+            team_conversations = await ShareFilesManager.get_team_conversations(
+                context, share.share_id
+            )
             for team_conv_id in team_conversations:
                 await ShareFilesManager.copy_file_to_conversation(
                     context=context,
@@ -473,7 +615,9 @@ async def on_file_deleted(
             )
 
             if not success:
-                logger.error(f"Failed to delete file from share storage: {file.filename}")
+                logger.error(
+                    f"Failed to delete file from share storage: {file.filename}"
+                )
 
             # 2. Update all UIs about the deletion but don't send notifications to reduce noise
             await Notifications.notify_all_state_update(context, [InspectorTab.DEBUG])
@@ -521,7 +665,9 @@ async def on_participant_joined(
         if not share_id:
             return
 
-        await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
+        await ShareFilesManager.synchronize_files_to_team_conversation(
+            context=context, share_id=share_id
+        )
 
         await ShareManager.log_share_event(
             context=context,

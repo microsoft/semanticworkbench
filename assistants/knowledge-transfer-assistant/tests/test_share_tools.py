@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import openai_client
 import pytest
-from assistant.agentic.analysis import detect_information_request_needs
+from assistant.agentic.detect_information_requests import detect_information_request_needs
 from assistant.data import ConversationRole
 from assistant.tools import ShareTools
 from semantic_workbench_assistant.assistant_app import ConversationContext

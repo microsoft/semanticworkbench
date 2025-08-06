@@ -1,9 +1,3 @@
-"""
-Knowledge brief management operations for Knowledge Transfer Assistant.
-
-Handles knowledge brief creation, updates, and retrieval.
-"""
-
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import InspectorTab, KnowledgeBrief, LogEntryType

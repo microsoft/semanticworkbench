@@ -57,7 +57,7 @@ class LearningObjectiveTools(ToolsBase):
         Update an existing learning objective's name or description.
 
         Args:
-            objective_id: The unique ID of the learning objective to update
+            objective_id: The UUID of the learning objective to update
             objective_name: New name for the objective (empty string to keep current name)
             description: New description (empty string to keep current description)
 
@@ -89,7 +89,7 @@ class LearningObjectiveTools(ToolsBase):
         NOTE: This action is irreversible and will remove all learning outcomes associated with the objective.
 
         Args:
-            objective_id: The unique ID of the learning objective to delete.
+            objective_id: The UUID of the learning objective to delete.
 
         Returns:
             A message indicating success or failure

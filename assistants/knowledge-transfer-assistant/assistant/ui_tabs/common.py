@@ -40,15 +40,12 @@ def get_stage_label(share: Share, for_coordinator: bool = True) -> str:
     Returns:
         str: Stage label with emoji
     """
-    if share.archived:
-        return "📦 Archived"
-
     if for_coordinator:
         # Coordinator perspective
         if not share.audience:
             return "🎯 Defining Audience"
-        elif not share.knowledge_organized:
-            return "📋 Organizing Knowledge"
+        # elif not share.knowledge_organized:
+        #     return "📋 Organizing Knowledge"
         elif not share.brief:
             return "📝 Creating Brief"
         elif share.is_intended_to_accomplish_outcomes and not share.learning_objectives:
@@ -63,9 +60,7 @@ def get_stage_label(share: Share, for_coordinator: bool = True) -> str:
             return "🚀 Ready for Transfer"
     else:
         # Team perspective
-        if share.archived:
-            return "📦 Archived"
-        elif not TransferManager.is_ready_for_transfer(share):
+        if not TransferManager.is_ready_for_transfer(share):
             return "⏳ Knowledge Being Organized"
         elif not share.is_intended_to_accomplish_outcomes:
             return "🔍 Exploring Knowledge"

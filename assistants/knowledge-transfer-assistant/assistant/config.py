@@ -14,7 +14,7 @@ from .utils import load_text_include
 
 class RequestConfig(BaseModel):
     model_config = ConfigDict(
-        title="Response Generation",
+        title="Response generation",
         json_schema_extra={
             "required": ["max_tokens", "response_tokens", "openai_model"],
         },
@@ -23,7 +23,7 @@ class RequestConfig(BaseModel):
     max_tokens: Annotated[
         int,
         Field(
-            title="Max Tokens",
+            title="Max tokens",
             description=(
                 "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
                 " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
@@ -34,7 +34,7 @@ class RequestConfig(BaseModel):
     response_tokens: Annotated[
         int,
         Field(
-            title="Response Tokens",
+            title="Response tokens",
             description=(
                 "The number of tokens to use for the response, will reduce the number of tokens available for the"
                 " prompt. Current max supported by OpenAI is 4096 tokens (https://platform.openai.com/docs/models)"
@@ -45,7 +45,7 @@ class RequestConfig(BaseModel):
     coordinator_conversation_token_limit: Annotated[
         int,
         Field(
-            title="Coordinator Conversation Token Limit",
+            title="Coordinator conversation token limit",
             description="The maximum number of tokens to use for the coordinator conversation history.",
         ),
     ] = 4000
@@ -53,7 +53,7 @@ class RequestConfig(BaseModel):
     openai_model: Annotated[
         str,
         Field(
-            title="OpenAI Model",
+            title="OpenAI model",
             description="The OpenAI model to use for generating responses.",
         ),
     ] = "gpt-4.1"
@@ -61,7 +61,7 @@ class RequestConfig(BaseModel):
 
 class PromptConfig(BaseModel):
     model_config = ConfigDict(
-        title="Prompt Templates",
+        title="Prompt templates",
         json_schema_extra={
             "required": [
                 "coordinator_role",
@@ -69,7 +69,7 @@ class PromptConfig(BaseModel):
                 "team_role",
                 "team_instructions",
                 "share_information_request_detection",
-                "knowledge_digest_prompt",
+                "knowledge_digest_update",
                 "welcome_message_generation",
             ],
         },
@@ -78,7 +78,7 @@ class PromptConfig(BaseModel):
     coordinator_role: Annotated[
         str,
         Field(
-            title="Coordinator Role",
+            title="Coordinator role",
             description="The role of the coordinator assistant. This is added to the prompt when in coordinator mode.",
         ),
         UISchema(widget="textarea"),
@@ -87,7 +87,7 @@ class PromptConfig(BaseModel):
     coordinator_instructions: Annotated[
         str,
         Field(
-            title="Coordinator Instructions",
+            title="Coordinator instructions",
             description="The instructions to give the coordinator assistant. This is added to the prompt when in coordinator mode.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
@@ -96,7 +96,7 @@ class PromptConfig(BaseModel):
     team_role: Annotated[
         str,
         Field(
-            title="Team Role",
+            title="Team role",
             description="The role of the team assistant. This is added to the prompt when in team member mode.",
         ),
         UISchema(widget="textarea"),
@@ -105,7 +105,7 @@ class PromptConfig(BaseModel):
     team_instructions: Annotated[
         str,
         Field(
-            title="Team Instructions",
+            title="Team instructions",
             description="The instructions to give the team assistant. This is added to the prompt when in team member mode.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
@@ -114,20 +114,20 @@ class PromptConfig(BaseModel):
     share_information_request_detection: Annotated[
         str,
         Field(
-            title="Information Request Detection Prompt",
+            title="Information Request detection prompt",
             description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
         UISchema(widget="textarea"),
     ] = load_text_include("share_information_request_detection.txt")
 
-    knowledge_digest_prompt: Annotated[
+    knowledge_digest_update: Annotated[
         str,
         Field(
-            title="Knowledge Digest Prompt",
-            description="The prompt used to generate knowledge digest content.",
+            title="Knowledge Digest update",
+            description="The prompt used to generate updated knowledge digest content.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("knowledge_digest_prompt.txt")
+    ] = load_text_include("knowledge_digest_update.txt")
 
     welcome_message_generation: Annotated[
         str,
@@ -141,7 +141,7 @@ class PromptConfig(BaseModel):
 
 class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
-        title="Coordinator Configuration",
+        title="Coordinator configuration",
         json_schema_extra={
             "required": ["welcome_message", "preferred_communication_style", "max_digest_tokens"],
         },
@@ -176,7 +176,7 @@ To get started, let's discuss your audience. Who are you going to be sharing you
     max_digest_tokens: Annotated[
         int,
         Field(
-            title="Maximum Digest Tokens",
+            title="Maximum digest tokens",
             description=("The number of tokens to use for the knowledge digest. Default: 4096"),
         ),
     ] = 4_096
@@ -184,7 +184,7 @@ To get started, let's discuss your audience. Who are you going to be sharing you
     preferred_communication_style: Annotated[
         str,
         Field(
-            title="Preferred Communication Style",
+            title="Preferred communication style",
             description="The preferred communication style for the assistant. This is used to tailor responses.",
         ),
         UISchema(widget="textarea"),
@@ -193,7 +193,7 @@ To get started, let's discuss your audience. Who are you going to be sharing you
 
 class TeamConfig(BaseModel):
     model_config = ConfigDict(
-        title="Team Member Configuration",
+        title="Team-member configuration",
         json_schema_extra={
             "required": ["default_welcome_message", "preferred_communication_style"],
         },
@@ -202,7 +202,7 @@ class TeamConfig(BaseModel):
     default_welcome_message: Annotated[
         str,
         Field(
-            title="Team Welcome Message",
+            title="Team Welcome message",
             description="The message to display when a user joins a knowledge transfer as a Team member. Shown after successfully joining a knowledge transfer.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
@@ -211,7 +211,7 @@ class TeamConfig(BaseModel):
     preferred_communication_style: Annotated[
         str,
         Field(
-            title="Preferred Communication Style",
+            title="Preferred communication style",
             description="The preferred communication style for the assistant. This is used to tailor responses.",
         ),
         UISchema(widget="textarea"),
@@ -223,7 +223,7 @@ class AssistantConfigModel(BaseModel):
     enable_debug_output: Annotated[
         bool,
         Field(
-            title="Include Debug Output",
+            title="Include debug output",
             description="Include debug output on conversation messages.",
         ),
     ] = False
@@ -231,7 +231,7 @@ class AssistantConfigModel(BaseModel):
     prompt_config: Annotated[
         PromptConfig,
         Field(
-            title="Prompt Configuration",
+            title="Prompt configuration",
             description="Configuration for prompt templates used throughout the assistant.",
         ),
     ] = PromptConfig()
@@ -239,7 +239,7 @@ class AssistantConfigModel(BaseModel):
     request_config: Annotated[
         RequestConfig,
         Field(
-            title="Request Configuration",
+            title="Request configuration",
         ),
     ] = RequestConfig()
 
@@ -248,14 +248,14 @@ class AssistantConfigModel(BaseModel):
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,
         Field(
-            title="Content Safety Configuration",
+            title="Content Safety configuration",
         ),
     ] = CombinedContentSafetyEvaluatorConfig()
 
     attachments_config: Annotated[
         AttachmentsConfigModel,
         Field(
-            title="Attachments Configuration",
+            title="Attachments configuration",
             description="Configuration for handling file attachments in messages.",
         ),
     ] = AttachmentsConfigModel()
@@ -264,31 +264,15 @@ class AssistantConfigModel(BaseModel):
     auto_sync_files: Annotated[
         bool,
         Field(
-            title="Auto-sync Files",
+            title="Auto-sync files",
             description="Automatically synchronize files between linked conversations.",
-        ),
-    ] = True
-
-    track_progress: Annotated[
-        bool,
-        Field(
-            title="Track Progress",
-            description="Track knowledge transfer progress with learning objectives, outcome completion, and overall transfer state.",  # noqa: E501
-        ),
-    ] = True
-
-    proactive_guidance: Annotated[
-        bool,
-        Field(
-            title="Proactive Guidance",
-            description="Proactively guide knowledge organizers through knowledge structuring.",
         ),
     ] = True
 
     coordinator_config: Annotated[
         CoordinatorConfig,
         Field(
-            title="Coordinator Configuration",
+            title="Coordinator configuration",
             description="Configuration for knowledge transfer coordinators.",
         ),
     ] = CoordinatorConfig()
@@ -296,7 +280,7 @@ class AssistantConfigModel(BaseModel):
     team_config: Annotated[
         TeamConfig,
         Field(
-            title="Team Configuration",
+            title="Team configuration",
             description="Configuration for knowledge transfer team members.",
         ),
     ] = TeamConfig()

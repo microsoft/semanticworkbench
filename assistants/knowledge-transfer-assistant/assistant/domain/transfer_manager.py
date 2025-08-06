@@ -6,8 +6,8 @@ from .learning_objectives_manager import LearningObjectivesManager
 class TransferManager:
     @staticmethod
     def is_ready_for_transfer(share: Share) -> bool:
-        has_basic_requirements = share.knowledge_organized and share.brief is not None and share.audience is not None
-
+        # has_basic_requirements = share.knowledge_organized and share.brief is not None and share.audience is not None
+        has_basic_requirements = share.audience and share.audience_takeaways and share.brief
         if not has_basic_requirements:
             return False
 

@@ -24,7 +24,7 @@ class LearningOutcomeTools(ToolsBase):
         - When iteratively developing learning objectives based on feedback
 
         Args:
-            objective_id: The unique ID of the learning objective to add the outcome to
+            objective_id: The UUID of the learning objective to add the outcome to
             outcome_description: Clear, specific description of what needs to be understood or accomplished
 
         Returns:

@@ -15,6 +15,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from assistant.config import assistant_config
 from assistant.domain.share_manager import ShareManager
 from assistant.logging import logger
+from assistant.utils import load_text_include
 
 
 async def generate_team_welcome_message(
@@ -64,29 +65,14 @@ async def generate_team_welcome_message(
     # Knowledge Digest
     knowledge_digest = share.digest
     if knowledge_digest and knowledge_digest.content:
-        knowledge_digest_text = dedent(f"""
-            ### ASSISTANT KNOWLEDGE DIGEST - KEY KNOWLEDGE SHARE INFORMATION
-            The knowledge digest contains critical knowledge share information that has been automatically 
-            extracted from previous conversations. It serves as a persistent memory of important facts, 
-            decisions, and context that you should reference when responding.
-
-            Key characteristics of this knowledge digest:
-            - It contains the most essential information about the knowledge share that should be readily available
-            - It has been automatically curated to focus on high-value content relevant to the knowledge transfer
-            - It is maintained and updated as the conversation progresses
-            - It should be treated as a trusted source of contextual information for this knowledge transfer
-
-            When using the knowledge digest:
-            - Prioritize this information when addressing questions or providing updates
-            - Reference it to ensure consistency in your responses across the conversation
-            - Use it to track important details that might otherwise be lost in the conversation history
-
+        knowledge_digest_text = load_text_include("knowledge_digest_instructions.txt") + dedent(f"""
             KNOWLEDGE DIGEST CONTENT:
             ```markdown
             {knowledge_digest.content}
             ```
 
             """)
+        share_data["knowledge_digest"] = knowledge_digest_text
         share_data["knowledge_digest"] = knowledge_digest_text
 
     try:

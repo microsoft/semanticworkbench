@@ -10,11 +10,12 @@ import pathlib
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.errors import NoUserException
+from assistant.string_utils import render
 
 DEFAULT_TEMPLATE_ID = "default"
 
 
-def load_text_include(filename) -> str:
+def load_text_include(filename: str, replacements: dict[str, str] = {}) -> str:
     """
     Helper for loading an include from a text file.
 
@@ -24,14 +25,10 @@ def load_text_include(filename) -> str:
     Returns:
         The content of the text file
     """
-    # Get directory relative to this module
     directory = pathlib.Path(__file__).parent
-
-    # Get the file path for the prompt file
     file_path = directory / "text_includes" / filename
-
-    # Read the prompt from the file
-    return file_path.read_text()
+    text = file_path.read_text()
+    return render(text, replacements)
 
 
 async def get_current_user(

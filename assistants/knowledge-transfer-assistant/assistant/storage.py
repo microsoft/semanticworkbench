@@ -113,6 +113,32 @@ class ShareStorage:
         return path
 
     @staticmethod
+    def read_assistant_thoughts(share_id: str) -> list[str]:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            return []
+        return share.assistant_thoughts
+
+    @staticmethod
+    def add_assistant_thoughts(share_id: str, thoughts: list[str]) -> None:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        share.assistant_thoughts.extend(thoughts)
+        ShareStorage.write_share(share_id, share)
+
+    @staticmethod
+    def remove_assistant_thought(share_id: str, thought: str) -> None:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        if thought in share.assistant_thoughts:
+            share.assistant_thoughts.remove(thought)
+            ShareStorage.write_share(share_id, share)
+        else:
+            logger.warning(f"Thought '{thought}' not found in share {share_id}.")
+
+    @staticmethod
     def read_knowledge_brief(share_id: str) -> KnowledgeBrief | None:
         share = ShareStorage.read_share(share_id)
         return share.brief if share else None

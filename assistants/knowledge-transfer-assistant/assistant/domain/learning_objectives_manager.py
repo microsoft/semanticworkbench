@@ -1,9 +1,3 @@
-"""
-Learning objectives and outcomes management for Knowledge Transfer Assistant.
-
-Handles learning objectives, outcomes creation, updates, and deletion.
-"""
-
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import (
