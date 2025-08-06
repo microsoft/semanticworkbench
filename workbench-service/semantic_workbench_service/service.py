@@ -1062,6 +1062,26 @@ def init(
             principal=principal,
         )
 
+    @app.get("/conversations/{conversation_id}/assistants/{assistant_id}/files/{filename:path}/processed-content")
+    async def get_processed_file_content(
+        conversation_id: uuid.UUID,
+        assistant_id: uuid.UUID,
+        filename: str,
+        principal: auth.DependsActorPrincipal,
+    ) -> dict:
+        """
+        Retrieve processed content for a file from the assistant's attachment cache.
+        
+        Returns:
+            dict: Contains filename, content, content_type, processing_status, and metadata
+        """
+        return await assistant_controller.get_processed_file_content(
+            conversation_id=conversation_id,
+            assistant_id=assistant_id,
+            filename=filename,
+            principal=principal,
+        )
+
     @app.post("/conversation-shares")
     async def create_conversation_share(
         user_principal: auth.DependsUserPrincipal,

@@ -1145,3 +1145,92 @@ class AssistantController:
             raise exceptions.NotFoundError()
 
         return conversation
+
+    async def get_processed_file_content(
+        self,
+        conversation_id: uuid.UUID,
+        assistant_id: uuid.UUID,
+        filename: str,
+        principal: auth.ActorPrincipal,
+    ) -> dict:
+        """
+        Retrieve processed content for a file from the assistant's attachment cache.
+        
+        This method queries the assistant for processed file content, allowing the
+        assistant to provide rich representations (markdown, images, etc.) based on
+        how it processes different file types.
+        """
+        async with self._get_session() as session:
+            # Ensure the user has access to the assistant
+            assistant = await self._ensure_assistant(
+                principal=principal,
+                assistant_id=assistant_id,
+                session=session,
+                include_assistants_from_conversations=True,
+            )
+            
+            # Verify the conversation exists and the assistant is part of it
+            await self._ensure_assistant_conversation(
+                assistant=assistant,
+                conversation_id=conversation_id,
+                session=session,
+            )
+        
+        # This is a simpler approach - we'll return an API response indicating 
+        # that assistants should implement their own file content state providers
+        # if they want to support file viewing via this API
+        try:
+            assistant_client = await self._client_pool.assistant_client(assistant)
+            
+            # Try to get file content via a special state. Assistants that want to support
+            # file viewing should implement a state provider with this naming convention
+            state_id = f"file_content_{filename.replace('/', '_').replace(' ', '_')}"
+            
+            try:
+                state_response = await assistant_client.get_state(
+                    conversation_id=conversation_id,
+                    state_id=state_id,
+                )
+                
+                if state_response and state_response.state:
+                    content = state_response.state.get("content", "")
+                    content_type = state_response.state.get("content_type", "text")
+                    
+                    return {
+                        "filename": filename,
+                        "content": content,
+                        "content_type": content_type,
+                        "processing_status": "success",
+                        "metadata": state_response.state.get("metadata", {})
+                    }
+                    
+            except Exception as e:
+                logger.debug(f"Could not get file content state for {filename}: {e}")
+            
+            # If no custom state provider, return a helpful message
+            return {
+                "filename": filename,
+                "content": f"""# File Not Available via API
+
+The file **{filename}** has been uploaded to this conversation, but the assistant has not implemented a file content viewer for this API endpoint.
+
+This means:
+- The file has been processed and is available to the assistant
+- The assistant can use the file content in conversations
+- However, the processed content is not available for viewing through this interface
+
+To enable file viewing, the assistant would need to implement a state provider with ID: `file_content_{filename.replace('/', '_').replace(' ', '_')}`""",
+                "content_type": "markdown",
+                "processing_status": "not_available",
+                "metadata": {}
+            }
+                
+        except Exception as e:
+            logger.error(f"Error retrieving processed file content: {e}")
+            return {
+                "filename": filename,
+                "content": f"Error retrieving content for '{filename}': {str(e)}",
+                "content_type": "text", 
+                "processing_status": "error",
+                "metadata": {}
+            }
