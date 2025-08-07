@@ -89,11 +89,11 @@ assistant = AssistantApp(
 # Add attachment support to enable file uploads
 attachments_extension = AttachmentsExtension(assistant)
 
-# Create a simple file viewer state provider using existing markdown viewer
+# File viewer that demonstrates the new backend API with flat listing and proper actions
 class FileViewerStateProvider:
     def __init__(self):
-        self.display_name = "📁 File Viewer"
-        self.description = "Display processed attachment content using markdown viewer"
+        self.display_name = "📁 Files"
+        self.description = "View uploaded files and processed content" 
         self.state_id = "file_viewer"
     
     async def is_enabled(self, context):
@@ -101,106 +101,293 @@ class FileViewerStateProvider:
         files_response = await context.list_files()
         return len(files_response.files) > 0
     
+    async def set(self, context, data):
+        """Handle view processed content action"""
+        selected_file = data.get("view_processed_file")
+        if selected_file and selected_file != "__none__":
+            await self._create_processed_content_viewer(context, selected_file)
+    
+    async def _create_processed_content_viewer(self, context, filename):
+        """Create a dynamic canvas viewer tab showing processed content"""
+        try:
+            # Create a unique state provider for this file
+            safe_filename = filename.replace('/', '_').replace(' ', '_').replace('.', '_')
+            state_id = f"processed_content_{safe_filename}"
+            
+            # Check if already exists to avoid duplicates
+            if hasattr(context, '_processed_viewers') and state_id in context._processed_viewers:
+                return
+                
+            # Create the processed content provider
+            provider = ProcessedContentViewerProvider(filename)
+            
+            # Register it dynamically with the assistant
+            assistant.add_inspector_state_provider(state_id, provider)
+            
+            # Track it to avoid duplicates
+            if not hasattr(context, '_processed_viewers'):
+                context._processed_viewers = set()
+            context._processed_viewers.add(state_id)
+            
+            # Send state event to notify frontend of new tab
+            from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+            await context.send_conversation_state_event(
+                AssistantStateEvent(
+                    state_id=state_id,
+                    event="created",
+                    state=None
+                )
+            )
+        except Exception as e:
+            # Don't let errors break the form submission
+            pass
+    
     async def get(self, context):
-        """Display processed attachment content using existing markdown viewer"""
+        """Display file listing following Document Assistant pattern: downloads + action sections"""
         from semantic_workbench_assistant.assistant_app.protocol import AssistantConversationInspectorStateDataModel
         from assistant_extensions.attachments import get_attachments
+        import io
         
         try:
-            # Use the generic AttachmentsExtension's get_attachments function
-            attachments = await get_attachments(context, error_handler=attachments_extension._error_handler)
+            files_response = await context.list_files()
             
-            if not attachments:
-                markdown_content = """# 📁 Uploaded Files
-
-*No files have been uploaded yet.*
-
-Upload files to this conversation to see their processed content here.
-
-**Note**: This assistant demonstrates the viewable attachments feature. The content displayed here is processed by the generic AttachmentsExtension (using docx2txt).
-"""
-            else:
-                # Build markdown content showing all files
-                markdown_lines = [
-                    "# 📁 Uploaded Files",
-                    "",
-                    f"Found **{len(attachments)}** processed files:",
-                    "",
-                    "**Note**: This assistant uses the generic AttachmentsExtension. For richer processing (like MarkItDown), see the Document Assistant.",
-                    ""
-                ]
-                
+            if not files_response.files:
+                return AssistantConversationInspectorStateDataModel(
+                    data={"content": "No files uploaded yet."}
+                )
+            
+            # Get processed data for all files using REAL API
+            processed_data = {}
+            try:
+                attachments = await get_attachments(context, error_handler=attachments_extension._error_handler)
                 for attachment in attachments:
-                    content = attachment.content
-                    content_length = len(content)
-                    
-                    markdown_lines.append(f"## 📄 {attachment.filename}")
-                    markdown_lines.append("")
-                    
-                    if attachment.error:
-                        markdown_lines.append(f"❌ **Error**: {attachment.error}")
-                        markdown_lines.append("")
-                    elif content_length == 0:
-                        markdown_lines.append("⚠️ *File processed but no text content extracted (may be empty or unsupported format)*")
-                        markdown_lines.append("")
-                    elif content.startswith("data:image/"):
-                        # Handle images by embedding them
-                        markdown_lines.append("🖼️ **Image Content:**")
-                        markdown_lines.append("")
-                        markdown_lines.append(f"![{attachment.filename}]({content})")
-                        markdown_lines.append("")
-                        markdown_lines.append(f"*Image data size: {content_length:,} characters*")
-                        markdown_lines.append("")
-                    else:
-                        # Handle text content
-                        markdown_lines.append(f"📝 **Content** ({content_length:,} characters):")
-                        markdown_lines.append("")
+                    if not attachment.error:
+                        content_length = len(attachment.content)
+                        line_count = attachment.content.count('\n') + 1 if content_length > 0 else 0
+                        estimated_tokens = max(1, content_length // 4)
                         
-                        if content_length > 2000:
-                            # Show preview for long content
-                            preview = content[:2000]
-                            markdown_lines.append("```")
-                            markdown_lines.append(preview)
-                            markdown_lines.append(f"...")
-                            markdown_lines.append("```")
-                            markdown_lines.append("")
-                            markdown_lines.append(f"*[Content truncated for display - showing first 2000 of {content_length} characters]*")
-                            markdown_lines.append("")
-                        else:
-                            # Show full content
-                            markdown_lines.append("```")
-                            markdown_lines.append(content)
-                            markdown_lines.append("```")
-                            markdown_lines.append("")
+                        processed_data[attachment.filename] = {
+                            "success": True,
+                            "character_count": content_length,
+                            "line_count": line_count,
+                            "estimated_tokens": estimated_tokens,
+                        }
+                    else:
+                        processed_data[attachment.filename] = {
+                            "success": False,
+                            "error": attachment.error
+                        }
+            except Exception as e:
+                # If processing fails, we still show downloads
+                pass
+            
+            # Build attachments with actual file content for downloads
+            attachments_list = []
+            processed_files = []
+            file_metadata = []  # Store metadata separately for display
+            
+            for file in files_response.files:
+                try:
+                    # Get actual file content for download
+                    buffer = io.BytesIO()
+                    async with context.read_file(file.filename) as reader:
+                        async for chunk in reader:
+                            buffer.write(chunk)
                     
-                    markdown_lines.append(f"*Last updated: {attachment.updated_datetime}*")
-                    markdown_lines.append("")
-                    markdown_lines.append("---")
-                    markdown_lines.append("")
+                    file_content = buffer.getvalue()
+                    
+                    # Handle binary vs text files properly
+                    if file.content_type.startswith('text/') or file.filename.endswith(('.txt', '.md', '.py', '.js', '.json', '.yaml', '.yml')):
+                        # Text files - decode as UTF-8
+                        content_str = file_content.decode("utf-8", errors="replace")
+                    else:
+                        # Binary files - create data URL with base64 encoding
+                        import base64
+                        encoded_content = base64.b64encode(file_content).decode('ascii')
+                        content_str = f"data:{file.content_type};base64,{encoded_content}"
+                    
+                    # Add to attachments with proper content format
+                    attachments_list.append({
+                        "filename": file.filename,
+                        "content": content_str
+                    })
+                    
+                except Exception as e:
+                    # If we can't read the file, skip it
+                    continue
                 
-                markdown_content = "\n".join(markdown_lines)
+                # Create metadata for display
+                size_mb = file.file_size / (1024 * 1024)
+                size_str = f"{size_mb:.1f}MB" if size_mb >= 1.0 else f"{file.file_size:,} bytes"
+                
+                processed = processed_data.get(file.filename, {})
+                status = "✅" if processed.get("success") else "❌" if file.filename in processed_data else "⏳"
+                
+                original_info = f"Original: {size_str} • {file.content_type}"
+                if processed.get("success"):
+                    processed_info = f"Processed: {processed['character_count']:,} chars • {processed['line_count']} lines • ~{processed['estimated_tokens']:,} tokens"
+                else:
+                    processed_info = f"Processing: {processed.get('error', 'In progress...')}"
+                
+                file_metadata.append(f"{status} {file.filename}\n   {original_info}\n   {processed_info}")
+                
+                # Track files available for processed content viewing
+                if processed.get("success"):
+                    processed_files.append(file.filename)
+            
+            # Build form data and schema with explicit ordering
+            form_data = {}
+            schema_props = {}
+            ui_schema = {}
+            
+            # 1. Add downloads first (will appear at top)
+            form_data["attachments"] = attachments_list
+            
+            # 2. Add file metadata display next (will be above processed content)
+            if file_metadata:
+                form_data["file_info"] = "\n\n".join(file_metadata)
+                schema_props["file_info"] = {
+                    "type": "string",
+                    "title": "File Processing Information",
+                    "readOnly": True
+                }
+                ui_schema["file_info"] = {
+                    "ui:widget": "textarea",
+                    "ui:options": {
+                        "rows": len(file_metadata) + 1
+                    }
+                }
+            
+            # 3. Add processed content selection last (will be right above button)
+            if processed_files:
+                form_data["view_processed_file"] = "__none__"
+                schema_props["view_processed_file"] = {
+                    "type": "string", 
+                    "title": "View Processed Content",
+                    "enum": ["__none__"] + processed_files
+                }
+                ui_schema["view_processed_file"] = {
+                    "ui:widget": "radio",
+                    "ui:enumNames": ["Select a file..."] + [f"View {filename}" for filename in processed_files]
+                }
+            
+            # Set submit button text and options
+            if processed_files:
+                ui_schema["ui:submitButtonOptions"] = {
+                    "submitText": "View Selected File"
+                }
+            
+            ui_schema["ui:options"] = {
+                "collapsible": False,
+                "hideTitle": False,
+            }
+            
+            return AssistantConversationInspectorStateDataModel(
+                data=form_data,
+                json_schema={
+                    "type": "object",
+                    "properties": schema_props
+                },
+                ui_schema=ui_schema
+            )
                 
         except Exception as e:
-            markdown_content = f"""# 📁 File Viewer Error
-
-❌ **Error loading attachments**: {str(e)}
-
-This may indicate a configuration issue or that the attachments extension is not properly set up.
-"""
-        
-        # Use existing markdown viewer by returning markdown_content
-        return AssistantConversationInspectorStateDataModel(
-            data={"markdown_content": markdown_content, "readonly": True}
-        )
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": f"Error loading files: {str(e)}"}
+            )
 
 # Add the file viewer inspector
 file_viewer_provider = FileViewerStateProvider()
 assistant.add_inspector_state_provider("file_viewer", file_viewer_provider)
 
+# Dynamic canvas viewer for processed content 
+class ProcessedContentViewerProvider:
+    """Creates dynamic canvas viewer tabs for processed file content"""
+    
+    def __init__(self, filename: str):
+        self.filename = filename
+        safe_filename = filename.replace('/', '_').replace(' ', '_').replace('.', '_')
+        self.state_id = f"processed_content_{safe_filename}"
+        self.display_name = f"📄 {filename}"
+        self.description = f"Processed content from {filename}"
+    
+    async def is_enabled(self, context):
+        return True  # Always available once created
+    
+    async def get(self, context):
+        """Return processed content in appropriate viewer format"""
+        from semantic_workbench_assistant.assistant_app.protocol import AssistantConversationInspectorStateDataModel
+        from assistant_extensions.attachments import get_attachments
+        
+        try:
+            # Get processed content via AttachmentsExtension  
+            attachments = await get_attachments(context, error_handler=attachments_extension._error_handler)
+            
+            # Find the specific file
+            attachment = next((a for a in attachments if a.filename == self.filename), None)
+            
+            if not attachment:
+                return AssistantConversationInspectorStateDataModel(
+                    data={"content": f"File '{self.filename}' not found in processed attachments"}
+                )
+            
+            if attachment.error:
+                return AssistantConversationInspectorStateDataModel(
+                    data={"content": f"Error processing file: {attachment.error}"}
+                )
+            
+            # Determine content type and return appropriate viewer format
+            if attachment.content.startswith("data:image/"):
+                # Image content - return as image data
+                return AssistantConversationInspectorStateDataModel(
+                    data={
+                        "image": attachment.content,
+                        "filename": self.filename
+                    }
+                )
+            elif self.filename.endswith(('.md', '.markdown')):
+                # Markdown content - use markdown viewer
+                return AssistantConversationInspectorStateDataModel(
+                    data={
+                        "markdown_content": attachment.content,
+                        "readonly": True
+                    }
+                )
+            else:
+                # Text/code content - use content viewer
+                return AssistantConversationInspectorStateDataModel(
+                    data={"content": attachment.content}
+                )
+            
+        except Exception as e:
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": f"Error retrieving processed content: {str(e)}"}
+            )
+
 #
 # create the FastAPI app instance
 #
 app = assistant.fastapi_app()
+
+
+# Track processed content state providers for dynamic creation
+_file_content_providers = {}
+
+@assistant.events.conversation.file.on_created
+async def on_file_created(context: ConversationContext, event: ConversationEvent, file_info) -> None:
+    """Create a processed content state provider when a file is uploaded"""
+    global _file_content_providers
+    
+    filename = file_info.filename
+    
+    # Skip if we already have a provider for this file
+    if filename in _file_content_providers:
+        return
+    
+    # Create and register the processed content provider
+    provider = ProcessedContentViewerProvider(filename)
+    _file_content_providers[filename] = provider
+    assistant.add_inspector_state_provider(provider.state_id, provider)
 
 
 # endregion
