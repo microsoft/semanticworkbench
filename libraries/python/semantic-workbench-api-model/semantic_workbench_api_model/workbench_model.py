@@ -499,3 +499,19 @@ class ConversationEvent(BaseModel):
     event: ConversationEventType
     timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     data: dict[str, Any] = {}
+
+
+class ProcessedFileContentModel(BaseModel):
+    """Represents assistant-provided processed content for a conversation file.
+
+    Assistants may expose richer, pre-processed renderings (markdown, code excerpts,
+    image previews, etc.) by implementing a state provider whose state id follows
+    the convention used by the workbench (see assistant controller implementation).
+    """
+
+    filename: str
+    content: str
+    content_type: Literal["markdown", "text", "image", "code"] = "text"
+    processing_status: Literal["success", "error", "processing", "not_available"]
+    error_message: str | None = None
+    metadata: dict[str, Any] | None = None

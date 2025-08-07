@@ -336,18 +336,16 @@ export const useWorkbenchService = () => {
     );
 
     const getProcessedFileContentAsync = React.useCallback(
-        async (
-            conversationId: string,
-            assistantId: string,
-            filename: string
-        ): Promise<ProcessedFileContent> => {
-            const path = `/conversations/${conversationId}/assistants/${assistantId}/files/${encodeURIComponent(filename)}/processed-content`;
+        async (conversationId: string, assistantId: string, filename: string): Promise<ProcessedFileContent> => {
+            const path = `/conversations/${conversationId}/assistants/${assistantId}/files/${encodeURIComponent(
+                filename,
+            )}/processed-content`;
             const response = await tryFetchAsync('Get processed file content', `${environment.url}${path}`);
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to fetch file content: ${response.statusText}`);
             }
-            
+
             return await response.json();
         },
         [environment.url, tryFetchAsync],

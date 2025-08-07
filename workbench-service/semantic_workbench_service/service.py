@@ -33,6 +33,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.assistant_model import (
     ConfigPutRequestModel,
     ConfigResponseModel,
@@ -1068,12 +1069,12 @@ def init(
         assistant_id: uuid.UUID,
         filename: str,
         principal: auth.DependsActorPrincipal,
-    ) -> dict:
-        """
-        Retrieve processed content for a file from the assistant's attachment cache.
-        
-        Returns:
-            dict: Contains filename, content, content_type, processing_status, and metadata
+    ) -> workbench_model.ProcessedFileContentModel:
+        """Retrieve processed content for a file from an assistant.
+
+        Returns a processed representation (markdown / text / image / code) if the
+        assistant exposes it, otherwise a not_available message. Errors are surfaced
+        with processing_status = "error" and an error_message.
         """
         return await assistant_controller.get_processed_file_content(
             conversation_id=conversation_id,
