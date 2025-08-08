@@ -33,6 +33,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationImportResult,
     NewAssistant,
     NewConversation,
+    ProcessedFileContentModel,
     UpdateAssistant,
 )
 from sqlalchemy.orm import joinedload
@@ -1145,3 +1146,90 @@ class AssistantController:
             raise exceptions.NotFoundError()
 
         return conversation
+
+    async def get_processed_file_content(
+        self,
+        conversation_id: uuid.UUID,
+        assistant_id: uuid.UUID,
+        filename: str,
+        principal: auth.ActorPrincipal,
+    ) -> ProcessedFileContentModel:
+        """
+        Retrieve processed content for a file from the assistant's attachment cache.
+
+        This method queries the assistant for processed file content, allowing the
+        assistant to provide rich representations (markdown, images, etc.) based on
+        how it processes different file types.
+        """
+        async with self._get_session() as session:
+            assistant = await self._ensure_assistant(
+                principal=principal,
+                assistant_id=assistant_id,
+                session=session,
+                include_assistants_from_conversations=True,
+            )
+            await self._ensure_assistant_conversation(
+                assistant=assistant,
+                conversation_id=conversation_id,
+                session=session,
+            )
+
+        state_id = f"file_content_{filename.replace('/', '_').replace(' ', '_')}"
+        assistant_client = await self._client_pool.assistant_client(assistant)
+        try:
+            state_response = await assistant_client.get_state(
+                conversation_id=conversation_id,
+                state_id=state_id,
+            )
+        except AssistantError as ae:
+            if ae.status_code == httpx.codes.NOT_FOUND:
+                return ProcessedFileContentModel(
+                    filename=filename,
+                    content=(
+                        "# Processed Content Not Available\n\n"
+                        f"Assistant has not exposed processed content for **{filename}**.\n\n"
+                        "Assistants can implement a state provider whose id follows the pattern: "
+                        f"`file_content_{filename.replace('/', '_').replace(' ', '_')}` to enable rich viewing."
+                    ),
+                    content_type="markdown",
+                    processing_status="not_available",
+                    metadata={},
+                )
+            logger.warning(
+                "assistant error retrieving processed file content; assistant_id=%s conversation_id=%s filename=%s status=%s",
+                assistant_id,
+                conversation_id,
+                filename,
+                ae.status_code,
+            )
+            return ProcessedFileContentModel(
+                filename=filename,
+                content="",
+                content_type="text",
+                processing_status="error",
+                error_message=str(ae),
+                metadata={},
+            )
+
+        if state_response and state_response.state:
+            state = state_response.state
+            return ProcessedFileContentModel(
+                filename=filename,
+                content=str(state.get("content", "")),
+                content_type=str(state.get("content_type", "text")),
+                processing_status="success",
+                metadata=state.get("metadata", {}) or {},
+            )
+
+        return ProcessedFileContentModel(
+            filename=filename,
+            content=(
+                "# Processed Content Not Available\n\n"
+                f"Assistant has not exposed processed content for **{filename}**.\n\n"
+                "Assistants can implement a state provider whose id follows the pattern: "
+                f"`file_content_{filename.replace('/', '_').replace(' ', '_')}` to enable rich viewing."
+            ),
+            content_type="markdown",
+            processing_status="not_available",
+            metadata={},
+        )

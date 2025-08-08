@@ -8,6 +8,7 @@ import { AssistantServiceRegistration } from '../models/AssistantServiceRegistra
 import { Conversation } from '../models/Conversation';
 import { ConversationFile } from '../models/ConversationFile';
 import { ConversationParticipant } from '../models/ConversationParticipant';
+import { ProcessedFileContent } from '../models/ProcessedFileContent';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
 import { assistantServiceApi, conversationApi, workbenchApi } from '../services/workbench';
@@ -334,6 +335,22 @@ export const useWorkbenchService = () => {
         [getAssistantServiceInfoAsync, getAssistantServiceRegistrationAsync],
     );
 
+    const getProcessedFileContentAsync = React.useCallback(
+        async (conversationId: string, assistantId: string, filename: string): Promise<ProcessedFileContent> => {
+            const path = `/conversations/${conversationId}/assistants/${assistantId}/files/${encodeURIComponent(
+                filename,
+            )}/processed-content`;
+            const response = await tryFetchAsync('Get processed file content', `${environment.url}${path}`);
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file content: ${response.statusText}`);
+            }
+
+            return await response.json();
+        },
+        [environment.url, tryFetchAsync],
+    );
+
     return {
         getAzureSpeechTokenAsync,
         downloadConversationFileAsync,
@@ -345,5 +362,6 @@ export const useWorkbenchService = () => {
         exportThenImportAssistantAsync,
         getAssistantServiceInfoAsync,
         getAssistantServiceInfosAsync,
+        getProcessedFileContentAsync,
     };
 };
