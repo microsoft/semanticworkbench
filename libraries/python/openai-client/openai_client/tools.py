@@ -1,8 +1,9 @@
 import ast
 import inspect
 import json
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from typing import Any
 
 from openai import (
     NOT_GIVEN,
@@ -15,13 +16,18 @@ from openai.types.chat import (
     ParsedChatCompletion,
     ParsedFunctionToolCall,
 )
+from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel, create_model
 from pydantic.fields import FieldInfo
 
 from . import logger
 from .completion import assistant_message_from_completion
 from .errors import CompletionError, validate_completion
-from .logging import add_serializable_data, make_completion_args_serializable
+from .logging import (
+    add_serializable_data,
+    make_completion_args_serializable,
+    serializable,
+)
 
 
 def to_string(value: Any) -> str:
@@ -33,7 +39,7 @@ def to_string(value: Any) -> str:
         return "Function executed successfully."
     elif isinstance(value, str):
         return value
-    elif isinstance(value, (int, float)):
+    elif isinstance(value, int | float):
         return str(value)
     elif isinstance(value, dict):
         return json.dumps(value)
@@ -58,12 +64,7 @@ def function_list_to_tool_choice(
     if not functions:
         return None
     return [
-        ChatCompletionToolParam(
-            **{
-                "type": "function",
-                "function": {"name": name},
-            }
-        )
+        ChatCompletionToolParam(type="function", function={"name": name})
         for name in functions
     ] or None
 
@@ -98,10 +99,12 @@ class ToolFunction:
             description or inspect.getdoc(fn) or self.name.replace("_", " ").title()
         )
 
-    def parameters(self, exclude: list[str] = []) -> list[Parameter]:
+    def parameters(self, exclude: list[str] | None = None) -> list[Parameter]:
         """
         This function's parameters and their default values.
         """
+        if exclude is None:
+            exclude = []
         parameters = dict(inspect.signature(self.fn).parameters)
         for param_name in exclude:
             del parameters[param_name]
@@ -163,7 +166,7 @@ class ToolFunction:
         # Remove title attribute from all properties (not allowed by the Chat
         # Completions API).
         properties = parameters_schema["properties"]
-        for property_key in properties.keys():
+        for property_key in properties:
             if "title" in properties[property_key]:
                 del properties[property_key]["title"]
 
@@ -279,19 +282,21 @@ class ToolFunctions:
         return self.function_map.get(name)
 
     def get_functions(self) -> list[ToolFunction]:
-        return [function for function in self.function_map.values()]
+        return list(self.function_map.values())
 
     async def execute_function(
         self,
         name: str,
         args: tuple = (),
-        kwargs: dict[str, Any] = {},
+        kwargs: dict[str, Any] | None = None,
         string_response: bool = False,
     ) -> Any:
         """
         Run a function from the ToolFunctions list by name. If string_response
         is True, the function return value will be converted to a string.
         """
+        if kwargs is None:
+            kwargs = {}
         function = self.get_function(name)
         if not function:
             raise ValueError(f"Function {name} not found in registry.")
@@ -306,7 +311,7 @@ class ToolFunctions:
         try:
             function, args, kwargs = self.parse_function_string(function_string)
         except ValueError as e:
-            raise ValueError(f"{e} Type: `/help` for more information.")
+            raise ValueError(f"{e} Type: `/help` for more information.") from e
         if not function:
             raise ValueError(
                 "Function not found in registry. Type: `/help` for more information."
@@ -334,8 +339,10 @@ class ToolFunctions:
         # Parse the string into an AST (Abstract Syntax Tree)
         try:
             tree = ast.parse(function_string)
-        except SyntaxError:
-            raise ValueError("Invalid function call. Please check your syntax.")
+        except SyntaxError as err:
+            raise ValueError(
+                "Invalid function call. Please check your syntax."
+            ) from err
 
         # Ensure the tree contains exactly one expression (the function call)
         if not (
@@ -367,7 +374,7 @@ class ToolFunctions:
             elif isinstance(node, ast.Dict):
                 return {
                     eval_node(key): eval_node(value)
-                    for key, value in zip(node.keys, node.values)
+                    for key, value in zip(node.keys, node.values, strict=False)
                 }
             elif isinstance(node, ast.Name):
                 return (
@@ -414,10 +421,7 @@ class ToolFunctions:
         """
         tools = [
             ChatCompletionToolParam(
-                **{
-                    "type": "function",
-                    "function": func.schema(),
-                }
+                type="function", function=FunctionDefinition(**func.schema())
             )
             for func in self.function_map.values()
         ]
@@ -456,11 +460,11 @@ class ToolFunctions:
                         {"tool_call_id": tool_call.id, "content": value}
                     ),
                 )
-                return {
-                    "role": "tool",
-                    "content": value,
-                    "tool_call_id": tool_call.id,
-                }
+            return {
+                "role": "tool",
+                "content": value,
+                "tool_call_id": tool_call.id,
+            }
         else:
             logger.error(f"Function not found: {function.name}")
             return None
@@ -470,7 +474,7 @@ async def complete_with_tool_calls(
     async_client: AsyncOpenAI,
     completion_args: dict[str, Any],
     tool_functions: ToolFunctions,
-    metadata: dict[str, Any] = {},
+    metadata: dict[str, Any] | None = None,
     max_tool_call_rounds: int = 5,  # Adding a parameter to limit the maximum number of rounds
 ) -> tuple[ParsedChatCompletion | None, list[ChatCompletionMessageParam]]:
     """
@@ -488,6 +492,8 @@ async def complete_with_tool_calls(
     - metadata: Metadata to be added to the completion response.
     - max_tool_call_rounds: Maximum number of tool call rounds to prevent infinite loops (default: 5)
     """
+    if metadata is None:
+        metadata = {}
     messages: list[ChatCompletionMessageParam] = completion_args.get("messages", [])
     all_new_messages: list[ChatCompletionMessageParam] = []
     current_completion = None
@@ -502,23 +508,17 @@ async def complete_with_tool_calls(
     # or we hit the maximum number of rounds
     while rounds < max_tool_call_rounds:
         rounds += 1
-
-        # Prepare arguments for this round
-        current_args = {**completion_args, "messages": [*messages, *all_new_messages]}
-
-        # Log the completion request
         round_description = f"round {rounds}"
-        if rounds == 1:
-            round_description = "pre-tool"
 
+        current_args = {**completion_args, "messages": [*messages, *all_new_messages]}
         logger.debug(
             f"Completion call ({round_description}).",
             extra=add_serializable_data(
                 make_completion_args_serializable(current_args)
             ),
         )
-        metadata[f"completion_request ({round_description})"] = (
-            make_completion_args_serializable(current_args)
+        metadata[f"completion_request ({round_description})"] = serializable(
+            current_args
         )
 
         # Make the completion call

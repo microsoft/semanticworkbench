@@ -3,7 +3,11 @@ import logging as _logging  # Avoid name conflict with local logging module.
 from .client import (
     create_client,
 )
-from .completion import completion_structured, message_content_from_completion, message_from_completion
+from .completion import (
+    completion_structured,
+    message_content_from_completion,
+    message_from_completion,
+)
 from .config import (
     AzureOpenAIApiKeyAuthConfig,
     AzureOpenAIAzureIdentityAuthConfig,
@@ -22,6 +26,7 @@ from .logging import (
     add_serializable_data,
     extra_data,
     make_completion_args_serializable,
+    serializable,
 )
 from .messages import (
     convert_from_completion_messages,
@@ -74,6 +79,7 @@ __all__ = [
     "num_tokens_from_tools_and_messages",
     "OpenAIServiceConfig",
     "OpenAIRequestConfig",
+    "serializable",
     "ServiceConfig",
     "truncate_messages_for_logging",
     "validate_completion",
