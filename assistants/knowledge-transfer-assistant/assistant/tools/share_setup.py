@@ -4,11 +4,14 @@ Project setup tools for Knowledge Transfer Assistant.
 Tools for configuring knowledge shares.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
+from assistant import agentic
+from assistant.data import InspectorTab
 from assistant.domain.audience_manager import AudienceManager
 from assistant.domain.knowledge_brief_manager import KnowledgeBriefManager
 from assistant.domain.share_manager import ShareManager
+from assistant.notifications import Notifications
 
 from .base import ToolsBase
 
@@ -31,6 +34,8 @@ class ShareSetupTools(ToolsBase):
                 context=self.context,
                 audience_description=audience_description,
             )
+            await Notifications.notify(self.context, "Audience updated.")
+            await Notifications.notify_all_state_update(self.context, [InspectorTab.DEBUG])
             return "Audience updated successfully"
         except Exception as e:
             return f"Failed to update audience: {e!s}"
@@ -50,6 +55,8 @@ class ShareSetupTools(ToolsBase):
                 context=self.context,
                 takeaways=takeaways,
             )
+            await Notifications.notify(self.context, "Audience takeaways updated.")
+            await Notifications.notify_all_state_update(self.context, [InspectorTab.BRIEF])
             return "Audience takeaways updated successfully"
         except Exception as e:
             return f"Failed to update audience takeaways: {e!s}"
@@ -58,7 +65,7 @@ class ShareSetupTools(ToolsBase):
     #     """
     #     Mark that all necessary knowledge has been captured and organized for transfer.
 
-    #     This indicates that the coordinator has uploaded files, shared information through conversation, and confirmed that all necessary knowledge for the transfer has been captured. This is required before the knowledge package can move to the "Ready for Transfer" state.
+    #     This indicates that the coordinator has uploaded files, shared information through conversation, and confirmed that all necessary knowledge for the transfer has been captured. This is required before the knowledge package can move to the "Ready for Transfer" state. # noqa: E501
 
     #     Args:
     #         is_organized: True if knowledge is organized and ready, False to
@@ -118,8 +125,9 @@ class ShareSetupTools(ToolsBase):
         try:
             share = await ShareManager.get_share(self.context)
             share.is_intended_to_accomplish_outcomes = is_for_specific_outcomes
-            share.updated_at = datetime.utcnow()
+            share.updated_at = datetime.now(UTC)
             await ShareManager.set_share(self.context, share)
+            await Notifications.notify(self.context, "Knowledge share learning intention set.")
 
             # Provide appropriate guidance based on the choice
             if is_for_specific_outcomes:
@@ -131,3 +139,19 @@ class ShareSetupTools(ToolsBase):
 
         except Exception as e:
             return f"Failed to update learning intention: {e!s}"
+
+    async def create_invitation(self) -> str:
+        """
+        Create an invitation for the knowledge transfer.
+
+        Args:
+            invitation_text: The text of the invitation to be sent to participants.
+
+        Returns:
+            A message indicating success or failure
+        """
+        try:
+            invitation = await agentic.create_invitation(self.context)
+            return invitation
+        except Exception as e:
+            return f"Failed to create invitation: {e!s}"

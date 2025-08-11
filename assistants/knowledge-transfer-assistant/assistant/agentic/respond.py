@@ -26,16 +26,14 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.config import assistant_config
+from assistant.data import ConversationRole
 from assistant.domain.conversation_preferences_manager import (
     ConversationPreferencesManager,
 )
 from assistant.domain.share_manager import ShareManager
-
-from .agentic.detect_information_requests import detect_information_request_needs
-from .config import assistant_config
-from .data import ConversationRole
-from .logging import logger
-from .prompt_utils import (
+from assistant.logging import logger
+from assistant.prompt_utils import (
     ContextSection,
     ContextStrategy,
     Instructions,
@@ -43,8 +41,8 @@ from .prompt_utils import (
     TokenBudget,
     add_context_to_prompt,
 )
-from .tools import ShareTools
-from .utils import load_text_include
+from assistant.tools import ShareTools
+from assistant.utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
 
@@ -64,15 +62,11 @@ class CoordinatorOutput(BaseModel):
     """
     Attributes:
         response: The response from the assistant.
-        next_step_suggestion: Help for the user to understand what to do next. A great way to progressively reveal the knowledge transfer process.
-    """  # noqa: E501
+    """
 
     response: str = Field(
         description="The response from the assistant. The response should not duplicate information from the excerpt but may refer to it.",  # noqa: E501
     )
-    # next_step_suggestion: str = Field(
-    #     description="Help for the user to understand what to do next. A great way to progressively reveal the knowledge transfer process. The audience is the user, so this should be a suggestion for them to take action. Do NOT use this field to communicate what you, the assistant, are going to do next. Assume the user has not yet used this assistant before and make sure to explain concepts such as the knowledge brief and learning outcomes clearly the first time you mention them.",  # noqa: E501
-    # )
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -125,10 +119,8 @@ async def respond_to_conversation(
 
     # Add role-specific instructions.
     if role == ConversationRole.COORDINATOR:
-        assistant_role = config.prompt_config.coordinator_role
         role_specific_instructions = config.prompt_config.coordinator_instructions
     else:
-        assistant_role = config.prompt_config.team_role
         role_specific_instructions = config.prompt_config.team_instructions
     instructions = Instructions(role_specific_instructions)
 
@@ -166,7 +158,6 @@ async def respond_to_conversation(
     instructions.add_subsection(Instructions(communication_style, "Preferred Communication Style"))
 
     prompt = Prompt(
-        role=assistant_role,
         instructions=instructions,
         context_strategy=ContextStrategy.MULTI,
     )
@@ -186,7 +177,7 @@ async def respond_to_conversation(
         ContextSection.INFORMATION_REQUESTS,
         # ContextSection.SUGGESTED_NEXT_ACTIONS,
         ContextSection.ATTACHMENTS,
-        ContextSection.ASSISTANT_THOUGHTS,
+        ContextSection.TASKS,
     ]
     if role == ConversationRole.TEAM:
         sections.append(ContextSection.COORDINATOR_CONVERSATION)
@@ -317,35 +308,6 @@ async def respond_to_conversation(
             f"You've exceeded the token limit of {token_budget.budget} in this conversation "
             f"({token_budget.used}). Try removing some attachments."
         )
-
-    # For team role, analyze message for possible information request needs.
-    # Send a notification if we think it might be one.
-    if role is ConversationRole.TEAM:
-        detection_result = await detect_information_request_needs(context, new_message.content)
-
-        if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
-            suggested_title = detection_result.get("potential_title", "")
-            suggested_priority = detection_result.get("suggested_priority", "medium")
-            potential_description = detection_result.get("potential_description", "")
-            reason = detection_result.get("reason", "")
-
-            suggestion = (
-                f"**Potential _Information Request_ Detected**\n\n"
-                f"It appears that you might need information from the knowledge coordinator. {reason}\n\n"
-                f"Would you like me to create an information request?\n"
-                f"**Title:** {suggested_title}\n"
-                f"**Description:** {potential_description}\n"
-                f"**Priority:** {suggested_priority}\n\n"
-            )
-
-            await context.send_messages(
-                NewConversationMessage(
-                    content=suggestion,
-                    message_type=MessageType.notice,
-                    metadata={"debug": detection_result},
-                )
-            )
-        metadata["debug"]["detection_result"] = detection_result
 
     ##
     ## MAKE THE LLM CALL

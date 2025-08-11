@@ -27,7 +27,7 @@ class KnowledgeDigestManager:
         context: ConversationContext,
         content: str,
         is_auto_generated: bool = True,
-    ) -> KnowledgeDigest:
+    ) -> None:
         share_id = await ShareManager.get_share_id(context)
         current_user_id = await get_current_user_id(context)
 
@@ -66,4 +66,4 @@ class KnowledgeDigestManager:
             [InspectorTab.BRIEF],
         )
 
-        return digest
+        return

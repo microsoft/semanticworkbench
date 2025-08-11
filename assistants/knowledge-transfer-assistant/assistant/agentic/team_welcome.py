@@ -91,7 +91,7 @@ async def generate_team_welcome_message(
                 "max_tokens": 500,
                 "temperature": 0.7,  # Low temperature for more consistent analysis
             }
-            debug["completion_args"] = openai_client.make_completion_args_serializable(completion_args)
+            debug["completion_args"] = openai_client.serializable(completion_args)
 
             # LLM call
             response = await client.chat.completions.create(

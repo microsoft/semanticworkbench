@@ -9,8 +9,8 @@ from openai_client.tools import ToolFunctions
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.data import ConversationRole
-from assistant.tools.assistant_thoughts import AssistantThoughtsTools
 from assistant.tools.conversation_preferences import ConversationPreferencesTools
+from assistant.tools.tasks import TaskTools
 
 from .information_requests import InformationRequestTools
 from .learning_objectives import LearningObjectiveTools
@@ -34,7 +34,7 @@ class ShareTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
-        self.thoughts = AssistantThoughtsTools(context, role)
+        self.tasks = TaskTools(context, role)
         self.share_setup = ShareSetupTools(context, role)
         self.learning_objectives = LearningObjectiveTools(context, role)
         self.learning_outcomes = LearningOutcomeTools(context, role)
@@ -51,62 +51,67 @@ class ShareTools:
         """Register coordinator-specific tools."""
 
         self.tool_functions.add_function(
-            self.thoughts.forget_thought,
-            "forget_thought",
+            self.tasks.delete_task,
+            "mark_task_completed",
         )
 
-        # 1. Setup phase - Define audience and organize knowledge
         self.tool_functions.add_function(
             self.share_setup.update_audience,
             "update_audience",
         )
+
         self.tool_functions.add_function(
             self.share_setup.update_audience_takeaways,
             "update_audience_takeaways",
         )
+
+        self.tool_functions.add_function(
+            self.share_setup.create_invitation,
+            "create_invitation",
+        )
+
         # self.tool_functions.add_function(
         #     self.share_setup.set_knowledge_organized,
         #     "set_knowledge_organized",
         # )
 
-        # 2. Brief creation phase
         self.tool_functions.add_function(
             self.share_setup.update_brief,
             "update_brief",
         )
 
         # 3. Learning objectives phase
-        self.tool_functions.add_function(
-            self.share_setup.set_learning_intention,
-            "set_learning_intention",
-        )
-        self.tool_functions.add_function(
-            self.learning_objectives.add_learning_objective,
-            "add_learning_objective",
-        )
-        self.tool_functions.add_function(
-            self.learning_objectives.update_learning_objective,
-            "update_learning_objective",
-        )
-        self.tool_functions.add_function(
-            self.learning_objectives.delete_learning_objective,
-            "delete_learning_objective",
-        )
+        # self.tool_functions.add_function(
+        #     self.share_setup.set_learning_intention,
+        #     "set_learning_intention",
+        # )
+        # self.tool_functions.add_function(
+        #     self.learning_objectives.add_learning_objective,
+        #     "add_learning_objective",
+        # )
+        # self.tool_functions.add_function(
+        #     self.learning_objectives.update_learning_objective,
+        #     "update_learning_objective",
+        # )
+        # self.tool_functions.add_function(
+        #     self.learning_objectives.delete_learning_objective,
+        #     "delete_learning_objective",
+        # )
 
         # Individual outcome management tools
-        self.tool_functions.add_function(
-            self.learning_outcomes.add_learning_outcome,
-            "add_learning_outcome",
-        )
-        self.tool_functions.add_function(
-            self.learning_outcomes.update_learning_outcome,
-            "update_learning_outcome",
-        )
-        self.tool_functions.add_function(
-            self.learning_outcomes.delete_learning_outcome,
-            "delete_learning_outcome",
-            "Delete a learning outcome by outcome ID",
-        )
+        # self.tool_functions.add_function(
+        #     self.learning_outcomes.add_learning_outcome,
+        #     "add_learning_outcome",
+        # )
+        # self.tool_functions.add_function(
+        #     self.learning_outcomes.update_learning_outcome,
+        #     "update_learning_outcome",
+        # )
+        # self.tool_functions.add_function(
+        #     self.learning_outcomes.delete_learning_outcome,
+        #     "delete_learning_outcome",
+        #     "Delete a learning outcome by outcome ID",
+        # )
 
         # 4. Ongoing support phase
         self.tool_functions.add_function(

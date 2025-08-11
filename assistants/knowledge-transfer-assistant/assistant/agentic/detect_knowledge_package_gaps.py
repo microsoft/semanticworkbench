@@ -9,7 +9,7 @@ from assistant.config import assistant_config
 from assistant.data import InspectorTab
 from assistant.domain.share_manager import ShareManager
 from assistant.domain.tasks_manager import TasksManager
-from assistant.logging import logger
+from assistant.logging import convert_to_serializable, logger
 from assistant.notifications import Notifications
 from assistant.prompt_utils import (
     ContextSection,
@@ -21,17 +21,17 @@ from assistant.prompt_utils import (
 from assistant.utils import load_text_include
 
 
-async def detect_audience_and_takeaways(
+async def detect_knowledge_package_gaps(
     context: ConversationContext, attachments_extension: AttachmentsExtension
 ) -> None:
     debug: dict[str, Any] = {
-        "context": context.to_dict(),
+        "context": convert_to_serializable(context.to_dict()),
     }
 
     config = await assistant_config.get(context.assistant)
 
     # Set up prompt instructions.
-    instruction_text = load_text_include("detect_audience.md")
+    instruction_text = load_text_include("detect_knowledge_package_gaps.md")
     instructions = Instructions(instruction_text)
     prompt = Prompt(
         instructions=instructions,
@@ -51,24 +51,22 @@ async def detect_audience_and_takeaways(
         attachments_in_system_message=True,
         include=[
             # ContextSection.KNOWLEDGE_INFO,
-            # ContextSection.KNOWLEDGE_BRIEF,
+            ContextSection.KNOWLEDGE_BRIEF,
+            ContextSection.TASKS,
             ContextSection.TARGET_AUDIENCE,
-            ContextSection.LEARNING_OBJECTIVES,
-            # ContextSection.KNOWLEDGE_DIGEST,
-            # ContextSection.INFORMATION_REQUESTS,
+            # ContextSection.LEARNING_OBJECTIVES,
+            ContextSection.KNOWLEDGE_DIGEST,
+            ContextSection.INFORMATION_REQUESTS,
             # ContextSection.SUGGESTED_NEXT_ACTIONS,
             ContextSection.COORDINATOR_CONVERSATION,
             ContextSection.ATTACHMENTS,
-            ContextSection.TASKS,
         ],
     )
 
     class Output(BaseModel):
-        """Output class to hold the generated tasks."""
+        """Identified knowledge gaps."""
 
-        tasks: list[
-            str
-        ]  # Tasks related to the audience and takeaways. One task per item. If there are no tasks to be done due to this information, this will be an empty list. #noqa: E501
+        gaps: list[str]  # Gaps in the knowledge package that need to be addressed.
 
     # Chat completion
     async with openai_client.create_client(config.service_config) as client:
@@ -92,16 +90,19 @@ async def detect_audience_and_takeaways(
             # Response
             if response and response.choices and response.choices[0].message.parsed:
                 output: Output = response.choices[0].message.parsed
-                if output.tasks:
-                    await TasksManager.add_tasks(context, output.tasks)
+                if output.gaps:
+                    tasks = [f"Collect the following information: {gap.strip()}" for gap in output.gaps if gap.strip()]
+                    await TasksManager.add_tasks(context, tasks)
                     await Notifications.notify(
-                        context,
-                        f"Added {len(output.tasks)} tasks related to the audience and takeaways.",
-                        debug_data=debug,
+                        context, f"Added {len(tasks)} tasks related to the knowledge content.", debug_data=debug
                     )
                     await Notifications.notify_state_update(
                         context,
-                        [InspectorTab.BRIEF],
+                        [InspectorTab.DEBUG],
+                    )
+                else:
+                    await Notifications.notify(
+                        context, "No knowledge gaps identified. All required information is present.", debug_data=debug
                     )
             else:
                 logger.warning("Empty response from LLM for welcome message generation")

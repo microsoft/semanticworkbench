@@ -190,7 +190,6 @@ class Share(BaseModel):
     learning_objectives: list[LearningObjective] = Field(default_factory=list)
     brief: KnowledgeBrief | None
     preferred_communication_style: str | None = None
-    transfer_notes: str | None = None
     digest: KnowledgeDigest | None
 
     # Lifecycle
@@ -198,7 +197,7 @@ class Share(BaseModel):
     next_learning_actions: list[str] = Field(default_factory=list)
     # knowledge_organized: bool = False
     requests: list[InformationRequest] = Field(default_factory=list)
-    assistant_thoughts: list[str] = Field(default_factory=list)
+    tasks: list[str] = Field(default_factory=list)
 
     log: ShareLog | None = Field(default_factory=lambda: ShareLog())
 

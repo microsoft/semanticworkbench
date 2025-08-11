@@ -113,30 +113,38 @@ class ShareStorage:
         return path
 
     @staticmethod
-    def read_assistant_thoughts(share_id: str) -> list[str]:
+    def read_tasks(share_id: str) -> list[str]:
         share = ShareStorage.read_share(share_id)
         if not share:
             return []
-        return share.assistant_thoughts
+        return share.tasks
 
     @staticmethod
-    def add_assistant_thoughts(share_id: str, thoughts: list[str]) -> None:
+    def add_tasks(share_id: str, tasks: list[str]) -> None:
         share = ShareStorage.read_share(share_id)
         if not share:
             raise NoShareException
-        share.assistant_thoughts.extend(thoughts)
+        share.tasks.extend(tasks)
         ShareStorage.write_share(share_id, share)
 
     @staticmethod
-    def remove_assistant_thought(share_id: str, thought: str) -> None:
+    def remove_task(share_id: str, task: str) -> None:
         share = ShareStorage.read_share(share_id)
         if not share:
             raise NoShareException
-        if thought in share.assistant_thoughts:
-            share.assistant_thoughts.remove(thought)
+        if task in share.tasks:
+            share.tasks.remove(task)
             ShareStorage.write_share(share_id, share)
         else:
-            logger.warning(f"Thought '{thought}' not found in share {share_id}.")
+            logger.warning(f"Thought '{task}' not found in share {share_id}.")
+
+    @staticmethod
+    def set_all_tasks(share_id: str, tasks: list[str]) -> None:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        share.tasks = tasks
+        ShareStorage.write_share(share_id, share)
 
     @staticmethod
     def read_knowledge_brief(share_id: str) -> KnowledgeBrief | None:

@@ -7,23 +7,19 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
 from assistant.data import InspectorTab
-from assistant.domain.share_manager import ShareManager
 from assistant.domain.tasks_manager import TasksManager
 from assistant.logging import logger
 from assistant.notifications import Notifications
 from assistant.prompt_utils import (
-    ContextSection,
     ContextStrategy,
+    DataContext,
     Instructions,
     Prompt,
-    add_context_to_prompt,
 )
 from assistant.utils import load_text_include
 
 
-async def detect_audience_and_takeaways(
-    context: ConversationContext, attachments_extension: AttachmentsExtension
-) -> None:
+async def focus(context: ConversationContext, attachments_extension: AttachmentsExtension) -> None:
     debug: dict[str, Any] = {
         "context": context.to_dict(),
     }
@@ -31,44 +27,37 @@ async def detect_audience_and_takeaways(
     config = await assistant_config.get(context.assistant)
 
     # Set up prompt instructions.
-    instruction_text = load_text_include("detect_audience.md")
+    instruction_text = load_text_include("focus.md")
     instructions = Instructions(instruction_text)
     prompt = Prompt(
         instructions=instructions,
         context_strategy=ContextStrategy.MULTI,
     )
 
-    # Add prompt context.
-    role = await ShareManager.get_conversation_role(context)
-    await add_context_to_prompt(
-        prompt,
-        context=context,
-        role=role,
-        model=config.request_config.openai_model,
-        token_limit=config.request_config.max_tokens,
-        attachments_extension=attachments_extension,
-        attachments_config=config.attachments_config,
-        attachments_in_system_message=True,
-        include=[
-            # ContextSection.KNOWLEDGE_INFO,
-            # ContextSection.KNOWLEDGE_BRIEF,
-            ContextSection.TARGET_AUDIENCE,
-            ContextSection.LEARNING_OBJECTIVES,
-            # ContextSection.KNOWLEDGE_DIGEST,
-            # ContextSection.INFORMATION_REQUESTS,
-            # ContextSection.SUGGESTED_NEXT_ACTIONS,
-            ContextSection.COORDINATOR_CONVERSATION,
-            ContextSection.ATTACHMENTS,
-            ContextSection.TASKS,
-        ],
-    )
+    tasks = await TasksManager.get_tasks(context)
+    if tasks:
+        tasks_data = "\n\n".join("- " + thought for thought in tasks)
+        prompt.contexts.append(
+            DataContext(
+                "Consulting Tasks",
+                tasks_data,
+                "The consultant's current task list for the knowledge transfer consulting project.",
+            )
+        )
+    else:
+        prompt.contexts.append(
+            DataContext(
+                "Consulting Tasks",
+                "[]",
+                "The consultant has no current tasks for the knowledge transfer consulting project.",
+            )
+        )
 
     class Output(BaseModel):
         """Output class to hold the generated tasks."""
 
-        tasks: list[
-            str
-        ]  # Tasks related to the audience and takeaways. One task per item. If there are no tasks to be done due to this information, this will be an empty list. #noqa: E501
+        reasoning: str  # Reasoning behind how you are focusing the task list.
+        focused_tasks: list[str]  # Focused task list for the knowledge transfer consultant.
 
     # Chat completion
     async with openai_client.create_client(config.service_config) as client:
@@ -92,16 +81,12 @@ async def detect_audience_and_takeaways(
             # Response
             if response and response.choices and response.choices[0].message.parsed:
                 output: Output = response.choices[0].message.parsed
-                if output.tasks:
-                    await TasksManager.add_tasks(context, output.tasks)
-                    await Notifications.notify(
-                        context,
-                        f"Added {len(output.tasks)} tasks related to the audience and takeaways.",
-                        debug_data=debug,
-                    )
+                if output.focused_tasks:
+                    await TasksManager.set_task_list(context, output.focused_tasks)
+                    await Notifications.notify(context, "Focused the task list.", debug_data=debug)
                     await Notifications.notify_state_update(
                         context,
-                        [InspectorTab.BRIEF],
+                        [InspectorTab.DEBUG],
                     )
             else:
                 logger.warning("Empty response from LLM for welcome message generation")

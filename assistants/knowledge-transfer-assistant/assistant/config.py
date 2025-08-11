@@ -64,25 +64,14 @@ class PromptConfig(BaseModel):
         title="Prompt templates",
         json_schema_extra={
             "required": [
-                "coordinator_role",
                 "coordinator_instructions",
-                "team_role",
                 "team_instructions",
                 "share_information_request_detection",
-                "knowledge_digest_update",
+                "update_knowledge_digest",
                 "welcome_message_generation",
             ],
         },
     )
-
-    coordinator_role: Annotated[
-        str,
-        Field(
-            title="Coordinator role",
-            description="The role of the coordinator assistant. This is added to the prompt when in coordinator mode.",
-        ),
-        UISchema(widget="textarea"),
-    ] = load_text_include("coordinator_role.txt")
 
     coordinator_instructions: Annotated[
         str,
@@ -91,16 +80,7 @@ class PromptConfig(BaseModel):
             description="The instructions to give the coordinator assistant. This is added to the prompt when in coordinator mode.",  # noqa: E501
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("coordinator_instructions.txt")
-
-    team_role: Annotated[
-        str,
-        Field(
-            title="Team role",
-            description="The role of the team assistant. This is added to the prompt when in team member mode.",
-        ),
-        UISchema(widget="textarea"),
-    ] = load_text_include("team_role.txt")
+    ] = load_text_include("coordinator_instructions.md")
 
     team_instructions: Annotated[
         str,
@@ -111,23 +91,23 @@ class PromptConfig(BaseModel):
         UISchema(widget="textarea"),
     ] = load_text_include("team_instructions.txt")
 
-    share_information_request_detection: Annotated[
+    detect_information_request_needs: Annotated[
         str,
         Field(
             title="Information Request detection prompt",
             description="The prompt used to detect information requests in knowledge transfer mode.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("share_information_request_detection.txt")
+    ] = load_text_include("detect_information_request_needs.md")
 
-    knowledge_digest_update: Annotated[
+    update_knowledge_digest: Annotated[
         str,
         Field(
-            title="Knowledge Digest update",
+            title="Knowledge Digest update prompt",
             description="The prompt used to generate updated knowledge digest content.",
         ),
         UISchema(widget="textarea"),
-    ] = load_text_include("knowledge_digest_update.txt")
+    ] = load_text_include("update_knowledge_digest.md")
 
     welcome_message_generation: Annotated[
         str,

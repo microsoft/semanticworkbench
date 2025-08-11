@@ -27,23 +27,19 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.agentic.detect_audience_and_takeaways import (
-    detect_audience_and_takeaways,
-)
-
 from .agentic import agentic
+from .agentic.respond import (
+    SILENCE_TOKEN,
+    CoordinatorOutput,
+    TeamOutput,
+    respond_to_conversation,
+)
 from .config import assistant_config
 from .data import ConversationRole, InspectorTab, LogEntryType
 from .domain import ShareManager
 from .files import ShareFilesManager
 from .logging import logger
 from .notifications import Notifications
-from .respond import (
-    SILENCE_TOKEN,
-    CoordinatorOutput,
-    TeamOutput,
-    respond_to_conversation,
-)
 from .ui_tabs import BriefInspector, DebugInspector, LearningInspector, SharingInspector
 from .utils import (
     DEFAULT_TEMPLATE_ID,
@@ -52,9 +48,7 @@ from .utils import (
 
 service_id = "knowledge-transfer-assistant.made-exploration"
 service_name = "Knowledge Transfer Assistant"
-service_description = (
-    "A mediator assistant that facilitates sharing knowledge between parties."
-)
+service_description = "A mediator assistant that facilitates sharing knowledge between parties."
 
 
 async def content_evaluator_factory(
@@ -86,9 +80,7 @@ assistant = AssistantApp(
                 template_id=DEFAULT_TEMPLATE_ID,
                 background_color="rgb(198, 177, 222)",
                 icon=dashboard_card.image_to_url(
-                    pathlib.Path(__file__).parent
-                    / "assets"
-                    / "icon-knowledge-transfer.svg",
+                    pathlib.Path(__file__).parent / "assets" / "icon-knowledge-transfer.svg",
                     "image/svg+xml",
                 ),
                 card_content=dashboard_card.CardContent(
@@ -97,11 +89,9 @@ assistant = AssistantApp(
                 ),
             ),
         ),
-        **navigator.metadata_for_assistant_navigator(
-            {
-                "default": load_text_include("assistant_info.md"),
-            }
-        ),
+        **navigator.metadata_for_assistant_navigator({
+            "default": load_text_include("assistant_info.md"),
+        }),
     },
 )
 
@@ -141,9 +131,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 share_id = await ShareManager.create_share(context)
 
                 # And it was good. So we then created a sharable conversation that we use as a template.
-                share_url = await ShareManager.create_shareable_team_conversation(
-                    context=context, share_id=share_id
-                )
+                share_url = await ShareManager.create_shareable_team_conversation(context=context, share_id=share_id)
 
                 config = await assistant_config.get(context.assistant)
                 welcome_message = config.coordinator_config.welcome_message.format(
@@ -174,9 +162,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             if not share_id:
                 logger.error("No share ID found for shareable team conversation.")
                 return
-            await ShareManager.set_conversation_role(
-                context, share_id, ConversationRole.SHAREABLE_TEMPLATE
-            )
+            await ShareManager.set_conversation_role(context, share_id, ConversationRole.SHAREABLE_TEMPLATE)
             return
 
         case ConversationRole.TEAM:
@@ -192,16 +178,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             )
 
-            await ShareManager.set_conversation_role(
-                context, share_id, ConversationRole.TEAM
-            )
-            await ShareFilesManager.synchronize_files_to_team_conversation(
-                context=context, share_id=share_id
-            )
+            await ShareManager.set_conversation_role(context, share_id, ConversationRole.TEAM)
+            await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
-            welcome_message, debug = await agentic.generate_team_welcome_message(
-                context
-            )
+            welcome_message, debug = await agentic.generate_team_welcome_message(context)
             await context.send_messages(
                 NewConversationMessage(
                     content=welcome_message,
@@ -250,21 +230,15 @@ async def on_conversation_updated(context: ConversationContext) -> None:
                     f"Updated conversation {shared_conversation_id} title from '{target_conversation.title}' to '{conversation.title}'"  # noqa: E501
                 )
             else:
-                logger.debug(
-                    f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'"
-                )
+                logger.debug(f"Conversation {shared_conversation_id} title already matches: '{conversation.title}'")
         except Exception as title_update_error:
-            logger.error(
-                f"Error updating conversation {shared_conversation_id} title: {title_update_error}"
-            )
+            logger.error(f"Error updating conversation {shared_conversation_id} title: {title_update_error}")
 
     except Exception as e:
         logger.error(f"Error syncing conversation title: {e}")
 
 
-async def store_coordinator_message(
-    context: ConversationContext, message: ConversationMessage
-) -> None:
+async def store_coordinator_message(context: ConversationContext, message: ConversationMessage) -> None:
     async with context.set_status("jotting..."):
         try:
             sender_name = "Coordinator"
@@ -280,8 +254,7 @@ async def store_coordinator_message(
                     message_id=str(message.id),
                     content=message.content,
                     sender_name=sender_name,
-                    is_assistant=message.sender.participant_role
-                    == ParticipantRole.assistant,
+                    is_assistant=message.sender.participant_role == ParticipantRole.assistant,
                     timestamp=message.timestamp,
                 )
         except Exception as e:
@@ -312,7 +285,69 @@ async def on_message_created(
 
         if message.message_type == MessageType.chat and is_user_message:
             async with context.set_status("pondering..."):
-                # Get generated message.
+                # Process user message with background assistants.
+                if role == ConversationRole.COORDINATOR:
+                    # Update knowledge digest.
+                    digest_task = asyncio.create_task(agentic.update_digest(context, attachments_extension))
+                    digest_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+
+                    # Detect audience and audience takeaways
+                    audience_task = asyncio.create_task(
+                        agentic.detect_audience_and_takeaways(context, attachments_extension)
+                    )
+                    audience_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+
+                    # Detect knowledge gaps
+                    gaps_task = asyncio.create_task(
+                        agentic.detect_knowledge_package_gaps(context, attachments_extension)
+                    )
+                    gaps_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+
+                    # Detect coordinator actions
+                    coordinator_actions_task = asyncio.create_task(
+                        agentic.detect_coordinator_actions(context, attachments_extension)
+                    )
+                    coordinator_actions_task.add_done_callback(
+                        lambda t: t.exception() if t.done() and t.exception() else None
+                    )
+
+                    # Once all the other agents have had their turn, let's focus the conversation.
+                    # background_tasks = [audience_task, gaps_task, coordinator_actions_task]
+                    # await asyncio.gather(*background_tasks, return_exceptions=True)
+                    # task5 = asyncio.create_task(agentic.focus(context, attachments_extension))
+                    # task5.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+
+                if role == ConversationRole.TEAM:
+                    # For team role, analyze message for possible information request needs.
+                    # Send a notification if we think it might be one.
+                    detection_result = await agentic.detect_information_request_needs(context, message.content)
+
+                    if (
+                        detection_result.get("is_information_request", False)
+                        and detection_result.get("confidence", 0) > 0.8
+                    ):
+                        suggested_title = detection_result.get("potential_title", "")
+                        suggested_priority = detection_result.get("suggested_priority", "medium")
+                        potential_description = detection_result.get("potential_description", "")
+                        reason = detection_result.get("reason", "")
+
+                        # TODO: replace this with the sub-agent creating tasks.
+                        await context.send_messages(
+                            NewConversationMessage(
+                                content=(
+                                    f"**Potential _Information Request_ Detected**\n\n"
+                                    f"You might need information from the knowledge coordinator. {reason}\n\n"
+                                    f"Would you like me to create an information request?\n"
+                                    f"**Title:** {suggested_title}\n"
+                                    f"**Description:** {potential_description}\n"
+                                    f"**Priority:** {suggested_priority}\n\n"
+                                ),
+                                message_type=MessageType.notice,
+                                metadata={"debug": detection_result},
+                            )
+                        )
+
+                # Generate message.
                 response = await respond_to_conversation(
                     context,
                     new_message=message,
@@ -354,12 +389,8 @@ async def on_message_created(
                             response_parts.append(output_model.response)
 
                         if output_model.excerpt:
-                            output_model.excerpt = output_model.excerpt.strip().strip(
-                                '"'
-                            )
-                            response_parts.append(
-                                f'> _"{output_model.excerpt}"_ (excerpt)'
-                            )
+                            output_model.excerpt = output_model.excerpt.strip().strip('"')
+                            response_parts.append(f'> _"{output_model.excerpt}"_ (excerpt)')
 
                         if output_model.citations:
                             citations = ", ".join(output_model.citations)
@@ -368,12 +399,20 @@ async def on_message_created(
                         if output_model.next_step_suggestion:
                             metadata["help"] = output_model.next_step_suggestion
 
-                    else:
+                    if role == ConversationRole.COORDINATOR:
                         output_model = CoordinatorOutput.model_validate_json(content)
                         if output_model.response:
                             response_parts.append(output_model.response)
                         # if output_model.next_step_suggestion:
                         #     metadata["help"] = output_model.next_step_suggestion
+
+                    await context.send_messages(
+                        NewConversationMessage(
+                            content="\n\n".join(response_parts),
+                            message_type=MessageType.chat,
+                            metadata=metadata,
+                        )
+                    )
 
                     # Save valid assistant responses for team access.
                     await store_coordinator_message(
@@ -389,30 +428,6 @@ async def on_message_created(
                             metadata={},
                             has_debug_data=False,
                         ),
-                    )
-
-                    # Doing background tasks only when the coordinator has responded.
-
-                    # Detect information requests in the conversation.
-                    task = asyncio.create_task(agentic.update_digest(context))
-                    task.add_done_callback(
-                        lambda t: t.exception() if t.done() and t.exception() else None
-                    )
-
-                    # Background thinking - audience
-                    task2 = asyncio.create_task(
-                        detect_audience_and_takeaways(context, attachments_extension)
-                    )
-                    task2.add_done_callback(
-                        lambda t: t.exception() if t.done() and t.exception() else None
-                    )
-
-                    await context.send_messages(
-                        NewConversationMessage(
-                            content="\n\n".join(response_parts),
-                            message_type=MessageType.chat,
-                            metadata=metadata,
-                        )
                     )
 
                 except Exception as e:
@@ -444,13 +459,9 @@ async def on_command_created(
     if message.message_type != MessageType.command:
         return
 
-    await context.update_participant_me(
-        UpdateParticipant(status="processing command...")
-    )
+    await context.update_participant_me(UpdateParticipant(status="processing command..."))
     try:
-        metadata = {
-            "debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}
-        }
+        metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         # Respond to the conversation
         await respond_to_conversation(
@@ -481,9 +492,7 @@ async def on_file_created(
     """
     try:
         if not file.filename:
-            logger.warning(
-                f"No share found or missing filename. filename={file.filename}"
-            )
+            logger.warning(f"No share found or missing filename. filename={file.filename}")
             return
 
         share = await ShareManager.get_share(context)
@@ -507,9 +516,7 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ShareFilesManager.get_team_conversations(
-                context, share.share_id
-            )
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
 
             if team_conversations:
                 for team_conv_id in team_conversations:
@@ -566,9 +573,7 @@ async def on_file_updated(
                 logger.error(f"Failed to update file in share storage: {file.filename}")
                 return
 
-            team_conversations = await ShareFilesManager.get_team_conversations(
-                context, share.share_id
-            )
+            team_conversations = await ShareFilesManager.get_team_conversations(context, share.share_id)
             for team_conv_id in team_conversations:
                 await ShareFilesManager.copy_file_to_conversation(
                     context=context,
@@ -615,9 +620,7 @@ async def on_file_deleted(
             )
 
             if not success:
-                logger.error(
-                    f"Failed to delete file from share storage: {file.filename}"
-                )
+                logger.error(f"Failed to delete file from share storage: {file.filename}")
 
             # 2. Update all UIs about the deletion but don't send notifications to reduce noise
             await Notifications.notify_all_state_update(context, [InspectorTab.DEBUG])
@@ -665,9 +668,7 @@ async def on_participant_joined(
         if not share_id:
             return
 
-        await ShareFilesManager.synchronize_files_to_team_conversation(
-            context=context, share_id=share_id
-        )
+        await ShareFilesManager.synchronize_files_to_team_conversation(context=context, share_id=share_id)
 
         await ShareManager.log_share_event(
             context=context,

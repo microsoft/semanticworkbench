@@ -1,3 +1,5 @@
+from typing import Any
+
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     MessageType,
@@ -14,12 +16,13 @@ from .logging import logger
 
 class Notifications:
     @staticmethod
-    async def notify(context: ConversationContext, message: str) -> None:
+    async def notify(context: ConversationContext, message: str, debug_data: dict[str, Any] | None = None) -> None:
         """Send text message notification to current conversation only."""
         await context.send_messages(
             NewConversationMessage(
                 content=message,
                 message_type=MessageType.notice,
+                debug_data=debug_data,
             )
         )
 

@@ -24,8 +24,6 @@ class LearningObjectivesManager:
         outcomes: list[str] | None = None,
         priority: int = 1,
     ) -> LearningObjective | None:
-        share_id = await ShareManager.get_share_id(context)
-
         criterion_objects = []
         if outcomes:
             for criterion in outcomes:
@@ -39,9 +37,7 @@ class LearningObjectivesManager:
         )
 
         share = await ShareManager.get_share(context)
-
         share.learning_objectives.append(new_learning_objective)
-
         await ShareManager.set_share(context, share)
 
         await ShareManager.log_share_event(
@@ -50,7 +46,7 @@ class LearningObjectivesManager:
             message=f"Added learning objective: {objective_name}",
         )
 
-        await Notifications.notify_all(context, share_id, f"Learning objective '{objective_name}' was added")
+        await Notifications.notify_all(context, share.share_id, f"Learning objective '{objective_name}' was added")
         await Notifications.notify_all_state_update(context, [InspectorTab.LEARNING, InspectorTab.BRIEF])
 
         return new_learning_objective
@@ -78,7 +74,6 @@ class LearningObjectivesManager:
             if obj.id == objective_id:
                 objective = obj
                 break
-
         if not objective:
             raise ValueError("Learning objective not found")
 

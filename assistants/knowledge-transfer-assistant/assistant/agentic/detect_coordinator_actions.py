@@ -21,9 +21,7 @@ from assistant.prompt_utils import (
 from assistant.utils import load_text_include
 
 
-async def detect_audience_and_takeaways(
-    context: ConversationContext, attachments_extension: AttachmentsExtension
-) -> None:
+async def detect_coordinator_actions(context: ConversationContext, attachments_extension: AttachmentsExtension) -> None:
     debug: dict[str, Any] = {
         "context": context.to_dict(),
     }
@@ -31,7 +29,7 @@ async def detect_audience_and_takeaways(
     config = await assistant_config.get(context.assistant)
 
     # Set up prompt instructions.
-    instruction_text = load_text_include("detect_audience.md")
+    instruction_text = load_text_include("detect_coordinator_actions.md")
     instructions = Instructions(instruction_text)
     prompt = Prompt(
         instructions=instructions,
@@ -50,25 +48,25 @@ async def detect_audience_and_takeaways(
         attachments_config=config.attachments_config,
         attachments_in_system_message=True,
         include=[
-            # ContextSection.KNOWLEDGE_INFO,
-            # ContextSection.KNOWLEDGE_BRIEF,
+            ContextSection.KNOWLEDGE_INFO,
+            ContextSection.KNOWLEDGE_BRIEF,
+            ContextSection.TASKS,
             ContextSection.TARGET_AUDIENCE,
             ContextSection.LEARNING_OBJECTIVES,
-            # ContextSection.KNOWLEDGE_DIGEST,
-            # ContextSection.INFORMATION_REQUESTS,
+            ContextSection.KNOWLEDGE_DIGEST,
+            ContextSection.INFORMATION_REQUESTS,
             # ContextSection.SUGGESTED_NEXT_ACTIONS,
             ContextSection.COORDINATOR_CONVERSATION,
             ContextSection.ATTACHMENTS,
-            ContextSection.TASKS,
         ],
     )
 
     class Output(BaseModel):
-        """Output class to hold the generated tasks."""
+        """Output class to hold the additional tasks."""
 
         tasks: list[
             str
-        ]  # Tasks related to the audience and takeaways. One task per item. If there are no tasks to be done due to this information, this will be an empty list. #noqa: E501
+        ]  # Additional tasks that should be completed. If there are no additional tasks needed, this will be an empty list. #noqa: E501
 
     # Chat completion
     async with openai_client.create_client(config.service_config) as client:
@@ -77,7 +75,7 @@ async def detect_audience_and_takeaways(
                 "messages": prompt.messages(),
                 "model": config.request_config.openai_model,
                 "max_tokens": 500,
-                "temperature": 0.8,
+                "temperature": 0.7,
                 "response_format": Output,
             }
             debug["completion_args"] = openai_client.serializable(completion_args)
@@ -95,13 +93,11 @@ async def detect_audience_and_takeaways(
                 if output.tasks:
                     await TasksManager.add_tasks(context, output.tasks)
                     await Notifications.notify(
-                        context,
-                        f"Added {len(output.tasks)} tasks related to the audience and takeaways.",
-                        debug_data=debug,
+                        context, f"Added {len(output.tasks)} tasks related to the process.", debug_data=debug
                     )
                     await Notifications.notify_state_update(
                         context,
-                        [InspectorTab.BRIEF],
+                        [InspectorTab.DEBUG],
                     )
             else:
                 logger.warning("Empty response from LLM for welcome message generation")

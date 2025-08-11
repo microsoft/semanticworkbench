@@ -1,6 +1,6 @@
-Make complex information easy to understand
+Use an assistant to capture and transfer knowledge to others
 
-- Get simple explanations for concepts
-- Visualize information with diagrams
-- Find answers without information overload
-- Learn with personalized teaching
+- Remove burden of gathering knowledge
+- Share with one or more recipients
+- Remove yourself from the learning loop
+- Make sure learning objectives are achieved

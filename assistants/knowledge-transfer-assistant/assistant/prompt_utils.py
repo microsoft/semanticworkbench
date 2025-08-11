@@ -24,7 +24,7 @@ from assistant.data import (
 )
 from assistant.domain.learning_objectives_manager import LearningObjectivesManager
 from assistant.domain.share_manager import ShareManager
-from assistant.domain.thoughts_manager import ThoughtsManager
+from assistant.domain.tasks_manager import TasksManager
 from assistant.ui_tabs.common import get_priority_emoji, get_status_emoji
 
 
@@ -126,7 +126,6 @@ class ContextStrategy(Enum):
 
 @dataclass
 class Prompt:
-    role: str
     instructions: Instructions
     output_format: str | None = None
     reasoning_steps: str | None = None
@@ -137,9 +136,6 @@ class Prompt:
 
     def messages(self) -> list[ChatCompletionMessageParam]:
         parts = [
-            "# Role and Objective",
-            self.role,
-            "# Instructions",
             str(self.instructions),
         ]
         if self.reasoning_steps:
@@ -206,7 +202,7 @@ class ContextSection(Enum):
     SUGGESTED_NEXT_ACTIONS = "suggested_next_actions"
     COORDINATOR_CONVERSATION = "coordinator_conversation"
     ATTACHMENTS = "attachments"
-    ASSISTANT_THOUGHTS = "assistant_thoughts"
+    TASKS = "tasks"
 
 
 async def add_context_to_prompt(
@@ -225,16 +221,14 @@ async def add_context_to_prompt(
 
     share = await ShareManager.get_share(context)
 
-    if ContextSection.ASSISTANT_THOUGHTS in include:
-        # Get the assistant's thoughts from the conversation context.
-        assistant_thoughts = await ThoughtsManager.get_assistant_thoughts(context)
-        if assistant_thoughts:
-            thoughts_data = "\n\n".join("- " + thought for thought in assistant_thoughts)
+    if ContextSection.TASKS in include:
+        tasks = await TasksManager.get_tasks(context)
+        if tasks:
+            tasks_data = json.dumps(tasks)
             prompt.contexts.append(
                 DataContext(
-                    "Assistant Thoughts",
-                    thoughts_data,
-                    "The assistant's thoughts about the conversation.",
+                    "Task List",
+                    tasks_data,
                 )
             )
 
@@ -246,10 +240,10 @@ async def add_context_to_prompt(
                 "learning_objectives",
                 "audience_takeaways",
                 "preferred_communication_style",
-                "transfer_notes",
                 "digest",
                 "next_learning_actions",
                 "requests",
+                "tasks",
                 "log",
             },
         )
@@ -335,7 +329,6 @@ async def add_context_to_prompt(
             )
         )
 
-    # Information requests
     if ContextSection.INFORMATION_REQUESTS in include and share:
         all_requests = share.requests
         if role == ConversationRole.COORDINATOR:
@@ -386,7 +379,6 @@ async def add_context_to_prompt(
                 )
             )
 
-    # Add next action suggestions for coordinator
     if ContextSection.SUGGESTED_NEXT_ACTIONS in include and share and role == ConversationRole.COORDINATOR:
         next_action_suggestion = await get_coordinator_next_action_suggestion(context)
         if next_action_suggestion:
@@ -433,7 +425,7 @@ async def add_context_to_prompt(
                     DataContext(
                         "Message History",
                         coordinator_message_list_data,
-                        "The assistant conversation with the user.",
+                        "The conversation so far.",
                     )
                 )
             else:

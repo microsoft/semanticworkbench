@@ -8,8 +8,7 @@ from datetime import UTC, datetime
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.data import InspectorTab, LogEntryType
-from assistant.notifications import Notifications
+from assistant.data import LogEntryType
 
 from .share_manager import ShareManager
 
@@ -37,9 +36,6 @@ class AudienceManager:
             },
         )
 
-        await Notifications.notify(context, "Audience updated.")
-        await Notifications.notify_all_state_update(context, [InspectorTab.DEBUG])
-
     @staticmethod
     async def update_audience_takeaways(
         context: ConversationContext,
@@ -61,6 +57,3 @@ class AudienceManager:
                 "takeaways": takeaways,
             },
         )
-
-        await Notifications.notify(context, "Audience takeaways updated.")
-        await Notifications.notify_all_state_update(context, [InspectorTab.BRIEF])

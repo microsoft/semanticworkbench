@@ -10,7 +10,7 @@ from semantic_workbench_assistant.assistant_app import (
 from assistant.data import ConversationRole, Share
 from assistant.domain import KnowledgeDigestManager, ShareManager, TransferManager
 from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
-from assistant.domain.thoughts_manager import ThoughtsManager
+from assistant.domain.tasks_manager import TasksManager
 
 
 class DebugInspector:
@@ -71,15 +71,15 @@ class DebugInspector:
         style = await ConversationPreferencesManager.get_preferred_communication_style(context)
         lines.append(f"- **Preferred Communication Style:** {style}")
 
-        # Assistant thoughts
-        lines.append("## Assistant Thoughts")
-        thoughts = await ThoughtsManager.get_assistant_thoughts(context)
-        if thoughts:
-            for thought in thoughts:
+        # Assistant tasks
+        lines.append("## Assistant task list")
+        tasks = await TasksManager.get_tasks(context)
+        if tasks:
+            for thought in tasks:
                 lines.append(f"- {thought}")
             lines.append("")
         else:
-            lines.append("_No assistant thoughts recorded yet._")
+            lines.append("_No tasks recorded yet._")
 
         # knowledge digest
         try:

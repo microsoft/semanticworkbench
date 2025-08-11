@@ -1,65 +1,96 @@
 import re
+from typing import Any
+from venv import logger
 
 import openai_client
-from semantic_workbench_api_model.workbench_model import ParticipantRole
+from assistant_extensions.attachments import AttachmentsExtension
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
-from assistant.data import KnowledgeDigest
+from assistant.data import InspectorTab
 from assistant.domain import KnowledgeDigestManager
-from assistant.utils import get_current_user_id
+from assistant.domain.share_manager import ShareManager
+from assistant.notifications import Notifications
+from assistant.prompt_utils import ContextSection, ContextStrategy, Instructions, Prompt, add_context_to_prompt
 
 
-async def update_digest(
-    context: ConversationContext,
-) -> KnowledgeDigest:
-    """
-    Automatically updates the knowledge digest by analyzing chat history.
-    """
-    messages = await context.get_messages()
-    chat_history = messages.messages
+async def update_digest(context: ConversationContext, attachments_extension: AttachmentsExtension) -> None:
+    debug: dict[str, Any] = {
+        "context": context.to_dict(),
+    }
 
-    current_user_id = await get_current_user_id(context)
-    if not current_user_id:
-        raise ValueError("Could not identify current user")
-
-    # Skip if no messages to analyze
-    if not chat_history:
-        raise ValueError("No chat history to analyze for knowledge digest update")
-
-    # Format the chat history for the prompt
-    chat_history_text = ""
-    for msg in chat_history:
-        sender_type = "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
-        chat_history_text += f"{sender_type}: {msg.content}\n\n"
-
-    # Construct the knowledge digest prompt with the chat history
     config = await assistant_config.get(context.assistant)
-    digest_prompt = f"""
-    {config.prompt_config.knowledge_digest_update}
 
-    <CHAT_HISTORY>
-    {chat_history_text}
-    </CHAT_HISTORY>
-    """
+    # Set up prompt instructions.
+    instruction_text = config.prompt_config.update_knowledge_digest
+    instructions = Instructions(instruction_text)
+    prompt = Prompt(
+        instructions=instructions,
+        context_strategy=ContextStrategy.MULTI,
+    )
+
+    # Add prompt context.
+    role = await ShareManager.get_conversation_role(context)
+    await add_context_to_prompt(
+        prompt,
+        context=context,
+        role=role,
+        model=config.request_config.openai_model,
+        token_limit=config.request_config.max_tokens,
+        attachments_extension=attachments_extension,
+        attachments_config=config.attachments_config,
+        attachments_in_system_message=True,
+        include=[
+            # ContextSection.KNOWLEDGE_INFO,
+            ContextSection.KNOWLEDGE_BRIEF,
+            # ContextSection.TASKS,
+            ContextSection.TARGET_AUDIENCE,
+            ContextSection.LEARNING_OBJECTIVES,
+            ContextSection.KNOWLEDGE_DIGEST,
+            # ContextSection.INFORMATION_REQUESTS,
+            # ContextSection.SUGGESTED_NEXT_ACTIONS,
+            ContextSection.COORDINATOR_CONVERSATION,
+            ContextSection.ATTACHMENTS,
+        ],
+    )
 
     async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
-        completion = await client.chat.completions.create(
-            model=config.request_config.openai_model,
-            messages=[{"role": "user", "content": digest_prompt}],
-            max_tokens=config.coordinator_config.max_digest_tokens,
-        )
+        try:
+            completion_args = {
+                "messages": prompt.messages(),
+                "model": config.request_config.openai_model,
+                "max_tokens": config.coordinator_config.max_digest_tokens,
+                "temperature": 0.7,
+            }
+            debug["completion_args"] = openai_client.serializable(completion_args)
+            response = await client.chat.completions.create(**completion_args)
+            openai_client.validate_completion(response)
+            debug["completion_response"] = openai_client.serializable(response.model_dump())
 
-        content = completion.choices[0].message.content or ""
-        digest_content = ""
-        match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
-        digest_content = match.group(1).strip() if match else content.strip()
+            # Extract the knowledge digest content from the response.
+            content = response.choices[0].message.content or ""
+            match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
+            digest_content = match.group(1).strip() if match else content
+            if not digest_content:
+                logger.error("No content extracted from knowledge digest LLM analysis", extra={"debug": debug})
+            debug["digest_content"] = digest_content
 
-    if not digest_content:
-        raise ValueError("No content extracted from knowledge digest LLM analysis")
+            # Save the knowledge digest.
+            await KnowledgeDigestManager.update_knowledge_digest(
+                context=context,
+                content=digest_content,
+                is_auto_generated=True,
+            )
 
-    return await KnowledgeDigestManager.update_knowledge_digest(
-        context=context,
-        content=digest_content,
-        is_auto_generated=True,
-    )
+            # Use this for debugging in the Semantic Workbench UI.
+            await Notifications.notify(context, "Updated knowledge digest.", debug_data=debug)
+            await Notifications.notify_state_update(
+                context,
+                [InspectorTab.DEBUG],
+            )
+
+        except Exception as e:
+            debug["error"] = str(e)
+            logger.exception(f"Failed to make OpenIA call: {e}", extra={"debug": debug})
+
+        logger.debug(f"{__name__}: {debug}")
