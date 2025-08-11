@@ -3,9 +3,10 @@ import io
 import logging
 import pathlib
 import uuid
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, AsyncIterator
+from typing import Any
 
 import httpx
 import semantic_workbench_api_model
@@ -54,6 +55,18 @@ class ConversationContext:
             assistant=self.assistant,
             httpx_client=self._httpx_client,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "assistant": {
+                "id": self.assistant.id,
+                "name": self.assistant.name,
+                "_assistant_service_id": self.assistant._assistant_service_id,
+                "_template_id": self.assistant._template_id,
+            },
+        }
 
     @property
     def _conversation_client(
