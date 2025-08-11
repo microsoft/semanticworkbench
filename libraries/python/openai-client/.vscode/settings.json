@@ -36,7 +36,7 @@
     "**/.data": true,
     "**/__pycache__": true
   },
-    // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.ignorePaths": [
     ".venv",
     "node_modules",
@@ -48,6 +48,7 @@
     "addopts",
     "asctime",
     "contentsafety",
+    "elts",
     "levelname",
     "openai",
     "Pydantic",
