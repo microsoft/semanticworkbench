@@ -224,7 +224,7 @@ async def add_context_to_prompt(
     if ContextSection.TASKS in include:
         tasks = await TasksManager.get_tasks(context)
         if tasks:
-            tasks_data = json.dumps(tasks)
+            tasks_data = json.dumps([task.model_dump() for task in tasks])
             prompt.contexts.append(
                 DataContext(
                     "Task List",
@@ -278,7 +278,6 @@ async def add_context_to_prompt(
             DataContext(
                 "Target Audience",
                 audience_context,
-                "Description of the intended audience for this knowledge transfer.",
             )
         )
 
@@ -425,7 +424,6 @@ async def add_context_to_prompt(
                     DataContext(
                         "Message History",
                         coordinator_message_list_data,
-                        "The conversation so far.",
                     )
                 )
             else:

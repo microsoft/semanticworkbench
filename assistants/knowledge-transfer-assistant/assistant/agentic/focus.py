@@ -95,4 +95,4 @@ async def focus(context: ConversationContext, attachments_extension: Attachments
             logger.exception(f"Failed to make OpenIA call: {e}")
             debug["error"] = str(e)
 
-    logger.debug(f"{__name__}: {debug}")
+    # logger.debug(f"{__name__}: {debug}")

@@ -11,6 +11,7 @@ from assistant.data import ConversationRole, Share
 from assistant.domain import KnowledgeDigestManager, ShareManager, TransferManager
 from assistant.domain.conversation_preferences_manager import ConversationPreferencesManager
 from assistant.domain.tasks_manager import TasksManager
+from assistant.ui_tabs.common import task_priority_emoji, task_status_emoji
 
 
 class DebugInspector:
@@ -71,12 +72,12 @@ class DebugInspector:
         style = await ConversationPreferencesManager.get_preferred_communication_style(context)
         lines.append(f"- **Preferred Communication Style:** {style}")
 
-        # Assistant tasks
+        # Tasks
         lines.append("## Assistant task list")
         tasks = await TasksManager.get_tasks(context)
         if tasks:
-            for thought in tasks:
-                lines.append(f"- {thought}")
+            for task in tasks:
+                lines.append(f"- {task_status_emoji(task.status)} {task_priority_emoji(task.priority)} {task.content}")
             lines.append("")
         else:
             lines.append("_No tasks recorded yet._")

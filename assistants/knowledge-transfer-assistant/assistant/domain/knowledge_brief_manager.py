@@ -22,7 +22,7 @@ class KnowledgeBriefManager:
     async def update_knowledge_brief(
         context: ConversationContext,
         title: str,
-        description: str,
+        content: str,
         timeline: str | None = None,
     ) -> KnowledgeBrief:
         share_id = await ShareManager.get_share_id(context)
@@ -30,7 +30,7 @@ class KnowledgeBriefManager:
 
         brief = KnowledgeBrief(
             title=title,
-            content=description,
+            content=content,
             timeline=timeline,
             created_by=current_user_id,
             updated_by=current_user_id,
@@ -56,7 +56,7 @@ class KnowledgeBriefManager:
                 message=f"Created brief: {title}",
             )
 
-        await Notifications.notify_all(context, share_id, "Knowledge brief has been updated")
+        await Notifications.notify_all(context, share_id, "Knowledge brief has been updated", {"content": content})
         await Notifications.notify_all_state_update(context, [InspectorTab.BRIEF])
 
         return brief

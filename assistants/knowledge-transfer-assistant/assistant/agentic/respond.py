@@ -172,7 +172,7 @@ async def respond_to_conversation(
         ContextSection.KNOWLEDGE_INFO,
         ContextSection.KNOWLEDGE_BRIEF,
         ContextSection.TARGET_AUDIENCE,
-        ContextSection.LEARNING_OBJECTIVES,
+        # ContextSection.LEARNING_OBJECTIVES,
         ContextSection.KNOWLEDGE_DIGEST,
         ContextSection.INFORMATION_REQUESTS,
         # ContextSection.SUGGESTED_NEXT_ACTIONS,
@@ -330,7 +330,7 @@ async def respond_to_conversation(
                 completion_args=completion_args,
                 tool_functions=share_tools.tool_functions,
                 metadata=metadata["debug"],
-                max_tool_call_rounds=16,
+                max_tool_call_rounds=32,
             )
             response_end_time = time.time()
             footer_items = []

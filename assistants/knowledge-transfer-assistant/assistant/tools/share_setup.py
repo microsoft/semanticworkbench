@@ -89,14 +89,15 @@ class ShareSetupTools(ToolsBase):
     #     except Exception as e:
     #         return f"Failed to update knowledge organization status: {e!s}"
 
-    async def update_brief(self, title: str, description: str) -> str:
+    async def update_brief(self, title: str, content: str) -> str:
         """
-        Update a brief with a title and description. The brief should avoid
+        Update a brief with a title and content. The brief should avoid
         filler words and unnecessary content.
 
         Args:
             title: The title of the brief description: A description of the
             knowledge share to be given to recipients as context.
+            content: The content of the brief.
 
         Returns:
             A message indicating success or failure
@@ -105,7 +106,7 @@ class ShareSetupTools(ToolsBase):
             await KnowledgeBriefManager.update_knowledge_brief(
                 context=self.context,
                 title=title,
-                description=description,
+                content=content,
             )
             return "Brief updated successfully."
         except Exception as e:
@@ -140,12 +141,12 @@ class ShareSetupTools(ToolsBase):
         except Exception as e:
             return f"Failed to update learning intention: {e!s}"
 
-    async def create_invitation(self) -> str:
+    async def create_invitation_message(self) -> str:
         """
-        Create an invitation for the knowledge transfer.
+        Create an invitation message to send to audience members for the knowledge transfer.
 
         Args:
-            invitation_text: The text of the invitation to be sent to participants.
+            invitation_text: The text of the invitation to be sent to the audience.
 
         Returns:
             A message indicating success or failure

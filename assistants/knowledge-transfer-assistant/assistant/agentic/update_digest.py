@@ -69,6 +69,11 @@ async def update_digest(context: ConversationContext, attachments_extension: Att
 
             # Extract the knowledge digest content from the response.
             content = response.choices[0].message.content or ""
+
+            if content == "<OK_AS_IS/>":
+                logger.info("Knowledge digest is already up to date, no changes made.", extra={"debug": debug})
+                return
+
             match = re.search(r"<KNOWLEDGE_DIGEST>(.*?)</KNOWLEDGE_DIGEST>", content, re.DOTALL)
             digest_content = match.group(1).strip() if match else content
             if not digest_content:
@@ -93,4 +98,4 @@ async def update_digest(context: ConversationContext, attachments_extension: Att
             debug["error"] = str(e)
             logger.exception(f"Failed to make OpenIA call: {e}", extra={"debug": debug})
 
-        logger.debug(f"{__name__}: {debug}")
+        # logger.debug(f"{__name__}: {debug}")

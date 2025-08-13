@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
-from assistant.data import InspectorTab
+from assistant.data import InspectorTab, NewTaskInfo
 from assistant.domain.share_manager import ShareManager
 from assistant.domain.tasks_manager import TasksManager
 from assistant.logging import convert_to_serializable, logger
@@ -91,7 +91,8 @@ async def detect_knowledge_package_gaps(
             if response and response.choices and response.choices[0].message.parsed:
                 output: Output = response.choices[0].message.parsed
                 if output.gaps:
-                    tasks = [f"Collect the following information: {gap.strip()}" for gap in output.gaps if gap.strip()]
+                    task_contents = [f"Ask the user about: {gap.strip()}" for gap in output.gaps if gap.strip()]
+                    tasks = [NewTaskInfo(content=content) for content in task_contents]
                     await TasksManager.add_tasks(context, tasks)
                     await Notifications.notify(
                         context, f"Added {len(tasks)} tasks related to the knowledge content.", debug_data=debug
@@ -111,4 +112,4 @@ async def detect_knowledge_package_gaps(
             logger.exception(f"Failed to make OpenIA call: {e}")
             debug["error"] = str(e)
 
-    logger.debug(f"{__name__}: {debug}")
+    # logger.debug(f"{__name__}: {debug}")

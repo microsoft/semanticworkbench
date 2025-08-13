@@ -285,35 +285,42 @@ async def on_message_created(
 
         if message.message_type == MessageType.chat and is_user_message:
             async with context.set_status("pondering..."):
-                # Process user message with background assistants.
                 if role == ConversationRole.COORDINATOR:
                     # Update knowledge digest.
                     digest_task = asyncio.create_task(agentic.update_digest(context, attachments_extension))
                     digest_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
 
-                    # Detect audience and audience takeaways
+                    parallel_tasks = []
+
+                    # Solicit audience and audience takeaway tasks.
                     audience_task = asyncio.create_task(
                         agentic.detect_audience_and_takeaways(context, attachments_extension)
                     )
                     audience_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+                    parallel_tasks.append(audience_task)
 
-                    # Detect knowledge gaps
-                    gaps_task = asyncio.create_task(
-                        agentic.detect_knowledge_package_gaps(context, attachments_extension)
-                    )
-                    gaps_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+                    # Solicit knowledge package gap tasks.
+                    if share.digest and share.tasks:
+                        # Let's deal with other pending tasks first, though.
+                        pending_tasks = [task for task in share.tasks if task.status == "pending"]
+                        if not pending_tasks:
+                            gaps_task = asyncio.create_task(
+                                agentic.detect_knowledge_package_gaps(context, attachments_extension)
+                            )
+                            gaps_task.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
+                            parallel_tasks.append(gaps_task)
 
                     # Detect coordinator actions
-                    coordinator_actions_task = asyncio.create_task(
-                        agentic.detect_coordinator_actions(context, attachments_extension)
-                    )
-                    coordinator_actions_task.add_done_callback(
-                        lambda t: t.exception() if t.done() and t.exception() else None
-                    )
+                    # coordinator_actions_task = asyncio.create_task(
+                    #     agentic.detect_coordinator_actions(context, attachments_extension)
+                    # )
+                    # coordinator_actions_task.add_done_callback(
+                    #     lambda t: t.exception() if t.done() and t.exception() else None
+                    # )
 
-                    # Once all the other agents have had their turn, let's focus the conversation.
-                    # background_tasks = [audience_task, gaps_task, coordinator_actions_task]
-                    # await asyncio.gather(*background_tasks, return_exceptions=True)
+                    # Run all of the tasks in parallel and wait for their return.
+                    await asyncio.gather(*parallel_tasks, return_exceptions=True)
+
                     # task5 = asyncio.create_task(agentic.focus(context, attachments_extension))
                     # task5.add_done_callback(lambda t: t.exception() if t.done() and t.exception() else None)
 

@@ -87,5 +87,5 @@ async def create_invitation(context: ConversationContext) -> str:
             logger.exception(f"Failed to make OpenIA call: {e}")
             debug["error"] = str(e)
 
-    logger.debug(f"{__name__}: {debug}")
+    # logger.debug(f"{__name__}: {debug}")
     return "Failed to generate invitation."

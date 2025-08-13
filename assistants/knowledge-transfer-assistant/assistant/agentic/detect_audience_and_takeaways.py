@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
-from assistant.data import InspectorTab
+from assistant.data import InspectorTab, NewTaskInfo
 from assistant.domain.share_manager import ShareManager
 from assistant.domain.tasks_manager import TasksManager
 from assistant.logging import logger
@@ -67,8 +67,8 @@ async def detect_audience_and_takeaways(
         """Output class to hold the generated tasks."""
 
         tasks: list[
-            str
-        ]  # Tasks related to the audience and takeaways. One task per item. If there are no tasks to be done due to this information, this will be an empty list. #noqa: E501
+            NewTaskInfo
+        ]  # Tasks related to the audience and takeaways. One task per item. If there are no tasks to be added, this will be an empty list. #noqa: E501
 
     # Chat completion
     async with openai_client.create_client(config.service_config) as client:
@@ -110,4 +110,4 @@ async def detect_audience_and_takeaways(
             logger.exception(f"Failed to make OpenIA call: {e}")
             debug["error"] = str(e)
 
-    logger.debug(f"{__name__}: {debug}")
+    # logger.debug(f"{__name__}: {debug}")

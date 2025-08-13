@@ -173,6 +173,44 @@ class ShareLog(BaseModel):
     entries: list[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
 
 
+class TaskStatus(str, Enum):
+    """
+    Enum for the status of a task.
+    """
+
+    PENDING = "pending"  # Task not yet started
+    IN_PROGRESS = "in_progress"  # Currently working on (limit to ONE task at a time)
+    COMPLETED = "completed"  # Task finished successfully
+    CANCELLED = "cancelled"  # Task no longer needed
+
+
+class TaskPriority(str, Enum):
+    """
+    Enum for the priority of a task.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class NewTaskInfo(BaseModel):
+    """
+    A class to represent a new task to be added.
+    """
+
+    content: str  # Description of the task
+    priority: TaskPriority = TaskPriority.MEDIUM  # Default priority is 'medium'
+    status: TaskStatus = TaskStatus.PENDING  # Default status is 'pending'
+
+
+class TaskInfo(BaseModel):
+    task_id: str
+    content: str
+    status: TaskStatus
+    priority: TaskPriority
+
+
 class Share(BaseModel):
     share_id: str
     coordinator_conversation_id: str | None = None
@@ -197,7 +235,7 @@ class Share(BaseModel):
     next_learning_actions: list[str] = Field(default_factory=list)
     # knowledge_organized: bool = False
     requests: list[InformationRequest] = Field(default_factory=list)
-    tasks: list[str] = Field(default_factory=list)
+    tasks: list[TaskInfo] = Field(default_factory=list)
 
     log: ShareLog | None = Field(default_factory=lambda: ShareLog())
 

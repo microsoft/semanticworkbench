@@ -51,9 +51,19 @@ class ShareTools:
         """Register coordinator-specific tools."""
 
         self.tool_functions.add_function(
-            self.tasks.delete_task,
-            "mark_task_completed",
+            self.tasks.add_task,
+            "add_task",
         )
+
+        self.tool_functions.add_function(
+            self.tasks.update_task,
+            "update_task",
+        )
+
+        # self.tool_functions.add_function(
+        #     self.tasks.delete_task,
+        #     "mark_task_completed",
+        # )
 
         self.tool_functions.add_function(
             self.share_setup.update_audience,
@@ -66,8 +76,8 @@ class ShareTools:
         )
 
         self.tool_functions.add_function(
-            self.share_setup.create_invitation,
-            "create_invitation",
+            self.share_setup.create_invitation_message,
+            "create_invitation_message",
         )
 
         # self.tool_functions.add_function(
@@ -134,7 +144,7 @@ class ShareTools:
             "delete_information_request",
         )
         self.tool_functions.add_function(
-            self.progress_tracking.mark_learning_outcome_achieved,
+            self.learning_outcomes.mark_learning_outcome_achieved,
             "mark_learning_outcome_achieved",
         )
         self.tool_functions.add_function(

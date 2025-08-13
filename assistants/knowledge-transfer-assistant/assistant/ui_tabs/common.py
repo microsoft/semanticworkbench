@@ -2,7 +2,7 @@
 Common utilities for inspector modules.
 """
 
-from assistant.data import RequestPriority, RequestStatus, Share
+from assistant.data import RequestPriority, RequestStatus, Share, TaskPriority, TaskStatus
 from assistant.domain import TransferManager
 
 
@@ -14,6 +14,27 @@ def get_status_emoji(status: RequestStatus) -> str:
         RequestStatus.IN_PROGRESS: "⚡",  # In Progress
         RequestStatus.RESOLVED: "✅",  # Resolved/Complete
         RequestStatus.DEFERRED: "⏸️",  # Deferred/Paused
+    }
+    return status_emojis.get(status, "❓")  # Unknown status fallback
+
+
+def task_priority_emoji(priority: TaskPriority) -> str:
+    """Get emoji representation for task priority."""
+    priority_emojis = {
+        TaskPriority.LOW: "🔹",  # Low priority - blue diamond
+        TaskPriority.MEDIUM: "🔶",  # Medium priority - orange diamond
+        TaskPriority.HIGH: "🔴",  # High priority - red circle
+    }
+    return priority_emojis.get(priority, "🔹")  # Default to low priority emoji
+
+
+def task_status_emoji(status: TaskStatus) -> str:
+    """Get emoji representation for task status."""
+    status_emojis = {
+        TaskStatus.PENDING: "⏳",  # Pending - hourglass
+        TaskStatus.IN_PROGRESS: "⚙️",  # In Progress - gear
+        TaskStatus.COMPLETED: "✅",  # Completed - check mark
+        TaskStatus.CANCELLED: "❌",  # Cancelled - cross mark
     }
     return status_emojis.get(status, "❓")  # Unknown status fallback
 

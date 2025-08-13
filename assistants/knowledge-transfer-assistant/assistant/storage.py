@@ -1,4 +1,5 @@
 import pathlib
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -22,8 +23,10 @@ from .data import (
     KnowledgeDigest,
     LogEntry,
     LogEntryType,
+    NewTaskInfo,
     Share,
     ShareLog,
+    TaskInfo,
 )
 from .utils import get_current_user
 
@@ -83,14 +86,18 @@ class ShareStorageManager:
 
 class ConversationStorage:
     @staticmethod
-    def get_conversation_preferences_file_path(context: ConversationContext) -> pathlib.Path:
+    def get_conversation_preferences_file_path(
+        context: ConversationContext,
+    ) -> pathlib.Path:
         """Gets the path to the file that stores conversation preferences."""
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
         return storage_dir / "conversation_preferences.json"
 
     @staticmethod
-    def read_conversation_preferences(context: ConversationContext) -> ConversationPreferences | None:
+    def read_conversation_preferences(
+        context: ConversationContext,
+    ) -> ConversationPreferences | None:
         path = ConversationStorage.get_conversation_preferences_file_path(context)
         return read_model(path, ConversationPreferences)
 
@@ -113,33 +120,45 @@ class ShareStorage:
         return path
 
     @staticmethod
-    def read_tasks(share_id: str) -> list[str]:
+    def read_tasks(share_id: str) -> list[TaskInfo]:
         share = ShareStorage.read_share(share_id)
         if not share:
             return []
         return share.tasks
 
     @staticmethod
-    def add_tasks(share_id: str, tasks: list[str]) -> None:
+    def add_tasks(share_id: str, tasks: list[NewTaskInfo]) -> None:
         share = ShareStorage.read_share(share_id)
         if not share:
             raise NoShareException
-        share.tasks.extend(tasks)
+        tasks_with_ids = [TaskInfo(**task.model_dump(), task_id=str(uuid.uuid4())) for task in tasks]
+        share.tasks.extend(tasks_with_ids)
         ShareStorage.write_share(share_id, share)
 
     @staticmethod
-    def remove_task(share_id: str, task: str) -> None:
+    def update_task(share_id: str, task: TaskInfo) -> None:
         share = ShareStorage.read_share(share_id)
         if not share:
             raise NoShareException
-        if task in share.tasks:
-            share.tasks.remove(task)
-            ShareStorage.write_share(share_id, share)
-        else:
-            logger.warning(f"Thought '{task}' not found in share {share_id}.")
+        tasks = []
+        for existing_task in share.tasks:
+            if existing_task.task_id == task.task_id:
+                tasks.append(task)
+            else:
+                tasks.append(existing_task)
+        share.tasks = tasks
+        ShareStorage.write_share(share_id, share)
 
     @staticmethod
-    def set_all_tasks(share_id: str, tasks: list[str]) -> None:
+    def remove_task(share_id: str, task_id: str) -> None:
+        share = ShareStorage.read_share(share_id)
+        if not share:
+            raise NoShareException
+        share.tasks = [task for task in share.tasks if task.task_id != task_id]
+        ShareStorage.write_share(share_id, share)
+
+    @staticmethod
+    def set_all_tasks(share_id: str, tasks: list[TaskInfo]) -> None:
         share = ShareStorage.read_share(share_id)
         if not share:
             raise NoShareException

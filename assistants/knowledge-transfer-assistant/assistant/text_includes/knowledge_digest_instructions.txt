@@ -1,5 +1,5 @@
-The user's assistant's knowledge digest contains information about this knowledge share that has been extracted from the previous conversation thread and attachments.
-It serves as a persistent memory of important facts, decisions, and context.
+The knowledge digest contains information about this knowledge package that has been extracted from the previous conversation thread and attachments.
+It serves as a persistent memory of important facts and context.
 
 Key characteristics of this knowledge digest:
 
@@ -7,9 +7,4 @@ Key characteristics of this knowledge digest:
 - It has been automatically curated to focus on high-value information relevant to the knowledge share.
 - It is maintained and updated as knowledge content is added.
 - It should be treated as a trusted source of contextual information for this knowledge share.
-
-When using the knowledge digest:
-
-- Prioritize this information when addressing questions or providing updates.
-- Reference it to ensure consistency in your responses across the conversation.
-- Use it to track important details that might otherwise be lost in the conversation history.
+- Do not use it for task management or information requests. These things are managed separately.

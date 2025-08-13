@@ -68,8 +68,13 @@ class Notifications:
             logger.error(f"Failed to notify conversation {target_id}: {e}")
 
     @staticmethod
-    async def notify_all(context: ConversationContext, share_id: str, message: str) -> None:
+    async def notify_all(
+        context: ConversationContext, share_id: str, message: str, debug_data: dict[str, Any] | None = None
+    ) -> None:
         """Send text message notification to all knowledge transfer conversations."""
+
+        if debug_data is None:
+            debug_data = {}
 
         share = await ShareManager.get_share(context)
         if not share:
@@ -88,6 +93,7 @@ class Notifications:
                     NewConversationMessage(
                         content=message,
                         message_type=MessageType.notice,
+                        debug_data=debug_data,
                     )
                 )
             except Exception as e:

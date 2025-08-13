@@ -106,4 +106,4 @@ async def detect_coordinator_actions(context: ConversationContext, attachments_e
             logger.exception(f"Failed to make OpenIA call: {e}")
             debug["error"] = str(e)
 
-    logger.debug(f"{__name__}: {debug}")
+    # logger.debug(f"{__name__}: {debug}")
