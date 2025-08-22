@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
-from assistant.data import InspectorTab
+from assistant.data import InspectorTab, NewTaskInfo
 from assistant.domain.share_manager import ShareManager
 from assistant.domain.tasks_manager import TasksManager
 from assistant.logging import logger
@@ -91,7 +91,8 @@ async def detect_coordinator_actions(context: ConversationContext, attachments_e
             if response and response.choices and response.choices[0].message.parsed:
                 output: Output = response.choices[0].message.parsed
                 if output.tasks:
-                    await TasksManager.add_tasks(context, output.tasks)
+                    new_tasks = [NewTaskInfo(content=task) for task in output.tasks]
+                    await TasksManager.add_tasks(context, new_tasks)
                     await Notifications.notify(
                         context, f"Added {len(output.tasks)} tasks related to the process.", debug_data=debug
                     )

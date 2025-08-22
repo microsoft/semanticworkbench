@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.config import assistant_config
-from assistant.data import InspectorTab
+import uuid
+from assistant.data import InspectorTab, TaskInfo, TaskPriority, TaskStatus
 from assistant.domain.tasks_manager import TasksManager
 from assistant.logging import logger
 from assistant.notifications import Notifications
@@ -36,7 +37,7 @@ async def focus(context: ConversationContext, attachments_extension: Attachments
 
     tasks = await TasksManager.get_tasks(context)
     if tasks:
-        tasks_data = "\n\n".join("- " + thought for thought in tasks)
+        tasks_data = "\n\n".join("- " + task.content for task in tasks)
         prompt.contexts.append(
             DataContext(
                 "Consulting Tasks",
@@ -82,7 +83,15 @@ async def focus(context: ConversationContext, attachments_extension: Attachments
             if response and response.choices and response.choices[0].message.parsed:
                 output: Output = response.choices[0].message.parsed
                 if output.focused_tasks:
-                    await TasksManager.set_task_list(context, output.focused_tasks)
+                    focused_task_infos = [
+                        TaskInfo(
+                            task_id=str(uuid.uuid4()),
+                            content=task,
+                            status=TaskStatus.PENDING,
+                            priority=TaskPriority.MEDIUM
+                        ) for task in output.focused_tasks
+                    ]
+                    await TasksManager.set_task_list(context, focused_task_infos)
                     await Notifications.notify(context, "Focused the task list.", debug_data=debug)
                     await Notifications.notify_state_update(
                         context,

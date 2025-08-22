@@ -392,7 +392,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             assert package.share_id == self.share_id
 
             # Update knowledge package info
-            package.transfer_notes = "Test status message"
+            package.preferred_communication_style = "Test status message"
             # Note: completion_percentage removed from model
             package.next_learning_actions = ["Action 1", "Action 2"]
 
@@ -405,7 +405,7 @@ class TestShareStorage(unittest.IsolatedAsyncioTestCase):
             # Verify updates were saved
             assert updated_package is not None, "Should load updated knowledge package"
             if updated_package:
-                assert updated_package.transfer_notes == "Test status message"
+                assert updated_package.preferred_communication_style == "Test status message"
                 # Note: completion_percentage removed from model
                 assert updated_package.next_learning_actions == ["Action 1", "Action 2"]
 
