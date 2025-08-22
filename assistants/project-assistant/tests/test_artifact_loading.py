@@ -10,19 +10,22 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.conversation_project_link import ConversationProjectManager
-from assistant.project_data import Project, ProjectBrief, ProjectGoal, SuccessCriterion
-from assistant.project_manager import ProjectManager
-from assistant.project_storage import ProjectStorage, ProjectStorageManager
-from assistant.project_storage_models import ConversationRole
+from assistant.data import (
+    ConversationRole,
+    KnowledgeBrief,
+    LearningObjective,
+    LearningOutcome,
+    Share,
+)
+from assistant.domain import KnowledgeBriefManager, ShareManager
+from assistant.storage import ShareStorage, ShareStorageManager
 from semantic_workbench_assistant import settings
-from semantic_workbench_assistant.storage import read_model, write_model
 
 # Type variable for better type annotations
 T = TypeVar("T")
 
 
-class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
+class TestShareStorage(unittest.IsolatedAsyncioTestCase):
     """Test the project storage functionality with the new direct storage approach"""
 
     async def asyncSetUp(self):
@@ -35,13 +38,13 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         settings.storage.root = str(self.test_dir)
 
         # Create test project and conversation IDs
-        self.project_id = str(uuid.uuid4())
+        self.share_id = str(uuid.uuid4())
         self.conversation_id = str(uuid.uuid4())
         self.user_id = "test-user-id"
         self.user_name = "Test User"
 
         # Create project directory structure
-        self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
+        self.project_dir = ShareStorageManager.get_share_dir(self.share_id)
 
         # Set up patching
         self.patches = []
@@ -66,13 +69,11 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)
 
-        # Patch get_associated_project_id
-        async def mock_get_associated_project_id(context):
-            return self.project_id
+        # Patch get_share_id
+        async def mock_get_share_id(context):
+            return self.share_id
 
-        patch2 = unittest.mock.patch.object(
-            ConversationProjectManager, "get_associated_project_id", side_effect=mock_get_associated_project_id
-        )
+        patch2 = unittest.mock.patch.object(ShareManager, "get_share_id", side_effect=mock_get_share_id)
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)
 
@@ -81,13 +82,15 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             return ConversationRole.COORDINATOR
 
         patch3 = unittest.mock.patch.object(
-            ConversationProjectManager, "get_conversation_role", side_effect=mock_get_conversation_role
+            ShareManager,
+            "get_conversation_role",
+            side_effect=mock_get_conversation_role,
         )
         self.mock_get_role = patch3.start()
         self.patches.append(patch3)
 
         # Create a test brief
-        self.title = "Test Project"
+        self.title = "Test KnowledgePackage"
         self.create_test_brief()
 
     async def asyncTearDown(self):
@@ -105,82 +108,70 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
     def create_test_brief(self):
         """Create a test project brief in the project's shared directory"""
         # Create a project brief
-        test_goal = ProjectGoal(
+        test_goal = LearningObjective(
             name="Test Goal",
             description="This is a test goal",
-            success_criteria=[SuccessCriterion(description="Test criteria")],
+            learning_outcomes=[LearningOutcome(description="Test criteria")],
         )
 
-        brief = ProjectBrief(
+        brief = KnowledgeBrief(
             title=self.title,
-            description="Test project description",
+            content="Test project description",
             created_by=self.user_id,
             updated_by=self.user_id,
             conversation_id=self.conversation_id,
         )
 
         # Create a project with the goal
-        project = Project(
-            info=None,
+        project = Share(
+            share_id="test-share-id",
             brief=brief,
-            goals=[test_goal],
-            whiteboard=None,
+            learning_objectives=[test_goal],
+            digest=None,
         )
 
-        # Write the project to storage
-        project_path = ProjectStorageManager.get_project_path(self.project_id)
-        project_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(project_path, project)
-
-        # Write to the project's shared directory using the correct path
-        brief_path = ProjectStorageManager.get_brief_path(self.project_id)
-        brief_path.parent.mkdir(parents=True, exist_ok=True)
-        write_model(brief_path, brief)
+        # Write the project to storage using ShareStorage to ensure proper consolidated format
+        ShareStorage.write_share(self.share_id, project)
 
     async def test_get_project_brief(self) -> None:
         """Test that get_project_brief correctly loads the brief from storage"""
-        # Mock the ProjectManager to use our test context
-        with unittest.mock.patch.object(ProjectManager, "get_project_id", return_value=self.project_id):
+        # Mock the KnowledgeTransferManager to use our test context
+        with unittest.mock.patch.object(ShareManager, "get_share_id", return_value=self.share_id):
             # Using Any here to satisfy type checker with our mock
             context: Any = self.context
 
-            # Get the brief using the ProjectManager
-            brief = await ProjectManager.get_project_brief(context)
-            project = ProjectStorage.read_project(self.project_id)
+            brief = await KnowledgeBriefManager.get_knowledge_brief(context)
+            project = ShareStorage.read_share(self.share_id)
 
-            # Verify the brief was loaded correctly
-            self.assertIsNotNone(brief, "Should load the brief")
+            assert brief is not None, "Should load the brief"
             if brief:  # Type checking guard
-                self.assertEqual(brief.title, self.title)
-                self.assertEqual(brief.conversation_id, self.conversation_id)
+                assert brief.title == self.title
+                assert brief.conversation_id == self.conversation_id
 
             # Verify the project goals were loaded correctly
-            self.assertIsNotNone(project, "Should load the project")
+            assert project is not None, "Should load the project"
             if project:  # Type checking guard
-                self.assertEqual(len(project.goals), 1, "Should have one goal")
-                self.assertEqual(project.goals[0].name, "Test Goal")
+                assert len(project.learning_objectives) == 1, "Should have one goal"
+                assert project.learning_objectives[0].name == "Test Goal"
 
     async def test_direct_storage_access(self) -> None:
         """Test direct access to project storage"""
-        # Test basic storage operations
-        brief_path = ProjectStorageManager.get_brief_path(self.project_id)
-
-        # Read the brief directly using read_model
-        brief = read_model(brief_path, ProjectBrief)
+        # Test basic storage operations with consolidated storage
+        brief = ShareStorage.read_knowledge_brief(self.share_id)
 
         # Verify we got the correct brief
-        self.assertIsNotNone(brief, "Should load the brief directly")
+        assert brief is not None, "Should load the brief directly"
         if brief:  # Type checking guard
-            self.assertEqual(brief.title, self.title)
+            assert brief.title == self.title
 
-            # Test updating the brief
-            brief.title = "Updated Project Title"
-            write_model(brief_path, brief)
+            # Test updating the brief using consolidated storage
+            brief.title = "Updated KnowledgePackageTitle"
+            ShareStorage.write_knowledge_brief(self.share_id, brief)
 
             # Read it back to verify the update
-            updated_brief = read_model(brief_path, ProjectBrief)
+            updated_brief = ShareStorage.read_knowledge_brief(self.share_id)
             if updated_brief:  # Type checking guard
-                self.assertEqual(updated_brief.title, "Updated Project Title")
+                assert updated_brief.title == "Updated KnowledgePackageTitle"
 
 
 if __name__ == "__main__":

@@ -1,0 +1,10 @@
+The knowledge digest contains information about this knowledge package that has been extracted from the previous conversation thread and attachments.
+It serves as a persistent memory of important facts and context.
+
+Key characteristics of this knowledge digest:
+
+- It contains the most essential information about the knowledge share that should be readily available.
+- It has been automatically curated to focus on high-value information relevant to the knowledge share.
+- It is maintained and updated as knowledge content is added.
+- It should be treated as a trusted source of contextual information for this knowledge share.
+- Do not use it for task management or information requests. These things are managed separately.

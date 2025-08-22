@@ -2,17 +2,15 @@
 name = "assistant"
 version = "0.1.0"
 description = "A file-sharing mediator assistant for collaborative projects."
-authors = [{ name = "Semantic Workbench Team" }]
+authors = [{ name = "MADE: Explore" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "assistant-extensions[attachments]>=0.1.0",
     "content-safety>=0.1.0",
-    "deepmerge>=2.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "semantic-workbench-assistant>=0.1.0",
-    "tiktoken>=0.8.0",
 ]
 
 [dependency-groups]
@@ -22,6 +20,9 @@ dev = [
     "pytest-repeat>=0.9.3",
     "pyright>=1.1.389",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["assistant"]
 
 [tool.uv]
 package = true
@@ -46,3 +47,19 @@ log_cli_level = "WARNING"
 log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+# These ruff settings match /ruff.toml
+# but include import sorting in the lint section.
+# Leaving them all here for debugging temporarily.
+
+# [tool.ruff]
+# line-length = 120
+# target-version = "py311"
+
+# [tool.ruff.lint]
+# select = ["E4", "E7", "E9", "F", "I"]
+
+# [tool.ruff.format]
+# docstring-code-format = true
+# line-ending = "lf"
+# preview = true
