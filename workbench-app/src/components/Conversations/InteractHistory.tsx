@@ -16,6 +16,7 @@ import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useUpdateConversationParticipantMutation } from '../../services/workbench';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
+import { MemoizedNotificationAccordion } from './Message/NotificationAccordion';
 import { MemoizedToolResultMessage } from './Message/ToolResultMessage';
 import { ParticipantStatus } from './ParticipantStatus';
 
@@ -132,95 +133,155 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
     // create a list of memoized interact message components for rendering in the virtuoso component
     React.useEffect(() => {
-        let lastMessageInfo = {
-            participantId: '',
-            attribution: undefined as string | undefined,
-            time: undefined as dayjs.Dayjs | undefined,
-        };
         let lastDate = '';
         let generatedResponseCount = 0;
 
-        const updatedItems = messages
-            .filter((message) => message.messageType !== 'log')
-            .map((message, index) => {
-                // if a hash is provided, check if the message id matches the hash
-                if (hash === `#${message.id}`) {
-                    // set the hash item index to scroll to the item
-                    setScrollToIndex(index);
-                }
+        // Filter out log messages first
+        const filteredMessages = messages.filter((message) => message.messageType !== 'log');
 
-                const senderParticipant = participants.find(
-                    (participant) => participant.id === message.sender.participantId,
-                );
-                if (!senderParticipant) {
-                    // if the sender participant is not found, do not render the message.
-                    // this can happen temporarily if the provided conversation was just
-                    // re-retrieved, but the participants have not been re-retrieved yet
-                    return (
-                        <div key={message.id} className={classes.item}>
-                            Participant not found: {message.sender.participantId} in conversation {conversation.id}
+        // Group sequential notification messages
+        const groupedItems: React.ReactNode[] = [];
+        let currentNotificationGroup: ConversationMessage[] = [];
+        let lastNotificationTime: dayjs.Dayjs | undefined;
+
+        const finishCurrentGroup = (insertIndex?: number) => {
+            if (currentNotificationGroup.length > 0) {
+                if (currentNotificationGroup.length === 1) {
+                    // Single notification - render normally
+                    const message = currentNotificationGroup[0];
+                    const item = renderSingleMessage(message, insertIndex);
+                    if (item) groupedItems.push(item);
+                } else {
+                    // Multiple notifications - render as accordion
+                    const accordionItem = (
+                        <div className={classes.item} key={`accordion-${currentNotificationGroup[0].id}`}>
+                            <MemoizedNotificationAccordion
+                                messages={currentNotificationGroup}
+                                participants={participants}
+                                conversation={conversation}
+                                readOnly={readOnly}
+                                onRead={handleOnRead}
+                                onVisible={handleOnVisible}
+                                onRewindToBefore={onRewindToBefore}
+                            />
                         </div>
                     );
+                    groupedItems.push(accordionItem);
                 }
+                currentNotificationGroup = [];
+            }
+        };
 
-                const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
-                let displayDate = false;
-                if (date !== lastDate) {
-                    displayDate = true;
-                    lastDate = date;
-                }
+        const renderSingleMessage = (message: ConversationMessage, originalIndex?: number) => {
+            // if a hash is provided, check if the message id matches the hash
+            if (hash === `#${message.id}`) {
+                // set the hash item index to scroll to the item
+                setScrollToIndex(originalIndex ?? groupedItems.length);
+            }
 
-                if (
-                    message.messageType === 'chat' &&
-                    message.sender.participantRole !== 'user' &&
-                    message.metadata?.generated_content !== false
-                ) {
-                    generatedResponseCount += 1;
-                }
-
-                // avoid duplicate header for messages from the same participant, if the
-                // attribution is the same and the message is within a minute of the last
-                let hideParticipant = message.messageType !== 'chat';
-                const messageTime = dayjs.utc(message.timestamp);
-                if (
-                    lastMessageInfo.participantId === senderParticipant.id &&
-                    lastMessageInfo.attribution === message.metadata?.attribution &&
-                    messageTime.diff(lastMessageInfo.time, 'minute') < 1
-                ) {
-                    hideParticipant = true;
-                }
-                lastMessageInfo = {
-                    participantId: senderParticipant.id,
-                    attribution: message.metadata?.attribution,
-                    time: messageTime,
-                };
-
-                // FIXME: add new message type in workbench service/app for tool results
-                const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
-
-                // Use memoized message components to prevent re-rendering all messages when one changes
-                const messageContent = isToolResult ? (
-                    <MemoizedToolResultMessage conversation={conversation} message={message} readOnly={readOnly} />
-                ) : (
-                    <MemoizedInteractMessage
-                        readOnly={readOnly}
-                        conversation={conversation}
-                        message={message}
-                        participant={senderParticipant}
-                        hideParticipant={hideParticipant}
-                        displayDate={displayDate}
-                        onRead={handleOnRead}
-                        onVisible={handleOnVisible}
-                        onRewind={onRewindToBefore}
-                    />
-                );
-
+            const senderParticipant = participants.find(
+                (participant) => participant.id === message.sender.participantId,
+            );
+            if (!senderParticipant) {
+                // if the sender participant is not found, do not render the message.
+                // this can happen temporarily if the provided conversation was just
+                // re-retrieved, but the participants have not been re-retrieved yet
                 return (
-                    <div className={classes.item} key={message.id}>
-                        {messageContent}
+                    <div key={message.id} className={classes.item}>
+                        Participant not found: {message.sender.participantId} in conversation {conversation.id}
                     </div>
                 );
-            });
+            }
+
+            const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
+            let displayDate = false;
+            if (date !== lastDate) {
+                displayDate = true;
+                lastDate = date;
+            }
+
+            if (
+                message.messageType === 'chat' &&
+                message.sender.participantRole !== 'user' &&
+                message.metadata?.generated_content !== false
+            ) {
+                generatedResponseCount += 1;
+            }
+
+            // FIXME: add new message type in workbench service/app for tool results
+            const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
+
+            // Use memoized message components to prevent re-rendering all messages when one changes
+            const messageContent = isToolResult ? (
+                <MemoizedToolResultMessage conversation={conversation} message={message} readOnly={readOnly} />
+            ) : (
+                <MemoizedInteractMessage
+                    readOnly={readOnly}
+                    conversation={conversation}
+                    message={message}
+                    participant={senderParticipant}
+                    hideParticipant={false} // Single messages show participant
+                    displayDate={displayDate}
+                    onRead={handleOnRead}
+                    onVisible={handleOnVisible}
+                    onRewind={onRewindToBefore}
+                />
+            );
+
+            return (
+                <div className={classes.item} key={message.id}>
+                    {messageContent}
+                </div>
+            );
+        };
+
+        filteredMessages.forEach((message, index) => {
+            const senderParticipant = participants.find(
+                (participant) => participant.id === message.sender.participantId,
+            );
+
+            // Skip if participant not found
+            if (!senderParticipant) {
+                finishCurrentGroup(index);
+                const errorItem = renderSingleMessage(message, index);
+                if (errorItem) groupedItems.push(errorItem);
+                return;
+            }
+
+            const isNotification = message.messageType !== 'chat';
+            const messageTime = dayjs.utc(message.timestamp);
+
+            if (isNotification) {
+                // Check if this notification should be grouped with the previous ones
+                // Group all sequential notifications within 1 minute regardless of sender
+                const shouldGroup = currentNotificationGroup.length > 0 &&
+                    lastNotificationTime &&
+                    messageTime.diff(lastNotificationTime, 'minute') < 1;
+
+                if (shouldGroup) {
+                    // Add to current group
+                    currentNotificationGroup.push(message);
+                } else {
+                    // Finish current group and start new one
+                    finishCurrentGroup(index);
+                    currentNotificationGroup = [message];
+                }
+
+                lastNotificationTime = messageTime;
+            } else {
+                // Chat message - finish any current notification group
+                finishCurrentGroup(index);
+                
+                // Render chat message normally
+                const item = renderSingleMessage(message, index);
+                if (item) groupedItems.push(item);
+            }
+        });
+
+        // Finish any remaining notification group
+        finishCurrentGroup();
+
+        const updatedItems = groupedItems;
 
         if (generatedResponseCount > 0) {
             updatedItems.push(
