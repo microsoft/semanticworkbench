@@ -26,7 +26,6 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.fixAll": ["source.unusedImports"],
@@ -42,7 +41,6 @@
       "source.formatDocument": "explicit"
     }
   },
-  "ruff.nativeServer": "on",
   "search.exclude": {
     "**/.venv": true,
     "**/.data": true,
@@ -58,6 +56,10 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "addopts",
+    "agentic",
+    "asctime",
+    "asyncio",
     "Codespaces",
     "contentsafety",
     "debugpy",
@@ -68,13 +70,16 @@
     "Excalidraw",
     "fastapi",
     "GIPHY",
+    "insightfully",
     "jsonschema",
     "Langchain",
+    "levelname",
     "modelcontextprotocol",
     "moderations",
     "mzxrai",
     "openai",
     "pdfplumber",
+    "pycache",
     "pydantic",
     "pyproject",
     "pyright",
@@ -83,6 +88,7 @@
     "semanticworkbenchteam",
     "tiktoken",
     "updown",
+    "venv",
     "virtualenvs",
     "webresearch"
   ]

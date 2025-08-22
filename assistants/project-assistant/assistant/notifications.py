@@ -1,0 +1,179 @@
+from typing import Any
+
+from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
+    MessageType,
+    NewConversationMessage,
+)
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.domain.share_manager import ShareManager
+
+from .conversation_clients import ConversationClientManager
+from .data import InspectorTab
+from .logging import logger
+
+
+class Notifications:
+    @staticmethod
+    async def notify(context: ConversationContext, message: str, debug_data: dict[str, Any] | None = None) -> None:
+        """Send text message notification to current conversation only."""
+        await context.send_messages(
+            NewConversationMessage(
+                content=message,
+                message_type=MessageType.notice,
+                debug_data=debug_data,
+            )
+        )
+
+    @staticmethod
+    async def notify_self_and_other(
+        context: ConversationContext,
+        share_id: str,
+        message: str,
+        other_conversation_id: str | None = None,
+    ) -> None:
+        """
+        Send text message notification to current conversation and one other.
+
+        If called from team conversation: notifies team + coordinator
+        If called from coordinator: notifies coordinator + specified other_conversation_id
+        """
+        # Always notify current conversation
+        await Notifications.notify(context, message)
+
+        share = await ShareManager.get_share(context)
+        if not share:
+            return
+
+        current_id = str(context.id)
+
+        # Determine the other conversation to notify
+        if other_conversation_id:
+            target_id = other_conversation_id
+        elif share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
+            target_id = share.coordinator_conversation_id
+        else:
+            return
+
+        try:
+            client = ConversationClientManager.get_conversation_client(context, target_id)
+            await client.send_messages(
+                NewConversationMessage(
+                    content=message,
+                    message_type=MessageType.notice,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify conversation {target_id}: {e}")
+
+    @staticmethod
+    async def notify_all(
+        context: ConversationContext, share_id: str, message: str, debug_data: dict[str, Any] | None = None
+    ) -> None:
+        """Send text message notification to all knowledge transfer conversations."""
+
+        if debug_data is None:
+            debug_data = {}
+
+        share = await ShareManager.get_share(context)
+        if not share:
+            return
+
+        # Always notify current conversation
+        await Notifications.notify(context, message)
+
+        current_id = str(context.id)
+
+        # Notify coordinator conversation
+        if share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
+            try:
+                client = ConversationClientManager.get_conversation_client(context, share.coordinator_conversation_id)
+                await client.send_messages(
+                    NewConversationMessage(
+                        content=message,
+                        message_type=MessageType.notice,
+                        debug_data=debug_data,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify coordinator conversation: {e}")
+
+        # Notify all team conversations
+        for conv_id in share.team_conversations:
+            if conv_id != current_id and conv_id != share.coordinator_conversation_id:
+                try:
+                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+                    await client.send_messages(
+                        NewConversationMessage(
+                            content=message,
+                            message_type=MessageType.notice,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to notify conversation {conv_id}: {e}")
+
+    # State Update Notifications (UI refreshes)
+
+    @staticmethod
+    async def notify_state_update(context: ConversationContext, tabs: list[InspectorTab]) -> None:
+        """Send state update notifications to refresh UI in current conversation only."""
+        for tab in tabs:
+            state_event = AssistantStateEvent(
+                state_id=tab.value,
+                event="updated",
+                state=None,
+            )
+            await context.send_conversation_state_event(state_event)
+
+    @staticmethod
+    async def notify_all_state_update(context: ConversationContext, tabs: list[InspectorTab]) -> None:
+        """Send state update notifications to refresh UI across all share conversations."""
+
+        # Refresh current conversation first
+        await Notifications.notify_state_update(context, tabs)
+
+        # Refresh other conversations
+        share = await ShareManager.get_share(context)
+        if not share:
+            return
+
+        current_id = str(context.id)
+        assistant_id = context.assistant.id
+
+        # Refresh coordinator conversation
+        if share.coordinator_conversation_id and share.coordinator_conversation_id != current_id:
+            try:
+                client = ConversationClientManager.get_conversation_client(context, share.coordinator_conversation_id)
+
+                for tab in tabs:
+                    state_event = AssistantStateEvent(
+                        state_id=tab.value,
+                        event="updated",
+                        state=None,
+                    )
+                    await client.send_conversation_state_event(
+                        state_event=state_event,
+                        assistant_id=assistant_id,
+                    )
+            except Exception as e:
+                logger.error(f"Failed to refresh coordinator conversation UI: {e}")
+
+        # Refresh all team conversations
+        for conv_id in share.team_conversations:
+            if conv_id != current_id and conv_id != share.coordinator_conversation_id:
+                try:
+                    client = ConversationClientManager.get_conversation_client(context, conv_id)
+
+                    for tab in tabs:
+                        state_event = AssistantStateEvent(
+                            state_id=tab.value,
+                            event="updated",
+                            state=None,
+                        )
+                        await client.send_conversation_state_event(
+                            state_event=state_event,
+                            assistant_id=assistant_id,
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to refresh conversation {conv_id} UI: {e}")

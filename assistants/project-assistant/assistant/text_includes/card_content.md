@@ -1,6 +1,6 @@
-Keep your team aligned and productive
+Use an assistant to capture and transfer knowledge to others
 
-- Coordinate projects across teams
-- Track tasks and deadlines automatically
-- Run more effective meetings
-- Ensure information accessibility
+- Remove burden of gathering knowledge
+- Share with one or more recipients
+- Remove yourself from the learning loop
+- Make sure learning objectives are achieved

@@ -25,7 +25,9 @@ TEXT_RESPONSE_FORMAT: ResponseFormat = {"type": "text"}
 JSON_OBJECT_RESPONSE_FORMAT: ResponseFormat = {"type": "json_object"}
 
 
-def assistant_message_from_completion(completion: ParsedChatCompletion[None]) -> ChatCompletionAssistantMessageParam:
+def assistant_message_from_completion(
+    completion: ParsedChatCompletion,
+) -> ChatCompletionAssistantMessageParam:
     completion_message: ParsedChatCompletionMessage = completion.choices[0].message
     assistant_message = ChatCompletionAssistantMessageParam(role="assistant")
     if completion_message.tool_calls:
@@ -36,17 +38,26 @@ def assistant_message_from_completion(completion: ParsedChatCompletion[None]) ->
     return assistant_message
 
 
-def message_from_completion(completion: ParsedChatCompletion) -> ParsedChatCompletionMessage | None:
-    return completion.choices[0].message if completion and completion.choices else None
+def message_from_completion(
+    completion: ParsedChatCompletion,
+) -> ParsedChatCompletionMessage | None:
+    if not completion or not completion.choices:
+        return None
+    return completion.choices[0].message
 
 
 def message_content_from_completion(completion: ParsedChatCompletion | None) -> str:
-    if not completion or not completion.choices or not completion.choices[0].message:
+    if completion is None or not completion.choices:
         return ""
-    return completion.choices[0].message.content or ""
+    content = message_from_completion(completion)
+    if content and content.content:
+        return content.content
+    return ""
 
 
-def message_content_dict_from_completion(completion: ParsedChatCompletion) -> dict[str, Any] | None:
+def message_content_dict_from_completion(
+    completion: ParsedChatCompletion,
+) -> dict[str, Any] | None:
     message = message_from_completion(completion)
     if message:
         if message.parsed:
@@ -109,7 +120,10 @@ async def completion_structured(
         raise NoParsedMessageError()
 
     if response.choices[0].finish_reason != "stop":
-        logger.warning("Unexpected finish reason, expected stop; reason: %s", response.choices[0].finish_reason)
+        logger.warning(
+            "Unexpected finish reason, expected stop; reason: %s",
+            response.choices[0].finish_reason,
+        )
 
     metadata = {
         "request": {

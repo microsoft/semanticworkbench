@@ -1,21 +1,20 @@
 """
 Project assistant functionality for cross-conversation communication.
 
-This module handles the project assistant's core functionality for managing
+This module handles the knowledge transfer assistant's core functionality for managing
 communication between conversations. It provides utilities for creating temporary
 contexts and accessing other conversations.
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .conversation_project_link import ConversationProjectManager
+from .data import ConversationRole, ConversationShareInfo
 from .logging import logger
-from .project_storage import ProjectStorageManager
-from .project_storage_models import ConversationRole
+from .storage import ShareStorageManager
 
 
 class ConversationClientManager:
@@ -23,7 +22,7 @@ class ConversationClientManager:
     Manages API clients for accessing other conversations.
 
     This utility class provides methods for creating API clients and temporary contexts
-    that can be used to interact with other conversations in the same project.
+    that can be used to interact with other conversations in the same knowledge transfer.
     """
 
     @staticmethod
@@ -34,14 +33,14 @@ class ConversationClientManager:
         return context.for_conversation(conversation_id)._conversation_client
 
     @staticmethod
-    async def get_coordinator_client_for_project(
-        context: ConversationContext, project_id: str
-    ) -> Tuple[Optional[Any], Optional[str]]:
+    async def get_coordinator_client_for_share(
+        context: ConversationContext, share_id: str
+    ) -> tuple[Any | None, str | None]:
         """
-        Gets a client for accessing the Coordinator conversation for a project.
+        Gets a client for accessing the Coordinator conversation for a knowledge transfer.
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR
+        coordinator_dir = ShareStorageManager.get_share_dir(share_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 
@@ -53,7 +52,7 @@ class ConversationClientManager:
                 return None, None
 
         # Read the role information to get the Coordinator conversation ID
-        role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
+        role_data = read_model(role_file, ConversationShareInfo)
         if not role_data or not role_data.conversation_id:
             return None, None
 
@@ -71,7 +70,7 @@ class ConversationClientManager:
     @staticmethod
     async def create_temporary_context_for_conversation(
         source_context: ConversationContext, target_conversation_id: str
-    ) -> Optional[ConversationContext]:
+    ) -> ConversationContext | None:
         """
         Creates a temporary context for the target conversation ID.
         """
