@@ -50,7 +50,7 @@ from .utils import (
 )
 
 service_id = "project-assistant.made-exploration"
-service_name = "Project Assistant"
+service_name = "Project Assistant (KTA)"
 service_description = "A mediator assistant that facilitates sharing knowledge between parties."
 
 
