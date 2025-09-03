@@ -5,8 +5,8 @@
 **Search:** ['assistants/codespace-assistant']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:45:28 AM
-**Files:** 35
+**Date:** 8/5/2025, 4:43:26 PM
+**Files:** 37
 
 === File: README.md ===
 # Semantic Workbench
@@ -147,6 +147,16 @@ trademarks or logos is subject to and must follow
 Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's policies.
 
+
+=== File: assistants/codespace-assistant/.claude/settings.local.json ===
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)"
+    ],
+    "deny": []
+  }
+}
 
 === File: assistants/codespace-assistant/.env.example ===
 # Description: Example of .env file
@@ -668,7 +678,6 @@ async def on_message_created(
         try:
             await respond_to_conversation(
                 message=message,
-                attachments_extension=attachments_extension,
                 context=context,
                 config=config,
                 metadata=metadata,
@@ -770,6 +779,7 @@ from typing import Annotated
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
+from assistant_extensions.chat_context_toolkit import ChatContextConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
@@ -1200,6 +1210,14 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = ExtensionsConfigModel()
 
+    chat_context_config: Annotated[
+        ChatContextConfigModel,
+        Field(
+            title="Chat Context Management",
+            description="Settings for the management of LLM chat context.",
+        ),
+    ] = ChatContextConfigModel()
+
     prompts: Annotated[
         PromptsConfigModel,
         Field(
@@ -1438,11 +1456,12 @@ import deepmerge
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPSession,
-    OpenAISamplingHandler,
     handle_mcp_tool_call,
 )
+from chat_context_toolkit.virtual_filesystem.tools import ToolCollection, tool_result_to_string
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionMessageToolCallParam,
     ChatCompletionToolMessageParam,
     ParsedChatCompletion,
 )
@@ -1464,7 +1483,6 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_completion(
-    sampling_handler: OpenAISamplingHandler,
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
@@ -1473,6 +1491,7 @@ async def handle_completion(
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
+    tool_collection: ToolCollection,
 ) -> StepResult:
     # get service and request configuration for generative model
     request_config = request_config
@@ -1601,11 +1620,37 @@ async def handle_completion(
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
                 try:
-                    tool_call_result = await handle_mcp_tool_call(
-                        mcp_sessions,
-                        tool_call,
-                        f"{metadata_key}:request:tool_call_{tool_call_count}",
-                    )
+                    if tool_collection.has_tool(tool_call.name):
+                        # Execute the tool call using the tool collection
+                        tool_result = await tool_collection.execute_tool(
+                            ChatCompletionMessageToolCallParam(
+                                id=tool_call.id,
+                                function={
+                                    "name": tool_call.name,
+                                    "arguments": json.dumps(tool_call.arguments),
+                                },
+                                type="function",
+                            )
+                        )
+                        content = tool_result_to_string(tool_result)
+
+                    else:
+                        tool_result = await handle_mcp_tool_call(
+                            mcp_sessions,
+                            tool_call,
+                            f"{metadata_key}:request:tool_call_{tool_call_count}",
+                        )
+
+                        # Update content and metadata with tool call result metadata
+                        deepmerge.always_merger.merge(step_result.metadata, tool_result.metadata)
+
+                        # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
+                        # Get the content from the tool call result
+                        content = next(
+                            (content_item.text for content_item in tool_result.content if content_item.type == "text"),
+                            "[tool call returned no content]",
+                        )
+
                 except Exception as e:
                     logger.exception(f"Error handling tool call '{tool_call.name}': {e}")
                     deepmerge.always_merger.merge(
@@ -1627,16 +1672,6 @@ async def handle_completion(
                     )
                     step_result.status = "error"
                     return step_result
-
-            # Update content and metadata with tool call result metadata
-            deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
-
-            # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
-            # Get the content from the tool call result
-            content = next(
-                (content_item.text for content_item in tool_call_result.content if content_item.type == "text"),
-                "[tool call returned no content]",
-            )
 
             # Add the token count for the tool call result to the total token count
             step_result.conversation_tokens += num_tokens_from_messages(
@@ -1689,13 +1724,13 @@ class StepResult:
 import json
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, cast
 
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
+from chat_context_toolkit.history import HistoryMessageProvider, NewTurn, apply_budget_to_history_messages
 from mcp.types import SamplingMessage, TextContent
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
@@ -1705,9 +1740,7 @@ from openai.types.chat import (
 )
 from openai_client import (
     OpenAIRequestConfig,
-    convert_from_completion_messages,
     num_tokens_from_messages,
-    num_tokens_from_tools,
     num_tokens_from_tools_and_messages,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -1716,7 +1749,6 @@ from ..config import MCPToolsConfigModel, PromptsConfigModel
 from ..whiteboard import notify_whiteboard
 from .utils import (
     build_system_message_content,
-    get_history_messages,
 )
 
 logger = logging.getLogger(__name__)
@@ -1732,14 +1764,14 @@ class BuildRequestResult:
 async def build_request(
     sampling_handler: OpenAISamplingHandler,
     mcp_prompts: List[str],
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     prompts_config: PromptsConfigModel,
     request_config: OpenAIRequestConfig,
     tools: List[ChatCompletionToolParam] | None,
     tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
     silence_token: str,
+    history_turn: NewTurn,
+    history_message_provider: HistoryMessageProvider,
 ) -> BuildRequestResult:
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -1786,6 +1818,17 @@ async def build_request(
             )
         )
 
+    # Generate the attachment messages
+    # attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
+    #     await attachments_extension.get_completion_messages_for_attachments(
+    #         context,
+    #         config=attachments_config,
+    #     )
+    # )
+
+    # # Add attachment messages
+    # chat_message_params.extend(attachment_messages)
+
     # Initialize token count to track the number of tokens used
     # Add history messages last, as they are what will be truncated if the token limit is reached
     #
@@ -1794,53 +1837,32 @@ async def build_request(
     # - tools
     # - tool_choice
     # - response_format
-    # - seed (if set, minor impact)
 
-    # Calculate the token count for the messages so far
-    token_count = num_tokens_from_messages(
+    # Calculate the token count for everything so far
+    consumed_token_count = num_tokens_from_tools_and_messages(
         model=request_config.model,
         messages=chat_message_params,
-    )
-
-    # Get the token count for the tools
-    tool_token_count = num_tokens_from_tools(
-        model=request_config.model,
         tools=tools or [],
     )
 
-    # Generate the attachment messages
-    attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
-        await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config=attachments_config,
-        )
-    )
-
-    # Add attachment messages
-    chat_message_params.extend(attachment_messages)
-
-    token_count += num_tokens_from_messages(
-        model=request_config.model,
-        messages=attachment_messages,
-    )
-
-    # Calculate available tokens
+    # Calculate the total available tokens for the request (ie. the maximum tokens minus the allocation for the response)
     available_tokens = request_config.max_tokens - request_config.response_tokens
 
     # Add room for reasoning tokens if using a reasoning model
     if request_config.is_reasoning_model:
         available_tokens -= request_config.reasoning_token_allocation
 
-    # Get history messages
-    history_messages_result = await get_history_messages(
-        context=context,
-        participants=participants_response.participants,
-        model=request_config.model,
-        token_limit=available_tokens - token_count - tool_token_count,
+    message_history_token_budget = available_tokens - consumed_token_count
+
+    budgeted_messages_result = await apply_budget_to_history_messages(
+        turn=history_turn,
+        token_budget=message_history_token_budget,
+        token_counter=lambda messages: num_tokens_from_messages(messages=messages, model=request_config.model),
+        message_provider=history_message_provider,
     )
 
     # Add history messages
-    chat_message_params.extend(history_messages_result.messages)
+    chat_message_params.extend(budgeted_messages_result.messages)
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
@@ -1848,6 +1870,13 @@ async def build_request(
         tools=tools or [],
         model=request_config.model,
     )
+
+    logger.info(
+        "chat message params budgeted; message count: %d, total token count: %d",
+        len(chat_message_params),
+        total_token_count,
+    )
+
     if total_token_count > available_tokens:
         raise ValueError(
             f"You've exceeded the token limit of {request_config.max_tokens} in this conversation "
@@ -1856,7 +1885,9 @@ async def build_request(
         )
 
     # Create a message processor for the sampling handler
-    def message_processor(messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
+    async def message_processor(
+        messages: List[SamplingMessage], available_tokens: int, model: str
+    ) -> List[ChatCompletionMessageParam]:
         updated_messages: List[ChatCompletionMessageParam] = []
 
         def add_converted_message(message: SamplingMessage) -> None:
@@ -1879,10 +1910,10 @@ async def build_request(
                 variable = json_payload.get("variable")
                 match variable:
                     case "attachment_messages":
-                        updated_messages.extend(attachment_messages)
+                        updated_messages.extend([])  # (attachment_messages)
                         continue
                     case "history_messages":
-                        updated_messages.extend(history_messages_result.messages)
+                        updated_messages.extend(budgeted_messages_result.messages)
                         continue
                     case _:
                         add_converted_message(message)
@@ -1898,8 +1929,8 @@ async def build_request(
     await notify_whiteboard(
         context=context,
         server_config=tools_config.hosted_mcp_servers.memory_whiteboard,
-        attachment_messages=attachment_messages,
-        chat_messages=history_messages_result.messages,
+        attachment_messages=[],  # attachment_messages,
+        chat_messages=cast(list[ChatCompletionMessageParam], budgeted_messages_result),
     )
 
     # Set the message processor for the sampling handler
@@ -1908,7 +1939,7 @@ async def build_request(
     return BuildRequestResult(
         chat_message_params=chat_message_params,
         token_count=total_token_count,
-        token_overage=history_messages_result.token_overage,
+        token_overage=0,
     )
 
 
@@ -1917,7 +1948,14 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any
 
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.attachments import get_attachments
+from assistant_extensions.chat_context_toolkit.archive import (
+    ArchiveTaskQueues,
+    construct_archive_summarizer,
+)
+from assistant_extensions.chat_context_toolkit.message_history import (
+    construct_attachment_summarizer,
+)
 from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
@@ -1928,6 +1966,8 @@ from assistant_extensions.mcp import (
     list_roots_callback_for,
     refresh_mcp_sessions,
 )
+from chat_context_toolkit.archive import ArchiveTaskConfig
+from chat_context_toolkit.history import NewTurn
 from mcp import ServerNotification
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -1943,10 +1983,11 @@ from .utils import get_ai_client_configs
 
 logger = logging.getLogger(__name__)
 
+archive_task_queues = ArchiveTaskQueues()
+
 
 async def respond_to_conversation(
     message: ConversationMessage,
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
     metadata: dict[str, Any] = {},
@@ -2022,6 +2063,7 @@ async def respond_to_conversation(
         completed_within_max_steps = False
         step_count = 0
 
+        history_turn = NewTurn(high_priority_token_count=config.chat_context_config.high_priority_token_count)
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
@@ -2039,21 +2081,20 @@ async def respond_to_conversation(
                 break
 
             # Reconnect to the MCP servers if they were disconnected
-            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
+            mcp_sessions = await refresh_mcp_sessions(mcp_sessions, stack)
 
             step_result = await next_step(
                 sampling_handler=sampling_handler,
                 mcp_sessions=mcp_sessions,
                 mcp_prompts=mcp_prompts,
-                attachments_extension=attachments_extension,
                 context=context,
                 request_config=request_config,
                 service_config=service_config,
                 prompts_config=config.prompts,
                 tools_config=config.tools,
-                attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
+                history_turn=history_turn,
             )
 
             if step_result.status == "error":
@@ -2075,6 +2116,27 @@ async def respond_to_conversation(
             )
             logger.info("Response stopped early due to maximum steps.")
 
+        # enqueue an archive task for this conversation
+        await archive_task_queues.enqueue_run(
+            context=context,
+            attachments=list(
+                await get_attachments(
+                    context,
+                    summarizer=construct_attachment_summarizer(
+                        service_config=service_config,
+                        request_config=request_config,
+                    ),
+                )
+            ),
+            archive_summarizer=construct_archive_summarizer(
+                service_config=service_config,
+                request_config=request_config,
+            ),
+            archive_task_config=ArchiveTaskConfig(
+                chunk_token_count_threshold=config.chat_context_config.archive_token_threshold
+            ),
+        )
+
     # Log the completion of the response
     logger.info("Response completed.")
 
@@ -2086,8 +2148,19 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.attachments import get_attachments
+from assistant_extensions.chat_context_toolkit.message_history import (
+    chat_context_toolkit_message_provider_for,
+    construct_attachment_summarizer,
+)
+from assistant_extensions.chat_context_toolkit.virtual_filesystem import (
+    archive_file_source_mount,
+    attachments_file_source_mount,
+)
 from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
+from chat_context_toolkit.history import NewTurn
+from chat_context_toolkit.virtual_filesystem import VirtualFileSystem
+from chat_context_toolkit.virtual_filesystem.tools import LsTool, ToolCollection, ViewTool
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -2104,6 +2177,7 @@ from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
 from .utils import (
+    abbreviations,
     get_completion,
     get_formatted_token_count,
     get_openai_tools_from_mcp_sessions,
@@ -2116,15 +2190,14 @@ async def next_step(
     sampling_handler: OpenAISamplingHandler,
     mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     request_config: OpenAIRequestConfig,
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
     prompts_config: PromptsConfigModel,
     tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
+    history_turn: NewTurn,
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -2157,21 +2230,46 @@ async def next_step(
     # Establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    # convert the tools to make them compatible with the OpenAI API
-    tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
-    sampling_handler.assistant_mcp_tools = tools
+    virtual_filesystem = VirtualFileSystem(
+        mounts=[
+            attachments_file_source_mount(context, service_config=service_config, request_config=request_config),
+            archive_file_source_mount(context),
+        ]
+    )
+
+    vfs_tools = ToolCollection((LsTool(virtual_filesystem), ViewTool(virtual_filesystem)))
+
+    tools = [
+        *[tool.tool_param for tool in vfs_tools],
+        # convert the tools to make them compatible with the OpenAI API
+        *(get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config) or []),
+    ]
+
+    history_message_provider = chat_context_toolkit_message_provider_for(
+        context=context,
+        tool_abbreviations=abbreviations.tool_abbreviations,
+        attachments=list(
+            await get_attachments(
+                context,
+                summarizer=construct_attachment_summarizer(
+                    service_config=service_config,
+                    request_config=request_config,
+                ),
+            )
+        ),
+    )
 
     build_request_result = await build_request(
         sampling_handler=sampling_handler,
         mcp_prompts=mcp_prompts,
-        attachments_extension=attachments_extension,
         context=context,
         prompts_config=prompts_config,
         request_config=request_config,
         tools_config=tools_config,
         tools=tools,
-        attachments_config=attachments_config,
         silence_token=silence_token,
+        history_turn=history_turn,
+        history_message_provider=history_message_provider,
     )
 
     chat_message_params = build_request_result.chat_message_params
@@ -2227,11 +2325,7 @@ async def next_step(
                 step_result.status = "error"
                 return step_result
 
-    if completion is None:
-        return await handle_error("No response from OpenAI.")
-
     step_result = await handle_completion(
-        sampling_handler,
         step_result,
         completion,
         mcp_sessions,
@@ -2240,6 +2334,7 @@ async def next_step(
         silence_token,
         metadata_key,
         response_start_time,
+        tool_collection=vfs_tools,
     )
 
     if build_request_result.token_overage > 0:
@@ -2264,8 +2359,6 @@ async def next_step(
 from .formatting_utils import get_formatted_token_count, get_response_duration_message, get_token_usage_message
 from .message_utils import (
     build_system_message_content,
-    conversation_message_to_chat_message_params,
-    get_history_messages,
 )
 from .openai_utils import (
     extract_content_from_mcp_tool_calls,
@@ -2276,41 +2369,66 @@ from .openai_utils import (
 
 __all__ = [
     "build_system_message_content",
-    "conversation_message_to_chat_message_params",
     "extract_content_from_mcp_tool_calls",
     "get_ai_client_configs",
     "get_completion",
     "get_formatted_token_count",
-    "get_history_messages",
     "get_openai_tools_from_mcp_sessions",
     "get_response_duration_message",
     "get_token_usage_message",
 ]
 
 
+=== File: assistants/codespace-assistant/assistant/response/utils/abbreviations.py ===
+from chat_context_toolkit.history.tool_abbreviations import Abbreviations, ToolAbbreviations
+
+tool_abbreviations = ToolAbbreviations({
+    "read_file": Abbreviations(
+        tool_message_replacement="The content that was read from the file has been removed due to token limits. Please use read_file to retrieve the most recent content."
+    ),
+    "write_file": Abbreviations(
+        tool_message_replacement="The content that was written to the file has been removed due to token limits. Please use read_file to retrieve the most recent content if you need it."
+    ),
+    "list_directory": Abbreviations(
+        tool_message_replacement="The list of files and directories has been removed due to token limits. Please call the tool to retrieve the list again if you need it."
+    ),
+    "create_directory": Abbreviations(
+        tool_message_replacement="The result of this tool call the file has been removed due to token limits. Please use list_directory to retrieve the most recent list if you need it."
+    ),
+    "edit_file": Abbreviations(
+        tool_call_argument_replacements={
+            "edits": [
+                {
+                    "oldText": "The oldText has been removed from this tool call due to reaching token limits. Please use read_file to retrieve the most recent content.",
+                    "newText": "The newText has been removed from this tool call due to reaching token limits. Please use read_file to retrieve the most recent content.",
+                }
+            ]
+        },
+        tool_message_replacement="The result of this tool call the file has been removed due to token limits. Please use read_file to retrieve the most recent content if you need it.",
+    ),
+    "search_files": Abbreviations(
+        tool_message_replacement="The search results have been removed due to token limits. Please call the tool to search again if you need it."
+    ),
+    "get_file_info": Abbreviations(
+        tool_message_replacement="The results have been removed due to token limits. Please call the tool to again if you need it."
+    ),
+    "read_multiple_files": Abbreviations(
+        tool_message_replacement="The contents of these files have been removed due to token limits. Please use the tool again to read the most recent contents if you need them."
+    ),
+    "move_file": Abbreviations(
+        tool_message_replacement="The result of this tool call the file has been removed due to token limits. Please use list_directory to retrieve the most recent list if you need it."
+    ),
+    "list_allowed_directories": Abbreviations(
+        tool_message_replacement="The result of this tool call the file has been removed due to token limits. Please call this tool again to retrieve the most recent list if you need it."
+    ),
+})
+
+
 === File: assistants/codespace-assistant/assistant/response/utils/formatting_utils.py ===
 import logging
 from textwrap import dedent
 
-from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
-    ConversationParticipant,
-)
-
 logger = logging.getLogger(__name__)
-
-
-def format_message(message: ConversationMessage, participants: list[ConversationParticipant]) -> str:
-    """
-    Format a conversation message for display.
-    """
-    conversation_participant = next(
-        (participant for participant in participants if participant.id == message.sender.participant_id),
-        None,
-    )
-    participant_name = conversation_participant.name if conversation_participant else "unknown"
-    message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    return f"[{participant_name} - {message_datetime}]: {message.content}"
 
 
 def get_response_duration_message(response_duration: float) -> str:
@@ -2354,39 +2472,17 @@ def get_token_usage_message(
 
 
 === File: assistants/codespace-assistant/assistant/response/utils/message_utils.py ===
-import json
 import logging
-from dataclasses import dataclass
 from textwrap import dedent
-from typing import Any
 
-import openai_client
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessageParam,
-    ChatCompletionMessageToolCallParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionToolMessageParam,
-    ChatCompletionUserMessageParam,
-)
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
     ConversationParticipant,
-    MessageType,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ...config import PromptsConfigModel
-from .formatting_utils import format_message
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class GetHistoryMessagesResult:
-    messages: list[ChatCompletionMessageParam]
-    token_count: int
-    token_overage: int
 
 
 def build_system_message_content(
@@ -2428,201 +2524,6 @@ def build_system_message_content(
             system_message_content += f"\n\n# {section[0]}:\n{section[1]}"
 
     return system_message_content
-
-
-def conversation_message_to_tool_message(
-    message: ConversationMessage,
-) -> ChatCompletionToolMessageParam | None:
-    """
-    Check to see if the message contains a tool result and return a tool message if it does.
-    """
-    tool_result = message.metadata.get("tool_result")
-    if tool_result is not None:
-        content = tool_result.get("content")
-        tool_call_id = tool_result.get("tool_call_id")
-        if content is not None and tool_call_id is not None:
-            return ChatCompletionToolMessageParam(
-                role="tool",
-                content=content,
-                tool_call_id=tool_call_id,
-            )
-
-
-def tool_calls_from_metadata(metadata: dict[str, Any]) -> list[ChatCompletionMessageToolCallParam] | None:
-    """
-    Get the tool calls from the message metadata.
-    """
-    if metadata is None or "tool_calls" not in metadata:
-        return None
-
-    tool_calls = metadata["tool_calls"]
-    if not isinstance(tool_calls, list) or len(tool_calls) == 0:
-        return None
-
-    tool_call_params: list[ChatCompletionMessageToolCallParam] = []
-    for tool_call in tool_calls:
-        if not isinstance(tool_call, dict):
-            try:
-                tool_call = json.loads(tool_call)
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse tool call from metadata: {tool_call}")
-                continue
-
-        id = tool_call["id"]
-        name = tool_call["name"]
-        arguments = json.dumps(tool_call["arguments"])
-        if id is not None and name is not None and arguments is not None:
-            tool_call_params.append(
-                ChatCompletionMessageToolCallParam(
-                    id=id,
-                    type="function",
-                    function={"name": name, "arguments": arguments},
-                )
-            )
-
-    return tool_call_params
-
-
-def conversation_message_to_assistant_message(
-    message: ConversationMessage,
-    participants: list[ConversationParticipant],
-) -> ChatCompletionAssistantMessageParam:
-    """
-    Convert a conversation message to an assistant message.
-    """
-    assistant_message = ChatCompletionAssistantMessageParam(
-        role="assistant",
-        content=format_message(message, participants),
-    )
-
-    # get the tool calls from the message metadata
-    tool_calls = tool_calls_from_metadata(message.metadata)
-    if tool_calls:
-        assistant_message["tool_calls"] = tool_calls
-
-    return assistant_message
-
-
-def conversation_message_to_user_message(
-    message: ConversationMessage,
-    participants: list[ConversationParticipant],
-) -> ChatCompletionMessageParam:
-    """
-    Convert a conversation message to a user message.
-    """
-    return ChatCompletionUserMessageParam(
-        role="user",
-        content=format_message(message, participants),
-    )
-
-
-async def conversation_message_to_chat_message_params(
-    context: ConversationContext, message: ConversationMessage, participants: list[ConversationParticipant]
-) -> list[ChatCompletionMessageParam]:
-    """
-    Convert a conversation message to a list of chat message parameters.
-    """
-
-    # some messages may have multiple parts, such as a text message with an attachment
-    chat_message_params: list[ChatCompletionMessageParam] = []
-
-    # add the message to list, treating messages from a source other than this assistant as a user message
-    if message.message_type == MessageType.note:
-        # we are stuffing tool messages into the note message type, so we need to check for that
-        tool_message = conversation_message_to_tool_message(message)
-        if tool_message is not None:
-            chat_message_params.append(tool_message)
-        else:
-            logger.warning(f"Failed to convert tool message to completion message: {message}")
-
-    elif message.sender.participant_id == context.assistant.id:
-        # add the assistant message to the completion messages
-        assistant_message = conversation_message_to_assistant_message(message, participants)
-        chat_message_params.append(assistant_message)
-
-    else:
-        # add the user message to the completion messages
-        user_message = conversation_message_to_user_message(message, participants)
-        chat_message_params.append(user_message)
-
-        # add the attachment message to the completion messages
-        if message.filenames and len(message.filenames) > 0:
-            # add a system message to indicate the attachments
-            chat_message_params.append(
-                ChatCompletionSystemMessageParam(
-                    role="system", content=f"Attachment(s): {', '.join(message.filenames)}"
-                )
-            )
-
-    return chat_message_params
-
-
-async def get_history_messages(
-    context: ConversationContext,
-    participants: list[ConversationParticipant],
-    model: str,
-    token_limit: int | None = None,
-) -> GetHistoryMessagesResult:
-    """
-    Get all messages in the conversation, formatted for use in a completion.
-    """
-
-    # each call to get_messages will return a maximum of 100 messages
-    # so we need to loop until all messages are retrieved
-    # if token_limit is provided, we will stop when the token limit is reached
-
-    history = []
-    token_count = 0
-    before_message_id = None
-    token_overage = 0
-
-    while True:
-        # get the next batch of messages, including chat and tool result messages
-        messages_response = await context.get_messages(
-            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note]
-        )
-        messages_list = messages_response.messages
-
-        # if there are no more messages, break the loop
-        if not messages_list or messages_list.count == 0:
-            break
-
-        # set the before_message_id for the next batch of messages
-        before_message_id = messages_list[0].id
-
-        # messages are returned in reverse order, so we need to reverse them
-        for message in reversed(messages_list):
-            # format the message
-            formatted_message_list = await conversation_message_to_chat_message_params(context, message, participants)
-            formatted_messages_token_count = openai_client.num_tokens_from_messages(formatted_message_list, model=model)
-
-            # if the token limit is not reached, or if the token limit is not provided
-            if token_overage == 0 and token_limit and token_count + formatted_messages_token_count < token_limit:
-                # increment the token count
-                token_count += formatted_messages_token_count
-
-                # insert the formatted messages onto the top of the history list
-                history = formatted_message_list + history
-
-            else:
-                # on first time through, remove any tool messages that occur before a non-tool message
-                if token_overage == 0:
-                    for i, message in enumerate(history):
-                        if message.get("role") != "tool":
-                            history = history[i:]
-                            break
-
-                # the token limit was reached, but continue to count the token overage
-                token_overage += formatted_messages_token_count
-
-        # while loop will now check for next batch of messages
-
-    # return the formatted messages
-    return GetHistoryMessagesResult(
-        messages=history,
-        token_count=token_count,
-        token_overage=token_overage,
-    )
 
 
 === File: assistants/codespace-assistant/assistant/response/utils/openai_utils.py ===
@@ -2715,7 +2616,7 @@ async def get_completion(
     # add tools to completion args if model supports tools
     if request_config.model not in no_tools_support:
         completion_args["tools"] = tools or NotGiven()
-        if tools is not None:
+        if tools:
             completion_args["tool_choice"] = "auto"
 
             if request_config.model not in no_parallel_tool_calls:
@@ -3589,6 +3490,7 @@ dependencies = [
     "assistant-drive>=0.1.0",
     "assistant-extensions[attachments, mcp]>=0.1.0",
     "mcp-extensions[openai]>=0.1.0",
+    "chat-context-toolkit>=0.1.0",
     "content-safety>=0.1.0",
     "deepmerge>=2.0",
     "openai>=1.61.0",
@@ -3609,6 +3511,7 @@ assistant-extensions = { path = "../../libraries/python/assistant-extensions", e
 mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
+chat-context-toolkit = { path = "../../libraries/python/chat-context-toolkit", editable = true }
 
 [build-system]
 requires = ["hatchling"]

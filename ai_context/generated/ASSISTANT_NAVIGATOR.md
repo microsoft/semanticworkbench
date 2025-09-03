@@ -5,8 +5,8 @@
 **Search:** ['assistants/navigator-assistant']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:45:28 AM
-**Files:** 34
+**Date:** 8/5/2025, 4:43:26 PM
+**Files:** 37
 
 === File: README.md ===
 # Semantic Workbench
@@ -349,7 +349,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel
 from .response import respond_to_conversation
-from .whiteboard import WhiteboardInspector
+from .whiteboard import WhiteboardInspector, get_whiteboard_service_config
 
 logger = logging.getLogger(__name__)
 
@@ -411,8 +411,9 @@ assistant = AssistantApp(
 
 async def whiteboard_config_provider(ctx: ConversationContext) -> mcp.MCPServerConfig:
     config = await assistant_config.get(ctx.assistant)
-    enabled = config.tools.enabled and config.tools.hosted_mcp_servers.memory_whiteboard.enabled
-    return config.tools.hosted_mcp_servers.memory_whiteboard.model_copy(update={"enabled": enabled})
+    service_config = get_whiteboard_service_config(config)
+    enabled = config.tools.enabled and service_config.enabled
+    return service_config.model_copy(update={"enabled": enabled})
 
 
 _ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
@@ -1073,33 +1074,23 @@ __all__ = ["respond_to_conversation"]
 import json
 import logging
 import re
-import time
-from typing import List
+from typing import Any
 
 import deepmerge
-from assistant_extensions.mcp import (
-    ExtendedCallToolRequestParams,
-    MCPSession,
-    OpenAISamplingHandler,
-    handle_mcp_tool_call,
-)
 from openai.types.chat import (
     ChatCompletion,
-    ChatCompletionToolMessageParam,
     ParsedChatCompletion,
 )
-from openai_client import OpenAIRequestConfig, num_tokens_from_messages
-from pydantic import ValidationError
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .local_tool import LocalTool
-from .models import StepResult
+from .models import SILENCE_TOKEN, CompletionHandlerResult
 from .utils import (
-    extract_content_from_mcp_tool_calls,
+    ExecutableTool,
+    execute_tool,
     get_response_duration_message,
     get_token_usage_message,
 )
@@ -1108,53 +1099,22 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_completion(
-    sampling_handler: OpenAISamplingHandler,
-    step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
-    mcp_sessions: List[MCPSession],
     context: ConversationContext,
-    request_config: OpenAIRequestConfig,
-    silence_token: str,
     metadata_key: str,
-    response_start_time: float,
-    local_tools: list[LocalTool],
-) -> StepResult:
-    # get service and request configuration for generative model
-    request_config = request_config
-
-    # get the total tokens used for the completion
-    total_tokens = completion.usage.total_tokens if completion.usage else 0
-
-    content: str | None = None
-
-    if (completion.choices[0].message.content is not None) and (completion.choices[0].message.content.strip() != ""):
-        content = completion.choices[0].message.content
-
-    # check if the completion has tool calls
-    tool_calls: list[ExtendedCallToolRequestParams] = []
-    if completion.choices[0].message.tool_calls:
-        ai_context, tool_calls = extract_content_from_mcp_tool_calls([
-            ExtendedCallToolRequestParams(
-                id=tool_call.id,
-                name=tool_call.function.name,
-                arguments=json.loads(
-                    tool_call.function.arguments,
-                ),
-            )
-            for tool_call in completion.choices[0].message.tool_calls
-        ])
-        if content is None:
-            if ai_context is not None and ai_context.strip() != "":
-                content = ai_context
-            # else:
-            #     content = f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
-
-    if content is None:
-        content = ""
+    metadata: dict[str, Any],
+    response_duration: float,
+    max_tokens: int,
+    tools: list[ExecutableTool],
+) -> CompletionHandlerResult:
+    """
+    Handle the completion response from the AI model.
+    This function processes the completion, possibly sending a conversation message, and executes tool calls if present.
+    """
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(
-        step_result.metadata,
+        metadata,
         {
             "debug": {
                 metadata_key: {
@@ -1164,24 +1124,21 @@ async def handle_completion(
         },
     )
 
-    # Add tool calls to the metadata
-    deepmerge.always_merger.merge(
-        step_result.metadata,
-        {
-            "tool_calls": [tool_call.model_dump(mode="json") for tool_call in tool_calls],
-        },
-    )
+    # get the content from the completion
+    content = (completion.choices[0].message.content or "").strip()
 
     # Create the footer items for the response
     footer_items = []
 
-    # Add the token usage message to the footer items
-    if total_tokens > 0:
-        completion_tokens = completion.usage.completion_tokens if completion.usage else 0
+    # get the total tokens used for the completion
+    if completion.usage and completion.usage.total_tokens > 0:
+        # Add the token usage message to the footer items
+        total_tokens = completion.usage.total_tokens
+        completion_tokens = completion.usage.completion_tokens
         request_tokens = total_tokens - completion_tokens
         footer_items.append(
             get_token_usage_message(
-                max_tokens=request_config.max_tokens,
+                max_tokens=max_tokens,
                 total_tokens=total_tokens,
                 request_tokens=request_tokens,
                 completion_tokens=completion_tokens,
@@ -1192,118 +1149,81 @@ async def handle_completion(
             metadata={
                 "token_counts": {
                     "total": total_tokens,
-                    "max": request_config.max_tokens,
+                    "max": max_tokens,
                 }
             }
         )
 
-    # Track the end time of the response generation and calculate duration
-    response_end_time = time.time()
-    response_duration = response_end_time - response_start_time
-
     # Add the response duration to the footer items
     footer_items.append(get_response_duration_message(response_duration))
 
+    completion_message_metadata = metadata.copy()
+
     # Update the metadata with the footer items
     deepmerge.always_merger.merge(
-        step_result.metadata,
+        completion_message_metadata,
         {
             "footer_items": footer_items,
         },
     )
 
-    # Set the conversation tokens for the turn result
-    step_result.conversation_tokens = total_tokens
-
     # strip out the username from the response
     if content.startswith("["):
-        content = re.sub(r"\[.*\]:\s", "", content)
+        content = re.sub(r"\[.*\]:\s", "", content).strip()
+
+    # check if the completion has tool calls
+    tool_calls = completion.choices[0].message.tool_calls or []
+
+    # Add tool calls to the metadata
+    deepmerge.always_merger.merge(
+        completion_message_metadata,
+        {
+            "tool_calls": [tool_call.model_dump(mode="json") for tool_call in tool_calls],
+        },
+    )
 
     # Handle silence token
-    if content.lstrip().startswith(silence_token):
-        # No response from the AI, nothing to send
-        pass
-    else:
+    if not content.startswith(SILENCE_TOKEN):
         # Send the AI's response to the conversation
         await context.send_messages(
             NewConversationMessage(
                 content=content,
                 message_type=MessageType.chat if content else MessageType.log,
-                metadata=step_result.metadata,
+                metadata=completion_message_metadata,
             )
         )
 
     # Check for tool calls
     if len(tool_calls) == 0:
         # No tool calls, exit the loop
-        step_result.status = "final"
-        return step_result
+        return CompletionHandlerResult(status="final")
 
     # Handle tool calls
-    tool_call_count = 0
-    for tool_call in tool_calls:
-        tool_call_count += 1
-        tool_call_status = f"using tool `{tool_call.name}`"
-        async with context.set_status(f"{tool_call_status}..."):
+    for tool_call_index, tool_call in enumerate(tool_calls):
+        async with context.set_status(f"using tool `{tool_call.function.name}`..."):
             try:
-                local_tool = next((local_tool for local_tool in local_tools if tool_call.name == local_tool.name), None)
-                if local_tool:
-                    # If the tool call is a local tool, handle it locally
-                    logger.info("executing local tool call; tool name: %s", tool_call.name)
-                    try:
-                        typed_argument = local_tool.argument_model.model_validate(tool_call.arguments)
-                    except ValidationError as e:
-                        logger.exception("error validating local tool call arguments")
-                        content = f"Error validating local tool call arguments: {e}"
-                    else:
-                        content = await local_tool.func(typed_argument, context)
-
-                else:
-                    tool_call_result = await handle_mcp_tool_call(
-                        mcp_sessions,
-                        tool_call,
-                        f"{metadata_key}:request:tool_call_{tool_call_count}",
-                    )
-
-                    # Update content and metadata with tool call result metadata
-                    deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
-
-                    # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
-                    # Get the content from the tool call result
-                    content = next(
-                        (content_item.text for content_item in tool_call_result.content if content_item.type == "text"),
-                        "[tool call returned no content]",
-                    )
+                arguments = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+                content = await execute_tool(
+                    context=context, tools=tools, tool_name=tool_call.function.name, arguments=arguments
+                )
 
             except Exception as e:
-                logger.exception("error handling tool call '%s'", tool_call.name)
+                logger.exception("error handling tool call '%s'", tool_call.function.name)
                 deepmerge.always_merger.merge(
-                    step_result.metadata,
+                    completion_message_metadata,
                     {
                         "debug": {
-                            f"{metadata_key}:request:tool_call_{tool_call_count}": {
+                            f"{metadata_key}:request:tool_call_{tool_call_index}": {
                                 "error": str(e),
                             },
                         },
                     },
                 )
-                content = f"Error executing tool '{tool_call.name}': {e}"
-
-        # Add the token count for the tool call result to the total token count
-        step_result.conversation_tokens += num_tokens_from_messages(
-            messages=[
-                ChatCompletionToolMessageParam(
-                    role="tool",
-                    content=content,
-                    tool_call_id=tool_call.id,
-                )
-            ],
-            model=request_config.model,
-        )
+                content = f"Error executing tool '{tool_call.function.name}': {e}"
 
         # Add the tool_result payload to metadata
         deepmerge.always_merger.merge(
-            step_result.metadata,
+            completion_message_metadata,
             {
                 "tool_result": {
                     "content": content,
@@ -1316,11 +1236,114 @@ async def handle_completion(
             NewConversationMessage(
                 content=content,
                 message_type=MessageType.log,
-                metadata=step_result.metadata,
+                metadata=completion_message_metadata,
             )
         )
 
-    return step_result
+    return CompletionHandlerResult(
+        status="continue",
+    )
+
+
+=== File: assistants/navigator-assistant/assistant/response/completion_requestor.py ===
+import logging
+import time
+from typing import Any
+
+import deepmerge
+from openai.types.chat import (
+    ChatCompletionMessageParam,
+    ChatCompletionToolParam,
+)
+from openai_client import (
+    AzureOpenAIServiceConfig,
+    OpenAIRequestConfig,
+    OpenAIServiceConfig,
+    create_client,
+)
+from semantic_workbench_api_model.workbench_model import (
+    MessageType,
+    NewConversationMessage,
+)
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from .models import CompletionResult
+from .utils import get_completion
+
+logger = logging.getLogger(__name__)
+
+
+async def request_completion(
+    context: ConversationContext,
+    request_config: OpenAIRequestConfig,
+    service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+    metadata: dict[str, Any],
+    metadata_key: str,
+    tools: list[ChatCompletionToolParam],
+    completion_messages: list[ChatCompletionMessageParam],
+) -> CompletionResult:
+    """
+    Requests a completion from the OpenAI API using the provided configuration and messages.
+    This function handles the request, updates metadata with debug information, and returns the completion result.
+    """
+
+    # update the metadata with debug information
+    deepmerge.always_merger.merge(
+        metadata,
+        {
+            "debug": {
+                metadata_key: {
+                    "request": {
+                        "model": request_config.model,
+                        "messages": completion_messages,
+                        "max_tokens": request_config.response_tokens,
+                        "tools": tools,
+                    },
+                },
+            },
+        },
+    )
+
+    # Track the start time of the response generation
+    response_start_time = time.time()
+
+    # generate a response from the AI model
+    completion_status = "reasoning..." if request_config.is_reasoning_model else "thinking..."
+    async with create_client(service_config) as client, context.set_status(completion_status):
+        try:
+            completion = await get_completion(
+                client,
+                request_config,
+                completion_messages,
+                tools=tools,
+            )
+
+        except Exception as e:
+            logger.exception("exception occurred calling openai chat completion")
+            completion = None
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        metadata_key: {
+                            "error": str(e),
+                        },
+                    },
+                },
+            )
+            await context.send_messages(
+                NewConversationMessage(
+                    content="An error occurred while calling the OpenAI API. Is it configured correctly?"
+                    " View the debug inspector for more information.",
+                    message_type=MessageType.notice,
+                    metadata=metadata,
+                )
+            )
+
+    return CompletionResult(
+        response_duration=time.time() - response_start_time,
+        completion=completion,
+    )
 
 
 === File: assistants/navigator-assistant/assistant/response/local_tool/__init__.py ===
@@ -1499,13 +1522,13 @@ tool = LocalTool(name="list_assistant_services", argument_model=ArgumentModel, f
 
 
 === File: assistants/navigator-assistant/assistant/response/local_tool/model.py ===
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 from attr import dataclass
-from openai.types.chat import ChatCompletionToolParam
-from openai.types.shared_params import FunctionDefinition
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..utils import ExecutableTool
 
 ToolArgumentModelT = TypeVar("ToolArgumentModelT", bound=BaseModel)
 
@@ -1517,41 +1540,161 @@ class LocalTool(Generic[ToolArgumentModelT]):
     func: Callable[[ToolArgumentModelT, ConversationContext], Awaitable[str]]
     description: str = ""
 
-    def to_chat_completion_tool(self) -> ChatCompletionToolParam:
-        parameters = self.argument_model.model_json_schema()
-        return ChatCompletionToolParam(
-            type="function",
-            function=FunctionDefinition(
-                name=self.name, description=self.description or self.func.__doc__ or "", parameters=parameters
-            ),
+    def to_executable(self) -> ExecutableTool:
+        async def func(context: ConversationContext, arguments: dict[str, Any]) -> str:
+            try:
+                typed_argument = self.argument_model.model_validate(arguments)
+            except ValidationError as e:
+                content = f"Error validating local tool call arguments: {e}"
+            else:
+                content = await self.func(typed_argument, context)
+
+            return content
+
+        return ExecutableTool(
+            name=self.name,
+            description=self.description or self.func.__doc__ or "",
+            parameters=self.argument_model.model_json_schema(),
+            func=func,
         )
 
 
 === File: assistants/navigator-assistant/assistant/response/models.py ===
-from typing import Any, Literal
+from typing import Literal, Protocol
 
 from attr import dataclass
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam, ParsedChatCompletion
+
+SILENCE_TOKEN = "{{SILENCE}}"
 
 
 @dataclass
 class StepResult:
-    status: Literal["final", "error", "continue"]
-    conversation_tokens: int = 0
-    metadata: dict[str, Any] | None = None
+    status: Literal["final", "continue", "error"]
+
+
+@dataclass
+class CompletionHandlerResult:
+    status: Literal["final", "continue"]
+
+
+@dataclass
+class CompletionResult:
+    response_duration: float
+    completion: ParsedChatCompletion | ChatCompletion | None
+
+
+@dataclass
+class TokenConstrainedChatMessageList:
+    messages: list[ChatCompletionMessageParam]
+    token_overage: int
+
+
+class ChatMessageProvider(Protocol):
+    """
+    A protocol for providing chat messages, constrained to the available tokens.
+    This is used to collect messages for a chat completion request.
+    """
+
+    async def __call__(self, available_tokens: int, model: str) -> TokenConstrainedChatMessageList: ...
+
+
+=== File: assistants/navigator-assistant/assistant/response/prompt.py ===
+from textwrap import dedent
+
+from assistant_extensions.mcp import MCPSession, get_mcp_server_prompts
+from openai_client import OpenAIRequestConfig
+from semantic_workbench_api_model.workbench_model import ConversationMessage, ConversationParticipant
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ..config import AssistantConfigModel
+from .local_tool.list_assistant_services import get_assistant_services
+from .models import SILENCE_TOKEN
+
+
+def conditional(condition: bool, content: str) -> str:
+    """
+    Generate a system message prompt based on a condition.
+    """
+
+    if condition:
+        return content
+
+    return ""
+
+
+def combine(*parts: str) -> str:
+    return "\n\n".join((part.strip() for part in parts if part.strip()))
+
+
+def participants_system_prompt(context: ConversationContext, participants: list[ConversationParticipant]) -> str:
+    """
+    Generate a system message prompt based on the participants in the conversation.
+    """
+
+    participant_names = ", ".join([
+        f'"{participant.name}"' for participant in participants if participant.id != context.assistant.id
+    ])
+    system_message_content = dedent(f"""
+        There are {len(participants)} participants in the conversation,
+        including you as the assistant, with the name {context.assistant.name}, and the following users: {participant_names}.
+        \n\n
+        You do not need to respond to every message. Do not respond if the last thing said was a closing
+        statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not
+        respond as another user in the conversation, only as "{context.assistant.name}".
+        \n\n
+        Say "{SILENCE_TOKEN}" to skip your turn.
+    """).strip()
+
+    return system_message_content
+
+
+async def build_system_message(
+    context: ConversationContext,
+    config: AssistantConfigModel,
+    request_config: OpenAIRequestConfig,
+    message: ConversationMessage,
+    mcp_sessions: list[MCPSession],
+) -> str:
+    # Retrieve prompts from the MCP servers
+    mcp_prompts = await get_mcp_server_prompts(mcp_sessions)
+
+    participants_response = await context.get_participants()
+
+    assistant_services_list = await get_assistant_services(context)
+
+    return combine(
+        conditional(
+            request_config.is_reasoning_model and request_config.enable_markdown_in_reasoning_response,
+            "Formatting re-enabled",
+        ),
+        combine("# Instructions", config.prompts.instruction_prompt, 'Your name is "{context.assistant.name}".'),
+        conditional(
+            len(participants_response.participants) > 2 and not message.mentions(context.assistant.id),
+            participants_system_prompt(context, participants_response.participants),
+        ),
+        combine("# Workflow Guidance", config.prompts.guidance_prompt),
+        combine("# Safety Guardrails", config.prompts.guardrails_prompt),
+        conditional(
+            config.tools.enabled,
+            combine(
+                "# Tool Instructions",
+                config.tools.advanced.additional_instructions,
+            ),
+        ),
+        conditional(
+            len(mcp_prompts) > 0,
+            combine("# Specific Tool Guidance", *mcp_prompts),
+        ),
+        combine("# Semantic Workbench Guide", config.prompts.semantic_workbench_guide_prompt),
+        combine("# Assistant Service List", assistant_services_list),
+    )
 
 
 === File: assistants/navigator-assistant/assistant/response/request_builder.py ===
-import json
 import logging
 from dataclasses import dataclass
-from typing import List
 
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import (
-    OpenAISamplingHandler,
-    sampling_message_to_chat_completion_message,
-)
-from mcp.types import SamplingMessage, TextContent
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -1560,91 +1703,31 @@ from openai.types.chat import (
 )
 from openai_client import (
     OpenAIRequestConfig,
-    convert_from_completion_messages,
-    num_tokens_from_messages,
-    num_tokens_from_tools,
     num_tokens_from_tools_and_messages,
 )
-from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel
-from ..whiteboard import notify_whiteboard
-from .utils import get_history_messages
+from .models import ChatMessageProvider
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class BuildRequestResult:
-    chat_message_params: List[ChatCompletionMessageParam]
+    chat_message_params: list[ChatCompletionMessageParam]
     token_count: int
     token_overage: int
 
 
 async def build_request(
-    sampling_handler: OpenAISamplingHandler,
-    attachments_extension: AttachmentsExtension,
-    context: ConversationContext,
     request_config: OpenAIRequestConfig,
-    tools: List[ChatCompletionToolParam],
-    tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
+    tools: list[ChatCompletionToolParam],
     system_message_content: str,
+    chat_message_providers: list[ChatMessageProvider],
 ) -> BuildRequestResult:
-    chat_message_params: List[ChatCompletionMessageParam] = []
-
-    if request_config.is_reasoning_model:
-        # Reasoning models use developer messages instead of system messages
-        developer_message_content = (
-            f"Formatting re-enabled\n{system_message_content}"
-            if request_config.enable_markdown_in_reasoning_response
-            else system_message_content
-        )
-        chat_message_params.append(
-            ChatCompletionDeveloperMessageParam(
-                role="developer",
-                content=developer_message_content,
-            )
-        )
-    else:
-        chat_message_params.append(
-            ChatCompletionSystemMessageParam(
-                role="system",
-                content=system_message_content,
-            )
-        )
-
-    # Initialize token count to track the number of tokens used
-    # Add history messages last, as they are what will be truncated if the token limit is reached
-    #
-    # Here are the parameters that count towards the token limit:
-    # - messages
-    # - tools
-    # - tool_choice
-    # - response_format
-    # - seed (if set, minor impact)
-
-    # Get the token count for the tools
-    tool_token_count = num_tokens_from_tools(
-        model=request_config.model,
-        tools=tools,
-    )
-
-    # Generate the attachment messages
-    attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
-        await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config=attachments_config,
-        )
-    )
-
-    # Add attachment messages
-    chat_message_params.extend(attachment_messages)
-
-    token_count = num_tokens_from_messages(
-        model=request_config.model,
-        messages=chat_message_params,
-    )
+    """
+    Collect messages for a chat completion request, including system messages and user-provided messages.
+    The messages from the chat_message_providers are limited based on the available token budget.
+    """
 
     # Calculate available tokens
     available_tokens = request_config.max_tokens - request_config.response_tokens
@@ -1653,17 +1736,33 @@ async def build_request(
     if request_config.is_reasoning_model:
         available_tokens -= request_config.reasoning_token_allocation
 
-    # Get history messages
-    participants_response = await context.get_participants()
-    history_messages_result = await get_history_messages(
-        context=context,
-        participants=participants_response.participants,
-        model=request_config.model,
-        token_limit=available_tokens - token_count - tool_token_count,
-    )
+    match request_config.is_reasoning_model:
+        case True:
+            # Reasoning models use developer messages instead of system messages
+            system_message = ChatCompletionDeveloperMessageParam(
+                role="developer",
+                content=system_message_content,
+            )
 
-    # Add history messages
-    chat_message_params.extend(history_messages_result.messages)
+        case _:
+            system_message = ChatCompletionSystemMessageParam(
+                role="system",
+                content=system_message_content,
+            )
+
+    chat_message_params: list[ChatCompletionMessageParam] = [system_message]
+
+    total_token_overage = 0
+    for provider in chat_message_providers:
+        # calculate the number of tokens that are available for this provider
+        available_for_provider = available_tokens - num_tokens_from_tools_and_messages(
+            tools=tools,
+            messages=chat_message_params,
+            model=request_config.model,
+        )
+        result = await provider(available_for_provider, request_config.model)
+        total_token_overage += result.token_overage
+        chat_message_params.extend(result.messages)
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
@@ -1678,95 +1777,57 @@ async def build_request(
             "Please start a new conversation and let us know you ran into this."
         )
 
-    # Create a message processor for the sampling handler
-    def message_processor(messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
-        updated_messages: List[ChatCompletionMessageParam] = []
-
-        def add_converted_message(message: SamplingMessage) -> None:
-            updated_messages.append(sampling_message_to_chat_completion_message(message))
-
-        for message in messages:
-            if not isinstance(message.content, TextContent):
-                add_converted_message(message)
-                continue
-
-            # Determine if the message.content.text is a json payload
-            content = message.content.text
-            if not content.startswith("{") or not content.endswith("}"):
-                add_converted_message(message)
-                continue
-
-            # Attempt to parse the json payload
-            try:
-                json_payload = json.loads(content)
-                variable = json_payload.get("variable")
-                match variable:
-                    case "attachment_messages":
-                        updated_messages.extend(attachment_messages)
-                        continue
-                    case "history_messages":
-                        updated_messages.extend(history_messages_result.messages)
-                        continue
-                    case _:
-                        add_converted_message(message)
-                        continue
-
-            except json.JSONDecodeError:
-                add_converted_message(message)
-                continue
-
-        return updated_messages
-
-    # Notify the whiteboard of the latest context (messages)
-    await notify_whiteboard(
-        context=context,
-        server_config=tools_config.hosted_mcp_servers.memory_whiteboard,
-        attachment_messages=attachment_messages,
-        chat_messages=history_messages_result.messages,
-    )
-
-    # Set the message processor for the sampling handler
-    sampling_handler.message_processor = message_processor
-
     return BuildRequestResult(
         chat_message_params=chat_message_params,
         token_count=total_token_count,
-        token_overage=history_messages_result.token_overage,
+        token_overage=total_token_overage,
     )
 
 
 === File: assistants/navigator-assistant/assistant/response/response.py ===
 import logging
 from contextlib import AsyncExitStack
-from textwrap import dedent
-from typing import Any, Callable
+from typing import Any, Literal
+from uuid import UUID
 
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
     OpenAISamplingHandler,
+    SamplingChatMessageProvider,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
-    get_mcp_server_prompts,
     list_roots_callback_for,
     refresh_mcp_sessions,
 )
 from mcp import ServerNotification
+from mcp.client.session import MessageHandlerFnT
+from openai.types.chat import ChatCompletionMessageParam
+from openai_client import (
+    AzureOpenAIServiceConfig,
+    OpenAIRequestConfig,
+    OpenAIServiceConfig,
+    convert_from_completion_messages,
+)
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
     MessageType,
     NewConversationMessage,
+    ParticipantRole,
     UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ..config import AssistantConfigModel
+from ..whiteboard import get_whiteboard_service_config, notify_whiteboard
+from . import prompt
 from .local_tool import add_assistant_to_conversation_tool
-from .local_tool.list_assistant_services import get_assistant_services
+from .models import ChatMessageProvider, TokenConstrainedChatMessageList
 from .step_handler import next_step
-from .utils import get_ai_client_configs
+from .utils import get_ai_client_configs, get_tools_from_mcp_sessions
+from .utils.message_utils import get_history_messages
 
 logger = logging.getLogger(__name__)
 
@@ -1783,45 +1844,51 @@ async def respond_to_conversation(
     support for multiple tool invocations.
     """
 
+    # TODO: This is a temporary hack to allow directing the request to the reasoning model
+    # Currently we will only use the requested AI client configuration for the turn
+    request_type = "reasoning" if message.content.startswith("reason:") else "generative"
+
+    service_config, request_config = get_ai_configs_for_response(config, request_type)
+
+    get_attachment_chat_messages = context_bound_get_attachment_messages_source(
+        context, attachments_extension, config.extensions_config.attachments
+    )
+    get_history_chat_messages = context_bound_get_history_chat_messages_source(
+        context, (await context.get_participants()).participants
+    )
+
+    # Notify the whiteboard of the latest context (messages)
+    await notify_whiteboard(
+        context=context,
+        server_config=get_whiteboard_service_config(config),
+        attachment_message_provider=get_attachment_chat_messages,
+        chat_message_provider=get_history_chat_messages,
+    )
+
+    # Create a sampling handler for handling requests from the MCP servers
+    sampling_handler = OpenAISamplingHandler(
+        ai_client_configs=[
+            get_ai_client_configs(config, "generative"),
+            get_ai_client_configs(config, "reasoning"),
+        ],
+        message_providers={
+            "attachment_messages": to_sampling_message_provider(get_attachment_chat_messages),
+            "history_messages": to_sampling_message_provider(get_history_chat_messages),
+        },
+    )
+
+    enabled_servers = []
+    if config.tools.enabled:
+        enabled_servers = get_enabled_mcp_server_configs(config.tools.mcp_servers)
+
     async with AsyncExitStack() as stack:
-        # Get the AI client configurations for this assistant
-        generative_ai_client_config = get_ai_client_configs(config, "generative")
-        reasoning_ai_client_config = get_ai_client_configs(config, "reasoning")
-
-        # TODO: This is a temporary hack to allow directing the request to the reasoning model
-        # Currently we will only use the requested AI client configuration for the turn
-        request_type = "reasoning" if message.content.startswith("reason:") else "generative"
-        # Set a default AI client configuration based on the request type
-        default_ai_client_config = (
-            reasoning_ai_client_config if request_type == "reasoning" else generative_ai_client_config
-        )
-        # Set the service and request configurations for the AI client
-        service_config = default_ai_client_config.service_config
-        request_config = default_ai_client_config.request_config
-
-        # Create a sampling handler for handling requests from the MCP servers
-        sampling_handler = OpenAISamplingHandler(
-            ai_client_configs=[
-                generative_ai_client_config,
-                reasoning_ai_client_config,
-            ]
-        )
-
-        async def message_handler(message) -> None:
-            if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
-                await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
-
-        enabled_servers = []
-        if config.tools.enabled:
-            enabled_servers = get_enabled_mcp_server_configs(config.tools.mcp_servers)
-
         try:
             mcp_sessions = await establish_mcp_sessions(
                 client_settings=[
                     MCPClientSettings(
                         server_config=server_config,
                         sampling_callback=sampling_handler.handle_message,
-                        message_handler=message_handler,
+                        message_handler=context_bound_mcp_client_message_handler(context),
                         list_roots_callback=list_roots_callback_for(context=context, server_config=server_config),
                     )
                     for server_config in enabled_servers
@@ -1839,37 +1906,67 @@ async def respond_to_conversation(
             )
             return
 
-        # Retrieve prompts from the MCP servers
-        mcp_prompts = await get_mcp_server_prompts(mcp_sessions)
+        system_message_content = await prompt.build_system_message(
+            context, config, request_config, message, mcp_sessions
+        )
 
-        # Initialize a loop control variable
-        max_steps = config.tools.advanced.max_steps
-        interrupted = False
-        encountered_error = False
-        completed_within_max_steps = False
+        executable_tools = [
+            add_assistant_to_conversation_tool.to_executable(),
+            *get_tools_from_mcp_sessions(mcp_sessions, config.tools),
+        ]
+
+        response_status: Literal["completed", "error", "interrupted", "exceeded_max_steps"] = "exceeded_max_steps"
         step_count = 0
 
-        participants_response = await context.get_participants()
-        assistant_list = await get_assistant_services(context)
-
         # Loop until the response is complete or the maximum number of steps is reached
-        while step_count < max_steps:
+        while step_count < config.tools.advanced.max_steps:
             step_count += 1
 
-            # Check to see if we should interrupt our flow
-            last_message = await context.get_messages(limit=1, message_types=[MessageType.chat, MessageType.command])
-
-            if (
-                step_count > 1
-                and last_message.messages[0].sender.participant_id != context.assistant.id
-                and last_message.messages[0].id != message.id
-            ):
-                # The last message was from a sender other than the assistant, so we should
+            if await new_user_message_exists(context=context, after_message_id=message.id):
+                # A new message has been sent by a user, so we should
                 # interrupt our flow as this would have kicked off a new response from this
                 # assistant with the new message in mind and that process can decide if it
                 # should continue with the current flow or not.
-                interrupted = True
-                logger.info("Response interrupted.")
+                response_status = "interrupted"
+                break
+
+            # Reconnect to the MCP servers if they were disconnected
+            mcp_sessions = await refresh_mcp_sessions(mcp_sessions, stack)
+
+            metadata_key = f"respond_to_conversation:step_{step_count}"
+
+            step_result = await next_step(
+                context=context,
+                service_config=service_config,
+                request_config=request_config,
+                executable_tools=executable_tools,
+                system_message_content=system_message_content,
+                chat_message_providers=[
+                    get_attachment_chat_messages,
+                    get_history_chat_messages,
+                ],
+                metadata=metadata,
+                metadata_key=metadata_key,
+            )
+
+            match step_result.status:
+                case "final":
+                    response_status = "completed"
+                    break
+
+                case "error":
+                    response_status = "error"
+                    break
+
+                case "continue":
+                    pass
+
+                case _:
+                    raise ValueError(f"Unexpected step result status: {step_result.status}.")
+
+        # Notify for incomplete (not complete or error) response statuses
+        match response_status:
+            case "interrupted":
                 await context.send_messages(
                     NewConversationMessage(
                         content="Response interrupted due to new message.",
@@ -1877,263 +1974,163 @@ async def respond_to_conversation(
                         metadata=metadata,
                     )
                 )
-                break
 
-            # Reconnect to the MCP servers if they were disconnected
-            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
-
-            step_result = await next_step(
-                sampling_handler=sampling_handler,
-                mcp_sessions=mcp_sessions,
-                attachments_extension=attachments_extension,
-                context=context,
-                request_config=request_config,
-                service_config=service_config,
-                tools_config=config.tools,
-                attachments_config=config.extensions_config.attachments,
-                metadata=metadata,
-                metadata_key=f"respond_to_conversation:step_{step_count}",
-                local_tools=[add_assistant_to_conversation_tool],
-                system_message_content=combined_prompt(
-                    config.prompts.instruction_prompt,
-                    'Your name is "{context.assistant.name}".',
-                    conditional_prompt(
-                        len(participants_response.participants) > 2 and not message.mentions(context.assistant.id),
-                        lambda: participants_system_prompt(
-                            context, participants_response.participants, silence_token="{{SILENCE}}"
-                        ),
-                    ),
-                    "# Workflow Guidance:",
-                    config.prompts.guidance_prompt,
-                    "# Safety Guardrails:",
-                    config.prompts.guardrails_prompt,
-                    conditional_prompt(
-                        config.tools.enabled,
-                        lambda: combined_prompt(
-                            "# Tool Instructions",
-                            config.tools.advanced.additional_instructions,
-                        ),
-                    ),
-                    conditional_prompt(
-                        len(mcp_prompts) > 0,
-                        lambda: combined_prompt("# Specific Tool Guidance", "\n\n".join(mcp_prompts)),
-                    ),
-                    "# Semantic Workbench Guide:",
-                    config.prompts.semantic_workbench_guide_prompt,
-                    "# Assistant Service List",
-                    assistant_list,
-                ),
-            )
-
-            if step_result.status == "error":
-                encountered_error = True
-                break
-
-            if step_result.status == "final":
-                completed_within_max_steps = True
-                break
-
-        # If the response did not complete within the maximum number of steps, send a message to the user
-        if not completed_within_max_steps and not encountered_error and not interrupted:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=config.tools.advanced.max_steps_truncation_message,
-                    message_type=MessageType.notice,
-                    metadata=metadata,
+            case "exceeded_max_steps":
+                # If the response did not complete within the maximum number of steps, send a message to the user
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=config.tools.advanced.max_steps_truncation_message,
+                        message_type=MessageType.notice,
+                        metadata=metadata,
+                    )
                 )
-            )
-            logger.info("Response stopped early due to maximum steps.")
 
         # Log the completion of the response
-        logger.info(
-            "Response completed; interrupted: %s, completed_within_max_steps: %s, encountered_error: %s, step_count: %d",
-            interrupted,
-            completed_within_max_steps,
-            encountered_error,
-            step_count,
+        logger.info("Response finished; status: %s, step_count: %d", response_status, step_count)
+
+
+def get_ai_configs_for_response(
+    config: AssistantConfigModel, request_type: Literal["generative", "reasoning"]
+) -> tuple[AzureOpenAIServiceConfig | OpenAIServiceConfig, OpenAIRequestConfig]:
+    """
+    Get the AI client configurations for the response based on the request type.
+    """
+    # Get the AI client configurations for this assistant
+    generative_ai_client_config = get_ai_client_configs(config, "generative")
+    reasoning_ai_client_config = get_ai_client_configs(config, "reasoning")
+
+    # Set a default AI client configuration based on the request type
+    default_ai_client_config = (
+        reasoning_ai_client_config if request_type == "reasoning" else generative_ai_client_config
+    )
+    # Set the service and request configurations for the AI client
+    return default_ai_client_config.service_config, default_ai_client_config.request_config
+
+
+async def new_user_message_exists(context: ConversationContext, after_message_id: UUID) -> bool:
+    """Returns True if there are new user messages after the given message ID."""
+    new_user_messages = await context.get_messages(
+        limit=1,
+        after=after_message_id,
+        participant_role=ParticipantRole.user,
+    )
+
+    return len(new_user_messages.messages) > 0
+
+
+def context_bound_mcp_client_message_handler(context: ConversationContext) -> MessageHandlerFnT:
+    """
+    Returns an MCP message handler function that updates the participant's status based on server notifications.
+    """
+
+    async def func(message):
+        if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
+            await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
+
+    return func
+
+
+def context_bound_get_attachment_messages_source(
+    context: ConversationContext,
+    attachments_extension: AttachmentsExtension,
+    config: AttachmentsConfigModel,
+) -> ChatMessageProvider:
+    """
+    Returns a chat message provider that retrieves attachment messages for the conversation context.
+    """
+
+    async def func(
+        available_tokens: int,
+        model: str,
+    ) -> TokenConstrainedChatMessageList:
+        return TokenConstrainedChatMessageList(
+            messages=convert_from_completion_messages(
+                await attachments_extension.get_completion_messages_for_attachments(
+                    context,
+                    config=config,
+                )
+            ),
+            token_overage=0,
         )
 
+    return func
 
-def conditional_prompt(condition: bool, content: Callable[[], str]) -> str:
+
+def context_bound_get_history_chat_messages_source(
+    context: ConversationContext,
+    participants: list[ConversationParticipant],
+) -> ChatMessageProvider:
     """
-    Generate a system message prompt based on a condition.
-    """
-
-    if condition:
-        return content()
-
-    return ""
-
-
-def participants_system_prompt(
-    context: ConversationContext, participants: list[ConversationParticipant], silence_token: str
-) -> str:
-    """
-    Generate a system message prompt based on the participants in the conversation.
+    Returns a chat message provider that retrieves history messages for the conversation context.
     """
 
-    participant_names = ", ".join([
-        f'"{participant.name}"' for participant in participants if participant.id != context.assistant.id
-    ])
-    system_message_content = dedent(f"""
-        There are {len(participants)} participants in the conversation,
-        including you as the assistant, with the name {context.assistant.name}, and the following users: {participant_names}.
-        \n\n
-        You do not need to respond to every message. Do not respond if the last thing said was a closing
-        statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not
-        respond as another user in the conversation, only as "{context.assistant.name}".
-        \n\n
-        Say "{silence_token}" to skip your turn.
-    """).strip()
+    async def func(available_tokens: int, model: str) -> TokenConstrainedChatMessageList:
+        history_messages_result = await get_history_messages(
+            context=context,
+            participants=participants,
+            model=model,
+            token_limit=available_tokens,
+        )
+        return TokenConstrainedChatMessageList(
+            messages=history_messages_result.messages, token_overage=history_messages_result.token_overage
+        )
 
-    return system_message_content
+    return func
 
 
-def combined_prompt(*parts: str) -> str:
-    return "\n\n".join((part for part in parts if part)).strip()
+def to_sampling_message_provider(provider: ChatMessageProvider) -> SamplingChatMessageProvider:
+    """
+    Converts a ChatMessageProvider to a SamplingChatMessageProvider.
+    This is used to adapt the provider for use with the OpenAISamplingHandler.
+    """
+
+    async def wrapped(available_tokens: int, model: str) -> list[ChatCompletionMessageParam]:
+        result = await provider(available_tokens, model)
+        return result.messages
+
+    return wrapped
 
 
 === File: assistants/navigator-assistant/assistant/response/step_handler.py ===
-import logging
-import time
 from textwrap import dedent
-from typing import Any, List
+from typing import Any
 
-import deepmerge
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
-from openai.types.chat import (
-    ChatCompletion,
-    ParsedChatCompletion,
-)
-from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig, create_client
+from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import MCPToolsConfigModel
 from .completion_handler import handle_completion
-from .local_tool import LocalTool
-from .models import StepResult
+from .completion_requestor import request_completion
+from .models import ChatMessageProvider, StepResult
 from .request_builder import build_request
-from .utils import (
-    get_completion,
-    get_formatted_token_count,
-    get_openai_tools_from_mcp_sessions,
-)
-
-logger = logging.getLogger(__name__)
+from .utils.formatting_utils import get_formatted_token_count
+from .utils.tools import ExecutableTool
 
 
 async def next_step(
-    sampling_handler: OpenAISamplingHandler,
-    mcp_sessions: List[MCPSession],
-    attachments_extension: AttachmentsExtension,
     context: ConversationContext,
-    request_config: OpenAIRequestConfig,
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
-    tools_config: MCPToolsConfigModel,
-    attachments_config: AttachmentsConfigModel,
+    request_config: OpenAIRequestConfig,
+    executable_tools: list[ExecutableTool],
+    system_message_content: str,
+    chat_message_providers: list[ChatMessageProvider],
     metadata: dict[str, Any],
     metadata_key: str,
-    local_tools: list[LocalTool],
-    system_message_content: str,
 ) -> StepResult:
-    step_result = StepResult(status="continue", metadata=metadata.copy())
+    """Executes a step in the process of responding to a conversation message."""
 
-    # Track the start time of the response generation
-    response_start_time = time.time()
+    # Convert executable tools to OpenAI tools
+    openai_tools = [tool.to_chat_completion_tool() for tool in executable_tools]
 
-    # Establish a token to be used by the AI model to indicate no response
-    silence_token = "{{SILENCE}}"
-
-    # convert the tools to make them compatible with the OpenAI API
-    tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
-    sampling_handler.assistant_mcp_tools = tools
-    tools = (tools or []) + [local_tool.to_chat_completion_tool() for local_tool in local_tools]
-
+    # Collect messages for the completion request
     build_request_result = await build_request(
-        sampling_handler=sampling_handler,
-        attachments_extension=attachments_extension,
-        context=context,
         request_config=request_config,
-        tools_config=tools_config,
-        tools=tools,
-        attachments_config=attachments_config,
+        tools=openai_tools,
         system_message_content=system_message_content,
-    )
-
-    chat_message_params = build_request_result.chat_message_params
-
-    # Generate AI response
-    # initialize variables for the response content
-    completion: ParsedChatCompletion | ChatCompletion | None = None
-
-    # update the metadata with debug information
-    deepmerge.always_merger.merge(
-        step_result.metadata,
-        {
-            "debug": {
-                metadata_key: {
-                    "request": {
-                        "model": request_config.model,
-                        "messages": chat_message_params,
-                        "max_tokens": request_config.response_tokens,
-                        "tools": tools,
-                    },
-                },
-            },
-        },
-    )
-
-    # generate a response from the AI model
-    async with create_client(service_config) as client:
-        completion_status = "reasoning..." if request_config.is_reasoning_model else "thinking..."
-        async with context.set_status(completion_status):
-            try:
-                completion = await get_completion(
-                    client,
-                    request_config,
-                    chat_message_params,
-                    tools,
-                )
-
-            except Exception as e:
-                logger.exception(f"exception occurred calling openai chat completion: {e}")
-                deepmerge.always_merger.merge(
-                    step_result.metadata,
-                    {
-                        "debug": {
-                            metadata_key: {
-                                "error": str(e),
-                            },
-                        },
-                    },
-                )
-                await context.send_messages(
-                    NewConversationMessage(
-                        content="An error occurred while calling the OpenAI API. Is it configured correctly?"
-                        " View the debug inspector for more information.",
-                        message_type=MessageType.notice,
-                        metadata=step_result.metadata,
-                    )
-                )
-                step_result.status = "error"
-                return step_result
-
-    step_result = await handle_completion(
-        sampling_handler,
-        step_result,
-        completion,
-        mcp_sessions,
-        context,
-        request_config,
-        silence_token,
-        metadata_key,
-        response_start_time,
-        local_tools=local_tools,
+        chat_message_providers=chat_message_providers,
     )
 
     if build_request_result.token_overage > 0:
@@ -2151,7 +2148,30 @@ async def next_step(
             )
         )
 
-    return step_result
+    completion_result = await request_completion(
+        context=context,
+        request_config=request_config,
+        service_config=service_config,
+        metadata=metadata,
+        metadata_key=metadata_key,
+        tools=openai_tools,
+        completion_messages=build_request_result.chat_message_params,
+    )
+
+    if not completion_result.completion:
+        return StepResult(status="error")
+
+    handler_result = await handle_completion(
+        completion_result.completion,
+        context,
+        metadata_key=metadata_key,
+        metadata=metadata,
+        response_duration=completion_result.response_duration or 0,
+        max_tokens=request_config.max_tokens,
+        tools=executable_tools,
+    )
+
+    return StepResult(status=handler_result.status)
 
 
 === File: assistants/navigator-assistant/assistant/response/utils/__init__.py ===
@@ -2161,22 +2181,22 @@ from .message_utils import (
     get_history_messages,
 )
 from .openai_utils import (
-    extract_content_from_mcp_tool_calls,
     get_ai_client_configs,
     get_completion,
-    get_openai_tools_from_mcp_sessions,
 )
+from .tools import ExecutableTool, execute_tool, get_tools_from_mcp_sessions
 
 __all__ = [
     "conversation_message_to_chat_message_params",
-    "extract_content_from_mcp_tool_calls",
     "get_ai_client_configs",
     "get_completion",
     "get_formatted_token_count",
     "get_history_messages",
-    "get_openai_tools_from_mcp_sessions",
     "get_response_duration_message",
     "get_token_usage_message",
+    "ExecutableTool",
+    "execute_tool",
+    "get_tools_from_mcp_sessions",
 ]
 
 
@@ -2318,8 +2338,9 @@ def tool_calls_from_metadata(metadata: dict[str, Any]) -> list[ChatCompletionMes
                 continue
 
         id = tool_call["id"]
-        name = tool_call["name"]
-        arguments = json.dumps(tool_call["arguments"])
+        function = tool_call["function"]
+        name = function["name"]
+        arguments = json.dumps(function["arguments"])
         if id is not None and name is not None and arguments is not None:
             tool_call_params.append(
                 ChatCompletionMessageToolCallParam(
@@ -2480,16 +2501,9 @@ async def get_history_messages(
 # Copyright (c) Microsoft. All rights reserved.
 
 import logging
-from textwrap import dedent
-from typing import List, Literal, Tuple, Union
+from typing import List, Literal, Union
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
-from assistant_extensions.mcp import (
-    ExtendedCallToolRequestParams,
-    MCPSession,
-    retrieve_mcp_tools_from_sessions,
-)
-from mcp_extensions import convert_tools_to_openai_tools
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import (
     ChatCompletion,
@@ -2500,7 +2514,7 @@ from openai.types.chat import (
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel
 
-from ...config import AssistantConfigModel, MCPToolsConfigModel
+from ...config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -2582,79 +2596,98 @@ async def get_completion(
     return completion
 
 
-def extract_content_from_mcp_tool_calls(
-    tool_calls: List[ExtendedCallToolRequestParams],
-) -> Tuple[str | None, List[ExtendedCallToolRequestParams]]:
+=== File: assistants/navigator-assistant/assistant/response/utils/tools.py ===
+from typing import Any, Awaitable, Callable
+
+from assistant_extensions.mcp import (
+    ExtendedCallToolRequestParams,
+    MCPSession,
+    retrieve_mcp_tools_and_sessions_from_sessions,
+    execute_tool as execute_mcp_tool,
+)
+from attr import dataclass
+from mcp import Tool as MCPTool
+from mcp.types import TextContent
+from openai.types.chat import ChatCompletionToolParam
+from openai.types.shared_params import FunctionDefinition
+from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from ...config import MCPToolsConfigModel
+
+
+@dataclass
+class ExecutableTool:
+    name: str
+    description: str
+    parameters: dict[str, Any] | None
+    func: Callable[[ConversationContext, dict[str, Any]], Awaitable[str]]
+
+    def to_chat_completion_tool(self) -> ChatCompletionToolParam:
+        """
+        Convert the Tool instance to a format compatible with OpenAI's chat completion tools.
+        """
+        return ChatCompletionToolParam(
+            type="function",
+            function=FunctionDefinition(
+                name=self.name,
+                description=self.description,
+                parameters=self.parameters or {},
+            ),
+        )
+
+
+async def execute_tool(
+    context: ConversationContext, tools: list[ExecutableTool], tool_name: str, arguments: dict[str, Any]
+) -> str:
     """
-    Extracts the AI content from the tool calls.
-
-    This function takes a list of MCPToolCall objects and extracts the AI content from them. It returns a tuple
-    containing the AI content and the updated list of MCPToolCall objects.
-
-    Args:
-        tool_calls(List[MCPToolCall]): The list of MCPToolCall objects.
-
-    Returns:
-        Tuple[str | None, List[MCPToolCall]]: A tuple containing the AI content and the updated list of MCPToolCall
-        objects.
+    Execute a tool by its name with the provided arguments.
     """
-    ai_content: list[str] = []
-    updated_tool_calls = []
+    for tool in tools:
+        if tool.name == tool_name:
+            return await tool.func(context, arguments)
 
-    for tool_call in tool_calls:
-        # Split the AI content from the tool call
-        content, updated_tool_call = split_ai_content_from_mcp_tool_call(tool_call)
-
-        if content is not None:
-            ai_content.append(content)
-
-        updated_tool_calls.append(updated_tool_call)
-
-    return "\n\n".join(ai_content).strip(), updated_tool_calls
+    return f"ERROR: Tool '{tool_name}' not found in the list of tools."
 
 
-def split_ai_content_from_mcp_tool_call(
-    tool_call: ExtendedCallToolRequestParams,
-) -> Tuple[str | None, ExtendedCallToolRequestParams]:
-    """
-    Splits the AI content from the tool call.
-    """
-
-    if not tool_call.arguments:
-        return None, tool_call
-
-    # Check if the tool call has an "aiContext" argument
-    if "aiContext" in tool_call.arguments:
-        # Extract the AI content
-        ai_content = tool_call.arguments.pop("aiContext")
-
-        # Return the AI content and the updated tool call
-        return ai_content, tool_call
-
-    return None, tool_call
-
-
-def get_openai_tools_from_mcp_sessions(
-    mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
-) -> List[ChatCompletionToolParam] | None:
+def get_tools_from_mcp_sessions(
+    mcp_sessions: list[MCPSession], tools_config: MCPToolsConfigModel
+) -> list[ExecutableTool]:
     """
     Retrieve the tools from the MCP sessions.
     """
 
-    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_config.advanced.tools_disabled)
-    extra_parameters = {
-        "aiContext": {
-            "type": "string",
-            "description": dedent("""
-                Explanation of why the AI is using this tool and what it expects to accomplish.
-                This message is displayed to the user, coming from the point of view of the
-                assistant and should fit within the flow of the ongoing conversation, responding
-                to the preceding user message.
-            """).strip(),
-        },
-    }
-    openai_tools = convert_tools_to_openai_tools(mcp_tools, extra_parameters)
-    return openai_tools
+    mcp_tools_and_sessions = retrieve_mcp_tools_and_sessions_from_sessions(
+        mcp_sessions, tools_config.advanced.tools_disabled
+    )
+    return [convert_tool(session, tool) for tool, session in mcp_tools_and_sessions]
+
+
+def convert_tool(mcp_session: MCPSession, mcp_tool: MCPTool) -> ExecutableTool:
+    parameters = mcp_tool.inputSchema.copy()
+
+    async def func(_: ConversationContext, arguments: dict[str, Any] | None = None) -> str:
+        result = await execute_mcp_tool(
+            mcp_session,
+            ExtendedCallToolRequestParams(
+                id=mcp_tool.name,
+                name=mcp_tool.name,
+                arguments=arguments,
+            ),
+            method_metadata_key="mcp_tool_call",
+        )
+        contents = []
+        for content in result.content:
+            match content:
+                case TextContent():
+                    contents.append(content.text)
+        return "\n\n".join(contents)
+
+    return ExecutableTool(
+        name=mcp_tool.name,
+        description=mcp_tool.description if mcp_tool.description else "[no description provided]",
+        parameters=parameters,
+        func=func,
+    )
 
 
 === File: assistants/navigator-assistant/assistant/text_includes/guardrails_prompt.md ===
@@ -2939,11 +2972,12 @@ The Semantic Workbench is designed to be intuitive while offering powerful capab
 
 === File: assistants/navigator-assistant/assistant/whiteboard/__init__.py ===
 from ._inspector import WhiteboardInspector
-from ._whiteboard import notify_whiteboard
+from ._whiteboard import get_whiteboard_service_config, notify_whiteboard
 
 __all__ = [
     "notify_whiteboard",
     "WhiteboardInspector",
+    "get_whiteboard_service_config",
 ]
 
 
@@ -3090,17 +3124,34 @@ from assistant_extensions.mcp import (
     handle_mcp_tool_call,
     list_roots_callback_for,
 )
-from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from ..config import AssistantConfigModel
+from ..response.models import ChatMessageProvider
+
 logger = logging.getLogger(__name__)
+
+
+def get_whiteboard_service_config(config: AssistantConfigModel) -> MCPServerConfig:
+    """
+    Get the memory whiteboard server configuration from the assistant config.
+    If no personal server is configured with key 'memory-whiteboard', return the hosted server configuration.
+    """
+    return next(
+        (
+            server_config
+            for server_config in config.tools.personal_mcp_servers
+            if server_config.key == "memory-whiteboard"
+        ),
+        config.tools.hosted_mcp_servers.memory_whiteboard,
+    )
 
 
 async def notify_whiteboard(
     context: ConversationContext,
     server_config: MCPServerConfig,
-    attachment_messages: list[ChatCompletionMessageParam],
-    chat_messages: list[ChatCompletionMessageParam],
+    attachment_message_provider: ChatMessageProvider,
+    chat_message_provider: ChatMessageProvider,
 ) -> None:
     if not server_config.enabled:
         return
@@ -3115,8 +3166,8 @@ async def notify_whiteboard(
                 id="whiteboard",
                 name="notify_user_message",
                 arguments={
-                    "attachment_messages": attachment_messages,
-                    "chat_messages": chat_messages,
+                    "attachment_messages": (await attachment_message_provider(0, "gpt-4o")).messages,
+                    "chat_messages": (await chat_message_provider(30_000, "gpt-4o")).messages,
                 },
             ),
             method_metadata_key="whiteboard",

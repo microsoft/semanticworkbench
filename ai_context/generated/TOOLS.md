@@ -5,7 +5,7 @@
 **Search:** ['tools']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** []
-**Date:** 5/31/2025, 12:06:20 PM
+**Date:** 8/5/2025, 4:43:26 PM
 **Files:** 26
 
 === File: tools/build_ai_context_files.py ===
@@ -961,8 +961,8 @@ else
 venv_dir = .venv
 endif
 
-UV_SYNC_INSTALL_ARGS ?= --all-extras --frozen
-UV_RUN_ARGS ?= --all-extras --frozen
+UV_SYNC_INSTALL_ARGS ?= --all-extras --all-groups --frozen
+UV_RUN_ARGS ?= --all-extras --all-groups --frozen
 
 PYTEST_ARGS ?= --color=yes
 
