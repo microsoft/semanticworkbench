@@ -69,14 +69,12 @@ export const useWorkbenchService = () => {
 
     const tryFetchAsync = React.useCallback(
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
-            const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     ...options?.headers,
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
             });
 
@@ -89,19 +87,17 @@ export const useWorkbenchService = () => {
 
             return response;
         },
-        [dispatch, getAccessTokenAsync, getIdTokenAsync],
+        [dispatch, getIdTokenAsync],
     );
 
     const tryFetchStreamAsync = React.useCallback(
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
-            const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     ...options?.headers,
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
             });
 
@@ -114,7 +110,7 @@ export const useWorkbenchService = () => {
 
             return response;
         },
-        [dispatch, getAccessTokenAsync, getIdTokenAsync],
+        [dispatch, getIdTokenAsync],
     );
 
     const tryFetchFileAsync = React.useCallback(
