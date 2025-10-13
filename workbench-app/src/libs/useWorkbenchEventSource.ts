@@ -25,7 +25,6 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
         const startEventSource = async () => {
             if (!isMounted) return;
 
-            const accessToken = await getAccessToken();
             const idToken = await getIdTokenAsync();
 
             // this promise is intentionally not awaited. it runs in the background and is cancelled when
@@ -34,8 +33,7 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
                 signal: abortController.signal,
                 openWhenHidden: true,
                 headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
                 async onopen(response) {
                     if (!isMounted) return;

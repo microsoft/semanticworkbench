@@ -50,7 +50,8 @@ const dynamicBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryE
             throw new Error('Could not acquire token');
         }
 
-        headers.set('Authorization', `Bearer ${response.accessToken}`);
+        // Use idToken (always JWT format) instead of accessToken (may be compact format for MSA)
+        headers.set('Authorization', `Bearer ${response.idToken}`);
         headers.set('X-Request-ID', generateUuid().replace(/-/g, '').toLowerCase());
         return headers;
     };

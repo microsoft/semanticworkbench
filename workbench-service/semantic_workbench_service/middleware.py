@@ -1,8 +1,9 @@
 import logging
 import secrets
 import time
+from collections.abc import Awaitable, Callable
 from functools import lru_cache
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import httpx
 from fastapi import HTTPException, Request, Response, status
@@ -85,11 +86,22 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
             key=keys,
             options={"verify_signature": False, "verify_aud": False},
         )
-        app_id: str = decoded.get("appid", "")
+        # ID tokens have 'aud', access tokens have 'appid'
+        app_id: str = decoded.get("appid", "") or decoded.get("aud", "")
+        azp: str = decoded.get("azp", "")
         tid: str = decoded.get("tid", "")
         oid: str = decoded.get("oid", "")
+        sub: str = decoded.get("sub", "")
         name: str = decoded.get("name", "")
-        user_id = f"{tid}.{oid}"
+
+        # For Entra ID tokens: use tid.oid
+        # For MSA tokens: use sub (since tid/oid are not present)
+        if tid and oid:
+            user_id = f"{tid}.{oid}"
+        elif sub:
+            user_id = sub
+        else:
+            raise ValueError("Token missing required user identification claims")
 
     except ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token")
@@ -101,8 +113,13 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
     if algorithm not in allowed_jwt_algorithms:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token algorithm")
 
-    if app_id != settings.auth.allowed_app_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid app")
+    # Verify token is for our application
+    # - ID tokens: 'aud' claim = our app ID
+    # - Access tokens: 'appid' claim = our app ID, or 'azp' = our app ID
+    if app_id != settings.auth.allowed_app_id and azp != settings.auth.allowed_app_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid app. App ID must match in client and server."
+        )
 
     return auth.UserPrincipal(user_id=user_id, name=name)
 

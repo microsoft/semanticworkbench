@@ -62,18 +62,19 @@ export const Constants = {
     msal: {
         method: 'redirect', // 'redirect' | 'popup'
         auth: {
-            // Semantic Workbench GitHub sample app registration
+            // Semantic Workbench app registration
             // The same value is set also in AuthSettings in
             // "semantic_workbench_service.config.py" in the backend
             // Can be overridden by env var VITE_SEMANTIC_WORKBENCH_CLIENT_ID
-            clientId: import.meta.env.VITE_SEMANTIC_WORKBENCH_CLIENT_ID || '22cb77c3-ca98-4a26-b4db-ac4dcecba690',
+            clientId: import.meta.env.VITE_SEMANTIC_WORKBENCH_CLIENT_ID || 'd0a2fed8-abb0-4831-8a24-09f5a0b54d97',
 
             // Specific tenant only:     'https://login.microsoftonline.com/<tenant>/',
             // Personal accounts only:   'https://login.microsoftonline.com/consumers',
             // Work + School accounts:   'https://login.microsoftonline.com/organizations',
             // Work + School + Personal: 'https://login.microsoftonline.com/common'
             // Can be overridden by env var VITE_SEMANTIC_WORKBENCH_AUTHORITY
-            authority: import.meta.env.VITE_SEMANTIC_WORKBENCH_AUTHORITY || 'https://login.microsoftonline.com/common',
+            authority:
+                import.meta.env.VITE_SEMANTIC_WORKBENCH_AUTHORITY || 'https://login.microsoftonline.com/consumers',
         },
         cache: {
             cacheLocation: 'localStorage',
