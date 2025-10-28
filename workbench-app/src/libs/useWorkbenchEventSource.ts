@@ -83,33 +83,6 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
     }, [endpoint, manager]);
 };
 
-const getAccessToken = async (forceRefresh?: boolean) => {
-    const msalInstance = await getMsalInstance();
-
-    const account = msalInstance.getActiveAccount();
-    if (!account) {
-        throw new Error('No active account');
-    }
-
-    const response = await msalInstance
-        .acquireTokenSilent({
-            ...AuthHelper.loginRequest,
-            account,
-            forceRefresh,
-        })
-        .catch(async (error) => {
-            if (error instanceof InteractionRequiredAuthError) {
-                return await AuthHelper.loginAsync(msalInstance);
-            }
-            throw error;
-        });
-    if (!response) {
-        throw new Error('Could not acquire access token');
-    }
-
-    return response.accessToken;
-};
-
 const getIdTokenAsync = async (forceRefresh?: boolean) => {
     const msalInstance = await getMsalInstance();
 
