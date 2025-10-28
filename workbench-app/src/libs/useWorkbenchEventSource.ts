@@ -25,7 +25,6 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
         const startEventSource = async () => {
             if (!isMounted) return;
 
-            const accessToken = await getAccessToken();
             const idToken = await getIdTokenAsync();
 
             // this promise is intentionally not awaited. it runs in the background and is cancelled when
@@ -34,8 +33,7 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
                 signal: abortController.signal,
                 openWhenHidden: true,
                 headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
                 async onopen(response) {
                     if (!isMounted) return;
@@ -83,33 +81,6 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
             abortController.abort();
         };
     }, [endpoint, manager]);
-};
-
-const getAccessToken = async (forceRefresh?: boolean) => {
-    const msalInstance = await getMsalInstance();
-
-    const account = msalInstance.getActiveAccount();
-    if (!account) {
-        throw new Error('No active account');
-    }
-
-    const response = await msalInstance
-        .acquireTokenSilent({
-            ...AuthHelper.loginRequest,
-            account,
-            forceRefresh,
-        })
-        .catch(async (error) => {
-            if (error instanceof InteractionRequiredAuthError) {
-                return await AuthHelper.loginAsync(msalInstance);
-            }
-            throw error;
-        });
-    if (!response) {
-        throw new Error('Could not acquire access token');
-    }
-
-    return response.accessToken;
 };
 
 const getIdTokenAsync = async (forceRefresh?: boolean) => {

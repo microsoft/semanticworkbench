@@ -2,7 +2,7 @@ import os
 
 import openai_client
 import pytest
-from openai import OpenAI
+from openai import AuthenticationError, OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 
 
@@ -12,7 +12,19 @@ def client() -> OpenAI:
     if not api_key:
         pytest.skip("OPENAI_API_KEY is not set.")
 
-    return OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key)
+
+    # Test if the API key is valid by making a minimal request
+    try:
+        client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "test"}],
+            max_tokens=1,
+        )
+    except AuthenticationError as e:
+        pytest.skip(f"OPENAI_API_KEY is invalid or deactivated: {e}")
+
+    return client
 
 
 @pytest.mark.parametrize(

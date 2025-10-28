@@ -20,9 +20,11 @@ async def test_auth_middleware_rejects_disallowed_algo(monkeypatch: pytest.Monke
     monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {"RS256"})
 
     tid = str(uuid.uuid4())
+    oid = str(uuid.uuid4())
     token = jwt.encode(
         claims={
             "tid": tid,
+            "oid": oid,
         },
         key="",
         algorithm="HS256",
@@ -44,9 +46,13 @@ def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(settings.auth, "allowed_app_id", "fake-app-id")
     monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {algo})
 
+    tid = str(uuid.uuid4())
+    oid = str(uuid.uuid4())
     token = jwt.encode(
         claims={
             "appid": "not allowed",
+            "tid": tid,
+            "oid": oid,
         },
         key="",
         algorithm=algo,
@@ -59,7 +65,7 @@ def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPat
         http_response = client.get("/", headers={"Authorization": f"Bearer {token}"})
 
         assert http_response.status_code == 401
-        assert http_response.json()["detail"].lower() == "invalid app"
+        assert http_response.json()["detail"].lower() == "invalid app. app id must match in client and server."
 
 
 def test_auth_middleware_rejects_missing_authorization_header():

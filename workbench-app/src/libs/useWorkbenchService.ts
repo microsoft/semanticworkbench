@@ -21,29 +21,6 @@ export const useWorkbenchService = () => {
     const account = useAccount();
     const msal = useMsal();
 
-    const getAccessTokenAsync = React.useCallback(async () => {
-        if (!account) {
-            throw new Error('No active account');
-        }
-
-        const response = await msal.instance
-            .acquireTokenSilent({
-                ...AuthHelper.loginRequest,
-                account,
-            })
-            .catch(async (error) => {
-                if (error instanceof InteractionRequiredAuthError) {
-                    return await AuthHelper.loginAsync(msal.instance);
-                }
-                throw error;
-            });
-        if (!response) {
-            dispatch(addError({ title: 'Failed to acquire token', message: 'Could not acquire access token' }));
-            throw new Error('Could not acquire access token');
-        }
-        return response.accessToken;
-    }, [account, dispatch, msal.instance]);
-
     const getIdTokenAsync = React.useCallback(async () => {
         if (!account) {
             throw new Error('No active account');
@@ -69,14 +46,12 @@ export const useWorkbenchService = () => {
 
     const tryFetchAsync = React.useCallback(
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
-            const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     ...options?.headers,
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
             });
 
@@ -89,19 +64,17 @@ export const useWorkbenchService = () => {
 
             return response;
         },
-        [dispatch, getAccessTokenAsync, getIdTokenAsync],
+        [dispatch, getIdTokenAsync],
     );
 
     const tryFetchStreamAsync = React.useCallback(
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
-            const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     ...options?.headers,
-                    Authorization: `Bearer ${accessToken}`,
-                    'X-OpenIdToken': idToken,
+                    Authorization: `Bearer ${idToken}`,
                 },
             });
 
@@ -114,7 +87,7 @@ export const useWorkbenchService = () => {
 
             return response;
         },
-        [dispatch, getAccessTokenAsync, getIdTokenAsync],
+        [dispatch, getIdTokenAsync],
     );
 
     const tryFetchFileAsync = React.useCallback(
