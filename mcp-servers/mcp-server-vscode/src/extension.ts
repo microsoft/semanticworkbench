@@ -9,13 +9,18 @@ import { z } from 'zod';
 import packageJson from '../package.json';
 import { codeCheckerTool } from './tools/code_checker';
 import {
-    listDebugSessions,
-    listDebugSessionsSchema,
+    listBreakpoints,
+    listBreakpointsSchema,
+    onBreakpointHit,
+    resumeDebugSession,
+    resumeDebugSessionSchema,
+    setBreakpoint,
+    setBreakpointSchema,
     startDebugSession,
     startDebugSessionSchema,
     stopDebugSession,
     stopDebugSessionSchema,
-} from './tools/debug_tools';
+} from './tools/debug';
 import { focusEditorTool } from './tools/focus_editor';
 import { resolvePort } from './utils/port';
 
@@ -99,7 +104,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
     //     'search_symbol',
     //     dedent`
     //     Search for a symbol within the workspace.
-    //     - Tries to resolve the definition via VSCode’s "Go to Definition".
+    //     - Tries to resolve the definition via VSCode's "Go to Definition".
     //     - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
     //     `.trim(),
     //     {
@@ -122,16 +127,53 @@ export const activate = async (context: vscode.ExtensionContext) => {
     //     },
     // );
 
-    // Register 'list_debug_sessions' tool
+    // Register 'set_breakpoint' tool
     mcpServer.tool(
-        'list_debug_sessions',
-        'List all active debug sessions in the workspace.',
-        listDebugSessionsSchema.shape, // No parameters required
-        async () => {
-            const result = await listDebugSessions();
+        'set_breakpoint',
+        'Set a breakpoint at a specific line in a file.',
+        setBreakpointSchema.shape,
+        async (params) => {
+            const result = await setBreakpoint(params);
             return {
                 ...result,
-                content: result.content.map((item) => ({ type: 'text', text: JSON.stringify(item.json) })),
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'resume_debug_session' tool
+    mcpServer.tool(
+        'resume_debug_session',
+        'Resume execution of a debug session that has been paused (e.g., by a breakpoint).',
+        resumeDebugSessionSchema.shape,
+        async (params) => {
+            const result = await resumeDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'stop_debug_session' tool
+    mcpServer.tool(
+        'stop_debug_session',
+        'Stop all debug sessions that match the provided session name.',
+        stopDebugSessionSchema.shape,
+        async (params) => {
+            const result = await stopDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
             };
         },
     );
@@ -139,7 +181,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
     // Register 'start_debug_session' tool
     mcpServer.tool(
         'start_debug_session',
-        'Start a new debug session with the provided configuration.',
+        'Start a new debug session using the provided configuration. Can optionally wait for the session to stop at a breakpoint.',
         startDebugSessionSchema.shape,
         async (params) => {
             const result = await startDebugSession(params);
@@ -152,8 +194,6 @@ export const activate = async (context: vscode.ExtensionContext) => {
             };
         },
     );
-
-    // Register 'stop_debug_session' tool
 
     // Register 'restart_debug_session' tool
     mcpServer.tool(
@@ -175,18 +215,23 @@ export const activate = async (context: vscode.ExtensionContext) => {
             };
         },
     );
+
+    // Register 'list_breakpoints' tool
     mcpServer.tool(
-        'stop_debug_session',
-        'Stop all debug sessions that match the provided session name.',
-        stopDebugSessionSchema.shape,
+        'list_breakpoints',
+        'Get a list of all currently set breakpoints in the workspace, with optional filtering by file path.',
+        listBreakpointsSchema.shape,
         async (params) => {
-            const result = await stopDebugSession(params);
+            const result = await listBreakpoints(params);
             return {
                 ...result,
-                content: result.content.map((item) => ({
-                    ...item,
-                    type: 'text' as const,
-                })),
+                content: result.content.map((item) => {
+                    if ('json' in item) {
+                        // Convert json content to text string
+                        return { type: 'text' as const, text: JSON.stringify(item.json) };
+                    }
+                    return Object.assign(item, { type: 'text' as const });
+                }),
             };
         },
     );
@@ -236,6 +281,75 @@ export const activate = async (context: vscode.ExtensionContext) => {
 
     // Create and start the HTTP server
     const server = http.createServer(app);
+
+    // Track active breakpoint event subscriptions
+    const breakpointSubscriptions = new Map<
+        string,
+        {
+            sessionId?: string;
+            sessionName?: string;
+        }
+    >();
+
+    // Listen for breakpoint hit events and notify subscribers
+    const breakpointListener = onBreakpointHit((event) => {
+        outputChannel.appendLine(`Breakpoint hit event received in extension: ${JSON.stringify(event)}`);
+
+        if (sseTransport && sseTransport.sessionId) {
+            // Only send notifications if we have an active SSE connection
+            outputChannel.appendLine(`SSE transport is active with sessionId: ${sseTransport.sessionId}`);
+
+            // Check all subscriptions to see if any match this event
+            if (breakpointSubscriptions.size === 0) {
+                outputChannel.appendLine('No active breakpoint subscriptions found');
+            }
+
+            breakpointSubscriptions.forEach((filter, subscriptionId) => {
+                outputChannel.appendLine(
+                    `Checking subscription ${subscriptionId} with filter: ${JSON.stringify(filter)}`,
+                );
+
+                // If the subscription has a filter, check if this event matches
+                const sessionIdMatch = !filter.sessionId || filter.sessionId === event.sessionId;
+                const sessionNameMatch = !filter.sessionName || filter.sessionName === event.sessionName;
+
+                outputChannel.appendLine(
+                    `Session ID match: ${sessionIdMatch}, Session name match: ${sessionNameMatch}`,
+                );
+
+                // Send notification if this event matches the subscription filter
+                if (sessionIdMatch && sessionNameMatch && sseTransport) {
+                    // Construct notification message with correct type for jsonrpc
+                    const notification = {
+                        jsonrpc: '2.0' as const,
+                        method: 'mcp/notification',
+                        params: {
+                            type: 'breakpoint-hit',
+                            subscriptionId,
+                            data: {
+                                ...event,
+                                timestamp: new Date().toISOString(),
+                            },
+                        },
+                    };
+
+                    // Send the notification through the SSE transport
+                    try {
+                        sseTransport.send(notification);
+                        outputChannel.appendLine(`Sent breakpoint hit notification for subscription ${subscriptionId}`);
+                    } catch (error) {
+                        outputChannel.appendLine(`Error sending breakpoint notification: ${error}`);
+                    }
+                }
+            });
+        } else {
+            outputChannel.appendLine('No active SSE transport, cannot send breakpoint notification');
+        }
+    });
+
+    // Dispose of the breakpoint listener when the extension is deactivated
+    context.subscriptions.push({ dispose: () => breakpointListener.dispose() });
+
     function startServer(port: number): void {
         server.listen(port, () => {
             outputChannel.appendLine(`MCP SSE Server running at http://127.0.0.1:${port}/sse`);
