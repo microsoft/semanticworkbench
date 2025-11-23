@@ -33,6 +33,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.assistant_model import (
     ConfigPutRequestModel,
     ConfigResponseModel,
@@ -1058,6 +1059,26 @@ def init(
     ) -> None:
         await file_controller.delete_file(
             conversation_id=conversation_id,
+            filename=filename,
+            principal=principal,
+        )
+
+    @app.get("/conversations/{conversation_id}/assistants/{assistant_id}/files/{filename:path}/processed-content")
+    async def get_processed_file_content(
+        conversation_id: uuid.UUID,
+        assistant_id: uuid.UUID,
+        filename: str,
+        principal: auth.DependsActorPrincipal,
+    ) -> workbench_model.ProcessedFileContentModel:
+        """Retrieve processed content for a file from an assistant.
+
+        Returns a processed representation (markdown / text / image / code) if the
+        assistant exposes it, otherwise a not_available message. Errors are surfaced
+        with processing_status = "error" and an error_message.
+        """
+        return await assistant_controller.get_processed_file_content(
+            conversation_id=conversation_id,
+            assistant_id=assistant_id,
             filename=filename,
             principal=principal,
         )
