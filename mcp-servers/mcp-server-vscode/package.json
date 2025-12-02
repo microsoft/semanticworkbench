@@ -83,7 +83,7 @@
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.4.1",
+        "@modelcontextprotocol/sdk": "^1.24.0",
         "dedent": "^1.5.3",
         "express": "^4.21.2",
         "get-port": "^7.1.0"
