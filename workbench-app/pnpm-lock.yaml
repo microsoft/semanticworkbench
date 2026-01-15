@@ -108,8 +108,8 @@ importers:
         specifier: ^4.3.1
         version: 4.3.1
       diff:
-        specifier: ^7.0.0
-        version: 7.0.0
+        specifier: ^8.0.3
+        version: 8.0.3
       js-tiktoken:
         specifier: ^1.0.14
         version: 1.0.14
@@ -1158,6 +1158,10 @@ packages:
     resolution: {integrity: sha512-1x3D2xEk2fRo3PAhwQwu5UubzgiVWSXTBfWpVd2Mx2AzRqJuDJCsgaDVZ7HB5iGzDW1Hl1sWN2mFyKjmR9uAog==}
     engines: {node: '>=6.9.0'}
 
+  '@babel/runtime@7.28.6':
+    resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
+    engines: {node: '>=6.9.0'}
+
   '@babel/template@7.25.0':
     resolution: {integrity: sha512-aOOgh1/5XzKvg1jvVz7AVrx2piJ2XBi227DHmbY6y+bM9H2FlN+IfecYu4Xl0cNiiVejlsCri89LUsbj8vJD9Q==}
     engines: {node: '>=6.9.0'}
@@ -2121,11 +2125,11 @@ packages:
       react: '>=16.14.0 <19.0.0'
       react-dom: '>=16.14.0 <19.0.0'
 
-  '@fluentui/react-portal-compat-context@9.0.13':
-    resolution: {integrity: sha512-N+c6Qs775jnr/4WIzsQuNaRu4v16fa+gGsOCzzU1bqxX0IR9BSjjO2oLGC6luaAOqlQP+JIwn/aumOIJICKXkA==}
+  '@fluentui/react-portal-compat-context@9.0.15':
+    resolution: {integrity: sha512-DpV+qtFvM3dmH1j8ZD+YcM5vaTvmQPHUAx6tQnnmIoYJWs2R0wU/L5p2EajXy7zSg74jrDbDRxzaziamoOaJdg==}
     peerDependencies:
-      '@types/react': '>=16.14.0 <19.0.0'
-      react: '>=16.14.0 <19.0.0'
+      '@types/react': '>=16.14.0 <20.0.0'
+      react: '>=16.14.0 <20.0.0'
 
   '@fluentui/react-portal@9.4.35':
     resolution: {integrity: sha512-b0OTtFUmbHOU41wbRITqe3Wlqx3zpmXXUUsFh0KtSTKsMrWy2a2jtl7ZToNRsFfa3opwKsvlk+ohRT5CkDyQ4w==}
@@ -2355,6 +2359,7 @@ packages:
 
   '@fluentui/react-virtualizer@9.0.0-alpha.85':
     resolution: {integrity: sha512-zdwqj3sLH1TeMwgXNFOVsWtWrH/zD4vmq1s/WkbB4Wu5h/CeemQEN3//WVpz0AB3cZGvcPiTitKH12AfaCqXIQ==}
+    deprecated: Deprecating react-virtualizer in Fluent core - migrating to fluentui-contrib repo for stable release
     peerDependencies:
       '@types/react': '>=16.14.0 <19.0.0'
       '@types/react-dom': '>=16.9.0 <19.0.0'
@@ -2834,8 +2839,8 @@ packages:
   '@swc/helpers@0.5.13':
     resolution: {integrity: sha512-UoKGxQ3r5kYI9dALKJapMmuK+1zWM/H17Z1+iwnNmzcJRnfFuevZs375TA5rW31pu4BS4NoSy1fRsexDXfWn5w==}
 
-  '@swc/helpers@0.5.17':
-    resolution: {integrity: sha512-5IKx/Y13RsYd+sauPb2x+U/xZikHjolzfuDgTAl/Tdf3Q8rslRvC19NKDLgAJQ6wsqADk10ntlv08nPFw/gO/A==}
+  '@swc/helpers@0.5.18':
+    resolution: {integrity: sha512-TXTnIcNJQEKwThMMqBXsZ4VGAza6bvN4pa41Rkqoio6QBKMvo+5lexeTMScGCIxtzgQJzElcvIltani+adC5PQ==}
 
   '@ts-morph/common@0.12.3':
     resolution: {integrity: sha512-4tUmeLyXJnJWvTFOKtcNJ1yh0a3SsTLi2MUoyj8iUNznFRN1ZquaNe7Oukqrnki2FzZkm0J9adCNLDZxUzvj+w==}
@@ -3400,6 +3405,9 @@ packages:
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
 
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
   cytoscape-cose-bilkent@4.1.0:
     resolution: {integrity: sha512-wgQlVIUJF13Quxiv5e1gstZ08rnZj2XaLHGoFMYXz7SkNfCDOOteKBE6SYRfA9WxxI/iBc3ajfDoc6hb/MRAHQ==}
     peerDependencies:
@@ -3650,8 +3658,8 @@ packages:
     resolution: {integrity: sha512-uIFDxqpRZGZ6ThOk84hEfqWoHx2devRFvpTZcTHur85vImfaxUbTW9Ryh4CpCuDnToOP1CEtXKIgytHBPVff5A==}
     engines: {node: '>=0.3.1'}
 
-  diff@7.0.0:
-    resolution: {integrity: sha512-PJWHUb1RFevKCwaFA9RlG5tCd+FO5iRh9A8HEtkmBH2Li03iJriB6m6JIN4rGz3K3JLawI7/veA1xzRKP6ISBw==}
+  diff@8.0.3:
+    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
     engines: {node: '>=0.3.1'}
 
   dir-glob@3.0.1:
@@ -4550,8 +4558,8 @@ packages:
   lexical@0.17.1:
     resolution: {integrity: sha512-72/MhR7jqmyqD10bmJw8gztlCm4KDDT+TPtU4elqXrEvHoO5XENi34YAEUD9gIkPfqSwyLa9mwAX1nKzIr5xEA==}
 
-  lib0@0.2.107:
-    resolution: {integrity: sha512-2xih/AugT0dJSgeSfsW/bqIPILlsqzEtmw8hXzWEnMLrOz12DTK5z9rjNgUT21/HkBjHSznOQBr67bcZdc8Ltg==}
+  lib0@0.2.117:
+    resolution: {integrity: sha512-DeXj9X5xDCjgKLU/7RR+/HQEVzuuEUiwldwOGsHK/sfAfELGWEyTcf0x+uOvCvK3O2zPmZePXWL85vtia6GyZw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -6978,6 +6986,8 @@ snapshots:
 
   '@babel/runtime@7.27.1': {}
 
+  '@babel/runtime@7.28.6': {}
+
   '@babel/template@7.25.0':
     dependencies:
       '@babel/code-frame': 7.24.7
@@ -7836,7 +7846,7 @@ snapshots:
 
   '@fluentui/accessibility@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       lodash: 4.17.21
 
   '@fluentui/dom-utilities@1.1.2':
@@ -7951,7 +7961,7 @@ snapshots:
 
   '@fluentui/react-bindings@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-component-event-listener': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -8062,20 +8072,20 @@ snapshots:
 
   '@fluentui/react-component-event-listener@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-nesting-registry@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       prop-types: 15.8.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-ref@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       react-is: 17.0.2
@@ -8237,7 +8247,7 @@ snapshots:
 
   '@fluentui/react-icons-northstar@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       '@fluentui/accessibility': 0.66.5
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/styles': 0.66.5
@@ -8446,7 +8456,7 @@ snapshots:
 
   '@fluentui/react-northstar-fela-renderer@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       '@fluentui/react-northstar-styles-renderer': 0.66.5(react@18.3.1)
       '@fluentui/styles': 0.66.5
       css-in-js-utils: 3.1.0
@@ -8466,13 +8476,13 @@ snapshots:
 
   '@fluentui/react-northstar-styles-renderer@0.66.5(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       '@fluentui/styles': 0.66.5
       react: 18.3.1
 
   '@fluentui/react-northstar@0.66.5(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
@@ -8481,7 +8491,7 @@ snapshots:
       '@fluentui/react-component-ref': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@fluentui/react-icons-northstar': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/react-northstar-styles-renderer': 0.66.5(react@18.3.1)
-      '@fluentui/react-portal-compat-context': 9.0.13(@types/react@18.3.10)(react@18.3.1)
+      '@fluentui/react-portal-compat-context': 9.0.15(@types/react@18.3.10)(react@18.3.1)
       '@fluentui/react-proptypes': 0.66.5
       '@fluentui/state': 0.66.5
       '@fluentui/styles': 0.66.5
@@ -8553,9 +8563,9 @@ snapshots:
     transitivePeerDependencies:
       - scheduler
 
-  '@fluentui/react-portal-compat-context@9.0.13(@types/react@18.3.10)(react@18.3.1)':
+  '@fluentui/react-portal-compat-context@9.0.15(@types/react@18.3.10)(react@18.3.1)':
     dependencies:
-      '@swc/helpers': 0.5.17
+      '@swc/helpers': 0.5.18
       '@types/react': 18.3.10
       react: 18.3.1
 
@@ -8604,7 +8614,7 @@ snapshots:
 
   '@fluentui/react-proptypes@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       lodash: 4.17.21
       prop-types: 15.8.1
 
@@ -9068,7 +9078,7 @@ snapshots:
 
   '@fluentui/state@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
 
   '@fluentui/style-utilities@8.11.0(@types/react@18.3.10)(react@18.3.1)':
     dependencies:
@@ -9084,8 +9094,8 @@ snapshots:
 
   '@fluentui/styles@0.66.5':
     dependencies:
-      '@babel/runtime': 7.27.1
-      csstype: 3.1.3
+      '@babel/runtime': 7.28.6
+      csstype: 3.2.3
       lodash: 4.17.21
 
   '@fluentui/theme@2.6.60(@types/react@18.3.10)(react@18.3.1)':
@@ -9844,7 +9854,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@swc/helpers@0.5.17':
+  '@swc/helpers@0.5.18':
     dependencies:
       tslib: 2.8.1
 
@@ -10525,6 +10535,8 @@ snapshots:
 
   csstype@3.1.3: {}
 
+  csstype@3.2.3: {}
+
   cytoscape-cose-bilkent@4.1.0(cytoscape@3.30.2):
     dependencies:
       cose-base: 1.0.3
@@ -10827,7 +10839,7 @@ snapshots:
 
   diff@5.2.0: {}
 
-  diff@7.0.0: {}
+  diff@8.0.3: {}
 
   dir-glob@3.0.1:
     dependencies:
@@ -10850,7 +10862,7 @@ snapshots:
 
   downshift@5.0.5(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.27.1
+      '@babel/runtime': 7.28.6
       compute-scroll-into-view: 1.0.11
       prop-types: 15.8.1
       react: 18.3.1
@@ -11935,7 +11947,7 @@ snapshots:
 
   lexical@0.17.1: {}
 
-  lib0@0.2.107:
+  lib0@0.2.117:
     dependencies:
       isomorphic.js: 0.2.5
 
@@ -13657,7 +13669,7 @@ snapshots:
 
   yjs@13.6.19:
     dependencies:
-      lib0: 0.2.107
+      lib0: 0.2.117
 
   yocto-queue@0.1.0: {}
 
