@@ -11,6 +11,7 @@
 appsettings.*.json
 **/.DS_Store
 .working
+tmp/
 
 # Dependencies and build cache
 node_modules

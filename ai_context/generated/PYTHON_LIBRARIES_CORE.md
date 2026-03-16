@@ -5,7 +5,7 @@
 **Search:** ['libraries/python/semantic-workbench-api-model', 'libraries/python/semantic-workbench-assistant', 'libraries/python/events']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output']
 **Include:** ['pyproject.toml', 'README.md']
-**Date:** 5/29/2025, 11:45:28 AM
+**Date:** 8/5/2025, 4:43:26 PM
 **Files:** 45
 
 === File: README.md ===
@@ -720,6 +720,14 @@ class AssistantTemplateModel(BaseModel):
     config: ConfigResponseModel
 
 
+class LegacyServiceInfoModel(BaseModel):
+    assistant_service_id: str
+    name: str
+    description: str
+    default_config: ConfigResponseModel
+    metadata: dict[str, Any] = {}
+
+
 class ServiceInfoModel(BaseModel):
     assistant_service_id: str
     name: str
@@ -754,13 +762,15 @@ from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Se
 import asgi_correlation_id
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from semantic_workbench_api_model.assistant_model import (
     AssistantPutRequestModel,
+    AssistantTemplateModel,
     ConfigPutRequestModel,
     ConfigResponseModel,
     ConversationPutRequestModel,
+    LegacyServiceInfoModel,
     ServiceInfoModel,
     StateDescriptionListResponseModel,
     StatePutRequestModel,
@@ -1051,7 +1061,25 @@ class AssistantServiceClient:
         if not response.is_success:
             raise AssistantResponseError(response)
 
-        return ServiceInfoModel.model_validate(response.json())
+        response_json = response.json()
+
+        try:
+            return ServiceInfoModel.model_validate(response_json)
+        except ValidationError:
+            legacy = LegacyServiceInfoModel.model_validate(response_json)
+            return ServiceInfoModel(
+                assistant_service_id=legacy.assistant_service_id,
+                name=legacy.name,
+                metadata=legacy.metadata,
+                templates=[
+                    AssistantTemplateModel(
+                        id="default",
+                        name=legacy.name,
+                        description=legacy.description,
+                        config=legacy.default_config,
+                    )
+                ],
+            )
 
 
 class AssistantServiceClientBuilder:
@@ -1730,6 +1758,16 @@ class ConversationAPIClient:
             json=workbench_model.UpdateConversation(metadata=metadata).model_dump(
                 mode="json", exclude_unset=True, exclude_defaults=True
             ),
+            headers=self._headers,
+        )
+        http_response.raise_for_status()
+        return workbench_model.Conversation.model_validate(http_response.json())
+
+    async def update_conversation_title(self, title: str) -> workbench_model.Conversation:
+        update_data = workbench_model.UpdateConversation(title=title)
+        http_response = await self._client.patch(
+            f"/conversations/{self._conversation_id}",
+            json=update_data.model_dump(mode="json", exclude_unset=True, exclude_defaults=True),
             headers=self._headers,
         )
         http_response.raise_for_status()
@@ -3391,6 +3429,9 @@ class ConversationContext:
     async def update_conversation(self, metadata: dict[str, Any]) -> workbench_model.Conversation:
         return await self._conversation_client.update_conversation(metadata)
 
+    async def update_conversation_title(self, title: str) -> workbench_model.Conversation:
+        return await self._conversation_client.update_conversation_title(title)
+
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
         return await self._conversation_client.get_participants(include_inactive=include_inactive)
 
@@ -4639,6 +4680,13 @@ class AssistantService(FastAPIAssistantService):
                     conversation_context,
                     updated_event,
                     file,
+                )
+
+            case workbench_model.ConversationEventType.conversation_updated:
+                # Conversation metadata updates (title, metadata, etc.)
+                await self.assistant_app.events.conversation._on_updated_handlers(
+                    True,  # event_originated_externally (always True for workbench updates)
+                    conversation_context,
                 )
 
     @translate_assistant_errors
@@ -6176,20 +6224,26 @@ class FileStorageSettings(BaseSettings):
     root: str = ".data/files"
 
 
-def write_model(file_path: os.PathLike, value: BaseModel, serialization_context: dict[str, Any] | None = None) -> None:
+def write_model(
+    file_path: os.PathLike,
+    value: BaseModel,
+    serialization_context: dict[str, Any] | None = None,
+) -> None:
     """Write a pydantic model to a file."""
     path = pathlib.Path(file_path)
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
 
-    data_json = value.model_dump_json(context=serialization_context)
+    data_json = value.model_dump_json(context=serialization_context, indent=2)
     path.write_text(data_json, encoding="utf-8")
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def read_model(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
+def read_model(
+    file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None
+) -> ModelT | None:
     """Read a pydantic model from a file."""
     path = pathlib.Path(file_path)
 
@@ -6234,6 +6288,7 @@ def storage_settings(request: pytest.FixtureRequest) -> Iterator[storage.FileSto
 import asyncio
 import datetime
 import io
+import json
 import pathlib
 import random
 import shutil
@@ -6704,7 +6759,7 @@ async def test_assistant_with_config_provider(
 
             config_path = extract_path / "config.json"
             assert config_path.exists()
-            assert config_path.read_text() == '{"test_key":"new_value","secret_field":""}'
+            assert json.loads(config_path.read_text()) == json.loads('{"test_key":"new_value","secret_field":""}')
 
         config_provider_wrapper.reset_mock()
 

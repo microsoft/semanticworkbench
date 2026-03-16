@@ -5,7 +5,7 @@
 **Search:** ['mcp-servers']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png', 'data', 'test']
 **Include:** ['pyproject.toml', 'README.md', 'package.json']
-**Date:** 5/29/2025, 11:45:28 AM
+**Date:** 8/5/2025, 4:43:26 PM
 **Files:** 304
 
 === File: README.md ===
@@ -13395,14 +13395,6 @@ htmlcov/
       "args": ["--transport", "sse", "--port", "6030"],
       "consoleTitle": "mcp-server-bing-search"
       // "justMyCode": false // Set to false to debug external libraries
-    },
-    {
-      "name": "Python: Current File",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }
@@ -14946,14 +14938,6 @@ htmlcov/
       "args": ["--transport", "sse", "--port", "25567"],
       "consoleTitle": "mcp-server-filesystem-edit",
       "justMyCode": false
-    },
-    {
-      "name": "Python: Current File",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }
@@ -24933,14 +24917,6 @@ ASSISTANT__AZURE_OPENAI_ENDPOINT=https://<YOUR-RESOURCE-NAME>.openai.azure.com/
       "args": ["--transport", "sse", "--port", "25566"],
       "consoleTitle": "mcp-server-office"
       // "justMyCode": false // Set to false to debug external libraries
-    },
-    {
-      "name": "Python: Current File",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }
