@@ -37,7 +37,7 @@ async def test_auth_middleware_rejects_disallowed_algo(monkeypatch: pytest.Monke
         http_response = client.get("/", headers={"Authorization": f"Bearer {token}"})
 
         assert http_response.status_code == 401
-        assert http_response.json()["detail"].lower() == "invalid token algorithm"
+        assert http_response.json()["detail"].lower() == "invalid token"
 
 
 def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPatch) -> None:
