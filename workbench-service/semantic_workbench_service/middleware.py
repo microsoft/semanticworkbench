@@ -84,7 +84,7 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
             token,
             algorithms=allowed_jwt_algorithms,
             key=keys,
-            options={"verify_signature": False, "verify_aud": False},
+            audience=settings.auth.allowed_app_id,
         )
         # ID tokens have 'aud', access tokens have 'appid'
         app_id: str = decoded.get("appid", "") or decoded.get("aud", "")
