@@ -17,7 +17,20 @@ import {
     stopDebugSessionSchema,
 } from './tools/debug_tools';
 import { focusEditorTool } from './tools/focus_editor';
+import {
+    closeTerminal,
+    closeTerminalSchema,
+    createTerminal,
+    createTerminalSchema,
+    getTerminalOutput,
+    getTerminalOutputSchema,
+    listTerminals,
+    listTerminalsSchema,
+    sendTerminalText,
+    sendTerminalTextSchema,
+} from './tools/terminal_tools';
 import { resolvePort } from './utils/port';
+import { initTerminalOutputCapture } from './utils/terminal_output_capture';
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
@@ -190,6 +203,102 @@ export const activate = async (context: vscode.ExtensionContext) => {
             };
         },
     );
+
+    // Register 'create_terminal' tool
+    mcpServer.tool(
+        'create_terminal',
+        dedent`
+            Create a new integrated terminal in the VSCode workspace.
+            Optionally set a name, working directory, and an initial command to execute.
+        `.trim(),
+        createTerminalSchema.shape,
+        async (params) => {
+            const result = await createTerminal(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'list_terminals' tool
+    mcpServer.tool(
+        'list_terminals',
+        'List all active terminals in the workspace.',
+        listTerminalsSchema.shape,
+        async () => {
+            const result = listTerminals();
+            return {
+                ...result,
+                content: result.content.map((item) => ({ type: 'text', text: JSON.stringify(item.json) })),
+            };
+        },
+    );
+
+    // Register 'send_terminal_text' tool
+    mcpServer.tool(
+        'send_terminal_text',
+        dedent`
+            Send text to an existing terminal by name.
+            Use this to execute commands or type input in a terminal that was previously created.
+        `.trim(),
+        sendTerminalTextSchema.shape,
+        async (params) => {
+            const result = await sendTerminalText(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'close_terminal' tool
+    mcpServer.tool(
+        'close_terminal',
+        'Close an active terminal by name.',
+        closeTerminalSchema.shape,
+        async (params) => {
+            const result = await closeTerminal(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'get_terminal_output' tool
+    mcpServer.tool(
+        'get_terminal_output',
+        dedent`
+            Read captured command output from a terminal.
+            Output is captured per-command via shell execution events.
+            Returns clean output without ANSI escape codes.
+            Requires VS Code shell integration to be active (enabled by default).
+        `.trim(),
+        getTerminalOutputSchema.shape,
+        async (params) => {
+            const result = await getTerminalOutput(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Initialize terminal output capture (shell execution events)
+    initTerminalOutputCapture(context);
 
     // Set up an Express app to handle SSE connections
     const app = express();
