@@ -9,5 +9,15 @@
       "module": "semantic_workbench_assistant.start",
       "consoleTitle": "${workspaceFolderBasename}"
     }
+  ],
+  "compounds": [
+    {
+      "name": "examples: python-02-simple-chatbot (default)",
+      "configurations": [
+        "examples: python-02-simple-chatbot",
+        "app: semantic-workbench-app",
+        "service: semantic-workbench-service"
+      ]
+    }
   ]
 }

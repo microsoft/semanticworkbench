@@ -5,7 +5,7 @@
 **Search:** ['workbench-app/src']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png', '*.jpg']
 **Include:** ['package.json', 'tsconfig.json', 'vite.config.ts']
-**Date:** 5/29/2025, 11:45:28 AM
+**Date:** 8/5/2025, 4:43:26 PM
 **Files:** 207
 
 === File: workbench-app/src/Constants.ts ===
@@ -10970,6 +10970,7 @@ import { Link } from 'react-router-dom';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 
+import { makeStyles, tokens } from '@fluentui/react-components';
 import { ContentRenderer } from './ContentRenderer';
 import { ContentSafetyNotice } from './ContentSafetyNotice';
 
@@ -10978,13 +10979,42 @@ interface InteractMessageProps {
     message: ConversationMessage;
 }
 
+const useClasses = makeStyles({
+    help: {
+        backgroundColor: '#e3ecef',
+        padding: tokens.spacingVerticalS,
+        borderRadius: tokens.borderRadiusMedium,
+        marginTop: tokens.spacingVerticalL,
+        fontColor: '#707a7d',
+        '& h3': {
+            marginTop: 0,
+            marginBottom: 0,
+            fontSize: tokens.fontSizeBase200,
+            fontWeight: tokens.fontWeightSemibold,
+        },
+        '& p': {
+            marginTop: 0,
+            marginBottom: 0,
+            fontSize: tokens.fontSizeBase200,
+            lineHeight: tokens.lineHeightBase300,
+            fontStyle: 'italic',
+        },
+    },
+});
+
 export const MessageBody: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message } = props;
-
+    const classes = useClasses();
     const body = (
         <>
             <ContentSafetyNotice contentSafety={message.metadata?.['content_safety']} />
             <ContentRenderer conversation={conversation} message={message} />
+            {message.metadata?.['help'] && (
+                <div className={classes.help}>
+                    <h3>Next step?</h3>
+                    <p>{message.metadata['help']}</p>
+                </div>
+            )}
         </>
     );
 
@@ -11160,9 +11190,9 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
 import { CodeLabel } from '../../App/CodeLabel';
+import { CodeContentRenderer } from '../ContentRenderers/CodeContentRenderer';
 import { DebugInspector } from '../DebugInspector';
 import { MessageDelete } from '../MessageDelete';
-import { MessageContent } from './MessageContent';
 
 const useClasses = makeStyles({
     root: {
@@ -11221,8 +11251,8 @@ export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
     const toolName = toolCalls?.find((toolCall) => toolCall.id === toolCallId)?.name;
 
     const messageContent = React.useMemo(
-        () => <MessageContent message={message} conversation={conversation} />,
-        [message, conversation],
+        () => <CodeContentRenderer content={message.content} language="bash" />,
+        [message],
     );
 
     return (
@@ -14025,7 +14055,10 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
     const sortedParticipantsByOwnerMeOthers = React.useMemo(() => {
         const participants: ConversationParticipant[] = [];
-        participants.push(getOwnerParticipant(conversation));
+        const owner = getOwnerParticipant(conversation);
+        if (owner) {
+            participants.push(owner);
+        }
         if (wasSharedWithMe(conversation)) {
             const me = conversation.participants.find((participant) => participant.id === localUserId);
             if (me) {
@@ -16652,11 +16685,7 @@ export const useConversationUtility = () => {
     //
 
     const getOwnerParticipant = React.useCallback((conversation: Conversation) => {
-        const owner = conversation.participants.find((participant) => participant.id === conversation.ownerId);
-        if (!owner) {
-            throw new Error('Owner not found in conversation participants');
-        }
-        return owner;
+        return conversation.participants.find((participant) => participant.id === conversation.ownerId);
     }, []);
 
     const wasSharedWithMe = React.useCallback(

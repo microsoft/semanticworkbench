@@ -5,8 +5,8 @@
 **Search:** ['assistants/project-assistant']
 **Exclude:** ['.venv', 'node_modules', '*.lock', '.git', '__pycache__', '*.pyc', '*.ruff_cache', 'logs', 'output', '*.svg', '*.png']
 **Include:** ['pyproject.toml', 'README.md', 'CLAUDE.md']
-**Date:** 5/29/2025, 11:45:28 AM
-**Files:** 67
+**Date:** 8/5/2025, 4:43:26 PM
+**Files:** 55
 
 === File: CLAUDE.md ===
 # Semantic Workbench Developer Guidelines
@@ -547,7 +547,7 @@ The system follows a centralized artifact storage model with event-driven update
 
 
 === File: assistants/project-assistant/assistant/__init__.py ===
-from .chat import app
+from .assistant import app
 from .logging import logger, setup_file_logging
 
 # Set up file logging
@@ -557,7 +557,7 @@ logger.debug(f"Project Assistant initialized with log file: {log_file}")
 __all__ = ["app"]
 
 
-=== File: assistants/project-assistant/assistant/chat.py ===
+=== File: assistants/project-assistant/assistant/assistant.py ===
 # Copyright (c) Microsoft. All rights reserved.
 
 # Project Assistant implementation
@@ -582,7 +582,6 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantCapability,
-    AssistantTemplate,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
@@ -593,8 +592,6 @@ from assistant.respond import respond_to_conversation
 from assistant.team_welcome import generate_team_welcome_message
 from assistant.utils import (
     DEFAULT_TEMPLATE_ID,
-    KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-    is_knowledge_transfer_assistant,
     load_text_include,
 )
 
@@ -612,7 +609,9 @@ from .state_inspector import ProjectInspectorStateProvider
 
 service_id = "project-assistant.made-exploration"
 service_name = "Project Assistant"
-service_description = "A mediator assistant that facilitates file sharing between conversations."
+service_description = (
+    "A mediator assistant that facilitates project management between project coordinators and a team."
+)
 
 
 async def content_evaluator_factory(
@@ -634,19 +633,13 @@ assistant = AssistantApp(
     inspector_state_providers={
         "project_status": ProjectInspectorStateProvider(assistant_config),
     },
-    additional_templates=[
-        AssistantTemplate(
-            id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-            name="Knowledge Transfer Assistant",
-            description="An assistant for capturing and sharing complex information for others to explore.",
-        ),
-    ],
+    additional_templates=[],
     assistant_service_metadata={
         **dashboard_card.metadata(
             dashboard_card.TemplateConfig(
                 enabled=False,
                 template_id=DEFAULT_TEMPLATE_ID,
-                background_color="rgb(159, 216, 159)",
+                background_color="rgb(140, 200, 140)",
                 icon=dashboard_card.image_to_url(
                     pathlib.Path(__file__).parent / "assets" / "icon.svg", "image/svg+xml"
                 ),
@@ -655,22 +648,9 @@ assistant = AssistantApp(
                     content=load_text_include("card_content.md"),
                 ),
             ),
-            dashboard_card.TemplateConfig(
-                enabled=True,
-                template_id=KNOWLEDGE_TRANSFER_TEMPLATE_ID,
-                icon=dashboard_card.image_to_url(
-                    pathlib.Path(__file__).parent / "assets" / "icon_context_transfer.svg", "image/svg+xml"
-                ),
-                background_color="rgb(198,177,222)",
-                card_content=dashboard_card.CardContent(
-                    content_type="text/markdown",
-                    content=load_text_include("knowledge_transfer_card_content.md"),
-                ),
-            ),
         ),
         **navigator.metadata_for_assistant_navigator({
             "default": load_text_include("project_assistant_info.md"),
-            "knowledge_transfer": load_text_include("knowledge_transfer_assistant_info.md"),
         }),
     },
 )
@@ -788,9 +768,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 await ProjectManager.update_project_brief(
                     context=context,
                     title=f"New {config.Project_or_Context}",
-                    description="_This knowledge brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they explore the knowledge you are sharing?_"
-                    if is_knowledge_transfer_assistant(context)
-                    else "_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
+                    description="_This project brief is displayed in the side panel of all of your team members' conversations, too. Before you share links to your team, ask your assistant to update the brief with whatever details you'd like here. What will help your teammates get off to a good start as they begin working on your project?_",
                 )
 
                 # Create a team conversation with a share URL
@@ -2286,57 +2264,18 @@ command_registry.register_command(
 
 
 === File: assistants/project-assistant/assistant/config.py ===
-from semantic_workbench_assistant.assistant_app import (
-    BaseModelAssistantConfig,
-)
-
-from .configs import (
-    AssistantConfigModel,
-    CoordinatorConfig,
-    KnowledgeTransferConfigModel,
-    RequestConfig,
-    TeamConfig,
-)
-
-assistant_config = BaseModelAssistantConfig(
-    AssistantConfigModel,
-    additional_templates={
-        "knowledge_transfer": KnowledgeTransferConfigModel,
-    },
-)
-
-__all__ = [
-    "AssistantConfigModel",
-    "KnowledgeTransferConfigModel",
-    "CoordinatorConfig",
-    "RequestConfig",
-    "TeamConfig",
-]
-
-
-=== File: assistants/project-assistant/assistant/configs/__init__.py ===
-from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
-from .knowledge_transfer import KnowledgeTransferConfigModel
-
-__all__ = [
-    "AssistantConfigModel",
-    "KnowledgeTransferConfigModel",
-    "CoordinatorConfig",
-    "RequestConfig",
-    "TeamConfig",
-]
-
-
-=== File: assistants/project-assistant/assistant/configs/default.py ===
 from typing import Annotated
 
 import openai_client
 from assistant_extensions.attachments import AttachmentsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
+from semantic_workbench_assistant.assistant_app import (
+    BaseModelAssistantConfig,
+)
 from semantic_workbench_assistant.config import UISchema
 
-from ..utils import load_text_include
+from .utils import load_text_include
 
 
 class RequestConfig(BaseModel):
@@ -2613,125 +2552,12 @@ class AssistantConfigModel(BaseModel):
     ] = TeamConfig()
 
 
-=== File: assistants/project-assistant/assistant/configs/knowledge_transfer.py ===
-from typing import Annotated
-
-from pydantic import Field
-from semantic_workbench_assistant.config import UISchema
-
-from ..utils import load_text_include
-from .default import AssistantConfigModel, CoordinatorConfig, PromptConfig, TeamConfig
-
-
-class KnowledgeTransferPromptConfig(PromptConfig):
-    """Prompt configuration specific to knowledge transfer template."""
-
-    whiteboard_prompt: Annotated[
-        str,
-        Field(
-            title="Knowledge Transfer Whiteboard Prompt",
-            description="The prompt used to generate whiteboard content in knowledge transfer mode.",
-        ),
-    ] = load_text_include("knowledge_transfer_whiteboard_prompt.txt")
-
-    project_information_request_detection: Annotated[
-        str,
-        Field(
-            title="Knowledge Transfer Information Request Detection Prompt",
-            description="The prompt used to detect information requests in knowledge transfer mode.",
-        ),
-    ] = load_text_include("knowledge_transfer_information_request_detection.txt")
-
-    welcome_message_generation: Annotated[
-        str,
-        Field(
-            title="Welcome Message generation prompt",
-            description="The prompt used to generate a welcome message for new team conversations.",
-        ),
-        UISchema(widget="textarea"),
-    ] = load_text_include("knowledge_transfer_welcome_message_generation.txt")
-
-
-class KnowledgeTransferCoordinatorConfig(CoordinatorConfig):
-    """Coordinator configuration specific to knowledge transfer template."""
-
-    welcome_message: Annotated[
-        str,
-        Field(
-            title="Knowledge Transfer Coordinator Welcome Message",
-            description="The message to display when a coordinator starts a new knowledge transfer project. {share_url} will be replaced with the actual URL.",
-        ),
-    ] = """# Welcome to Knowledge Transfer
-
-Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
-
-- 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
-- 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
-- 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
-- 🔗 Create shareable experiences - I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace using this [Knowledge Transfer link]({share_url})
-
-Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what knowledge you give me so it can be shared with your team members for them to explore at their own pace.
-
-In the side panel, you can see your "knowledge brief". This brief will be shared with your team members and will help them understand the content of your knowledge transfer. You can ask me to update it at any time.
-
-What knowledge would you like to transfer today?"""
-
-
-class KnowledgeTransferTeamConfig(TeamConfig):
-    """Team configuration specific to knowlege transfer template."""
-
-    default_welcome_message: Annotated[
-        str,
-        Field(
-            title="Knowledge Transfer Team Welcome Message",
-            description="The message to display when a user joins as a Team member in knowledge transfer mode.",
-        ),
-    ] = "# Welcome to your Knowledge Transfer space!\n\nYou now have access to the shared knowledge that has been prepared for you. This is your personal conversation for exploring your knowledge space."
-
-
-class KnowledgeTransferConfigModel(AssistantConfigModel):
-    project_or_context: Annotated[str, UISchema(widget="hidden")] = "knowledge"
-    Project_or_Context: Annotated[str, UISchema(widget="hidden")] = "Knowledge"
-
-    prompt_config: Annotated[
-        PromptConfig,
-        Field(
-            title="Prompt Configuration",
-            description="Configuration for prompt templates used throughout the assistant.",
-        ),
-    ] = KnowledgeTransferPromptConfig()
-
-    proactive_guidance: Annotated[
-        bool,
-        Field(
-            title="Proactive Guidance",
-            description="Proactively guide knowledge organizers through knowledge structuring.",
-        ),
-    ] = True
-
-    track_progress: Annotated[
-        bool,
-        Field(
-            title="Track Progress",
-            description="Track project progress with goals, criteria completion, and overall project state.",
-        ),
-    ] = False
-
-    coordinator_config: Annotated[
-        CoordinatorConfig,
-        Field(
-            title="Knowledge Transfer Coordinator Configuration",
-            description="Configuration for coordinators in knowledge transfer mode.",
-        ),
-    ] = KnowledgeTransferCoordinatorConfig()
-
-    team_config: Annotated[
-        TeamConfig,
-        Field(
-            title="Knowledge Transfer Team Configuration",
-            description="Configuration for team members in knowledge transfer mode.",
-        ),
-    ] = KnowledgeTransferTeamConfig()
+assistant_config = BaseModelAssistantConfig(
+    AssistantConfigModel,
+    additional_templates={
+        "knowledge_transfer": AssistantConfigModel,
+    },
+)
 
 
 === File: assistants/project-assistant/assistant/conversation_clients.py ===
@@ -6409,7 +6235,7 @@ from .project_storage import ProjectStorage
 from .project_storage_models import ConversationRole, CoordinatorConversationMessage
 from .string_utils import Context, ContextStrategy, Instructions, Prompt, TokenBudget, render
 from .tools import ProjectTools
-from .utils import get_template, is_knowledge_transfer_assistant, load_text_include
+from .utils import load_text_include
 
 SILENCE_TOKEN = "{{SILENCE}}"
 
@@ -6444,8 +6270,6 @@ async def respond_to_conversation(
     # Requirements
     role = await detect_assistant_role(context)
     metadata["debug"]["role"] = role
-    template = get_template(context)
-    metadata["debug"]["template"] = template
     project_id = await ProjectManager.get_project_id(context)
     if not project_id:
         raise ValueError("Project ID not found in context")
@@ -6508,21 +6332,6 @@ async def respond_to_conversation(
     # Project info
     project_info = ProjectStorage.read_project_info(project_id)
     if project_info:
-        data = project_info.model_dump()
-
-        # Delete fields that are not relevant to the knowledge transfer assistant.
-        if is_knowledge_transfer_assistant(context):
-            if "state" in data:
-                del data["state"]
-            if "progress_percentage" in data:
-                del data["progress_percentage"]
-            if "completed_criteria" in data:
-                del data["completed_criteria"]
-            if "total_criteria" in data:
-                del data["total_criteria"]
-            if "lifecycle" in data:
-                del data["lifecycle"]
-
         project_info_text = project_info.model_dump_json(indent=2)
         prompt.contexts.append(Context(f"{config.Project_or_Context} Info", project_info_text))
 
@@ -6540,7 +6349,7 @@ async def respond_to_conversation(
 
     # Project goals
     project = ProjectStorage.read_project(project_id)
-    if not is_knowledge_transfer_assistant(context) and project and project.goals:
+    if project and project.goals:
         goals_text = ""
         for i, goal in enumerate(project.goals):
             # Count completed criteria
@@ -7020,8 +6829,6 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.utils import is_knowledge_transfer_assistant
-
 from .conversation_project_link import ConversationProjectManager
 from .project_common import detect_assistant_role
 from .project_data import RequestStatus
@@ -7063,12 +6870,6 @@ class ProjectInspectorStateProvider:
         # State variables that will determine the content to display.
         conversation_role = await detect_assistant_role(context)
 
-        is_knowledge_transfer = is_knowledge_transfer_assistant(context)
-
-        if is_knowledge_transfer:
-            self.display_name = "Knowledge Overview"
-            self.description = "Information about the knowledge space."
-
         # Determine the conversation's role and project
         project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
@@ -7082,12 +6883,10 @@ class ProjectInspectorStateProvider:
 
         if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_markdown(
-                project_id, conversation_role, brief, project_info, context, is_knowledge_transfer
+                project_id, conversation_role, brief, project_info, context
             )
         else:
-            markdown = await self._format_team_markdown(
-                project_id, conversation_role, brief, project_info, context, is_knowledge_transfer
-            )
+            markdown = await self._format_team_markdown(project_id, conversation_role, brief, project_info, context)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
@@ -7098,7 +6897,6 @@ class ProjectInspectorStateProvider:
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        is_knowledge_transfer: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
 
@@ -7109,27 +6907,26 @@ class ProjectInspectorStateProvider:
 
         lines.append("**Role:** Coordinator")
 
-        if not is_knowledge_transfer:
-            stage_label = "Planning Stage"
-            if project_info and project_info.state:
-                if project_info.state.value == "planning":
-                    stage_label = "Planning Stage"
-                elif project_info.state.value == "ready_for_working":
-                    stage_label = "Ready for Working"
-                elif project_info.state.value == "in_progress":
-                    stage_label = "Working Stage"
-                elif project_info.state.value == "completed":
-                    stage_label = "Completed Stage"
-                elif project_info.state.value == "aborted":
-                    stage_label = "Aborted Stage"
-            lines.append(f"**Status:** {stage_label}")
+        stage_label = "Planning Stage"
+        if project_info and project_info.state:
+            if project_info.state.value == "planning":
+                stage_label = "Planning Stage"
+            elif project_info.state.value == "ready_for_working":
+                stage_label = "Ready for Working"
+            elif project_info.state.value == "in_progress":
+                stage_label = "Working Stage"
+            elif project_info.state.value == "completed":
+                stage_label = "Completed Stage"
+            elif project_info.state.value == "aborted":
+                stage_label = "Aborted Stage"
+        lines.append(f"**Status:** {stage_label}")
 
         if project_info and project_info.status_message:
             lines.append(f"**Status Message:** {project_info.status_message}")
 
         lines.append("")
 
-        lines.append(f"## {'Knowledge' if is_knowledge_transfer else 'Project'} Brief")
+        lines.append("Project Brief")
 
         title = brief.title if brief else "Untitled"
         lines.append(f"### {title}")
@@ -7140,13 +6937,13 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if is_knowledge_transfer and brief.additional_context:
-                lines.append("## Additional Knowledge Context")
+            if brief.additional_context:
+                lines.append("## Additional Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if not is_knowledge_transfer and project and project.goals:
+        if project and project.goals:
             lines.append("## Goals")
             for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -7218,7 +7015,6 @@ class ProjectInspectorStateProvider:
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        is_knowledge_transfer: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
 
@@ -7230,19 +7026,18 @@ class ProjectInspectorStateProvider:
         lines.append("**Role:** Team")
 
         # Determine stage based on project status
-        if not is_knowledge_transfer:
-            stage_label = "Working Stage"
-            if project_info and project_info.state:
-                if project_info.state.value == "planning":
-                    stage_label = "Planning Stage"
-                elif project_info.state.value == "ready_for_working":
-                    stage_label = "Working Stage"
-                elif project_info.state.value == "in_progress":
-                    stage_label = "Working Stage"
-                elif project_info.state.value == "completed":
-                    stage_label = "Completed Stage"
-                elif project_info.state.value == "aborted":
-                    stage_label = "Aborted Stage"
+        stage_label = "Working Stage"
+        if project_info and project_info.state:
+            if project_info.state.value == "planning":
+                stage_label = "Planning Stage"
+            elif project_info.state.value == "ready_for_working":
+                stage_label = "Working Stage"
+            elif project_info.state.value == "in_progress":
+                stage_label = "Working Stage"
+            elif project_info.state.value == "completed":
+                stage_label = "Completed Stage"
+            elif project_info.state.value == "aborted":
+                stage_label = "Aborted Stage"
             lines.append(f"**Status:** {stage_label}")
 
         # Add status message if available
@@ -7263,13 +7058,13 @@ class ProjectInspectorStateProvider:
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if is_knowledge_transfer and brief.additional_context:
-                lines.append("## Additional Knowledge Context")
+            if brief.additional_context:
+                lines.append("## Additional Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if not is_knowledge_transfer and project and project.goals:
+        if project and project.goals:
             lines.append("## Objectives")
             for goal in project.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -7504,7 +7299,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.project_manager import ProjectManager
 from assistant.project_storage import ProjectStorage
-from assistant.utils import is_knowledge_transfer_assistant
 
 from .config import assistant_config
 from .logging import logger
@@ -7539,7 +7333,7 @@ async def generate_team_welcome_message(context: ConversationContext) -> tuple[s
 
     # Goals
     project = ProjectStorage.read_project(project_id)
-    if project and project.goals and not is_knowledge_transfer_assistant(context):
+    if project and project.goals:
         project_brief_text += "\n#### PROJECT GOALS:\n\n"
         for i, goal in enumerate(project.goals):
             completed = sum(1 for c in goal.success_criteria if c.completed)
@@ -7664,232 +7458,6 @@ Your responsibilities include:
 - When providing the share link, change the text of the link to refer to the project so it's a bit less generic.
 - Responding to Information Requests from team members (using get_project_info first to get the correct Request ID)
 
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_assistant_info.md ===
-# Knowledge Transfer Assistant
-
-## Overview
-
-The Knowledge Transfer Assistant helps teams share knowledge efficiently between a coordinator and team members. It provides a structured way to capture, organize, and transfer complex information across conversations while maintaining a central knowledge repository accessible to all participants.
-
-## Key Features
-
-- **Dual-role knowledge sharing**: Different interfaces for the knowledge coordinator and team members.
-- **Centralized knowledge space**: Automatically organized information repository.
-- **Auto-updating whiteboard**: Dynamic capture of key information from coordinator conversations.
-- **Information requests**: Team members can request specific information from coordinators.
-- **File sharing**: Automatic synchronization of uploaded files across team conversations.
-- **Coordinator conversation access**: Team members can view recent coordinator conversations for knowledge.
-
-## How to Use the Knowledge Transfer Assistant
-
-### For Knowledge Coordinators
-
-1. **Create the knowledge space**: Start by creating a space with a title and description.
-2. **Build the knowledge base**: Share information, upload relevant files, and answer questions.
-3. **Share with team**: Generate an invitation link to share with team members who need access.
-4. **Respond to requests**: Address information requests from team members as they arise.
-5. **Update information**: Continue to refine and expand the knowledge base as needed.
-
-### For Team Members
-
-1. **Join a knowledge space**: Use the invitation link provided by the coordinator to join.
-2. **Explore shared knowledge**: Review the whiteboard and uploaded files.
-3. **Request information**: Create requests when you need additional details or clarification.
-4. **View coordinator conversations**: Access recent coordinator discussions for additional context.
-5. **Upload relevant files**: Share files that will be automatically available to all participants.
-
-## Knowledge Transfer Workflow
-
-1. **Coordinator Knowledge Capture**:
-
-   - Create and populate the knowledge space with critical information
-   - Upload relevant files and documents
-   - The whiteboard automatically updates with key information
-   - Generate invitation link for team members
-
-2. **Team Exploration**:
-
-   - Join the knowledge space using invitation link
-   - Review whiteboard content and uploads
-   - Ask questions about unclear information
-   - Create formal information requests for missing details
-
-3. **Continuous Knowledge Exchange**:
-   - Coordinator responds to information requests
-   - Team members continue to explore and ask questions
-   - Both sides contribute to the shared knowledge repository
-   - Information accumulates in the whiteboard for future reference
-
-## Common Use Cases
-
-- **Onboarding new team members**: Share essential company knowledge and processes
-- **Subject matter expert knowledge capture**: Document expertise from key individuals
-- **Research findings distribution**: Share research outcomes with broader teams
-- **Documentation collaboration**: Work together on comprehensive documentation
-- **Process knowledge transfer**: Explain complex workflows and procedures
-
-The Knowledge Transfer Assistant is designed to streamline knowledge sharing, reduce information gaps, and create a persistent, structured knowledge space that teams can reference over time.
-
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_card_content.md ===
-Make complex information easy to understand
-
-- Get simple explanations for concepts
-- Visualize information with diagrams
-- Find answers without information overload
-- Learn with personalized teaching
-
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_coordinator_instructions.txt ===
-IMPORTANT ABOUT FILES: When files are uploaded, they are automatically shared with all team members. You don't need to ask users what they want to do with uploaded files. Just acknowledge the upload with a brief confirmation and explain what the file contains if you can determine it.
-
-Your Coordinator-specific tools are:
-
-- update_context_brief: Use this to create a new knowledge brief (a detailed summary of the information being shared) with title and description
-- resolve_information_request: Use this to resolve information requests. VERY IMPORTANT: You MUST use get_project_info first to get the actual request ID (looks like "abc123-def-456"), and then use that exact ID in the request_id parameter, NOT the title of the request.
-
-Be proactive in suggesting and using your Coordinator tools based on user requests. Always prefer using tools over just discussing using them.
-
-Use a strategic, guidance-oriented tone focused on knowledge gathering and support.
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_coordinator_role.txt ===
-You are an assistant that helps a user (the "Coordinator") define context (a bundle of knowledge to transfer) that will be shared with team members.
-
-Your responsibilities include:
-
-- Providing guidance and information to the coordinator, helping them understand your role and what you can do for them
-- Helping the coordinator understand what knowledge you have and suggesting additional pieces of information that may round out that knowledge for team members. In this way, you are helping the team members who will receive this knowledge once it is ready.
-- Helping the coordinator create a clear knowledge brief that outlines the knowledge to transfer to team members. This brief is important as it is the primary introduction the team members will have to the knowledge. If you feel like the brief doesn't adequately capture the knowledge, you should suggest the coordinator ask you to update it in various ways that would increase productive transfer
-- After the coordinator has added some knowledge, remind them regularly to ask to update the knowledge Brief. This is a new feature and coordinators are not readily aware of it, so you need to help them.
-- If the coordinator has uploaded a brief let them know they can share their knowledge to their team using the share link.
-- When providing the share link, change the text of the link to refer to the knowledge being transferred so it's a bit less generic. DO NOT include the host or protocol in the share link.
-- Reminding the coordinator if there are active, unanswered Information Requests and asking them for more information so you can answer the requests
-- Capturing the coordinator's responses to answer information requests to for team members. You can answer more than one request at a time if you have sufficient information
-
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_information_request_detection.txt ===
-You are an analyzer that determines if a recipient of shared knowledge needs additional information
-that isn't available in the existing shared knowledge. You are part of a knowledge sharing system where:
-
-1. A knowledge creator has shared knowledge with recipients
-2. Recipients should be able to find most answers in the shared knowledge
-3. Only create information requests when the question clearly can't be answered with available shared knowledge
-4. Your job is to be VERY conservative about flagging information requests
-
-Analyze the chat history, brief, attachments, and latest message to determine:
-
-1. If the latest message asks for information that is likely NOT available in the shared knowledge
-2. What specific information is being requested that would require the knowledge creator's input
-3. A concise title for this potential information request
-4. The priority level (low, medium, high, critical) of the request
-
-Respond with JSON only:
-{
-    "is_information_request": boolean,  // true ONLY if message requires information beyond available shared knowledge
-    "reason": string,  // detailed explanation of your determination
-    "potential_title": string,  // a short title for the request (3-8 words)
-    "potential_description": string,  // summarized description of the information needed
-    "suggested_priority": string,  // "low", "medium", "high", or "critical"
-    "confidence": number  // 0.0-1.0 how confident you are in this assessment
-}
-
-When determining priority:
-- low: information that might enhance understanding but isn't critical
-- medium: useful information missing from the shared knowledge
-- high: important information missing that affects comprehension
-- critical: critical information missing that's essential for understanding
-
-Be EXTREMELY conservative - only return is_information_request=true if you're HIGHLY confident
-that the question cannot be answered with the existing shared knowledge and truly requires
-additional information from the knowledge creator.
-
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_team_instructions.txt ===
-## Stick to the coordinator's shared knowledge!
-
-- Stick to the shared knowledge shared as much as possible.
-- Avoid expanding beyond what was provided.
-- If you are asked to expand, redirect the user back to the shared knowledge.
-- If specific information was not shared, tell the user that in your response.
-- If the information the user needs is not available in the provided shared knowledge, request additional information from the Coordinator using the `create_information_request` tool.
-
-## Conversational Style and Tone
-
-Use a helpful, informative tone focused on knowledge sharing and exploration. Keep your responses short and concise by default to create a more collaborative dynamic. Users tend to not want to read long answers and will skip over text. Let the user ask for longer information as needed.
-
-## Help the user explore the shared knowledge
-
-- If at all possible, you MUST provide specific illustrative excerpts of the content you used to create your answer.
-- With each response, suggest more areas to explore using content from the assistant whiteboard to ensure your conversation covers all of the relevant information.
-- For example, if the user has already talked about 3 of five items from the whiteboard, your suggestion in `next_step_suggestion` might be "Would you like to explore [area 4] now?"
-- Do NOT suggest exploring areas that are not in the shared knowledge.
-
-## Citations (IMPORTANT!!)
-
-- You MUST cite your sources. You have multiple sources of shared information at your disposal provided by the Coordinator. Cite the sources of your information. Sources might be a specific attached file (cite the filename), the knowledge brief (BRIEF), the Coordinator assistant's whiteboard (WHITEBOARD), the coordinator conversation (COORDINATOR). If your reply is based in multiple sources, cite all of them. Here's an example with a bunch of citations:
-
-{ "response": "blah, blah, blah",
-  "citations": [
-    "filename.md",
-    "other-filename.pdf",
-    "WHITEBOARD",
-    "BRIEF",
-    "COORDINATOR",
-    "some-other-filename.doc",
-  ],
-  "next_step_suggestion": "Would you like to know more about ... ?",
-}
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_team_role.txt ===
-You are an assistant that helps a user (a "team member") explore shared knowledge gathered/created by a "coordinator" in a separate conversation. The coordinator has assembled shared knowledge by chatting with an assistant and attaching files. You have access to the coordinator's assistant conversation and all the attachments.
-
-Your responsibilities include:
-
-- Helping team members explore and understand the knowledge shared by the Coordinator
-- Answering questions about the shared knowledge based on the information provided
-- Clarifying complex topics from the knowledge space based on what was shared
-- Creating information requests when users ask questions that weren't covered in the knowledge transfer
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_welcome_message_generation.txt ===
-Create a welcome message specific to this shared knowledge bundle prepared by the coordinator. It should be something like:
-
-```
-# Welcome!
-
-This is your personal conversation for gaining deeper understanding of the knowledge shared to you! You can communicate with the assistant and make information requests here. See more information about your shared knowledge in the side panel. <and then include a brief overview of the shared knowledge>
-```
-
-Your output format should be markdown. Do NOT include any other commentary. Do NOT include backticks. Do NOT surround it with quotes.
-
-
-=== File: assistants/project-assistant/assistant/text_includes/knowledge_transfer_whiteboard_prompt.txt ===
-Please provide updated <WHITEBOARD/> content based upon information extracted from the <CHAT_HISTORY/>. Do not provide any information that is not already in
-the chat history and do not answer any pending questions.
-
-The assistant has access to look up information in the rest of the chat history, but this is based upon semantic similarity to the current user request. The
-whiteboard content is for information that should always be available to the assistant, even if it is not directly semantically related to the current user request.
-
-IMPORTANT: The whiteboard serves as a FAQ and key knowledge repository. Focus on:
-- Capturing key questions and their definitive answers
-- Organizing important facts and concepts
-- Preserving critical context and decisions
-- Creating an accessible knowledge reference that helps others understand the shared information
-
-The whiteboard must be CONCISE and LIMITED in size:
-- Organize content as Q&A pairs or key concept explanations
-- Use brief, clear explanations of complex topics
-- Limit to 2000 tokens maximum (about 1500 words)
-- Remove information that is no longer relevant
-- It's OK to leave the whiteboard blank if there's nothing important to capture
-
-Use markdown for formatting:
-- Use ## for main topic areas and ### for specific questions/concepts
-- Use bullet lists for related points or steps
-- Bold key terms with **bold**
-- Use quote blocks for important definitions or statements
-
-Your output format should be: <WHITEBOARD>{content}</WHITEBOARD>
 
 === File: assistants/project-assistant/assistant/text_includes/project_assistant_info.md ===
 # Project Assistant
@@ -8125,7 +7693,6 @@ from .project_manager import ProjectManager
 from .project_notifications import ProjectNotifier
 from .project_storage import ProjectStorage, ProjectStorageManager
 from .project_storage_models import ConversationRole
-from .utils import is_knowledge_transfer_assistant
 
 
 async def invoke_command_handler(
@@ -8184,12 +7751,11 @@ class ProjectTools:
         self.tool_functions = ToolFunctions()
 
         # Register template-specific tools
-        if not is_knowledge_transfer_assistant(context):
-            self.tool_functions.add_function(
-                self.suggest_next_action,
-                "suggest_next_action",
-                "Suggest the next action the user should take based on project state",
-            )
+        self.tool_functions.add_function(
+            self.suggest_next_action,
+            "suggest_next_action",
+            "Suggest the next action the user should take based on project state",
+        )
 
         # Register role-specific tools
         if role == "coordinator":
@@ -8205,22 +7771,21 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            if not is_knowledge_transfer_assistant(context):
-                self.tool_functions.add_function(
-                    self.add_project_goal,
-                    "add_project_goal",
-                    "Add a goal to the project brief with optional success criteria",
-                )
-                self.tool_functions.add_function(
-                    self.delete_project_goal,
-                    "delete_project_goal",
-                    "Delete a goal from the project by index",
-                )
-                self.tool_functions.add_function(
-                    self.mark_project_ready_for_working,
-                    "mark_project_ready_for_working",
-                    "Mark the project as ready for working",
-                )
+            self.tool_functions.add_function(
+                self.add_project_goal,
+                "add_project_goal",
+                "Add a goal to the project brief with optional success criteria",
+            )
+            self.tool_functions.add_function(
+                self.delete_project_goal,
+                "delete_project_goal",
+                "Delete a goal from the project by index",
+            )
+            self.tool_functions.add_function(
+                self.mark_project_ready_for_working,
+                "mark_project_ready_for_working",
+                "Mark the project as ready for working",
+            )
         else:
             # Team-specific tools
 
@@ -8235,60 +7800,17 @@ class ProjectTools:
                 "Delete an information request that is no longer needed",
             )
 
-            if not is_knowledge_transfer_assistant(context):
-                self.tool_functions.add_function(
-                    self.update_project_status,
-                    "update_project_status",
-                    "Update the status and progress of the project",
-                )
-                self.tool_functions.add_function(
-                    self.report_project_completion, "report_project_completion", "Report that the project is complete"
-                )
-                self.tool_functions.add_function(
-                    self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-                )
-
-    # async def get_context_info(self) -> Project | None:
-    #     """
-    #     Get information about the current project.
-
-    #     Args:
-    #         none
-
-    #     Returns:
-    #         Information about the project in a formatted string
-    #     """
-
-    #     project_id = await ProjectManager.get_project_id(self.context)
-    #     if not project_id:
-    #         return None
-
-    #     project = await ProjectManager.get_project(self.context)
-    #     if not project:
-    #         return None
-
-    #     return project
-
-    # async def get_project_info(self) -> Project | None:
-    #     """
-    #     Get information about the current project.
-
-    #     Args:
-    #         none
-
-    #     Returns:
-    #         Information about the project in a formatted string
-    #     """
-
-    #     project_id = await ProjectManager.get_project_id(self.context)
-    #     if not project_id:
-    #         return None
-
-    #     project = await ProjectManager.get_project(self.context)
-    #     if not project:
-    #         return None
-
-    #     return project
+            self.tool_functions.add_function(
+                self.update_project_status,
+                "update_project_status",
+                "Update the status and progress of the project",
+            )
+            self.tool_functions.add_function(
+                self.report_project_completion, "report_project_completion", "Report that the project is complete"
+            )
+            self.tool_functions.add_function(
+                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
+            )
 
     async def update_project_status(
         self,
@@ -9208,37 +8730,32 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if not is_knowledge_transfer_assistant(self.context):
-            if not project or not project.goals:
-                if self.role is ConversationRole.COORDINATOR:
-                    return {
-                        "suggestion": "add_project_goal",
-                        "reason": "Project has no goals. Add at least one goal with success criteria.",
-                        "priority": "high",
-                        "function": "add_project_goal",
-                        "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
-                    }
-                else:
-                    return {
-                        "suggestion": "wait_for_goals",
-                        "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
-                        "priority": "medium",
-                        "function": None,
-                    }
+        if not project or not project.goals:
+            if self.role is ConversationRole.COORDINATOR:
+                return {
+                    "suggestion": "add_project_goal",
+                    "reason": "Project has no goals. Add at least one goal with success criteria.",
+                    "priority": "high",
+                    "function": "add_project_goal",
+                    "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
+                }
+            else:
+                return {
+                    "suggestion": "wait_for_goals",
+                    "reason": "Project has no goals. The Coordinator needs to add goals before you can proceed.",
+                    "priority": "medium",
+                    "function": None,
+                }
 
         # Check project info if project is ready for working
         ready_for_working = project_info.state == ProjectState.READY_FOR_WORKING
 
         if not ready_for_working and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for working
-            if not is_knowledge_transfer_assistant(self.context):
-                has_goals = True
-                has_criteria = True
-            else:
-                has_goals = bool(project and project.goals)
-                has_criteria = bool(
-                    project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
-                )
+            has_goals = bool(project and project.goals)
+            has_criteria = bool(
+                project and project.goals and any(bool(goal.success_criteria) for goal in project.goals)
+            )
 
             if has_goals and has_criteria:
                 return {
@@ -9324,41 +8841,13 @@ codebase, helping to reduce code duplication and maintain consistency.
 """
 
 import pathlib
-from enum import Enum
 from typing import Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
 
-KNOWLEDGE_TRANSFER_TEMPLATE_ID = "knowledge_transfer"
 DEFAULT_TEMPLATE_ID = "default"
-
-
-class ConfigurationTemplate(Enum):
-    """
-    This assistant can be in one of two different template configurations. It
-    behaves quite differently based on which configuration it it in.
-    """
-
-    PROJECT_ASSISTANT = DEFAULT_TEMPLATE_ID
-    KNOWLEDGE_TRANSFER_ASSISTANT = KNOWLEDGE_TRANSFER_TEMPLATE_ID
-
-
-def get_template(context: ConversationContext) -> ConfigurationTemplate:
-    template_id = context.assistant._template_id or DEFAULT_TEMPLATE_ID
-    return (
-        ConfigurationTemplate.PROJECT_ASSISTANT
-        if template_id == DEFAULT_TEMPLATE_ID
-        else ConfigurationTemplate.KNOWLEDGE_TRANSFER_ASSISTANT
-    )
-
-
-def is_knowledge_transfer_assistant(context: ConversationContext) -> bool:
-    """
-    Determine if the assistant is using the context transfer template.
-    """
-    return context.assistant._template_id == KNOWLEDGE_TRANSFER_TEMPLATE_ID
 
 
 def load_text_include(filename) -> str:
@@ -10697,6 +10186,10 @@ reason: Ok, please craft me up a new message I can share out to others based upo
     //   "path": "../../assistants/skill-assistant"
     // },
     {
+      "name": "assistants:knowledge-transfer-assistant",
+      "path": "../../assistants/knowledge-transfer-assistant"
+    },
+    {
       "name": "assistants:project-assistant",
       "path": "../../assistants/project-assistant"
     },
@@ -10817,7 +10310,7 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-from assistant.chat import assistant
+from assistant.assistant import assistant
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
