@@ -1,4 +1,23 @@
 import { DiagnosticSeverity, languages } from 'vscode';
+import type { Diagnostic, Range } from 'vscode';
+
+const serializeRange = (range: Range) => ({
+    startLineNumber: range.start.line + 1,
+    startColumn: range.start.character + 1,
+    endLineNumber: range.end.line + 1,
+    endColumn: range.end.character + 1,
+});
+
+const serializeCode = (code: Diagnostic['code']) => {
+    if (typeof code === 'object' && code !== null) {
+        return {
+            value: code.value,
+            target: code.target.toString(),
+        };
+    }
+
+    return code;
+};
 
 /**
  * Retrieve diagnostics for the active workspace, with filtering by severity level.
@@ -20,6 +39,16 @@ export const codeCheckerTool = (severityLevel: DiagnosticSeverity = DiagnosticSe
                     severity: DiagnosticSeverity[diag.severity],
                     message: diag.message,
                     source: diag.source || '',
+                    code: serializeCode(diag.code),
+                    range: serializeRange(diag.range),
+                    tags: diag.tags,
+                    relatedInformation: diag.relatedInformation?.map((info) => ({
+                        message: info.message,
+                        location: {
+                            uri: info.location.uri.toString(),
+                            range: serializeRange(info.location.range),
+                        },
+                    })),
                 })),
         }));
 
